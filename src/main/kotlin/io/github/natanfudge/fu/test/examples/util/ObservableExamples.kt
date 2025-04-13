@@ -1,0 +1,37 @@
+package io.github.natanfudge.fu.test.examples.util
+
+import io.github.natanfudge.fu.util.OwnedObservable
+import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+
+class ObservableExamples {
+    @Test
+    fun observableExample() {
+        // Create an observable that emits String values
+        val observable = OwnedObservable<String>()
+        
+        // Track emitted values
+        val receivedValues = mutableListOf<String>()
+        
+        // Observe the observable and add received values to our list
+        val listener = observable.observe { value ->
+            receivedValues.add(value)
+        }
+        
+        // Emit some values
+        observable.emit("Hello")
+        observable.emit("World")
+        
+        // Verify the values were received
+        assertEquals(listOf("Hello", "World"), receivedValues)
+        
+        // Detach the listener
+        listener.detach()
+        
+        // Emit another value that should not be received
+        observable.emit("Not received")
+        
+        // Verify the detached listener doesn't receive new values
+        assertEquals(listOf("Hello", "World"), receivedValues)
+    }
+}

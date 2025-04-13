@@ -1,4 +1,4 @@
-package natan.io.github.natanfudge.`fun`.math
+package io.github.natanfudge.fu.math
 
 data class Mat4f(
     val a1: Float, val a2: Float, val a3: Float, val a4: Float,
