@@ -32,14 +32,6 @@ object FunHotReload {
      * Requires setting the -Djdk.attach.allowAttachSelf=true VM option
      */
     fun detectHotswap() {
-        val runtimeMxBean = ManagementFactory.getRuntimeMXBean()
-        val jvmArgs = runtimeMxBean.getInputArguments()
-
-        println("JVM Arguments:")
-        for (arg in jvmArgs) {
-            println(arg)
-        }
-
         // Generate agent JAR dynamically
         val agentJar = createAgentJar() ?: return
 

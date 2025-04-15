@@ -10,12 +10,13 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-    // Workaround for https://youtrack.jetbrains.com/issue/KTIJ-8414/Rendered-KDoc-Quick-Doc-popup-or-Reader-mode-for-sample-which-references-code-in-another-package-is-shown-as-Unresolved
-//    testImplementation ("org.jetbrains.kotlin:kotlin-test")
-    implementation ("org.jetbrains.kotlin:kotlin-test")
-    implementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
-    implementation("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+    implementation(platform(libs.lwjgl.bom))
+    implementation(libs.bundles.jvmMain)
+    implementation(libs.bundles.commonMain)
+
+    runtimeOnly("org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}:natives-windows")
+    runtimeOnly("org.lwjgl:lwjgl-glfw:${libs.versions.lwjgl.get()}:natives-windows")
+    runtimeOnly("org.lwjgl:lwjgl-opengl:${libs.versions.lwjgl.get()}:natives-windows")
 }
 
 tasks.withType<Test> {

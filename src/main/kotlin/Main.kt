@@ -1,20 +1,22 @@
 package natan
 
 import io.github.natanfudge.fu.hotreload.FunHotReload
+import natan.io.github.natanfudge.fu.window.GlfwWebgpuWindow
 
-var x = 0
-fun process() {
-    while (true) {
-        Thread.sleep(1000)
-        println(x++)
-    }
-}
+
 
 fun main() {
     FunHotReload.detectHotswap()
+    var window = GlfwWebgpuWindow()
+    window.show()
     FunHotReload.observation.observe {
-        println("Reloadeffggfffggrwd")
-        x = 90
+        window.close()
+        window = GlfwWebgpuWindow()
+        window.show()
+        println("Reopening window")
     }
-    process()
 }
+
+//TODO: next step:
+//TODO: next step: figure out how to save opengl output to bitmap and then we can do whatever we want with it.
+// For performance we'll do some vulkan to vulkan stuff.
