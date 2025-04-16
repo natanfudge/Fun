@@ -44,3 +44,4 @@ bin/
 ### Mac OS ###
 .DS_Store
 jbr_25/
+*.log
