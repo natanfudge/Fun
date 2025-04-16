@@ -52,6 +52,7 @@ class FunHotReloadHotswapAgentPlugin {
      */
     @OnClassLoadEvent(classNameRegexp = ".*", events = [LoadEvent.REDEFINE])
     fun reloadClass(className: String?) {
+        LOGGER.info("Detected class reload: {}", className)
         // run the logic in a command. Multiple reload commands may be merged into one execution (see the command class)
         scheduler.scheduleCommand(ReloadClassCommand(appClassLoader, className))
     }

@@ -1,5 +1,9 @@
 plugins {
-    kotlin("jvm") version "2.1.20"
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.compose)
+    alias(libs.plugins.kotlin.plugin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.power.assert)
 }
 
 group = "natan"
@@ -7,6 +11,7 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    google()
 }
 
 dependencies {
@@ -14,11 +19,18 @@ dependencies {
     implementation(libs.bundles.jvmMain)
     implementation(libs.bundles.commonMain)
 
-    compileOnly("org.hotswapagent:hotswap-agent-core:2.0.2")
+    compileOnly(libs.bundles.jvmMainCompileOnly)
 
-    runtimeOnly("org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}:natives-windows")
-    runtimeOnly("org.lwjgl:lwjgl-glfw:${libs.versions.lwjgl.get()}:natives-windows")
-    runtimeOnly("org.lwjgl:lwjgl-opengl:${libs.versions.lwjgl.get()}:natives-windows")
+    implementation(libs.bundles.lwjgl)
+    runtimeOnly(libs.bundles.lwjgl) {
+        artifact {
+            classifier = "natives-windows"
+        }
+    }
+
+    implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+    runtimeOnly(compose.desktop.windows_x64)
 }
 
 tasks.withType<Test> {

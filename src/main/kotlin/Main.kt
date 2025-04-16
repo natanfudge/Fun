@@ -1,28 +1,30 @@
 package natan
 
+import androidx.compose.material.Text
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
 import io.github.natanfudge.fu.hotreload.FunHotReload
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import natan.io.github.natanfudge.fu.window.GlfwWebgpuWindow
 
 
 
 // -XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=core, use jbr_25
 fun main() {
-//    FunHotReload.detectHotswap()
-    var window = GlfwWebgpuWindow()
-    window.show()
+    val window = GlfwWebgpuWindow()
+
     FunHotReload.observation.observe {
-        window.close()
-        window = GlfwWebgpuWindow()
-        window.show()
-
-        println("wgwg")
+        window.submitTask {
+            // Very important to run this on the main thread
+            window.restart()
+        }
     }
-
-    Thread.sleep(1000000) // Sleep for 1 second
+        window.show()
+//    application {
+//        Window(::exitApplication) {
+//            Text("ALO")
+//        }
+//    }
 }
 
 
-//
