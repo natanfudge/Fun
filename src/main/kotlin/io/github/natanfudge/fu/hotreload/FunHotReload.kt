@@ -3,6 +3,9 @@ package io.github.natanfudge.fu.hotreload
 import com.sun.tools.attach.VirtualMachine
 import io.github.natanfudge.fu.util.Observable
 import io.github.natanfudge.fu.util.OwnedObservable
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.FileOutputStream
 import java.io.IOException
 import java.lang.instrument.ClassFileTransformer
@@ -56,6 +59,9 @@ object FunHotReload {
  * Hooks into JVM transform calls to see when a class is being redefined.
  */
 private class HotReloadDetectionTransformer : ClassFileTransformer {
+    // Track if we're currently in a debounce period
+    private var debounceScheduled = false
+
     @Throws(IllegalClassFormatException::class)
     override fun transform(
         module: Module,
@@ -65,13 +71,26 @@ private class HotReloadDetectionTransformer : ClassFileTransformer {
         protectionDomain: ProtectionDomain,
         classfileBuffer: ByteArray,
     ): ByteArray? {
-        if (classBeingRedefined != null) {
-            FunHotReload.observation.emit(Unit)
+        if (classBeingRedefined != null && !debounceScheduled) {
+            debounceScheduled = true
+
+            // Schedule a delayed emission
+            GlobalScope.launch {
+                // Wait for all transformations in this batch to complete
+                delay(100) // This works for now but might not work with larger projects
+
+                // Emit only once after the debounce period
+                FunHotReload.observation.emit(Unit)
+
+                // Reset the flag for the next reload
+                debounceScheduled = false
+            }
         }
         // Return null to make no modifications to the class bytecode
         return null
     }
 }
+
 
 private object HotReloadDetectionAgent {
     @JvmStatic

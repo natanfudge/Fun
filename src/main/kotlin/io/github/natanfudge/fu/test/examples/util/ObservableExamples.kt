@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 class ObservableExamples {
     @Test
     fun observableExample() {
+        println("Test run")
         // Create an observable that emits String values
         val observable = OwnedObservable<String>()
         

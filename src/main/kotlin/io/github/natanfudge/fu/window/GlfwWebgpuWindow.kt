@@ -21,6 +21,7 @@ class GlfwWebgpuWindow {
     }
 
     fun close() {
+        println("new close")
 
     }
 }

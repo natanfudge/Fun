@@ -39,7 +39,7 @@ class Listener<T>(internal val callback: (T) -> Unit, private val observable: Ow
  * This is the standard way to create and manage an observable data source.
  * @see Observable
  */
-class OwnedObservable<T>: Observable<T> {
+class OwnedObservable<T> : Observable<T> {
     private val listeners = mutableListOf<Listener<T>>()
 
     /** @see Observable */

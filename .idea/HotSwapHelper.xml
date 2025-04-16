@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="HotSwapHelperPluginSettingsProvider">
+    <option name="disabledPlugins">
+      <set>
+        <option value="Hibernate" />
+        <option value="HibernateJakarta" />
+        <option value="Hibernate3JPA" />
+        <option value="Hibernate3" />
+        <option value="Spring" />
+        <option value="SpringBoot" />
+        <option value="Jersey1" />
+        <option value="Jersey2" />
+        <option value="Jetty" />
+        <option value="Tomcat" />
+        <option value="ZK" />
+        <option value="Logback" />
+        <option value="Log4j2" />
+        <option value="MyFaces" />
+        <option value="Mojarra" />
+        <option value="Omnifaces" />
+        <option value="ELResolver" />
+        <option value="WildFlyELResolver" />
+        <option value="OsgiEquinox" />
+        <option value="Owb" />
+        <option value="OwbJakarta" />
+        <option value="Proxy" />
+        <option value="WebObjects" />
+        <option value="Weld" />
+        <option value="WeldJakarta" />
+        <option value="JBossModules" />
+        <option value="ResteasyRegistry" />
+        <option value="Deltaspike" />
+        <option value="DeltaspikeJakarta" />
+        <option value="GlassFish" />
+        <option value="Weblogic" />
+        <option value="Vaadin" />
+        <option value="Wicket" />
+        <option value="CxfJAXRS" />
+        <option value="FreeMarker" />
+        <option value="Undertow" />
+        <option value="MyBatis" />
+        <option value="MyBatisPlus" />
+        <option value="IBatis" />
+        <option value="JacksonPlugin" />
+        <option value="Idea" />
+        <option value="Thymeleaf" />
+        <option value="Velocity" />
+        <option value="Sponge" />
+      </set>
+    </option>
+  </component>
+</project>
