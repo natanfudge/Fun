@@ -1,6 +1,6 @@
 package io.github.natanfudge.fu.test.examples.util
 
-import io.github.natanfudge.fu.util.OwnedObservable
+import io.github.natanfudge.fu.util.MutEventStream
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
@@ -9,13 +9,13 @@ class ObservableExamples {
     fun observableExample() {
         println("Test run")
         // Create an observable that emits String values
-        val observable = OwnedObservable<String>()
+        val observable = MutEventStream<String>()
         
         // Track emitted values
         val receivedValues = mutableListOf<String>()
         
         // Observe the observable and add received values to our list
-        val listener = observable.observe { value ->
+        val listener = observable.listen { value ->
             receivedValues.add(value)
         }
         

@@ -1,4 +1,4 @@
-package natan.io.github.natanfudge.fu.window
+package io.github.natanfudge.fu.window
 
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback

@@ -5,7 +5,7 @@
     <option name="MAIN_CLASS_NAME" value="natan.MainKt" />
     <module name="Fun.main" />
     <shortenClasspath name="NONE" />
-    <option name="VM_PARAMETERS" value="-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=core" />
+    <option name="VM_PARAMETERS" value="-XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=core --enable-native-access=ALL-UNNAMED" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

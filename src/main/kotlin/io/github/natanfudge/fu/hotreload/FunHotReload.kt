@@ -1,26 +1,6 @@
 package io.github.natanfudge.fu.hotreload
 
-import com.sun.tools.attach.VirtualMachine
-import io.github.natanfudge.fu.util.Observable
-import io.github.natanfudge.fu.util.OwnedObservable
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import java.io.FileOutputStream
-import java.io.IOException
-import java.lang.instrument.ClassFileTransformer
-import java.lang.instrument.IllegalClassFormatException
-import java.lang.instrument.Instrumentation
-import java.lang.management.ManagementFactory
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.security.ProtectionDomain
-import java.util.jar.JarEntry
-import java.util.jar.JarOutputStream
-import java.util.jar.Manifest
-import kotlin.io.path.exists
-import kotlin.io.path.pathString
+import io.github.natanfudge.fu.util.MutEventStream
 
 
 /**
@@ -28,13 +8,13 @@ import kotlin.io.path.pathString
  */
 object FunHotReload {
 //    val observation: Observable<Unit>
-    val observation = OwnedObservable<Unit>()
+    val observation = MutEventStream<Unit>()
 
     /**
      * The [callback] will be called on an alternate thread so be wary of that.
-     * If you want it to run code on the main thread you can use [natan.io.github.natanfudge.fu.window.GlfwWebgpuWindow.submitTask]
+     * If you want it to run code on the main thread you can use [io.github.natanfudge.fu.window.GlfwWebgpuWindow.submitTask]
      */
-    fun observe(callback: (Unit) -> Unit) = observation.observe(callback)
+    fun observe(callback: (Unit) -> Unit) = observation.listen(callback)
 
     internal fun notifyReload() {
         observation.emit(Unit)
