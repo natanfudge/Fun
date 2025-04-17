@@ -11,7 +11,7 @@ fun main() {
     Outer().x
 
     FunHotReload.observation.listen {
-        println("wafft")
+        println("wfafft")
         Outer().x.loop()
 
         window.submitTask {

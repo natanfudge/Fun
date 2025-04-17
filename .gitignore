@@ -45,3 +45,4 @@ bin/
 .DS_Store
 jbr_25/
 *.log
+compose-renders/
