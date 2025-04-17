@@ -34,6 +34,17 @@ class Listener<T>(internal val callback: (T) -> Unit, private val observable: Mu
 }
 
 
+ //TODO: it would make sense for eventstreams to have a string identifier to be able to track them in runtime.
+// Then inside components we can have an API like this
+// class MyThing(override val id: String): Component {
+//      val firedFireballs by event<Int>()
+//      And then firedFireballs has an invoke() method that can be used as firedFireballs()
+//       But more importantly, the name of firedFireballs is saved as a string for runtime inspection,
+//  AND the id is captured for runtime inspection.
+// }
+//
+//
+
 /**
  * An implementation of [EventStream] held by the owner of the [EventStream], allowing it [emit] values to registered listeners.
  * This is the standard way to create and manage an observable data source.

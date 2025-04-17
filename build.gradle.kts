@@ -56,3 +56,19 @@ kotlin {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")
     }
 }
+
+tasks.register<Jar>("fatJar") {
+    dependsOn.addAll(listOf("compileJava", "compileKotlin", "processResources")) // add this task's dependencies
+    archiveClassifier.set("fat") // adds 'fat' to the jar name
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    manifest {
+        attributes["Main-Class"] = "io.github.natanfudge.fu.MainKt" // replace with your actual main class
+    }
+
+    from(sourceSets.main.get().output)
+
+    from({
+        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
+    })
+}
