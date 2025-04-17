@@ -8,12 +8,8 @@ import io.github.natanfudge.fu.window.GlfwWebgpuWindow
 fun main() {
     val window = GlfwWebgpuWindow()
 
-    Outer().x
-
     FunHotReload.observation.listen {
-        println("wfafft")
-        Outer().x.loop()
-
+        println("Reloading")
         window.submitTask {
             // Very important to run this on the main thread
             window.restart()

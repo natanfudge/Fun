@@ -20,50 +20,6 @@ import org.lwjgl.opengl.GL43.GL_FRAMEBUFFER_BINDING
 import java.io.File
 
 
-@OptIn(InternalComposeUiApi::class)
-private class GlInitFixedSizeComposeWindow(
-    val width: Int,
-    val height: Int,
-    context: DirectContext,
-    framebuffer: Int,
-) {
-    val drawOffscreen = false
-
-    //TODO: currently we put everything on an offscreen framebuffer. In practice it might be simple or better to use the main framebuffer.
-    init {
-        if(drawOffscreen) {
-            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer)
-        }
-    }
-
-    // Skia Surface, bound to the OpenGL context
-    val surface = glDebugGroup(0, groupName = { "Compose Surface Init" }) {
-        createSurface(width, height, context)
-    }
-    val canvas = surface.canvas.asComposeCanvas()
-
-    val colorTexture = createColorTexture(width, height, { "Compose Color Texture" }) {
-        normalTextureConfig()
-    }
-    val depthTexture = createDepthTexture(width, height, { "Compose Depth Texture" }) {
-        normalTextureConfig()
-    }
-
-    init {
-        attachColorTextureToFrameBuffer(colorTexture)
-        attachDepthTextureToFrameBuffer(depthTexture)
-    }
-
-
-    fun close() {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
-        surface.close()
-        glDeleteTextures(colorTexture)
-        glDeleteTextures(depthTexture)
-    }
-}
-
-//TODO: 1. resize handling
 //TODO: 2. Hotkey routing (GLFW -> Compose -> User)
 
 @OptIn(InternalComposeUiApi::class)
@@ -72,20 +28,76 @@ internal class GlInitComposeGlfwAdapter(
     initialHeight: Int,
     private val dispatcher: CoroutineDispatcher,
     private val density: Density,
+    private val composeContent: @Composable () -> Unit,
 ) {
+    val drawOffscreen = false
+
+    @OptIn(InternalComposeUiApi::class)
+    private inner class GlInitFixedSizeComposeWindow(
+        val width: Int,
+        val height: Int,
+        context: DirectContext,
+    ) {
+        //TODO: currently we put everything on an offscreen framebuffer (with drawOffscreen = true).
+        // In practice it might be simple or better to use the main framebuffer.
+
+        // Skia Surface, bound to the OpenGL context
+        val surface = glDebugGroup(0, groupName = { "Compose Surface Init" }) {
+            createSurface(width, height, context)
+        }
+        val canvas = surface.canvas.asComposeCanvas()
+
+        val colorTexture = if (drawOffscreen) createColorTexture(width, height, { "Compose Color Texture" }) {
+            normalTextureConfig()
+        } else null
+        val depthTexture = if (drawOffscreen) createDepthTexture(width, height, { "Compose Depth Texture" }) {
+            normalTextureConfig()
+        } else null
+
+        init {
+            if (colorTexture != null && depthTexture != null) {
+                attachColorTextureToFrameBuffer(colorTexture)
+                attachDepthTextureToFrameBuffer(depthTexture)
+            }
+        }
+
+        fun close() {
+            surface.close()
+            if (colorTexture != null && depthTexture != null) {
+                glDeleteTextures(colorTexture)
+                glDeleteTextures(depthTexture)
+            }
+        }
+    }
+
     val context = DirectContext.makeGL()
 
     private lateinit var window: GlInitFixedSizeComposeWindow
-
-    /**
-     * Depends on the [surface], must be updated when the [surface] updates.
-     */
-    private lateinit var composeScene: ComposeScene
 
     init {
         init(initialWidth, initialHeight)
     }
 
+    val frameDispatcher = FrameDispatcher(dispatcher) {
+        // Draw new skia content
+        invalid = true
+    }
+
+    val composeScene = PlatformLayersComposeScene(
+        coroutineContext = dispatcher,
+        density = density,
+        invalidate = frameDispatcher::scheduleFrame,
+        size = IntSize(initialWidth, initialHeight)
+    )
+
+    /**
+     * Depends on the [window], must be updated when the [window] updates.
+     */
+    init {
+        composeScene.setContent {
+            composeContent()
+        }
+    }
 
 
     private var frameBuffer: Int = 0
@@ -93,24 +105,25 @@ internal class GlInitComposeGlfwAdapter(
     private fun init(width: Int, height: Int) {
         glDebugGroup(1, groupName = { "Skia Init" }) {
             frameBuffer = createFramebuffer(name = { "Compose Framebuffer" })
-            window = GlInitFixedSizeComposeWindow(width, height, context, frameBuffer)
+            if (drawOffscreen) {
+                glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer)
+            }
+            window = GlInitFixedSizeComposeWindow(width, height, context)
         }
     }
 
 
-     var invalid = true
+    var invalid = true
 
     fun draw() = glDebugGroup(5, groupName = { "Compose Render" }) {
-
         try {
             // When updates are needed - render new content
             renderSkia()
-//                invalid = false
         } catch (e: Throwable) {
             System.err.println("Error during Skia rendering! This is usually a Compose user error.")
             e.printStackTrace()
         }
-        if(window.drawOffscreen) {
+        if (drawOffscreen) {
             writeSkiaToImage()
         }
     }
@@ -175,36 +188,21 @@ internal class GlInitComposeGlfwAdapter(
 
     private var renderI = 0
 
+
     fun resize(width: Int, height: Int) = glDebugGroup(500, groupName = { "Skia Resize" }) {
-        composeScene.size = IntSize(width, height)
+        // I don't know why but if you give it the exact width it doesn't work properly. Giving it width - 1 works better.
+        // You can imagine how much of a huge pain in the ass was figuring this out...
+        composeScene.size = IntSize(width - 1, height)
         window.close()
-        window = GlInitFixedSizeComposeWindow(width, height, context, frameBuffer)
+        window = GlInitFixedSizeComposeWindow(width, height, context)
+        invalid = true
     }
-
-
-    fun setScene(width: Int, height: Int, content: @Composable () -> Unit) {
-        val frameDispatcher = FrameDispatcher(dispatcher) {
-            // Draw new skia content
-            invalid = true
-        }
-
-        composeScene = PlatformLayersComposeScene(
-            coroutineContext = dispatcher,
-            density = density,
-            invalidate = frameDispatcher::scheduleFrame,
-            size = IntSize(width, height)
-        )
-
-        composeScene.setContent {
-            content()
-        }
-    }
-
 
     fun close() {
         glDeleteFramebuffers(frameBuffer)
         composeScene.close()
         window.close()
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
     }
 }
 
@@ -225,7 +223,7 @@ internal class GlInitComposeGlfwAdapter(
  * glPixelStorei(GL_PACK_ROW_LENGTH, 0)
  * ```
  */
-private fun createSurface(width: Int, height: Int, context: DirectContext): Surface {
+/*private*/ fun createSurface(width: Int, height: Int, context: DirectContext): Surface {
     val fbId = GL11.glGetInteger(GL_FRAMEBUFFER_BINDING)
     val renderTarget = BackendRenderTarget.makeGL(width, height, 0, 8, fbId, GR_GL_RGBA8)
 

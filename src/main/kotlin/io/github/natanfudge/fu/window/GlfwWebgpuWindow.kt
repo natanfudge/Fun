@@ -1,14 +1,11 @@
 package io.github.natanfudge.fu.window
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fu.compose.ComposeMainApp
 import io.github.natanfudge.fu.compose.GlInitComposeGlfwAdapter
-import kotlinx.coroutines.delay
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -21,11 +18,14 @@ class GlfwWebgpuWindow {
     private lateinit var instance: GlInitGlfwWindowInstance
     private var open = true
 
+    private var windowPos: IntOffset? = null
+
+    @OptIn(InternalComposeUiApi::class)
     private inner class GlInitGlfwWindowInstance(config: WindowConfig) {
         val waitingTasks = mutableListOf<() -> Unit>()
 
         init {
-            glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE)
+            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
             glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE)
             glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4)
@@ -49,26 +49,29 @@ class GlfwWebgpuWindow {
             glfwSetWindowCloseCallback(windowHandle) {
                 open = false
             }
+
+            if (windowPos != null) {
+                // Keep the window in the same position when reloading
+                glfwSetWindowPos(windowHandle, windowPos!!.x, windowPos!!.y)
+            }
+            glfwShowWindow(windowHandle)
+            glfwSetWindowPosCallback(windowHandle) { _, x, y ->
+                windowPos = IntOffset(x, y)
+            }
+
+            glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
+                compose.resize(windowWidth, windowHeight)
+                render() // We want to content to adapt faster to resize changes so we rerender right away.
+            }
         }
 
         val dispatcher = GlfwCoroutineDispatcher()
 
-
         val compose = GlInitComposeGlfwAdapter(
             config.initialWindowWidth, config.initialWindowHeight, dispatcher,
             density = Density(glfwGetWindowContentScale(windowHandle)),
+            composeContent = { ComposeMainApp() }
         )
-
-        init {
-            compose.setScene(config.initialWindowWidth, config.initialWindowHeight) {
-                var color by remember { mutableStateOf(Color.Red) }
-                LaunchedEffect(Unit) {
-                    delay(500)
-                    color = Color.Blue
-                }
-                Box(Modifier.background(color).fillMaxSize())
-            }
-        }
 
         fun close() {
             compose.close()
@@ -96,20 +99,12 @@ class GlfwWebgpuWindow {
 
         instance = GlInitGlfwWindowInstance(config)
 
-
-//        glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
-//            compose.resize(windowWidth, windowHeight)
-//        }
-
-
         while (open) {
             glfwPollEvents()
             with(instance) {
                 dispatcher.poll()
                 if (compose.invalid) {
-                    compose.draw()
-                    GLFW.glfwSwapBuffers(windowHandle)
-                    compose.invalid = false
+                    render()
                 }
                 waitingTasks.forEach { it() }
                 waitingTasks.clear()
@@ -119,19 +114,17 @@ class GlfwWebgpuWindow {
         instance.close()
     }
 
-    private fun render() {
-
+    fun render() = with(instance) {
+        compose.draw()
+        GLFW.glfwSwapBuffers(windowHandle)
+        compose.invalid = false
     }
+
 
     fun restart(config: WindowConfig = WindowConfig()) {
         instance.close()
         instance = GlInitGlfwWindowInstance(config)
     }
-
-//    private fun close() {
-//        compose.close()
-//        glfwDestroyWindow(windowHandle)
-//    }
 }
 
 
