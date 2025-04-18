@@ -1,10 +1,10 @@
-package io.github.natanfudge.fu.util
+package io.github.natanfudge.fn.util
 
 
 /**
  * Allows listening to changes of an object via the [listen] method.
  * Usually, another object owns an [MutEventStream] implementation of this interface, and emits values to it, which are received by the callback passed to [listen].
- * @sample io.github.natanfudge.fu.test.examples.util.ObservableExamples.observableExample
+ * @sample io.github.natanfudge.fn.test.examples.util.ObservableExamples.observableExample
  */
 interface EventStream<T> {
     /**

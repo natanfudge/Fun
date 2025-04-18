@@ -1,6 +1,6 @@
-package io.github.natanfudge.fu.hotreload
+package io.github.natanfudge.fn.hotreload
 
-import io.github.natanfudge.fu.util.MutEventStream
+import io.github.natanfudge.fn.util.MutEventStream
 
 
 /**
@@ -12,7 +12,7 @@ object FunHotReload {
 
     /**
      * The [callback] will be called on an alternate thread so be wary of that.
-     * If you want it to run code on the main thread you can use [io.github.natanfudge.fu.window.GlfwWebgpuWindow.submitTask]
+     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.window.GlfwWebgpuWindow.submitTask]
      */
     fun observe(callback: (Unit) -> Unit) = observation.listen(callback)
 

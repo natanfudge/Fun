@@ -1,7 +1,7 @@
-package io.github.natanfudge.fu.hotreload.hotswapagent
+package io.github.natanfudge.fn.hotreload.hotswapagent
 
-import io.github.natanfudge.fu.hotreload.FunHotReload.observation
-import io.github.natanfudge.fu.hotreload.hotswapagent.FunHotReloadHotswapAgentPlugin.Companion.LOGGER
+import io.github.natanfudge.fn.hotreload.FunHotReload.observation
+import io.github.natanfudge.fn.hotreload.hotswapagent.FunHotReloadHotswapAgentPlugin.Companion.LOGGER
 import org.hotswap.agent.annotation.Init
 import org.hotswap.agent.annotation.LoadEvent
 import org.hotswap.agent.annotation.OnClassLoadEvent

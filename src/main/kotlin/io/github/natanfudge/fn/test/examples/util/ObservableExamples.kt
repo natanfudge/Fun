@@ -1,6 +1,6 @@
-package io.github.natanfudge.fu.test.examples.util
+package io.github.natanfudge.fn.test.examples.util
 
-import io.github.natanfudge.fu.util.MutEventStream
+import io.github.natanfudge.fn.util.MutEventStream
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 

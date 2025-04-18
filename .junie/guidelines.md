@@ -4,7 +4,7 @@
 
 ### Source Code Organization
 - **Main Source**: `src/main/kotlin`
-  - `io.github.natanfudge.fu` - Core engine packages
+  - `io.github.natanfudge.fn` - Core engine packages
     - `hotreload` - Hot reloading functionality
     - `math` - Mathematical utilities
     - `test` - Test examples (see Testing section)
@@ -36,13 +36,13 @@
 
 ### Test Organization
 - Tests are stored in two locations:
-  1. **Main source set**: `src/main/kotlin/io/github/natanfudge/fu/test/examples`
+  1. **Main source set**: `src/main/kotlin/io/github/natanfudge/fn/test/examples`
      - These are example tests that also serve as documentation
   2. **Test source set**: `src/test/kotlin`
 
 ### Writing Tests
 - Use JUnit 5 with Kotlin Test
-- Example tests should be placed in the appropriate package under `io.github.natanfudge.fu.test.examples`
+- Example tests should be placed in the appropriate package under `io.github.natanfudge.fn.test.examples`
 - Tests should be concise and demonstrate a single feature
 
 ## Documentation

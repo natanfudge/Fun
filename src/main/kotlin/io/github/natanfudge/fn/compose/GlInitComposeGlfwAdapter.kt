@@ -1,13 +1,13 @@
-package io.github.natanfudge.fu.compose
+package io.github.natanfudge.fn.compose
 
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.graphics.asComposeCanvas
-import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.window.subscribeToGLFWEvents
 import kotlinx.coroutines.CoroutineDispatcher
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
@@ -26,7 +26,8 @@ import java.io.File
 internal class GlInitComposeGlfwAdapter(
     initialWidth: Int,
     initialHeight: Int,
-    private val dispatcher: CoroutineDispatcher,
+    windowHandle: Long,
+    dispatcher: CoroutineDispatcher,
     private val density: Density,
     private val composeContent: @Composable () -> Unit,
 ) {
@@ -83,7 +84,7 @@ internal class GlInitComposeGlfwAdapter(
         invalid = true
     }
 
-    val composeScene = PlatformLayersComposeScene(
+    private val composeScene = PlatformLayersComposeScene(
         coroutineContext = dispatcher,
         density = density,
         invalidate = frameDispatcher::scheduleFrame,
@@ -94,6 +95,7 @@ internal class GlInitComposeGlfwAdapter(
      * Depends on the [window], must be updated when the [window] updates.
      */
     init {
+        composeScene.subscribeToGLFWEvents(windowHandle)
         composeScene.setContent {
             composeContent()
         }
@@ -190,9 +192,7 @@ internal class GlInitComposeGlfwAdapter(
 
 
     fun resize(width: Int, height: Int) = glDebugGroup(500, groupName = { "Skia Resize" }) {
-        // I don't know why but if you give it the exact width it doesn't work properly. Giving it width - 1 works better.
-        // You can imagine how much of a huge pain in the ass was figuring this out...
-        composeScene.size = IntSize(width - 1, height)
+        composeScene.size = IntSize(width, height)
         window.close()
         window = GlInitFixedSizeComposeWindow(width, height, context)
         invalid = true
@@ -223,7 +223,7 @@ internal class GlInitComposeGlfwAdapter(
  * glPixelStorei(GL_PACK_ROW_LENGTH, 0)
  * ```
  */
-/*private*/ fun createSurface(width: Int, height: Int, context: DirectContext): Surface {
+private fun createSurface(width: Int, height: Int, context: DirectContext): Surface {
     val fbId = GL11.glGetInteger(GL_FRAMEBUFFER_BINDING)
     val renderTarget = BackendRenderTarget.makeGL(width, height, 0, 8, fbId, GR_GL_RGBA8)
 

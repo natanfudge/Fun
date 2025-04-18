@@ -1,8 +1,6 @@
-package io.github.natanfudge.fu.window
+package io.github.natanfudge.fn.window
 
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import org.lwjgl.glfw.GLFW
 import kotlin.coroutines.CoroutineContext
 
 /**

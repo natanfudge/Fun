@@ -1,11 +1,10 @@
-package io.github.natanfudge.fu.window
+package io.github.natanfudge.fn.window
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
-import io.github.natanfudge.fu.compose.ComposeMainApp
-import io.github.natanfudge.fu.compose.GlInitComposeGlfwAdapter
+import io.github.natanfudge.fn.compose.ComposeMainApp
+import io.github.natanfudge.fn.compose.GlInitComposeGlfwAdapter
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -68,7 +67,7 @@ class GlfwWebgpuWindow {
         val dispatcher = GlfwCoroutineDispatcher()
 
         val compose = GlInitComposeGlfwAdapter(
-            config.initialWindowWidth, config.initialWindowHeight, dispatcher,
+            config.initialWindowWidth, config.initialWindowHeight, windowHandle,dispatcher,
             density = Density(glfwGetWindowContentScale(windowHandle)),
             composeContent = { ComposeMainApp() }
         )

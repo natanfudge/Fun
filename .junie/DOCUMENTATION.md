@@ -51,8 +51,8 @@ fun foo(bar: String): Int
 \</Good>
 5. For every public API, the "main" part of the API should have a should link to a test method using `@sample` (this is done only once per sample test method), that is an example usage of the API.
    If there is no such test, create one.
-   The test should be put in the main source set, under `io.github.natanfudge.fu.test.examples.***` where "***" is the relative package of the thing being documented,
-   for example for `io.github.natanfudge.fu.util.Observable.kt`, the sample should be at `io.github.natanfudge.fu.test.examples.util.ObservableExamples.observableExample`
+   The test should be put in the main source set, under `io.github.natanfudge.fn.test.examples.***` where "***" is the relative package of the thing being documented,
+   for example for `io.github.natanfudge.fn.util.Observable.kt`, the sample should be at `io.github.natanfudge.fn.test.examples.util.ObservableExamples.observableExample`
 Then for every other public API, `@see` should be used to reference that "main" part of the API that has the `@sample`, where we will see a sample of using that public API. 
 If the API is large enough, have multiple sample test methods, and reference them once using `@sample`, and in the same way use `@see` to reference the doc that has the `@sample` that uses that public API. 
 

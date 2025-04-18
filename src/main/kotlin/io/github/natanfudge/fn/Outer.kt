@@ -1,4 +1,4 @@
-package io.github.natanfudge.fu
+package io.github.natanfudge.fn
 
 class Outer {
     init {

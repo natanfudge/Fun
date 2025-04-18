@@ -1,17 +1,14 @@
-package io.github.natanfudge.fu.compose
+package io.github.natanfudge.fn.compose
 
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL14.GL_DEPTH_COMPONENT32
-import org.lwjgl.opengl.GL20
-import org.lwjgl.opengl.GL30
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL43.GL_DEBUG_SOURCE_APPLICATION
 import org.lwjgl.opengl.GL43.glObjectLabel
 import org.lwjgl.opengl.GL43.glPopDebugGroup
 import org.lwjgl.opengl.GL43.glPushDebugGroup
 import java.nio.FloatBuffer
-import java.util.function.Consumer
 
 internal inline fun createFramebuffer(name: () -> String, usage: FrameBufferContext.() -> Unit = {}): Int {
     val framebuffer = glGenFramebuffers()

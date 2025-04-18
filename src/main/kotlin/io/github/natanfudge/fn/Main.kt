@@ -1,12 +1,13 @@
-package io.github.natanfudge.fu
+package io.github.natanfudge.fn
 
-import io.github.natanfudge.fu.hotreload.FunHotReload
-import io.github.natanfudge.fu.window.GlfwWebgpuWindow
+import io.github.natanfudge.fn.hotreload.FunHotReload
+import io.github.natanfudge.fn.window.GlfwWebgpuWindow
 
 
 // -XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=core, use jbr_25
 fun main() {
     val window = GlfwWebgpuWindow()
+    println("Start 4")
 
     FunHotReload.observation.listen {
         println("Reloading")
