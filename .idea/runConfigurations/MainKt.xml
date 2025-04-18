@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="MainKt" type="JetRunConfigurationType" nameIsGenerated="true">
-    <option name="ALTERNATIVE_JRE_PATH" value="$PROJECT_DIR$/jbr_25" />
+    <option name="ALTERNATIVE_JRE_PATH" value="$PROJECT_DIR$/jdks/jbr_25" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="MAIN_CLASS_NAME" value="io.github.natanfudge.fn.MainKt" />
     <module name="Fun.main" />

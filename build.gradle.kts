@@ -84,10 +84,8 @@ tasks.withType<Test> {
 
 kotlin {
     jvmToolchain {
-//        this.languageVersion = JavaLanguageVersion.of(21)
-//        vendor = JvmVendorSpec.JETBRAINS
-        this.languageVersion = JavaLanguageVersion.of(23)
-        vendor = JvmVendorSpec.GRAAL_VM
+        this.languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.JETBRAINS
     }
     sourceSets.all {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")

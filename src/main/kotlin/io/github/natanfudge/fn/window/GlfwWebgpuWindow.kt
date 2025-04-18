@@ -108,7 +108,7 @@ class GlfwWebgpuWindow {
                 waitingTasks.forEach { it() }
                 waitingTasks.clear()
             }
-            Thread.sleep(30)// Temporary hack
+//            Thread.sleep(30)// Temporary hack
         }
         instance.close()
     }
