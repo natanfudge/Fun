@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="lib-js">
+    <output-path>$PROJECT_DIR$/KotlinCompilerPluginExample/lib/build/libs</output-path>
+    <root id="archive" name="lib-js.jar">
+      <element id="module-output" name="KotlinCompilerPluginExample.lib.jsMain" />
+    </root>
+  </artifact>
+</component>

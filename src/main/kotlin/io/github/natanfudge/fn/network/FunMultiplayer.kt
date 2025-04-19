@@ -5,18 +5,29 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import org.koin.core.context.startKoin
-import org.koin.core.qualifier.named
-import org.koin.dsl.module
-import org.koin.mp.KoinPlatform.getKoin
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 
-class World(id: String) : Fun(id) {
+class WorldStateHolder(val world: World) : FunStateHolder {
+    //I think we can avoid StateHolders and such in production and non-synced values
+    override fun setValue(key: String, value: Any?) {
+        when (key) {
+            "width" -> world._width.value = value as Int
+            else -> error("Unsupported")
+        }
+    }
+
+}
+
+class World(id: String, client: FunClient) : SomeFun(id, client, { WorldStateHolder(it as World) }) {
     val world = mutableStateListOf<Player>()
-    var width by funState(100)
+    //TODO: need to think how I can unify this API...
+    //TOdo: there's also the issue that funState exposes an impl instance now so we can modify it
+    //TODO: I think right now, it's best to keep the by funState() slow api, and in the future transform it into a normal property
+    // and we'll inject stuff into the get() set() of the property to get what we want.
+    val _width = funState(100, usingAutoState = false)
+    var width by _width
     var height by mutableStateOf(1000)
 }
 
@@ -38,69 +49,57 @@ class Enchantment {
     var active by mutableStateOf(false)
 }
 
-//interface FunStateManager<T: StateChange> {
-//    fun update(change: T)
-//}
+//TODO: things to think about:
+// 1. Multithreading of state manager
+// 2. 'secret' values - values only visible to their owner.
+// 3. Protection of values - modifying values only from the server. Permission system - usually all permissions given to the server
+// 4. Prediction - running server logic on the client for as long as possible
+// 5. Merged client-server optimization - how can we reuse objects in case the client and server are running in the same process?
+// 6. See how we can optimize object IDs in production to avoid a separate ID for each instance
+// 7. Some sort of API Fun.child(id: String) that creates a child state of a Fun.
 
-sealed interface StateChange {
-    class Direct(val key: String, val value: Any?) : StateChange
-    class ByHolder(val holderKey: String, val propertyKey: String, val value: Any?) : StateChange
-}
 
-
-class FunStateManager(private val id: String) {
+class FunClient {
 
 //    private val values = mutableMapOf<String, FunState<*>>()
 
 
-    //TODO: need to think about multithreading implications
     private val stateHolders = mutableMapOf<String, FunStateHolder>()
     fun update(holderKey: String, propertyKey: String, value: Any?) {
         //TODO: omega hack
-        if (this == client1Manager) {
+        if (this == client1) {
             //TODO: handle nulls better
-            client2Manager.stateHolders[holderKey]?.setValue(propertyKey, value)
+            client2.stateHolders[holderKey]?.setValue(propertyKey, value)
         } else {
-            client1Manager.stateHolders[holderKey]?.setValue(propertyKey, value)
+            client1.stateHolders[holderKey]?.setValue(propertyKey, value)
         }
-
-//        val holder =
-        //TODO: handle nulls better
-
-//        when (change) {
-//            is StateChange.ByHolder -> stateHolders[change.holderKey]?.setValue(change.propertyKey, change.value)
-//            is StateChange.Direct -> (values[change.key] as? FunState<Any?>)?.value = change.value
-//        }
     }
 
     fun register(fn: Fun, state: FunStateHolder) {
-        //TODO: probably hack
-        fn.clientScope = id
         if (fn.id in stateHolders) {
             throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give components unique IDs. ")
         }
         stateHolders[fn.id] = state
     }
 
+//    fun register(fn: MapFun)
+
     //TODO: maybe we need some type safety
+
+    /**
+     * A pending value will get DELETED once it is retrieved!
+     */
     fun getPendingValue(holderKey: String, propertyKey: String, state: FunState<Any?>): Any? {
         //TODO: handle nulls better
-        return stateHolders[holderKey]?.getPendingValue(propertyKey, state)
+        return (stateHolders[holderKey] as MapStateHolder).getPendingValue(propertyKey, state)
     }
 
-
-//    fun get(holderKey: String, propertyKey: String): Any? {
-//
-//    }
+    fun registerState(holderKey: String, propertyKey: String, state: FunState<Any?>) {
+        //TODO: handle missing/mismatching values better
+        (stateHolders[holderKey] as MapStateHolder).registerState(propertyKey, state)
+    }
 }
 
-//TODO: think about 'secret' values - values only visible to their owner.
-
-//class LeanFunStateManager: FunStateManager<StateChange.ByHolder> {
-//    override fun update(change: StateChange.ByHolder) {
-//        stateHolders[change.holderKey]?.setValue(change.propertyKey, change.value)
-//    }
-//}
 
 /**
  * Stores a map entry for each individual property.
@@ -124,77 +123,93 @@ class MapStateHolder : FunStateHolder {
         }
     }
 
-    override fun getPendingValue(key: String, state: FunState<Any?>): Any? {
+    fun registerState(key: String, value: FunState<Any?>) {
+        map[key] = value
+    }
+
+    fun getPendingValue(key: String, state: FunState<Any?>): Any? {
         val value = pendingValues[key] ?: return null
         pendingValues.remove(key)
         map[key] = state
         return value
     }
-
-//    fun registerProperty()
 }
 
-
-//TODO: think about how we want to store state identifiers
-// TODO: need to think about we do secure state changes (not anyone can do it lul)
 
 /**
  * If you implement it manually it could be more performant than [MapStateHolder]
  */
-//TODO: maybe FunStateHolder and Fun are the same thing? we can merge them? at least have one extend the other
 interface FunStateHolder {
     fun setValue(key: String, value: Any?)
-    fun getPendingValue(key: String, state: FunState<Any?>): Any? {
-        return null
+}
+
+
+class UnfunStateException(message: String) : IllegalStateException(message)
+
+interface Fun {
+    val id: String
+    val client: FunClient
+}
+
+//TODO: we could have a SinglePlayerFun that doesn't require specifying a client.
+//TODO: need to see if we need to have a type argument here for this to work well
+abstract class SomeFun(
+    final override val id: String,
+    final override val client: FunClient,
+    stateHolder: (SomeFun) -> FunStateHolder = { MapStateHolder() },// In the future this could be like getAutoStateHolder<T>()
+) : Fun {
+    init {
+        client.register(this, stateHolder(this))
     }
 }
 
-//TODO: maybe we can compose Funs in some way for a tree structure in state
-abstract class Fun(
-    val id: String,
-) {
-    // TODO: there's probably  a better way to do this
-    var clientScope: String? = null
-//    internal val stateHolder = MapStateHolder()
-}
 
 interface FunState<T> : ReadWriteProperty<Fun, T>
 
-fun <T> funState(value: T): FunState<T> = FunStateImpl(value)
+//TODO: i'm sure i could do someting better than this usingAutoState parameter, this is just for testing
+fun <T> Fun.funState(value: T, usingAutoState: Boolean = true): FunStateImpl<T> = FunStateImpl(value, registered = !usingAutoState)
 
-// Right now i'm going to go all out with ineffiencies, this is internal API anyway.
-internal class FunStateImpl<T>(
-    var value: T,
+ class FunStateImpl<T>(var value: T, private var registered: Boolean = false) : FunState<T>, KoinComponent {
 
-    ) : FunState<T>, KoinComponent {
-    /**
-     * SLOW: Might be best to store this elsewhere. This is extra memory cost
-     */
-    private var stateManager: FunStateManager? = null
-
-//    val stateManager: FunStateManager by inject<FunStateManager>()
 
 
     override fun getValue(thisRef: Fun, property: KProperty<*>): T {
-        if (stateManager == null) { //TODO: duplicated code
-            stateManager = inject<FunStateManager>(thisRef.clientScope?.let { named(it) }).value
+        //TODO: registered checks can be avoided if we have a way to know the key of the property early, some compiler support.
+        if (!registered) {
+            registered = true
+            thisRef.client.registerState(
+                holderKey = thisRef.id,
+                propertyKey = property.name,
+                state = this as FunState<Any?>
+            )
+            val pending = thisRef.client.getPendingValue(
+                holderKey = thisRef.id,
+                propertyKey = property.name,
+                state = this as FunState<Any?>
+            )
+            if (pending != null) value = pending as T
+
         }
-        //TODO: getPendingValue can be avoided if we have a way to know the key of the property early, some compiler support.
-        val pending = stateManager!!.getPendingValue(
-            holderKey = thisRef.id,
-            propertyKey = property.name,
-            state = this as FunState<Any?>
-        )
-        if (pending != null) value = pending as T
+
+
 
         return value
     }
 
     override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
-        if (stateManager == null) {
-            stateManager = inject<FunStateManager>(thisRef.clientScope?.let { named(it) }).value
+        //TODO: registered checks can be avoided if we have a way to know the key of the property early, some compiler support.
+        if (!registered) {
+            registered = true
+            thisRef.client.registerState(
+                holderKey = thisRef.id,
+                propertyKey = property.name,
+                state = this as FunState<Any?>
+            )
         }
-        stateManager!!.update(
+
+        this.value = value
+
+        thisRef.client.update(
             holderKey = thisRef.id,
             propertyKey = property.name,
             value = value
@@ -203,72 +218,22 @@ internal class FunStateImpl<T>(
 
 }
 
-val client1World = World("my-world")
+val client1 = FunClient()
+val client2 = FunClient()
+val client1World = World("my-world", client1)
 
-//val client1Holder = MapStateHolder()
-val client2World = World("my-world")
-//val client2Holder = MapStateHolder()
+val client2World = World("my-world", client2)
 
-//TODO: koin
-val client1Manager = FunStateManager("Client1")
-val client2Manager = FunStateManager("Client2")
 
 fun main() {
-    val appModule = module {
-        single<FunStateManager>(named("Client1")) {
-            client1Manager
-        }
-        single<FunStateManager>(named("Client2")) {
-            client2Manager
-        }
-//        scope<FunStateManager> {
-//            scoped(named("Client1")) { client1Manager }
-//            scoped(named("Client2")) { client2Manager }
-//        }
-//        single<FunStateManager> { client1Manager }
-    }
-
-    startKoin { modules(appModule) }
-
-
     gameLogic()
-}
-
-//fun register(fn: Fun) {
-//    manager.update()
-//}
-
-//TODO: this won't work very well with multithreading multiple clients
-inline fun inClient1Scope(func: () -> Unit) {
-    val scope = getKoin()
-        .createScope("client1-scope", named("Client1"))
-    func()
-    scope.close()
-}
-
-inline fun inClient2Scope(func: () -> Unit) {
-    val scope = getKoin()
-        .createScope("client2-scope", named("Client2"))
-    func()
-    scope.close()
 }
 
 fun gameLogic() {
 
-    client1Manager.register(client1World, MapStateHolder())
-    client2Manager.register(client2World, MapStateHolder())
-
     println("Before = " + client2World.width)
     client1World.width = 1000
     println("After = " + client2World.width)
-
-
-//    val sword = Sword()
-//
-//    sword.enchantment.strength = 2
-
-
-//    client1World
 
 }
 
