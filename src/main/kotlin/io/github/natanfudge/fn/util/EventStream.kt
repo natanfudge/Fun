@@ -22,7 +22,7 @@ interface EventStream<T> {
  * to stop listening. This is typically returned by [EventStream.listen].
  * @see EventStream
  */
-class Listener<T>(internal val callback: (T) -> Unit, private val observable: MutEventStream<T>) {
+class Listener<in T>(internal val callback: (T) -> Unit, private val observable: MutEventStream<T>) {
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
