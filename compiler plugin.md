@@ -8,7 +8,7 @@ class UserFacing : SomeFun("1", FunClient()) {
 Needs to be transformed to this:
 
 ```kotlin
-class CompilerGenerated : SomeFun("1", FunClient()) {
+class CompilerGenerated : SomeFun("1", FunClient()), FunStateHolder {
     internal var _x = 0
     var x: Int
         get() = _x
@@ -19,7 +19,7 @@ class CompilerGenerated : SomeFun("1", FunClient()) {
     
 
 
-    fun applyChange(key: String, value: NetworkValue) {
+    override fun setValue(key: String, value: NetworkValue) {
         when (key) {
             "x" -> _x = value.decode(Int.serializer())
             else -> error("Unknown property $key")

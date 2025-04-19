@@ -2,10 +2,6 @@
 
 package io.github.natanfudge.fn.network
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import io.github.natanfudge.fn.error.UnfunStateException
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
@@ -15,35 +11,9 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 
-//
-
-class World(id: String, client: FunClient) : Fun(id, client) {
-    //SLOW: I think right now, it's best to keep the by funState() slow api, and in the future transform it into a normal property
-    // and we'll inject stuff into the get() set() of the property to get what we want.
-    var width by funState(100)
-    var height by mutableStateOf(1000)
-}
-
-class Player {
-    val inventory = Inventory()
-}
-
-class Inventory {
-    val swords = mutableStateListOf<Sword>()
-
-}
-
-class Sword {
-    val enchantment = Enchantment()
-}
-
-class Enchantment {
-    var strength by mutableStateOf(10)
-    var active by mutableStateOf(false)
-}
-
 
 //TODO: things to think about:
+// 0. List-state and Map-state
 // 1. Multithreading of state manager
 // 2. 'secret' values - values only visible to their owner.
 // 3. Protection of values - modifying values only from the server. Permission system - usually all permissions given to the server
@@ -56,17 +26,47 @@ class Enchantment {
 // 10. Think about how we are gonna pass Fun components through RPC methods
 
 
+/**
+ * Interface for sending state updates between clients.
+ * 
+ * Implementations of this interface handle the communication between clients,
+ * serializing values and ensuring they reach the appropriate destinations.
+ * 
+ * @see Fun
+ */
 interface FunCommunication {
+    /**
+     * Sends a state update to other clients.
+     * 
+     * [holderKey] and [propertyKey] identify which property is being updated,
+     * while [value] contains the new state that should be synchronized.
+     */
     fun <T> send(holderKey: String, propertyKey: String, value: T, serializer: KSerializer<T>)
 }
 
-typealias NetworkValue = String
 
-
-// API: should prob be private constructor
-class FunClient(val communication: FunCommunication) {
+/**
+ * Manages the state synchronization for a single client in a multiplayer environment.
+ * 
+ * The FunClient is responsible for:
+ * - Registering Fun components and their state
+ * - Sending state updates to other clients
+ * - Receiving and applying state updates from other clients
+ * 
+ * @see Fun
+ */
+class FunClient(
+    /**
+     * The communication channel used to send updates to other clients.
+     */
+    val communication: FunCommunication
+) {
 
     private val stateHolders = mutableMapOf<String, MapStateHolder>()
+
+    /**
+     * Receives a state update from another client and applies it to the appropriate state holder.
+     */
     internal fun receiveUpdate(holderKey: String, propertyKey: String, value: NetworkValue) {
         val holder = stateHolders[holderKey]
         if (holder != null) {
@@ -76,11 +76,17 @@ class FunClient(val communication: FunCommunication) {
         }
     }
 
+    /**
+     * Sends a state update to other clients through the communication channel.
+     */
     internal fun <T> sendUpdate(holderKey: String, propertyKey: String, value: T, serializer: KSerializer<T>) {
         // SLOW: we can avoid serialization in case both clients are in the same process
         communication.send(holderKey, propertyKey, value, serializer)
     }
 
+    /**
+     * Registers a Fun component with this client, allowing it to send and receive state updates.
+     */
     internal fun register(fn: Fun, state: MapStateHolder) {
         if (fn.id in stateHolders) {
             throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give Fun components unique IDs. ")
@@ -89,16 +95,19 @@ class FunClient(val communication: FunCommunication) {
     }
 
     /**
-     * This will set the value of [state] to the pending value if it exists.
+     * Sets the value of [state] to the pending value if it exists.
      * A pending value will get DELETED once it is retrieved!
      */
-    internal fun <T> setPendingValue(holderKey: String, propertyKey: String, state: FunState<T>){
+    internal fun <T> setPendingValue(holderKey: String, propertyKey: String, state: FunState<T>) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to attempting getting the pending value of its sub-state '$propertyKey'!"
         )
-         holder.setPendingValue(propertyKey, state)
+        holder.setPendingValue(propertyKey, state)
     }
 
+    /**
+     * Registers a state property with its parent state holder.
+     */
     internal fun registerState(holderKey: String, propertyKey: String, state: FunState<Any?>) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to registering its sub-state '$propertyKey'!"
@@ -107,12 +116,16 @@ class FunClient(val communication: FunCommunication) {
     }
 }
 
+/**
+ * Represents a serialized value that can be sent over the network.
+ */
+internal typealias NetworkValue = String
+
 
 /**
- * Stores a map entry for each individual property.
- * Easier to use, less performant
+ * Default implementation of [FunStateHolder] that stores state in a map.
  */
-class MapStateHolder : FunStateHolder {
+internal class MapStateHolder : FunStateHolder {
     // Values that were sent to an object but the object did not have a chance to react to them yet,
     // because he did not try getting/setting the value yet.
     // This is mostly because of the limitation that we only get the key information from
@@ -120,6 +133,11 @@ class MapStateHolder : FunStateHolder {
     private val pendingValues = mutableMapOf<String, NetworkValue>()
 
     private val map = mutableMapOf<String, FunState<Any?>>()
+
+    /**
+     * Updates the value of a property identified by [key].
+     * If the property hasn't been registered yet, the value is stored as pending.
+     */
     override fun setValue(key: String, value: NetworkValue) {
         if (key in map) {
             // Property was properly registered, update it
@@ -130,10 +148,16 @@ class MapStateHolder : FunStateHolder {
         }
     }
 
+    /**
+     * Registers a state property with this holder.
+     */
     fun registerState(key: String, value: FunState<Any?>) {
         map[key] = value
     }
 
+    /**
+     * Sets a pending value to a state property if one exists.
+     */
     fun <T> setPendingValue(key: String, state: FunState<T>) {
         if (key !in pendingValues) return
         val networkValue = pendingValues.getValue(key)
@@ -144,36 +168,52 @@ class MapStateHolder : FunStateHolder {
 
 
 /**
- * If you implement it manually it could be more performant than [MapStateHolder]
+ * Interface for objects that can hold and update state properties.
  */
 interface FunStateHolder {
+    /**
+     * Updates the value of a property identified by [key].
+     */
     fun setValue(key: String, value: NetworkValue)
 }
 
-abstract class Fun(
-     val id: String,
-    val client: FunClient,
-){
-    init {
-        client.register(this, MapStateHolder())
-    }
-}
-
-
 
 /**
- * Is only usable inside a class extending [SomeFun].
+ * Creates a property delegate that automatically synchronizes its value across all clients.
+ * 
+ * This function is used to create properties in [Fun] components that will be automatically
+ * synchronized when their value changes.
+ * 
+ * @see Fun
  */
 inline fun <reified T> funState(value: T): FunState<T> = FunState(value, serializer())
 
-class FunState<T>(private var value: T, val serializer: KSerializer<T>) /*: FunState<T>, */: KoinComponent, ReadWriteProperty<Fun, T> {
+
+/**
+ * A property delegate that synchronizes its value across all clients in a multiplayer environment.
+ * 
+ * When a FunState property is modified, the change is automatically sent to all other clients.
+ * Similarly, when another client modifies the property, the change is automatically applied locally.
+ * 
+ * @see Fun
+ */
+class FunState<T>(private var value: T, private val serializer: KSerializer<T>) : KoinComponent,
+    ReadWriteProperty<Fun, T> {
     private var registered: Boolean = false
 
-    fun receiveUpdate(value: NetworkValue) {
+    /**
+     * Updates the local value from a serialized network value.
+     */
+    internal fun receiveUpdate(value: NetworkValue) {
         this.value = Json.decodeFromString(serializer, value)
     }
 
-
+    /**
+     * Gets the current value of the property.
+     * 
+     * On first access, the property is registered with the client and any pending
+     * updates are applied.
+     */
     override fun getValue(thisRef: Fun, property: KProperty<*>): T {
         if (!registered) {
             registered = true
@@ -192,6 +232,11 @@ class FunState<T>(private var value: T, val serializer: KSerializer<T>) /*: FunS
         return value
     }
 
+    /**
+     * Sets a new value for the property and synchronizes it with all other clients.
+     * 
+     * On first access, the property is registered with the client.
+     */
     override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
         if (!registered) {
             registered = true
@@ -211,44 +256,4 @@ class FunState<T>(private var value: T, val serializer: KSerializer<T>) /*: FunS
             serializer
         )
     }
-
 }
-
-class LocalMultiplayer(private val playerCount: Int) {
-    val clients: List<FunClient> = List(playerCount) { clientNum ->
-        val x = object : FunCommunication {
-            override fun <T> send(holderKey: String, propertyKey: String, value: T, serializer: KSerializer<T>) {
-                val asJson = Json.encodeToString(serializer, value)
-
-                repeat(playerCount) {
-                    if (clientNum != it) {
-                        clients[it].receiveUpdate(holderKey, propertyKey, asJson)
-                    }
-                }
-            }
-        }
-        FunClient(x)
-    }
-}
-
-val multiplayer = LocalMultiplayer(2)
-
-val client1World = World("my-world", multiplayer.clients[0])
-
-val client2World = World("my-world", multiplayer.clients[1])
-
-
-fun main() {
-    gameLogic()
-}
-
-fun gameLogic() {
-
-    println("Before = " + client2World.width)
-    client1World.width = 1000
-    println("After = " + client2World.width)
-    client2World.width = 500
-    println("After after: ${client2World.width}")
-
-}
-

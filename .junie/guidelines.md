@@ -1,4 +1,4 @@
-# BestEngine Developer Guidelines
+# Fun Developer Guidelines
 
 ## Project Structure
 
@@ -43,7 +43,7 @@
 ### Writing Tests
 - Use JUnit 5 with Kotlin Test
 - Example tests should be placed in the appropriate package under `io.github.natanfudge.fn.test.examples`
-- Tests should be concise and demonstrate a single feature
+- Write assertions using kotlin-test, and use messages liberally, on every assertion. 
 
 ## Documentation
 
