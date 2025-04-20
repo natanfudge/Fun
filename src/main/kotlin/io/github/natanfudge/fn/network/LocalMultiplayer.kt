@@ -22,7 +22,12 @@ class LocalMultiplayer(
      */
     val clients: List<FunClient> = List(playerCount) { clientNum ->
         val communication = object : FunCommunication {
-            override fun <T> send(holderKey: String, propertyKey: String, value: T, serializer: KSerializer<T>) {
+            override fun <T> send(
+                holderKey: String,
+                propertyKey: String,
+                change: StateChange<T>,
+                serializer: KSerializer<T>
+            ) {
                 val asJson = Json.encodeToString(serializer, value)
 
                 repeat(playerCount) {

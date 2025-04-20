@@ -30,19 +30,7 @@ class CompilerGenerated : SomeFun("1", FunClient()), FunStateHolder {
         when (key) {
             "x" -> _x = (change as? StateChange.SetProperty ?: error("Expected only SET-PROPERTY for property"))
                 .decode(Int.serializer())
-            "coins" -> {
-                when (change) {
-                    is StateChange.SingleChange -> {
-                        val deserialized = change.value.decode(Int.serializer())
-                        when (change) {
-                            is StateChange.ListSet -> coins.setDirectly(change.index, deserialized)
-                            is StateChange.SetProperty -> error("Unexpected SET-PROPERTY for list")
-                        }
-                    }
-
-                    is StateChange.ListChange -> TODO()
-                }
-            }
+            "coins" -> coins.applyChange(change)
             else -> error("Unknown property $key")
         }
     }
