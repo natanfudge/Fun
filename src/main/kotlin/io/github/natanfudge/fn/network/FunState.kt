@@ -4,12 +4,13 @@ package io.github.natanfudge.fn.network
 
 import io.github.natanfudge.fn.error.UnfunStateException
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
 import org.koin.core.component.KoinComponent
+import java.util.function.IntFunction
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
-
 
 
 //TODO: things to think about:
@@ -28,16 +29,16 @@ import kotlin.reflect.KProperty
 
 /**
  * Interface for sending state updates between clients.
- * 
+ *
  * Implementations of this interface handle the communication between clients,
  * serializing values and ensuring they reach the appropriate destinations.
- * 
+ *
  * @see Fun
  */
 interface FunCommunication {
     /**
      * Sends a state update to other clients.
-     * 
+     *
      * [holderKey] and [propertyKey] identify which property is being updated,
      * while [value] contains the new state that should be synchronized.
      */
@@ -47,19 +48,20 @@ interface FunCommunication {
 
 /**
  * Manages the state synchronization for a single client in a multiplayer environment.
- * 
+ *
  * The FunClient is responsible for:
  * - Registering Fun components and their state
  * - Sending state updates to other clients
  * - Receiving and applying state updates from other clients
- * 
+ *
  * @see Fun
  */
 class FunClient(
     /**
      * The communication channel used to send updates to other clients.
      */
-    val communication: FunCommunication
+    val communication: FunCommunication,
+    val name: String = "FunClient",
 ) {
 
     private val stateHolders = mutableMapOf<String, MapStateHolder>()
@@ -180,10 +182,10 @@ interface FunStateHolder {
 
 /**
  * Creates a property delegate that automatically synchronizes its value across all clients.
- * 
+ *
  * This function is used to create properties in [Fun] components that will be automatically
  * synchronized when their value changes.
- * 
+ *
  * @see Fun
  */
 inline fun <reified T> funState(value: T): FunState<T> = FunState(value, serializer())
@@ -191,15 +193,20 @@ inline fun <reified T> funState(value: T): FunState<T> = FunState(value, seriali
 
 /**
  * A property delegate that synchronizes its value across all clients in a multiplayer environment.
- * 
+ *
  * When a FunState property is modified, the change is automatically sent to all other clients.
  * Similarly, when another client modifies the property, the change is automatically applied locally.
- * 
+ *
  * @see Fun
  */
 class FunState<T>(private var value: T, private val serializer: KSerializer<T>) : KoinComponent,
     ReadWriteProperty<Fun, T> {
     private var registered: Boolean = false
+
+
+    override fun toString(): String {
+        return value.toString()
+    }
 
     /**
      * Updates the local value from a serialized network value.
@@ -210,7 +217,7 @@ class FunState<T>(private var value: T, private val serializer: KSerializer<T>) 
 
     /**
      * Gets the current value of the property.
-     * 
+     *
      * On first access, the property is registered with the client and any pending
      * updates are applied.
      */
@@ -234,7 +241,7 @@ class FunState<T>(private var value: T, private val serializer: KSerializer<T>) 
 
     /**
      * Sets a new value for the property and synchronizes it with all other clients.
-     * 
+     *
      * On first access, the property is registered with the client.
      */
     override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
@@ -256,4 +263,66 @@ class FunState<T>(private var value: T, private val serializer: KSerializer<T>) 
             serializer
         )
     }
+}
+
+class FunList<T>(private val items: MutableList<T>, private val name: String) : MutableList<T> by items {
+
+    fun setDirectly(index: Int, value: T) {
+        this.items[index] = value
+    }
+
+
+    @Deprecated("Don't use this")
+    override fun <T : Any?> toArray(generator: IntFunction<Array<out T?>?>): Array<out T?>? {
+        error("Bad")
+    }
+}
+
+fun <T> funList(name: String, vararg items: T): FunList<T> {
+    return FunList(mutableListOf(*items), name)
+}
+
+class World(id: String, client: FunClient) : Fun(id, client) {
+    val coins = funList<Int>("coins")
+}
+
+class WorldAutoGen(id: String, client: FunClient) : Fun(id, client) {
+    val coins = funList<Int>("coins")
+
+
+    fun setValue(key: String, change: StateChange) {
+        when (key) {
+            "coins" -> {
+                when (change) {
+                    is StateChange.SingleChange -> {
+                        val deserialized = change.value.decode(Int.serializer())
+                        when (change) {
+                            is StateChange.ListSet -> coins.setDirectly(change.index, deserialized)
+                            is StateChange.SetProperty -> error("Unexpected SET-PROPERTY for list")
+                        }
+                    }
+
+                    is StateChange.ListChange -> TODO()
+                }
+            }
+
+            else -> error("No such key $key")
+        }
+    }
+}
+
+fun <T> NetworkValue.decode(serializer: KSerializer<T>): T = TODO()
+
+sealed interface StateChange {
+    sealed interface SingleChange : StateChange {
+        val value: NetworkValue
+    }
+
+    data class SetProperty(override val value: NetworkValue) : SingleChange
+
+    sealed interface ListChange : StateChange {
+        val values: NetworkValue
+    }
+
+    data class ListSet(override val value: NetworkValue, val index: Int) : SingleChange
 }

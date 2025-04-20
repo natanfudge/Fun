@@ -21,7 +21,7 @@ class LocalMultiplayer(
      * Each client has its own communication channel to other clients.
      */
     val clients: List<FunClient> = List(playerCount) { clientNum ->
-        val x = object : FunCommunication {
+        val communication = object : FunCommunication {
             override fun <T> send(holderKey: String, propertyKey: String, value: T, serializer: KSerializer<T>) {
                 val asJson = Json.encodeToString(serializer, value)
 
@@ -32,6 +32,6 @@ class LocalMultiplayer(
                 }
             }
         }
-        FunClient(x)
+        FunClient(communication, name = "Local Multiplayer $clientNum")
     }
 }
