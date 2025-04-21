@@ -1,6 +1,10 @@
 @file:OptIn(ExperimentalKotlinGradlePluginApi::class)
 
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.kotlin.dsl.register
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -10,7 +14,6 @@ plugins {
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("com.google.osdetector") version "1.7.3"
 }
-
 
 
 val mainclass = "io.github.natanfudge.fn.MainKt"
@@ -26,7 +29,7 @@ graalvmNative {
                 "-Djava.awt.headless=false",
                 // Development only
 //                "-Ob",
-                )
+            )
             val isWindows: Boolean by extra { osdetector.os == "windows" }
             if (isWindows) {
                 buildArgs(
@@ -54,6 +57,9 @@ repositories {
     google()
 }
 
+
+
+
 dependencies {
     implementation(platform(libs.lwjgl.bom))
     implementation(libs.bundles.jvmMain)
@@ -74,20 +80,8 @@ dependencies {
     implementation(project.dependencies.platform("io.insert-koin:koin-bom:$koin_version"))
     implementation("io.insert-koin:koin-core")
     runtimeOnly(compose.desktop.windows_x64)
-}
 
-tasks.withType<Test> {
-    useJUnitPlatform()
-
-    // Include tests from main source set
-    testClassesDirs = files(
-        testClassesDirs,
-        project.sourceSets.main.get().output.classesDirs
-    )
-    classpath = files(
-        classpath,
-        project.sourceSets.main.get().runtimeClasspath
-    )
+    testImplementation(libs.bundles.commonTest)
 }
 
 kotlin {
@@ -99,6 +93,7 @@ kotlin {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")
     }
 }
+
 
 tasks.register<Jar>("fatJar") {
     dependsOn.addAll(listOf("compileJava", "compileKotlin", "processResources")) // add this task's dependencies
@@ -122,4 +117,81 @@ compose.desktop {
         this.mainClass = mainclass
     }
 
+}
+
+tasks.withType<Test>() {
+    useJUnitPlatform()
+    maxParallelForks = 1
+    testLogging { // credits: https://stackoverflow.com/a/36130467/5917497
+        // set options for log level LIFECYCLE
+        events = setOf(
+            TestLogEvent.FAILED,
+            TestLogEvent.PASSED,
+            TestLogEvent.SKIPPED,
+            TestLogEvent.STANDARD_OUT
+        )
+        exceptionFormat = TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        // set options for log level DEBUG and INFO
+        debug {
+            events = setOf(
+                TestLogEvent.STARTED,
+                TestLogEvent.FAILED,
+                TestLogEvent.PASSED,
+                TestLogEvent.SKIPPED,
+                TestLogEvent.STANDARD_ERROR,
+                TestLogEvent.STANDARD_OUT
+            )
+            exceptionFormat = TestExceptionFormat.FULL
+        }
+        info.events = debug.events
+        info.exceptionFormat = debug.exceptionFormat
+        afterSuite(KotlinClosure2({ desc: TestDescriptor, result: TestResult ->
+            if (desc.parent == null) { // will match the outermost suite
+                val pass = "${Color.GREEN}${result.successfulTestCount} passed${Color.NONE}"
+                val fail = "${Color.RED}${result.failedTestCount} failed${Color.NONE}"
+                val skip = "${Color.YELLOW}${result.skippedTestCount} skipped${Color.NONE}"
+                val type = when (val r = result.resultType) {
+                    TestResult.ResultType.SUCCESS -> "${Color.GREEN}$r${Color.NONE}"
+                    TestResult.ResultType.FAILURE -> "${Color.RED}$r${Color.NONE}"
+                    TestResult.ResultType.SKIPPED -> "${Color.YELLOW}$r${Color.NONE}"
+                }
+                val output = "Results: $type (${result.testCount} tests, $pass, $fail, $skip)"
+                val startItem = "|   "
+                val endItem = "   |"
+                val repeatLength = startItem.length + output.length + endItem.length - 36
+                println("")
+                println("\n" + ("-" * repeatLength) + "\n" + startItem + output + endItem + "\n" + ("-" * repeatLength))
+            }
+        }))
+    }
+    onOutput(KotlinClosure2({ _: TestDescriptor, event: TestOutputEvent ->
+        if (event.destination == TestOutputEvent.Destination.StdOut) {
+            logger.lifecycle(event.message.replace(Regex("""\s+$"""), ""))
+        }
+    }))
+}
+
+operator fun String.times(x: Int): String {
+    return List(x) { this }.joinToString("")
+}
+
+internal enum class Color(ansiCode: Int) {
+    NONE(0),
+    BLACK(30),
+    RED(31),
+    GREEN(32),
+    YELLOW(33),
+    BLUE(34),
+    PURPLE(35),
+    CYAN(36),
+    WHITE(37);
+
+    private val ansiString: String = "\u001B[${ansiCode}m"
+
+    override fun toString(): String {
+        return ansiString
+    }
 }

@@ -49,8 +49,7 @@
 
 ### Code Documentation
 - Follow the guidelines in `.junie/DOCUMENTATION.md`
-- All public APIs should have KDocs
-- Use `@sample` to link to example tests
+- After finishing writing documentation, review the documentation guideline and fix issues
 
 ### Best Practices
 - Use hot reloading during development (`FunHotReload.detectHotswap()`)

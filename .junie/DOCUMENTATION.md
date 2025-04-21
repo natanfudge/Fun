@@ -20,13 +20,18 @@ Here is an example of good documentation:
 
 4. functions/constructors should not use @param. Rather, they should write the usage of the parameters inline using [] notation like is done in the standard library. @return should only be used when returning a value is secondary to the function itself. For example, a getter should not have @return because that's the entirety of what a getter does. However, if a setter returns a value, that's special and should be specially documented with @return.
 
-5. Add JUnit tests that act as examples for all the public APIs. The process should be as follows:
+5. Add JUnit tests in the test source set that act as examples for all the public APIs. The process should be as follows:
 - A. Group the APIs into functional groups that are used together.
-- B. For each group, add a test, using all the APIs in the group
+- B. For each group, add a test, using all the APIs in the group. The test should be placed at `io.github.natanfudge.fn.test.examples.<relative-package>.<ApiName>Examples`. Each of these groups should have its own example test.
 - C. Identify the "main part"/"entrypoint" of each group, and then add in its documentation `@sample` pointing to the test.
 - D. For all other non-main parts of the group, link it to the main part using `@see`.
+In general, all APIs should either:
+- Have an @sample pointing to a sample
+- Have a single @see which points to an API that does have @sample. 
 
-The test should be put in the main source set, under `io.github.natanfudge.fn.test.examples.***` where "***" is the relative package of the thing being documented,
+
+The test should be as simple as possible while still showcasing the entire API.
+Look at other examples to get an idea of how to write the new examples.
 
 6. If there are multiple very similar APIs, focus on the differences between them. 
 7. Avoid "AI speak" - i.e. redundant declarations of usefulness, like "this enhances maintainability". You should only mention what the code does and how it should be used. No more, no less. 

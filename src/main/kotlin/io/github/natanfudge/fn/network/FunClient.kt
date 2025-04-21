@@ -1,6 +1,10 @@
 package io.github.natanfudge.fn.network
 
 import io.github.natanfudge.fn.error.UnfunStateException
+import io.github.natanfudge.fn.network.state.FunState
+import io.github.natanfudge.fn.network.state.FunValue
+import io.github.natanfudge.fn.network.state.MapStateHolder
+import io.github.natanfudge.fn.network.state.StateChange
 
 
 /**
@@ -62,8 +66,7 @@ class FunClient(
         propertyKey: String,
         change: StateChange,
     ) {
-        // SLOW: we can avoid serialization in case both clients are in the same process
-        communication.send(holderKey, propertyKey, change/*, serializer*/)
+        communication.send(holderKey, propertyKey, change)
     }
 
     /**
@@ -80,7 +83,7 @@ class FunClient(
      * Sets the value of [state] to the pending value if it exists.
      * A pending value will get DELETED once it is retrieved!
      */
-    internal fun <T> setPendingValue(holderKey: String, propertyKey: String, state: PropertyState<T>) {
+    internal fun <T> setPendingValue(holderKey: String, propertyKey: String, state: FunValue<T>) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to attempting getting the pending value of its sub-state '$propertyKey'!"
         )

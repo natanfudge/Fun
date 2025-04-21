@@ -6,7 +6,7 @@ import kotlin.test.assertFalse
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunClient
 import io.github.natanfudge.fn.network.LocalMultiplayer
-import io.github.natanfudge.fn.network.funList
+import io.github.natanfudge.fn.network.state.funList
 import kotlinx.serialization.serializer
 import org.junit.jupiter.api.Test
 

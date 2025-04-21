@@ -1,8 +1,8 @@
-package io.github.natanfudge.fn.test.examples.util
+package io.github.natanfudge.fn.test.example.util
 
-import kotlin.test.assertEquals
 import io.github.natanfudge.fn.util.MutEventStream
 import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
 
 class ObservableExamples {
     @Test

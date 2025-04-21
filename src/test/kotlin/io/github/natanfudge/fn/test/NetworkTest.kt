@@ -4,7 +4,7 @@ import kotlin.test.assertEquals
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunClient
 import io.github.natanfudge.fn.network.LocalMultiplayer
-import io.github.natanfudge.fn.network.funState
+import io.github.natanfudge.fn.network.state.funValue
 import org.junit.jupiter.api.Test
 
 /**
@@ -50,7 +50,7 @@ class NetworkTest {
         // Verify turn changed
         assertEquals("playerB", clientA.currentTurn, "Current turn after clientA ends turn (via clientA)")
         assertEquals("playerB", clientB.currentTurn, "Current turn after clientA ends turn (via clientB)")
-        
+
         // Client B (playerB) plays a card during playerB's turn
         clientB.playCard("Nebula Shield", 1)
 
@@ -87,12 +87,12 @@ class CardGameSession(
     private val playerId: String
 ) : Fun(id, client) {
     // Player resources
-    var playerAMana by funState(3)
-    var playerBMana by funState(3)
-    
+    var playerAMana by funValue(3)
+    var playerBMana by funValue(3)
+
     // Game state - shared by all clients
-    var currentTurn by funState("playerA") // Initially playerA's turn
-    var lastPlayedCard by funState("")
+    var currentTurn by funValue("playerA") // Initially playerA's turn
+    var lastPlayedCard by funValue("")
 
     /**
      * Simulates playing a card from hand, reducing mana and updating the last played card.
@@ -103,7 +103,7 @@ class CardGameSession(
         if (currentTurn != playerId) {
             return
         }
-        
+
         // Check if the player has enough mana and reduce it
         when (playerId) {
             "playerA" -> {
@@ -130,10 +130,10 @@ class CardGameSession(
         if (currentTurn != playerId) {
             return
         }
-        
+
         // Switch turn to the other player
         currentTurn = if (currentTurn == "playerA") "playerB" else "playerA"
-        
+
         // Give the new active player additional mana (2 per turn)
         if (currentTurn == "playerA") {
             playerAMana += 2

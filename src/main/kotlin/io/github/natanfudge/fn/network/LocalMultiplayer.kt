@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.network
 
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
+import io.github.natanfudge.fn.network.state.StateChange
 
 /**
  * Creates a local multiplayer environment where multiple clients can communicate with each other.

@@ -1,12 +1,15 @@
 package io.github.natanfudge.fn.network
 
+import io.github.natanfudge.fn.network.state.MapStateHolder
+
+
 /**
  * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
  * 
- * Fun components automatically register themselves with a [FunClient] and use [funState] properties
+ * Fun components automatically register themselves with a [FunClient] and use [funValue] properties
  * to synchronize state changes across all clients.
  * 
- * @sample io.github.natanfudge.fn.test.examples.network.NetworkExamples.networkStateExample
+ * @sample io.github.natanfudge.fn.example.network.NetworkExamples.networkStateExample
  */
 abstract class Fun(
     /**
