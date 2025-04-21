@@ -8,17 +8,29 @@ import kotlinx.serialization.json.Json
 
 //TODO: things to think about:
 // 2. 'secret' values - values only visible to their owner.
-// 3. Protection of values - modifying values only from the server. Permission system - usually all permissions given to the server
+// 3. Protection of values - modifying values only from the server. Modification should only be allowed within a "server-prediction" context.
+// There should never be an option to "just set a value" with no checks. For this reason, we will throw an error on the client for the developers.
+// Circumventing this won't be possible because there will be no "just set this value" endpoint. Make sure to emphasize not to create such a thing to developers.
 // 4. Prediction - running server logic on the client for as long as possible
-// 4b. Prediction + server correction/rubberbanding. How do we allow prediction while avoiding incorrect values?
-// 5b. prediction + server messages - how do we avoid server messages causing redundant or incorrectly ordered state changes - such as when a
+// 4b. Prediction + server correction/rubberbanding. How do we allow prediction while avoiding incorrect values? How do we make rubberbanding a good experience for the user? (some manual input needed here)
+// 4c. prediction + server messages - how do we avoid server messages causing redundant or incorrectly ordered state changes - such as when a
 // list add is predicted and the server also applies the add, resulting in 2 adds instead of the intended single add?
+// 4d. prediction
 // 5. Merged client-server optimization - how can we reuse objects in case the client and server are running in the same process?
 // 6. See how we can optimize object IDs in production to avoid a separate ID for each instance
 // 7. Some sort of API Fun.child(id: String) that creates a child state of a Fun.
 // 8. We could have a SinglePlayerFun that doesn't require specifying a client.
 // 9. Compiler plugin: see compiler plugin.md
 // 10. Think about how we are gonna pass Fun components through RPC methods
+// 11. Creating a post in reddit is a good example of why we need FunNetworking prediction. When you create a post, you need to wait loads of time. BUt tbh the way the data is stored in reddit is not done in memory so it's not really the same. But perhaps we can support such use cases.
+// 12. Opt out of multiplayer features by default and avoid sending messages all the time
+// 13. Think about if multiplayer is enabled, should making a single property be synced opt in or opt out? or perhaps it should be on a Fun component level? I think best is configurable.
+// until the server is created on the server and only then you get a response
+// 14. A lot of times state is stored outside of memory, so we should set up some way to route changes in state externally,
+// e.g. adding to a list would modify a mongo database.
+// This is not really needed for games though so idk if i'm gonna do this.
+// It's probably a good idea for general support because being able to do this is like 90% of app cases
+// But tbh it's a whole bag of worms because you might need to do caching and such (automatic redis anyone)? Or tbh devs could route it to redis and it would be fine.
 
 //TODO: things to implement:
 // 1. Make sure messages arrive at the order they were sent (see multithreading doc in FunState)
@@ -151,13 +163,12 @@ interface FunStateHolder {
  * @see FunMap
  * @see FunSet
  */
-interface FunState {
+sealed interface FunState {
     /**
      * Applies a state change received from the network to this object.
      * 
      * This method is called internally by the Fun framework when a state change
-     * is received from another client. Implementations should update their internal
-     * state based on the received change.
+     * is received from another client.
      */
     @InternalFunApi
     fun applyChange(change: StateChange)

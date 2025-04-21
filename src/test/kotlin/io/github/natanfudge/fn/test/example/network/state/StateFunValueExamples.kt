@@ -22,21 +22,21 @@ class StateFunValueExamples {
         val player2 = Player("player-1", multiplayer.clients[1]) // Same ID to sync state
 
         // Verify initial values are synchronized
-        assertEquals(100, player2.health, "Initial health should be synchronized")
-        assertEquals("Player", player2.name, "Initial name should be synchronized")
+        assertEquals(100, player2.health)
+        assertEquals("Player", player2.name)
 
         // Modify values on player1 and verify they sync to player2
         player1.health = 75
         player1.name = "Updated Player"
-        
-        assertEquals(75, player2.health, "Health should be synchronized after update")
-        assertEquals("Updated Player", player2.name, "Name should be synchronized after update")
-        
+
+        assertEquals(75, player2.health)
+        assertEquals("Updated Player", player2.name)
+
         // Modify values on player2 and verify they sync back to player1
         player2.health = 50
         player2.name = "Player Two"
-        
-        assertEquals(50, player1.health, "Health should be synchronized after update from player2")
-        assertEquals("Player Two", player1.name, "Name should be synchronized after update from player2")
+
+        assertEquals(50, player1.health)
+        assertEquals("Player Two", player1.name)
     }
 }

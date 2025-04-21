@@ -30,7 +30,7 @@ In general, all APIs should either:
 - Have a single @see which points to an API that does have @sample. 
 
 
-The test should be as simple as possible while still showcasing the entire API.
+The test should be as simple and concise as possible while still showcasing the entire API. Don't do redundant things like having messages for the assertions. 
 Look at other examples to get an idea of how to write the new examples.
 
 6. If there are multiple very similar APIs, focus on the differences between them. 

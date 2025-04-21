@@ -22,38 +22,38 @@ class StateFunListExamples {
         val chatRoom2 = ChatRoom("chat-room", multiplayer.clients[1]) // Same ID to sync state
 
         // Verify initial values are synchronized
-        assertEquals(1, chatRoom2.messages.size, "Initial list size should be synchronized")
-        assertEquals("Welcome to the chat!", chatRoom2.messages[0], "Initial message should be synchronized")
+        assertEquals(1, chatRoom2.messages.size)
+        assertEquals("Welcome to the chat!", chatRoom2.messages[0])
 
         // Add items to the list on chatRoom1 and verify they sync to chatRoom2
         chatRoom1.messages.add("Hello from client 1")
-        
-        assertEquals(2, chatRoom2.messages.size, "List size should be synchronized after add")
-        assertEquals("Hello from client 1", chatRoom2.messages[1], "Added message should be synchronized")
-        
+
+        assertEquals(2, chatRoom2.messages.size)
+        assertEquals("Hello from client 1", chatRoom2.messages[1])
+
         // Modify the list on chatRoom2 and verify changes sync back to chatRoom1
         chatRoom2.messages.add("Hello from client 2")
         chatRoom2.messages[0] = "Updated welcome message"
-        
-        assertEquals(3, chatRoom1.messages.size, "List size should be synchronized after add from chatRoom2")
-        assertEquals("Updated welcome message", chatRoom1.messages[0], "Updated message should be synchronized")
-        assertEquals("Hello from client 2", chatRoom1.messages[2], "Added message from chatRoom2 should be synchronized")
-        
+
+        assertEquals(3, chatRoom1.messages.size)
+        assertEquals("Updated welcome message", chatRoom1.messages[0])
+        assertEquals("Hello from client 2", chatRoom1.messages[2])
+
         // Demonstrate other list operations
         chatRoom1.messages.removeAt(1) // Remove "Hello from client 1"
-        assertEquals(2, chatRoom2.messages.size, "List size should be synchronized after remove")
-        assertEquals("Updated welcome message", chatRoom2.messages[0], "First message should still be there")
-        assertEquals("Hello from client 2", chatRoom2.messages[1], "Second message should now be the one from client 2")
-        
+        assertEquals(2, chatRoom2.messages.size)
+        assertEquals("Updated welcome message", chatRoom2.messages[0])
+        assertEquals("Hello from client 2", chatRoom2.messages[1])
+
         // Add multiple items at once
         chatRoom2.messages.addAll(listOf("Message 3", "Message 4"))
-        assertEquals(4, chatRoom1.messages.size, "List size should be synchronized after addAll")
-        assertEquals("Message 3", chatRoom1.messages[2], "Third message should be synchronized")
-        assertEquals("Message 4", chatRoom1.messages[3], "Fourth message should be synchronized")
-        
+        assertEquals(4, chatRoom1.messages.size)
+        assertEquals("Message 3", chatRoom1.messages[2])
+        assertEquals("Message 4", chatRoom1.messages[3])
+
         // Clear the list
         chatRoom1.messages.clear()
-        assertEquals(0, chatRoom2.messages.size, "List should be empty after clear")
-        assertTrue(chatRoom2.messages.isEmpty(), "List should be empty after clear")
+        assertEquals(0, chatRoom2.messages.size)
+        assertTrue(chatRoom2.messages.isEmpty())
     }
 }
