@@ -3,6 +3,7 @@
 package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.util.ImmutableCollection
 import io.github.natanfudge.fn.util.ImmutableSet
 import kotlinx.serialization.KSerializer
@@ -74,6 +75,8 @@ class FunMap<K, V> @PublishedApi internal constructor(
     private val keySerializer: KSerializer<K>,
     private val valueSerializer: KSerializer<V>,
 ) : MutableMap<K, V> , FunState {
+    
+    private val key = StateKey(owner.id, name)
 
     override fun equals(other: Any?): Boolean {
         return _items == other
@@ -97,22 +100,22 @@ class FunMap<K, V> @PublishedApi internal constructor(
     override val entries: MutableSet<MutableMap.MutableEntry<K, V>> = ImmutableSet(_items.entries)
 
     override fun put(key: K, value: V): V? {
-        owner.client.sendUpdate(owner.id, name, StateChange.MapPut(key.keyToNetwork(), value.valueToNetwork()))
+        owner.client.sendUpdate(this.key, StateChangeValue.MapPut(key.keyToNetwork(), value.valueToNetwork()))
         return _items.put(key, value)
     }
 
     override fun remove(key: K): V? {
-        owner.client.sendUpdate(owner.id, name, StateChange.MapRemove(key.keyToNetwork()))
+        owner.client.sendUpdate(this.key, StateChangeValue.MapRemove(key.keyToNetwork()))
         return _items.remove(key)
     }
 
     override fun putAll(from: Map<out K, V>) {
-        owner.client.sendUpdate(owner.id, name, StateChange.MapPutAll(from.mapToNetwork()))
+        owner.client.sendUpdate(key, StateChangeValue.MapPutAll(from.mapToNetwork()))
         _items.putAll(from)
     }
 
     override fun clear() {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionClear)
+        owner.client.sendUpdate(key, StateChangeValue.CollectionClear)
         _items.clear()
     }
 
@@ -125,20 +128,20 @@ class FunMap<K, V> @PublishedApi internal constructor(
     override fun containsValue(value: V): Boolean = _items.containsValue(value)
 
     override fun get(key: K): V? = _items[key]
-    override fun applyChange(change: StateChange) {
+    override fun applyChange(change: StateChangeValue) {
         when (change) {
-            !is StateChange.MapOp -> warnMismatchingStateChange(change, "MAP") 
-            StateChange.CollectionClear -> _items.clear()
-            is StateChange.MapRemove -> {
+            !is StateChangeValue.MapOp -> warnMismatchingStateChange(change, "MAP")
+            StateChangeValue.CollectionClear -> _items.clear()
+            is StateChangeValue.MapRemove -> {
                 val key = change.key.decode(keySerializer)
                 _items.remove(key)
             }
-            is StateChange.MapPut -> {
+            is StateChangeValue.MapPut -> {
                 val key = change.key.decode(keySerializer)
                 val value = change.value.decode(valueSerializer)
                 _items[key] = value
             }
-            is StateChange.MapPutAll -> {
+            is StateChangeValue.MapPutAll -> {
                 val entries = change.entries.decode(mapSerializer)
                 _items.putAll(entries)
             }

@@ -31,6 +31,8 @@ import kotlinx.serialization.json.Json
 // This is not really needed for games though so idk if i'm gonna do this.
 // It's probably a good idea for general support because being able to do this is like 90% of app cases
 // But tbh it's a whole bag of worms because you might need to do caching and such (automatic redis anyone)? Or tbh devs could route it to redis and it would be fine.
+// 15. Compose MutableState integration
+// 16. Send state changes in batches. Configurable amount of delay to organize batches. Default - a few ms, configurable to maybe even 0.1ms.
 
 //TODO: things to implement:
 // 1. Make sure messages arrive at the order they were sent (see multithreading doc in FunState)
@@ -54,7 +56,7 @@ internal class MapStateHolder : FunStateHolder {
     // because he did not try getting/setting the value yet.
     // This is mostly because of the limitation that we only get the key information from
     // ReadWriteProperty#getValue / setValue, and only at that point we can start registering the state holders.
-    private val pendingValues = mutableMapOf<String, StateChange.SetProperty>()
+    private val pendingValues = mutableMapOf<String, StateChangeValue.SetProperty>()
 
     private val map = mutableMapOf<String, FunState>()
 
@@ -62,12 +64,12 @@ internal class MapStateHolder : FunStateHolder {
      * Updates the value of a property identified by [key].
      * If the property hasn't been registered yet, the value is stored as pending.
      */
-    override fun applyChange(key: String, change: StateChange) {
+    override fun applyChange(key: String, change: StateChangeValue) {
         if (key in map) {
             val state = map.getValue(key)
             state.applyChange(change)
         } else {
-            check(change is StateChange.SetProperty) { "The list with the key $key was unexpectedly not registered prior to having a change applied to it" }
+            check(change is StateChangeValue.SetProperty) { "The list with the key $key was unexpectedly not registered prior to having a change applied to it" }
             // Not registered yet, wait for it to be registered to grant it the value
             pendingValues[key] = change
         }
@@ -114,7 +116,7 @@ interface FunStateHolder {
      * [key] The unique identifier for the state property
      * [change] The state change to apply
      */
-    fun applyChange(key: String, change: StateChange)
+    fun applyChange(key: String, change: StateChangeValue)
 }
 
 
@@ -171,7 +173,7 @@ sealed interface FunState {
      * is received from another client.
      */
     @InternalFunApi
-    fun applyChange(change: StateChange)
+    fun applyChange(change: StateChangeValue)
 }
 
 
@@ -207,11 +209,11 @@ annotation class InternalFunApi
  * 
  * @see FunState
  */
-sealed interface StateChange {
+sealed interface StateChangeValue {
     /**
      * A state change that involves a single value.
      */
-    sealed interface SingleChange : StateChange {
+    sealed interface SingleChange : StateChangeValue {
         val value: NetworkValue
     }
 
@@ -223,14 +225,14 @@ sealed interface StateChange {
     /**
      * A state change that involves multiple values.
      */
-    sealed interface BulkChange : StateChange {
+    sealed interface BulkChange : StateChangeValue {
         val values: NetworkValue
     }
 
     /**
      * Marker interface for operations on a [FunList].
      */
-    sealed interface ListOp: StateChange
+    sealed interface ListOp: StateChangeValue
 
     /**
      * Sets the element at the specified [index] in a list.
@@ -255,7 +257,7 @@ sealed interface StateChange {
     /**
      * Marker interface for operations on a [FunMap].
      */
-    sealed interface MapOp: StateChange
+    sealed interface MapOp: StateChangeValue
 
     /**
      * Puts a key-value pair in a map.
@@ -275,12 +277,12 @@ sealed interface StateChange {
     /**
      * Marker interface for operations on a [FunSet].
      */
-    sealed interface SetOp: StateChange
+    sealed interface SetOp: StateChangeValue
 
     /**
      * Clears all elements from a collection.
      */
-    object CollectionClear : StateChange, ListOp, MapOp, SetOp
+    object CollectionClear : StateChangeValue, ListOp, MapOp, SetOp
 
     /**
      * Adds an element to a collection.
@@ -308,7 +310,7 @@ sealed interface StateChange {
     data class CollectionAddAll(override val values: NetworkValue) : BulkChange, ListOp, SetOp
 }
 
-internal fun warnMismatchingStateChange(change: StateChange, expected: String) {
+internal fun warnMismatchingStateChange(change: StateChangeValue, expected: String) {
     println(
         "Warning - Mismatching message sender and receiver - sender attempted ${change::class} " +
                 "but receiver (this client) holds $expected. The message will be ignored (change = ${change})."

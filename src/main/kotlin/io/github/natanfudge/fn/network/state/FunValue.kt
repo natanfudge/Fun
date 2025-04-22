@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.StateKey
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 import org.koin.core.component.KoinComponent
@@ -37,8 +38,8 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
     }
 
     @InternalFunApi
-    override fun applyChange(change: StateChange) {
-        require(change is StateChange.SetProperty)
+    override fun applyChange(change: StateChangeValue) {
+        require(change is StateChangeValue.SetProperty)
         this.value = change.value.decode(serializer)
     }
 
@@ -84,9 +85,8 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
         this.value = value
 
         thisRef.client.sendUpdate(
-            holderKey = thisRef.id,
-            propertyKey = property.name,
-            change = StateChange.SetProperty(value.toNetwork(serializer)),
+            key = StateKey(thisRef.id, property.name),
+            change = StateChangeValue.SetProperty(value.toNetwork(serializer)),
         )
     }
 }

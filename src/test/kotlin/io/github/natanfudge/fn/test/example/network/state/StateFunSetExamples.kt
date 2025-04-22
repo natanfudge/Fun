@@ -5,11 +5,19 @@ import io.github.natanfudge.fn.network.FunClient
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funSet
 import org.junit.jupiter.api.Test
+import kotlin.math.pow
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+fun main() {
+    println(Int.MIN_VALUE)
+}
+
 class StateFunSetExamples {
+
+
+
     @Test
     fun funSetExample() {
         // Create a class that extends Fun and has a synchronized set
@@ -28,6 +36,8 @@ class StateFunSetExamples {
 
         // Add elements to the set on room1 and verify they sync to room2
         room1.activeUsers.add("User1")
+
+        Thread.sleep(100) //TODO: this fixed it. We need to figure out a way for changes to happen synchronously in these cases. Need a flag because in this case we don't put it inside of any queue.
 
         assertEquals(2, room2.activeUsers.size)
         assertTrue(room2.activeUsers.contains("User1"))

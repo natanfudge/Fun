@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.StateKey
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.serializer
@@ -68,6 +69,8 @@ class FunList<T> @PublishedApi internal constructor(
     private val owner: Fun,
     private val serializer: KSerializer<T>,
 ) : MutableList<T>, FunState {
+    
+    private val key = StateKey(owner.id, name)
 
     override fun equals(other: Any?): Boolean {
         return _items == other
@@ -91,53 +94,53 @@ class FunList<T> @PublishedApi internal constructor(
 
 
     override fun add(element: T): Boolean {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionAdd(element.toNetwork()))
+        owner.client.sendUpdate(key, StateChangeValue.CollectionAdd(element.toNetwork()))
         return _items.add(element)
     }
 
     override fun remove(element: T): Boolean {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionRemove(element.toNetwork()))
+        owner.client.sendUpdate(key, StateChangeValue.CollectionRemove(element.toNetwork()))
         return _items.remove(element)
     }
 
     override fun addAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionAddAll(elements.toNetwork()))
+        owner.client.sendUpdate(key, StateChangeValue.CollectionAddAll(elements.toNetwork()))
         return _items.addAll(elements)
     }
 
     override fun addAll(index: Int, elements: Collection<T>): Boolean {
         // We need to include the index in the network update
-        owner.client.sendUpdate(owner.id, name, StateChange.ListIndexedAddAll(elements.toNetwork(), index))
+        owner.client.sendUpdate(key, StateChangeValue.ListIndexedAddAll(elements.toNetwork(), index))
         return _items.addAll(index, elements)
     }
 
     override fun removeAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionRemoveAll(elements.toNetwork()))
+        owner.client.sendUpdate(key, StateChangeValue.CollectionRemoveAll(elements.toNetwork()))
         return _items.removeAll(elements)
     }
 
     override fun retainAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionRetainAll(elements.toNetwork()))
+        owner.client.sendUpdate(key, StateChangeValue.CollectionRetainAll(elements.toNetwork()))
         return _items.retainAll(elements)
     }
 
     override fun clear() {
-        owner.client.sendUpdate(owner.id, name, StateChange.CollectionClear)
+        owner.client.sendUpdate(key, StateChangeValue.CollectionClear)
         _items.clear()
     }
 
     override operator fun set(index: Int, element: T): T {
-        owner.client.sendUpdate(owner.id, name, StateChange.ListSet(element.toNetwork(), index))
+        owner.client.sendUpdate(key, StateChangeValue.ListSet(element.toNetwork(), index))
         return _items.set(index, element)
     }
 
     override fun add(index: Int, element: T) {
-        owner.client.sendUpdate(owner.id, name, StateChange.ListIndexedAdd(element.toNetwork(), index))
+        owner.client.sendUpdate(key, StateChangeValue.ListIndexedAdd(element.toNetwork(), index))
         _items.add(index, element)
     }
 
     override fun removeAt(index: Int): T {
-        owner.client.sendUpdate(owner.id, name, StateChange.ListRemoveAt(index))
+        owner.client.sendUpdate(key, StateChangeValue.ListRemoveAt(index))
         return _items.removeAt(index)
     }
 
@@ -159,29 +162,29 @@ class FunList<T> @PublishedApi internal constructor(
         error("Bad")
     }
 
-    override fun applyChange(change: StateChange) {
+    override fun applyChange(change: StateChangeValue) {
         when (change) {
-            !is StateChange.ListOp -> warnMismatchingStateChange(change, "LIST")
-            StateChange.CollectionClear -> _items.clear()
-            is StateChange.ListRemoveAt -> _items.removeAt(change.index)
-            is StateChange.SingleChange -> {
+            !is StateChangeValue.ListOp -> warnMismatchingStateChange(change, "LIST")
+            StateChangeValue.CollectionClear -> _items.clear()
+            is StateChangeValue.ListRemoveAt -> _items.removeAt(change.index)
+            is StateChangeValue.SingleChange -> {
                 val value = change.value.decode(serializer)
                 when (change) {
-                    is StateChange.CollectionAdd -> _items.add(value)
-                    is StateChange.ListIndexedAdd -> _items.add(change.index, value)
-                    is StateChange.CollectionRemove -> _items.remove(value)
-                    is StateChange.ListSet -> _items[change.index] = value
+                    is StateChangeValue.CollectionAdd -> _items.add(value)
+                    is StateChangeValue.ListIndexedAdd -> _items.add(change.index, value)
+                    is StateChangeValue.CollectionRemove -> _items.remove(value)
+                    is StateChangeValue.ListSet -> _items[change.index] = value
                     else -> error("Impossible")
                 }
             }
 
-            is StateChange.BulkChange -> {
+            is StateChangeValue.BulkChange -> {
                 val values = change.values.decode(listSerializer)
                 when (change) {
-                    is StateChange.CollectionAddAll -> _items.addAll(values)
-                    is StateChange.ListIndexedAddAll -> _items.addAll(change.index, values)
-                    is StateChange.CollectionRemoveAll -> _items.removeAll(values)
-                    is StateChange.CollectionRetainAll -> _items.retainAll(values)
+                    is StateChangeValue.CollectionAddAll -> _items.addAll(values)
+                    is StateChangeValue.ListIndexedAddAll -> _items.addAll(change.index, values)
+                    is StateChangeValue.CollectionRemoveAll -> _items.removeAll(values)
+                    is StateChangeValue.CollectionRetainAll -> _items.retainAll(values)
                 }
             }
         }

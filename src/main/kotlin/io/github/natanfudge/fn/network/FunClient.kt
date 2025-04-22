@@ -4,7 +4,10 @@ import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.FunValue
 import io.github.natanfudge.fn.network.state.MapStateHolder
-import io.github.natanfudge.fn.network.state.StateChange
+import io.github.natanfudge.fn.network.state.StateChangeValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 
 /**
@@ -22,7 +25,7 @@ interface FunCommunication {
      * [holderKey] and [propertyKey] identify which property is being updated,
      * while [value] contains the new state that should be synchronized.
      */
-    fun send(holderKey: String, propertyKey: String, change: StateChange/*, serializer: KSerializer<T>*/)
+    suspend fun send(changes: List<StateChange>/*, serializer: KSerializer<T>*/)
 }
 
 
@@ -49,24 +52,31 @@ class FunClient(
     /**
      * Receives a state update from another client and applies it to the appropriate state holder.
      */
-    internal fun receiveUpdate(holderKey: String, propertyKey: String, change: StateChange) {
-        val holder = stateHolders[holderKey]
+    internal fun receiveUpdate(key: StateKey, change: StateChangeValue) {
+        val holder = stateHolders[key.holder]
         if (holder != null) {
-            holder.applyChange(propertyKey, change)
+            holder.applyChange(key.property, change)
         } else {
-            println("WARNING: Received a value to the Fun component '${holderKey}', but no such ID exists, so the value was discarded. (value = $change)")
+            println("WARNING: Received a value to the Fun component '${key.holder}', but no such ID exists, so the value was discarded. (value = $change)")
         }
     }
+
+    // DANGER: We might need to setup this differently and close it in some way
+    private val scope = CoroutineScope(Dispatchers.IO)
 
     /**
      * Sends a state update to other clients through the communication channel.
      */
     internal fun sendUpdate(
-        holderKey: String,
-        propertyKey: String,
-        change: StateChange,
+        key: StateKey,
+//        holderKey: String,
+//        propertyKey: String,
+        change: StateChangeValue,
     ) {
-        communication.send(holderKey, propertyKey, change)
+        // TODO: this is not how I want to do it. It should be added to a queue SYNCHRONOUSLY, and then processed in batches
+        scope.launch {
+            communication.send(listOf(StateChange(key, change)))
+        }
     }
 
     /**
