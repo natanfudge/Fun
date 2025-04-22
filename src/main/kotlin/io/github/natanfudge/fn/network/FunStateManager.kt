@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.network
 
+import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.FunValue
@@ -8,7 +9,31 @@ import io.github.natanfudge.fn.network.state.StateChangeValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
+
+class ServerSynchronizer(
+    /**
+     * If true, updates in state will synchronize synchronously, meaning changing state will stall until all other clients have received the update.
+     * This should only be used in local environments where there's no latency that will cause serious lag.
+     */
+    private val synchronousUpdates: Boolean,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    private val sendFunc: suspend (List<StateChange>) -> Unit,
+) : FunStateSynchronizer {
+    override fun send(changes: List<StateChange>) {
+        if (synchronousUpdates) {
+            runBlocking {
+                sendFunc(changes)
+            }
+        } else {
+            // TODO: this is not how I want to do it. It should be added to a queue SYNCHRONOUSLY, and then processed in batches
+            scope.launch {
+                sendFunc(changes)
+            }
+        }
+    }
+}
 
 /**
  * Interface for sending state updates between clients.
@@ -18,16 +43,49 @@ import kotlinx.coroutines.launch
  *
  * @see Fun
  */
-interface FunCommunication {
+interface FunStateSynchronizer {
     /**
      * Sends a state update to other clients.
      *
      * [holderKey] and [propertyKey] identify which property is being updated,
      * while [value] contains the new state that should be synchronized.
      */
-    suspend fun send(changes: List<StateChange>/*, serializer: KSerializer<T>*/)
+    fun send(changes: List<StateChange>)
+
+    object FromClient : FunStateSynchronizer {
+        override fun send(
+            changes: List<StateChange>,
+//            instigator: ClientHandle
+        ) {
+            throw UnallowedFunException("This state was declared to be synchronized, so it should only be updated in a ServerLike context.")
+        }
+    }
 }
 
+//data class FunStateConfig(
+//
+//    val synchronousUpdates: Boolean = false,
+//)
+
+interface ClientHandle
+
+interface StateSyncPolicy {
+    fun syncTo(client: ClientHandle): Boolean
+
+    object KnownToAll : StateSyncPolicy {
+        override fun syncTo(client: ClientHandle): Boolean {
+            return true
+        }
+    }
+
+    object Private : StateSyncPolicy {
+        override fun syncTo(client: ClientHandle): Boolean {
+            return false
+        }
+    }
+}
+
+//class ClientHeldClientHandle
 
 /**
  * Manages the state synchronization for a single client in a multiplayer environment.
@@ -39,12 +97,17 @@ interface FunCommunication {
  *
  * @see Fun
  */
-class FunClient(
+class FunStateManager(
+    //TODO: this is wrong. there should be no handle to perform arbitrary state changes. The handle should only allow you to run
+    // preexisting routines. Arbitrary state change should be done in a MaybeServerContext
     /**
      * The communication channel used to send updates to other clients.
      */
-    val communication: FunCommunication,
-    val name: String = "FunClient",
+    val synchronizer: FunStateSynchronizer,
+    val name: String = "FunStateManager",
+    //TODO: this config is not applicable for clients. OK I got it. I do need to split it somehow. have one that accepts a FunStateChangeApplicator and one that doesn't.
+//    val config: FunStateConfig = FunStateConfig(),
+//    val disallowMutations: Boolean,
 ) {
 
     private val stateHolders = mutableMapOf<String, MapStateHolder>()
@@ -52,6 +115,7 @@ class FunClient(
     /**
      * Receives a state update from another client and applies it to the appropriate state holder.
      */
+    //TODo: this function is not applicable for servers, need to see how I can pull it out.
     internal fun receiveUpdate(key: StateKey, change: StateChangeValue) {
         val holder = stateHolders[key.holder]
         if (holder != null) {
@@ -61,23 +125,20 @@ class FunClient(
         }
     }
 
-    // DANGER: We might need to setup this differently and close it in some way
-    private val scope = CoroutineScope(Dispatchers.IO)
+//    // DANGER: We might need to setup this differently and close it in some way
+//    private val scope = CoroutineScope(Dispatchers.IO)
 
     /**
      * Sends a state update to other clients through the communication channel.
      */
     internal fun sendUpdate(
         key: StateKey,
-//        holderKey: String,
-//        propertyKey: String,
         change: StateChangeValue,
+        policy: StateSyncPolicy = StateSyncPolicy.KnownToAll, //TODO: configure this value properly, there should be no default here.
     ) {
-        // TODO: this is not how I want to do it. It should be added to a queue SYNCHRONOUSLY, and then processed in batches
-        scope.launch {
-            communication.send(listOf(StateChange(key, change)))
-        }
+        synchronizer.send(listOf(StateChange(key, change, policy)))
     }
+
 
     /**
      * Registers a Fun component with this client, allowing it to send and receive state updates.
@@ -103,7 +164,7 @@ class FunClient(
     /**
      * Registers a state property with its parent state holder.
      */
-     internal fun registerState(holderKey: String, propertyKey: String, state: FunState) {
+    internal fun registerState(holderKey: String, propertyKey: String, state: FunState) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to registering its sub-state '$propertyKey'!"
         )

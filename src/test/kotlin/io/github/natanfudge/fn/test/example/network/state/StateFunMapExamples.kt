@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.test.example.network.state
 
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunClient
+import io.github.natanfudge.fn.network.FunStateManager
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funMap
 import org.junit.jupiter.api.Test
@@ -13,7 +13,7 @@ class StateFunMapExamples {
     @Test
     fun funMapExample() {
         // Create a class that extends Fun and has a synchronized map
-        class ScoreBoard(id: String, client: FunClient) : Fun(id, client) {
+        class ScoreBoard(id: String, client: FunStateManager) : Fun(id, client) {
             val playerScores = funMap<String, Int>("playerScores", "Player1" to 100)
         }
 

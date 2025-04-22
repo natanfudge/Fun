@@ -41,6 +41,7 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
     override fun applyChange(change: StateChangeValue) {
         require(change is StateChangeValue.SetProperty)
         this.value = change.value.decode(serializer)
+        val x = 2
     }
 
     /**
@@ -81,12 +82,12 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
                 state = this as FunValue<Any?>
             )
         }
-
-        this.value = value
-
+        // Important to do this first so that if it throws then it won't update the value
         thisRef.client.sendUpdate(
             key = StateKey(thisRef.id, property.name),
             change = StateChangeValue.SetProperty(value.toNetwork(serializer)),
         )
+
+        this.value = value
     }
 }

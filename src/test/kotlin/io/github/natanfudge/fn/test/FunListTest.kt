@@ -2,9 +2,8 @@ package io.github.natanfudge.fn.test
 
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.test.assertFalse
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunClient
+import io.github.natanfudge.fn.network.FunStateManager
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funList
 import kotlinx.serialization.serializer
@@ -185,7 +184,7 @@ class FunListTest {
  */
 class GameInventory(
     id: String,
-    client: FunClient
+    client: FunStateManager
 ) : Fun(id, client) {
     // List of items in the inventory
     val items = funList<String>("items", serializer(), mutableListOf())
@@ -196,7 +195,7 @@ class GameInventory(
  */
 class GameInventoryWithInitialItems(
     id: String,
-    client: FunClient
+    client: FunStateManager
 ) : Fun(id, client) {
     // List of initial items in the inventory
     val initialItems = funList("initialItems", "Sword", "Shield", "Potion")

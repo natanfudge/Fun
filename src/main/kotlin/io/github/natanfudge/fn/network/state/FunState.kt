@@ -8,11 +8,13 @@ import kotlinx.serialization.json.Json
 
 //TODO: things to think about:
 // 2. 'secret' values - values only visible to their owner.
+// 2b. Make sure we don't have 'the diablo 4 case' where you are forced to sync everything. You should be allowed to opt in and receive values on demand.
 // 3. Protection of values - modifying values only from the server. Modification should only be allowed within a "server-prediction" context.
 // There should never be an option to "just set a value" with no checks. For this reason, we will throw an error on the client for the developers.
 // Circumventing this won't be possible because there will be no "just set this value" endpoint. Make sure to emphasize not to create such a thing to developers.
 // 4. Prediction - running server logic on the client for as long as possible
 // 4b. Prediction + server correction/rubberbanding. How do we allow prediction while avoiding incorrect values? How do we make rubberbanding a good experience for the user? (some manual input needed here)
+// 4b2 Prediction - sometimes disagreemenet between prediction and server will cause serious issues, like when two players try to press a button first.
 // 4c. prediction + server messages - how do we avoid server messages causing redundant or incorrectly ordered state changes - such as when a
 // list add is predicted and the server also applies the add, resulting in 2 adds instead of the intended single add?
 // 4d. prediction
@@ -33,6 +35,7 @@ import kotlinx.serialization.json.Json
 // But tbh it's a whole bag of worms because you might need to do caching and such (automatic redis anyone)? Or tbh devs could route it to redis and it would be fine.
 // 15. Compose MutableState integration
 // 16. Send state changes in batches. Configurable amount of delay to organize batches. Default - a few ms, configurable to maybe even 0.1ms.
+// 17. simulated latency, enabled by default
 
 //TODO: things to implement:
 // 1. Make sure messages arrive at the order they were sent (see multithreading doc in FunState)

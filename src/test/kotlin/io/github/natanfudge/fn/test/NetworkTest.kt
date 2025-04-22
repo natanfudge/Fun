@@ -2,7 +2,7 @@ package io.github.natanfudge.fn.test
 
 import kotlin.test.assertEquals
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunClient
+import io.github.natanfudge.fn.network.FunStateManager
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funValue
 import org.junit.jupiter.api.Test
@@ -82,8 +82,8 @@ class NetworkTest {
  * @param playerId The ID of the player using this client ("playerA" or "playerB")
  */
 class CardGameSession(
-    id: String, 
-    client: FunClient,
+    id: String,
+    client: FunStateManager,
     private val playerId: String
 ) : Fun(id, client) {
     // Player resources

@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.test
 
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunClient
+import io.github.natanfudge.fn.network.FunStateManager
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funSet
 import kotlinx.serialization.serializer
@@ -133,7 +133,7 @@ class FunSetTest {
  */
 class ItemCollection(
     id: String,
-    client: FunClient
+    client: FunStateManager
 ) : Fun(id, client) {
     // Set of items in the collection
     val items = funSet<String>("items", serializer(), mutableSetOf())
@@ -144,7 +144,7 @@ class ItemCollection(
  */
 class ItemCollectionWithInitialItems(
     id: String,
-    client: FunClient
+    client: FunStateManager
 ) : Fun(id, client) {
     // Set of initial items in the collection
     val initialItems = funSet("initialItems", "Sword", "Shield", "Potion")

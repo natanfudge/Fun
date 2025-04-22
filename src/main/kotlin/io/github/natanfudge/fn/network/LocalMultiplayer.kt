@@ -3,13 +3,13 @@ package io.github.natanfudge.fn.network
 import io.github.natanfudge.fn.network.state.StateChangeValue
 
 //TODO: I think it makes sense to allow configuring what happens when you access a value you can't see.
-// Either on a global level - throw / return default
-// Or a Fun level - throw / return default
-// Or a state level - throw / return default
-data class ClientHandle(
+// Either on a global level - throw / return current
+// Or a Fun level - throw / return current
+// Or a state level - throw / return current
+data class ServerHeldClientHandle(
     val permissions: ClientPermissions,
     val update: suspend (changes: List<StateChange>) -> Unit,
-)
+) : ClientHandle
 
 /**
  * A unique identifier for any state in the application
@@ -35,12 +35,12 @@ sealed interface ClientPermissions {
     }
 }
 
-data class StateChange(val key: StateKey, val value: StateChangeValue)
+data class StateChange(val key: StateKey, val value: StateChangeValue, val policy: StateSyncPolicy)
 
 /**
  * Creates a local multiplayer environment where multiple clients can communicate with each other.
  *
- * Contains multiple [FunClient] instances that send and receive state updates without network connections.
+ * Contains multiple [FunStateManager] instances that send and receive state updates without network connections.
  *
  * @see Fun
  */
@@ -48,26 +48,24 @@ class LocalMultiplayer(
     /**
      * The number of clients/players to create in this local multiplayer environment.
      */
-    private val playerCount: Int,
+    playerCount: Int,
 ) {
+    val server = FunStateManager(
+        synchronizer = ServerSynchronizer(synchronousUpdates = true) {
+            propagateStateChange(it)
+        }
+    )
+
     /**
      * List of clients that can be used to connect [Fun] components.
      * Each client has its own communication channel to other clients.
      */
-    val clients: List<FunClient> = List(playerCount) { clientNum ->
-        val communication = object : FunCommunication {
-            override suspend fun send(
-                changes: List<StateChange>,
-            ) {
-                val handle = handles[clientNum]
-                propagateStateChange(handle, changes)
-            }
-        }
-        FunClient(communication, name = "Local Multiplayer $clientNum")
+    val clients: List<FunStateManager> = List(playerCount) { clientNum ->
+        FunStateManager(FunStateSynchronizer.FromClient, name = "Local Multiplayer $clientNum")
     }
 
     private val handles = clients.map { client ->
-        ClientHandle(
+        ServerHeldClientHandle(
             ClientPermissions.Admin,
             update = {
                 for ((key, value) in it) {
@@ -77,24 +75,13 @@ class LocalMultiplayer(
         )
     }
 
-    private suspend fun propagateStateChange(instigator: ClientHandle, changes: List<StateChange>) {
+    private suspend fun propagateStateChange(changes: List<StateChange>) {
         handles.forEach { client ->
-            if (client != instigator) {
-                // Don't send information to clients that shouldn't have it
-                val visibleState = changes.filter { client.permissions.canSee(it.key) }
-                client.update(visibleState)
-            }
+            // Don't send information to clients that shouldn't have it (such as the one that caused the change)
+            val visibleState = changes.filter { it.policy.syncTo(client) }
+            client.update(visibleState)
         }
     }
-
-//    private fun acceptMessage(
-//        holderKey: String,
-//        propertyKey: String,
-//        change: StateChange,
-//        clientHandle: ClientHandle,
-//    ) {
-////        if(clientHandle)
-//    }
 }
 
 class CheatingException(message: String) : Exception(message)

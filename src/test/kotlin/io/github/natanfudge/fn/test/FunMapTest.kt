@@ -5,7 +5,7 @@ import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunClient
+import io.github.natanfudge.fn.network.FunStateManager
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funMap
 import kotlinx.serialization.serializer
@@ -160,7 +160,7 @@ class FunMapTest {
  */
 class GameItemProperties(
     id: String,
-    client: FunClient
+    client: FunStateManager
 ) : Fun(id, client) {
     // Map of item properties in the inventory
     val properties = funMap<String, Int>("properties", serializer(), serializer(), mutableMapOf())
@@ -171,7 +171,7 @@ class GameItemProperties(
  */
 class GameItemPropertiesWithInitialItems(
     id: String,
-    client: FunClient
+    client: FunStateManager
 ) : Fun(id, client) {
     // Map of initial item properties in the inventory
     val initialProperties = funMap("initialProperties", 

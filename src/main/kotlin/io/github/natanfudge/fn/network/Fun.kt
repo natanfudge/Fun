@@ -5,10 +5,10 @@ import io.github.natanfudge.fn.network.state.MapStateHolder
 
 /**
  * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
- * 
- * Fun components automatically register themselves with a [FunClient] and use [funValue] properties
+ *
+ * Fun components automatically register themselves with a [FunStateManager] and use [funValue] properties
  * to synchronize state changes across all clients.
- * 
+ *
  * @sample io.github.natanfudge.fn.example.network.NetworkExamples.networkStateExample
  */
 abstract class Fun(
@@ -21,8 +21,8 @@ abstract class Fun(
     /**
      * The client that this component is connected to, responsible for sending and receiving state updates.
      */
-    val client: FunClient,
-){
+    val client: FunStateManager,
+) {
     init {
         client.register(this, MapStateHolder())
     }
