@@ -17,13 +17,9 @@ abstract class Fun(
      * will synchronize their state.
      */
     val id: String,
-
-    /**
-     * The client that this component is connected to, responsible for sending and receiving state updates.
-     */
-    val client: FunStateManager,
+    val context: FunContext,
 ) {
     init {
-        client.register(this, MapStateHolder())
+        context.stateManager.register(this, MapStateHolder())
     }
 }

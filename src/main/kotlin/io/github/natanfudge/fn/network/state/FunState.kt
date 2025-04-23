@@ -7,6 +7,9 @@ import kotlinx.serialization.json.Json
 
 
 //TODO: things to think about:
+// 1. The main issue I'm having is i'm not sure who should initiate state changes. I originally thought that the client will tell the server
+// to perform an action and then simulate that action, but it might make sense to have the server initiate things. I guess it depends on input events vs game events.
+// I need an example of a game so better model the API.
 // 2. 'secret' values - values only visible to their owner.
 // 2b. Make sure we don't have 'the diablo 4 case' where you are forced to sync everything. You should be allowed to opt in and receive values on demand.
 // 3. Protection of values - modifying values only from the server. Modification should only be allowed within a "server-prediction" context.

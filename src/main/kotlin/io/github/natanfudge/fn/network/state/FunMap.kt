@@ -4,6 +4,7 @@ package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
+import io.github.natanfudge.fn.network.sendStateChange
 import io.github.natanfudge.fn.util.ImmutableCollection
 import io.github.natanfudge.fn.util.ImmutableSet
 import kotlinx.serialization.KSerializer
@@ -41,7 +42,7 @@ inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,
  */
 fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
     val map = FunMap(items, name, this, keySerializer, valueSerializer)
-    client.registerState(id, name, map)
+    context.stateManager.registerState(id, name, map)
     return map
 }
 
@@ -100,22 +101,22 @@ class FunMap<K, V> @PublishedApi internal constructor(
     override val entries: MutableSet<MutableMap.MutableEntry<K, V>> = ImmutableSet(_items.entries)
 
     override fun put(key: K, value: V): V? {
-        owner.client.sendUpdate(this.key, StateChangeValue.MapPut(key.keyToNetwork(), value.valueToNetwork()))
+        owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key.keyToNetwork(), value.valueToNetwork()))
         return _items.put(key, value)
     }
 
     override fun remove(key: K): V? {
-        owner.client.sendUpdate(this.key, StateChangeValue.MapRemove(key.keyToNetwork()))
+        owner.context.sendStateChange(this.key, StateChangeValue.MapRemove(key.keyToNetwork()))
         return _items.remove(key)
     }
 
     override fun putAll(from: Map<out K, V>) {
-        owner.client.sendUpdate(key, StateChangeValue.MapPutAll(from.mapToNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.MapPutAll(from.mapToNetwork()))
         _items.putAll(from)
     }
 
     override fun clear() {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionClear)
+        owner.context.sendStateChange(key, StateChangeValue.CollectionClear)
         _items.clear()
     }
 

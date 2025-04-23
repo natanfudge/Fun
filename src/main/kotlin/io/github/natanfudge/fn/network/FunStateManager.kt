@@ -2,14 +2,12 @@ package io.github.natanfudge.fn.network
 
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.error.UnfunStateException
-import io.github.natanfudge.fn.network.state.FunState
-import io.github.natanfudge.fn.network.state.FunValue
-import io.github.natanfudge.fn.network.state.MapStateHolder
-import io.github.natanfudge.fn.network.state.StateChangeValue
+import io.github.natanfudge.fn.network.state.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.KSerializer
 
 
 class ServerSynchronizer(
@@ -85,7 +83,106 @@ interface StateSyncPolicy {
     }
 }
 
+interface FunContext {
+    fun sendStateChange(
+        change: StateChange
+    )
+
+    fun sendMessageToServer(function: String, parameters: List<SerializableValue<*>>)
+    fun sendMessageToServer(function: String, vararg parameters: SerializableValue<*>) {
+        sendMessageToServer(function, parameters.toList())
+    }
+    val stateManager: FunStateManager
+}
+
+//object RpcUtils {
+//    fun sendMessageToServer(values: List<Any?>, serializers: List<K>)
+//}
+
+data class SerializableValue<T>(
+    val value: T,
+    val serializer: KSerializer<T>
+)
+
+
+//TODo: policy should not have a default
+fun FunContext.sendStateChange(key: StateKey, value: StateChangeValue, policy: StateSyncPolicy = StateSyncPolicy.KnownToAll) {
+    sendStateChange(StateChange(key, value, policy))
+}
+
+class FunServer(
+    /**
+     * If true, updates in state will synchronize synchronously, meaning changing state will stall until all other clients have received the update.
+     * This should only be used in local environments where there's no latency that will cause serious lag.
+     */
+    private val synchronousUpdates: Boolean,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
+    private val sendFunc: suspend (List<StateChange>) -> Unit,
+) : FunContext {
+    override val stateManager: FunStateManager = FunStateManager()
+    override fun sendStateChange(
+        change: StateChange,
+    ) {
+        if (synchronousUpdates) {
+            runBlocking {
+                sendFunc(listOf(change))
+            }
+        } else {
+            // TODO: this is not how I want to do it. It should be added to a queue SYNCHRONOUSLY, and then processed in batches
+            scope.launch {
+                sendFunc(listOf(change))
+            }
+        }
+    }
+
+    override fun sendMessageToServer(function: String, values: List<SerializableValue<*>>) {
+        throw UnallowedFunException("You are not supposed to send a message from the server to the server. Might be a good idea to make this a no-op though.")
+    }
+}
+
+class FunClient(internal val comm: FunCommunication) : FunContext {
+    override fun sendStateChange(
+        change: StateChange,
+    ) {
+        throw UnallowedFunException("This state was declared to be synchronized, so it should only be updated in a ServerLike context.")
+    }
+
+    //TODO: I'm not sure how to strcture the client/server interacctions. I need to see a game in action with the engine first to see how things will go.
+    // It might make sense to initate interactions FROM the server and therefore there's
+    override fun sendMessageToServer(function: String, values: List<SerializableValue<*>>) {
+        val rpc = Rpc(function, values.map { it.value })
+        val serializer = Rpc.serializer(values.map { it.serializer })
+        comm.send(TODO())
+    }
+
+    override val stateManager = FunStateManager()
+
+    internal fun receiveUpdate(key: StateKey, change: StateChangeValue) {
+        val holder = stateManager.stateHolders[key.holder]
+        if (holder != null) {
+            holder.applyChange(key.property, change)
+        } else {
+            println("WARNING: Received a value to the Fun component '${key.holder}', but no such ID exists, so the value was discarded. (value = $change)")
+        }
+    }
+}
+
+internal data class Rpc(
+    val function: String,
+    val parameters: List<Any?>
+) {
+    companion object {
+        fun serializer(parameterSerializers: List<KSerializer<*>>): KSerializer<Rpc> {
+            TODO()
+        }
+    }
+}
+
 //class ClientHeldClientHandle
+
+interface FunCommunication {
+    fun send(message: NetworkValue)
+}
 
 /**
  * Manages the state synchronization for a single client in a multiplayer environment.
@@ -98,46 +195,31 @@ interface StateSyncPolicy {
  * @see Fun
  */
 class FunStateManager(
-    //TODO: this is wrong. there should be no handle to perform arbitrary state changes. The handle should only allow you to run
-    // preexisting routines. Arbitrary state change should be done in a MaybeServerContext
-    /**
-     * The communication channel used to send updates to other clients.
-     */
-    val synchronizer: FunStateSynchronizer,
-    val name: String = "FunStateManager",
-    //TODO: this config is not applicable for clients. OK I got it. I do need to split it somehow. have one that accepts a FunStateChangeApplicator and one that doesn't.
-//    val config: FunStateConfig = FunStateConfig(),
-//    val disallowMutations: Boolean,
+//    val synchronizer: FunStateSynchronizer,
+//    val name: String = "FunStateManager",
 ) {
 
-    private val stateHolders = mutableMapOf<String, MapStateHolder>()
+    internal val stateHolders = mutableMapOf<String, MapStateHolder>()
 
     /**
      * Receives a state update from another client and applies it to the appropriate state holder.
      */
     //TODo: this function is not applicable for servers, need to see how I can pull it out.
-    internal fun receiveUpdate(key: StateKey, change: StateChangeValue) {
-        val holder = stateHolders[key.holder]
-        if (holder != null) {
-            holder.applyChange(key.property, change)
-        } else {
-            println("WARNING: Received a value to the Fun component '${key.holder}', but no such ID exists, so the value was discarded. (value = $change)")
-        }
-    }
+
 
 //    // DANGER: We might need to setup this differently and close it in some way
 //    private val scope = CoroutineScope(Dispatchers.IO)
 
-    /**
-     * Sends a state update to other clients through the communication channel.
-     */
-    internal fun sendUpdate(
-        key: StateKey,
-        change: StateChangeValue,
-        policy: StateSyncPolicy = StateSyncPolicy.KnownToAll, //TODO: configure this value properly, there should be no default here.
-    ) {
-        synchronizer.send(listOf(StateChange(key, change, policy)))
-    }
+//    /**
+//     * Sends a state update to other clients through the communication channel.
+//     */
+//    internal fun sendUpdate(
+//        key: StateKey,
+//        change: StateChangeValue,
+//        policy: StateSyncPolicy = StateSyncPolicy.KnownToAll, //TODO: configure this value properly, there should be no default here.
+//    ) {
+//        synchronizer.send(listOf(StateChange(key, change, policy)))
+//    }
 
 
     /**

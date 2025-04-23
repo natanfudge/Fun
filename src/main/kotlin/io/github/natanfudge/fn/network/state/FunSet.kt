@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
+import io.github.natanfudge.fn.network.sendStateChange
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.serializer
@@ -36,7 +37,7 @@ inline fun <reified T> Fun.funSet(name: String, vararg items: T): FunSet<T> = fu
  */
 fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>): FunSet<T> {
     val list = FunSet(items, name, this, serializer)
-    client.registerState(id, name, list)
+    context.stateManager.registerState(id, name, list)
     return list
 }
 
@@ -90,34 +91,34 @@ class FunSet<T> @PublishedApi internal constructor(
 
 
     override fun add(element: T): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionAdd(element.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element.toNetwork()))
         return _items.add(element)
     }
 
     override fun remove(element: T): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionRemove(element.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRemove(element.toNetwork()))
         return _items.remove(element)
     }
 
     override fun addAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionAddAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionAddAll(elements.toNetwork()))
         return _items.addAll(elements)
     }
 
 
 
     override fun removeAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionRemoveAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRemoveAll(elements.toNetwork()))
         return _items.removeAll(elements)
     }
 
     override fun retainAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionRetainAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRetainAll(elements.toNetwork()))
         return _items.retainAll(elements)
     }
 
     override fun clear() {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionClear)
+        owner.context.sendStateChange(key, StateChangeValue.CollectionClear)
         _items.clear()
     }
 

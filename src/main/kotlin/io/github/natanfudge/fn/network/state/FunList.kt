@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
+import io.github.natanfudge.fn.network.sendStateChange
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.serializer
@@ -36,7 +37,7 @@ inline fun <reified T> Fun.funList(name: String, vararg items: T): FunList<T> = 
  */
 fun <T> Fun.funList(name: String, serializer: KSerializer<T>, items: MutableList<T>): FunList<T> {
     val list = FunList(items, name, this, serializer)
-    client.registerState(id, name, list)
+    context.stateManager.registerState(id, name, list)
     return list
 }
 
@@ -94,53 +95,53 @@ class FunList<T> @PublishedApi internal constructor(
 
 
     override fun add(element: T): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionAdd(element.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element.toNetwork()))
         return _items.add(element)
     }
 
     override fun remove(element: T): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionRemove(element.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRemove(element.toNetwork()))
         return _items.remove(element)
     }
 
     override fun addAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionAddAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionAddAll(elements.toNetwork()))
         return _items.addAll(elements)
     }
 
     override fun addAll(index: Int, elements: Collection<T>): Boolean {
         // We need to include the index in the network update
-        owner.client.sendUpdate(key, StateChangeValue.ListIndexedAddAll(elements.toNetwork(), index))
+        owner.context.sendStateChange(key, StateChangeValue.ListIndexedAddAll(elements.toNetwork(), index))
         return _items.addAll(index, elements)
     }
 
     override fun removeAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionRemoveAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRemoveAll(elements.toNetwork()))
         return _items.removeAll(elements)
     }
 
     override fun retainAll(elements: Collection<T>): Boolean {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionRetainAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRetainAll(elements.toNetwork()))
         return _items.retainAll(elements)
     }
 
     override fun clear() {
-        owner.client.sendUpdate(key, StateChangeValue.CollectionClear)
+        owner.context.sendStateChange(key, StateChangeValue.CollectionClear)
         _items.clear()
     }
 
     override operator fun set(index: Int, element: T): T {
-        owner.client.sendUpdate(key, StateChangeValue.ListSet(element.toNetwork(), index))
+        owner.context.sendStateChange(key, StateChangeValue.ListSet(element.toNetwork(), index))
         return _items.set(index, element)
     }
 
     override fun add(index: Int, element: T) {
-        owner.client.sendUpdate(key, StateChangeValue.ListIndexedAdd(element.toNetwork(), index))
+        owner.context.sendStateChange(key, StateChangeValue.ListIndexedAdd(element.toNetwork(), index))
         _items.add(index, element)
     }
 
     override fun removeAt(index: Int): T {
-        owner.client.sendUpdate(key, StateChangeValue.ListRemoveAt(index))
+        owner.context.sendStateChange(key, StateChangeValue.ListRemoveAt(index))
         return _items.removeAt(index)
     }
 

@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
+import io.github.natanfudge.fn.network.sendStateChange
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 import org.koin.core.component.KoinComponent
@@ -53,12 +54,12 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
     override fun getValue(thisRef: Fun, property: KProperty<*>): T {
         if (!registered) {
             registered = true
-            thisRef.client.registerState(
+            thisRef.context.stateManager.registerState(
                 holderKey = thisRef.id,
                 propertyKey = property.name,
                 state = this as FunValue<Any?>
             )
-            thisRef.client.setPendingValue(
+            thisRef.context.stateManager.setPendingValue(
                 holderKey = thisRef.id,
                 propertyKey = property.name,
                 state = this as FunValue<Any?>
@@ -76,16 +77,16 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
     override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
         if (!registered) {
             registered = true
-            thisRef.client.registerState(
+            thisRef.context.stateManager.registerState(
                 holderKey = thisRef.id,
                 propertyKey = property.name,
                 state = this as FunValue<Any?>
             )
         }
         // Important to do this first so that if it throws then it won't update the value
-        thisRef.client.sendUpdate(
-            key = StateKey(thisRef.id, property.name),
-            change = StateChangeValue.SetProperty(value.toNetwork(serializer)),
+        thisRef.context.sendStateChange(
+            StateKey(thisRef.id, property.name),
+            StateChangeValue.SetProperty(value.toNetwork(serializer)),
         )
 
         this.value = value

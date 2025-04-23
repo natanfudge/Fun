@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.network
 
+import io.github.natanfudge.fn.network.state.NetworkValue
 import io.github.natanfudge.fn.network.state.StateChangeValue
 
 //TODO: I think it makes sense to allow configuring what happens when you access a value you can't see.
@@ -50,19 +51,25 @@ class LocalMultiplayer(
      */
     playerCount: Int,
 ) {
-    val server = FunStateManager(
-        synchronizer = ServerSynchronizer(synchronousUpdates = true) {
-            propagateStateChange(it)
-        }
-    )
+    val server = FunServer(
+        synchronousUpdates = true
+    ) {
+        propagateStateChange(it)
+    }
 
     /**
      * List of clients that can be used to connect [Fun] components.
      * Each client has its own communication channel to other clients.
      */
-    val clients: List<FunStateManager> = List(playerCount) { clientNum ->
-        FunStateManager(FunStateSynchronizer.FromClient, name = "Local Multiplayer $clientNum")
+    val clients: List<FunClient> = List(playerCount) { clientNum ->
+        FunClient(object : FunCommunication {
+            override fun send(values: List<SerializableValue<*>>) {
+                TODO("Not yet implemented")
+            }
+
+        })
     }
+//    name = "Local Multiplayer $clientNum"
 
     private val handles = clients.map { client ->
         ServerHeldClientHandle(

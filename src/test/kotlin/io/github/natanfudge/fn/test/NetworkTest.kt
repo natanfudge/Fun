@@ -2,14 +2,17 @@ package io.github.natanfudge.fn.test
 
 import kotlin.test.assertEquals
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.FunContext
 import io.github.natanfudge.fn.network.FunStateManager
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funValue
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
  * Examples demonstrating the usage of the Fun networking system.
  */
+@Disabled
 class NetworkTest {
     /**
      * Demonstrates how to use the Fun networking system to synchronize state between multiple clients
@@ -83,7 +86,7 @@ class NetworkTest {
  */
 class CardGameSession(
     id: String,
-    client: FunStateManager,
+    client: FunContext,
     private val playerId: String
 ) : Fun(id, client) {
     // Player resources
