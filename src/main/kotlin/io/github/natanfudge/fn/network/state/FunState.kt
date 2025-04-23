@@ -7,6 +7,16 @@ import kotlinx.serialization.json.Json
 
 
 //TODO: things to think about:
+// 0. Had an amazing epiphany - the cases where you want to send messages to the server are extremely limited - specifically -
+// just input! We set up these events on the engine side:
+// fun onKeypress(key: Key) {
+// ...
+// }
+// fun onClick(pos / orientation) {
+// ....
+// }
+// We let the user implement those and we just run it on both the client and the server. Server-made state changes are synced.
+//
 // 1. The main issue I'm having is i'm not sure who should initiate state changes. I originally thought that the client will tell the server
 // to perform an action and then simulate that action, but it might make sense to have the server initiate things. I guess it depends on input events vs game events.
 // I need an example of a game so better model the API.
