@@ -10,9 +10,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-@Disabled
 class StateFunListExamples {
-    @Disabled
     @Test
     fun funListExample() {
         // Create a class that extends Fun and has a synchronized list
@@ -24,39 +22,53 @@ class StateFunListExamples {
         val multiplayer = LocalMultiplayer(2)
         val chatRoom1 = ChatRoom("chat-room", multiplayer.clients[0])
         val chatRoom2 = ChatRoom("chat-room", multiplayer.clients[1]) // Same ID to sync state
+        val serverChatRoom = ChatRoom("chat-room", multiplayer.server) // Server instance for state changes
 
         // Verify initial values are synchronized
         assertEquals(1, chatRoom2.messages.size)
         assertEquals("Welcome to the chat!", chatRoom2.messages[0])
 
-        // Add items to the list on chatRoom1 and verify they sync to chatRoom2
-        chatRoom1.messages.add("Hello from client 1")
+        // Add items to the list on server and verify they sync to clients
+        serverChatRoom.messages.add("Hello from server")
 
+        assertEquals(2, chatRoom1.messages.size)
+        assertEquals("Hello from server", chatRoom1.messages[1])
         assertEquals(2, chatRoom2.messages.size)
-        assertEquals("Hello from client 1", chatRoom2.messages[1])
+        assertEquals("Hello from server", chatRoom2.messages[1])
 
-        // Modify the list on chatRoom2 and verify changes sync back to chatRoom1
-        chatRoom2.messages.add("Hello from client 2")
-        chatRoom2.messages[0] = "Updated welcome message"
+        // Modify the list on server and verify changes sync to clients
+        serverChatRoom.messages.add("Another message from server")
+        serverChatRoom.messages[0] = "Updated welcome message"
 
         assertEquals(3, chatRoom1.messages.size)
         assertEquals("Updated welcome message", chatRoom1.messages[0])
-        assertEquals("Hello from client 2", chatRoom1.messages[2])
+        assertEquals("Another message from server", chatRoom1.messages[2])
+        assertEquals(3, chatRoom2.messages.size)
+        assertEquals("Updated welcome message", chatRoom2.messages[0])
+        assertEquals("Another message from server", chatRoom2.messages[2])
 
         // Demonstrate other list operations
-        chatRoom1.messages.removeAt(1) // Remove "Hello from client 1"
+        serverChatRoom.messages.removeAt(1) // Remove "Hello from server"
+        assertEquals(2, chatRoom1.messages.size)
+        assertEquals("Updated welcome message", chatRoom1.messages[0])
+        assertEquals("Another message from server", chatRoom1.messages[1])
         assertEquals(2, chatRoom2.messages.size)
         assertEquals("Updated welcome message", chatRoom2.messages[0])
-        assertEquals("Hello from client 2", chatRoom2.messages[1])
+        assertEquals("Another message from server", chatRoom2.messages[1])
 
         // Add multiple items at once
-        chatRoom2.messages.addAll(listOf("Message 3", "Message 4"))
+        serverChatRoom.messages.addAll(listOf("Message 3", "Message 4"))
         assertEquals(4, chatRoom1.messages.size)
         assertEquals("Message 3", chatRoom1.messages[2])
         assertEquals("Message 4", chatRoom1.messages[3])
+        assertEquals(4, chatRoom2.messages.size)
+        assertEquals("Message 3", chatRoom2.messages[2])
+        assertEquals("Message 4", chatRoom2.messages[3])
 
         // Clear the list
-        chatRoom1.messages.clear()
+        serverChatRoom.messages.clear()
+        assertEquals(0, chatRoom1.messages.size)
+        assertTrue(chatRoom1.messages.isEmpty())
         assertEquals(0, chatRoom2.messages.size)
         assertTrue(chatRoom2.messages.isEmpty())
     }

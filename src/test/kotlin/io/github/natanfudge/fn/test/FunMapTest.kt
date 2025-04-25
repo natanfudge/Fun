@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test
 /**
  * Tests for the funMap function in the Fun networking system.
  */
-@Disabled
 class FunMapTest {
     /**
      * Tests that a funMap properly synchronizes map operations between multiple clients.
@@ -32,21 +31,24 @@ class FunMapTest {
         // Create a game inventory for client 2 with the same ID
         val client2Inventory = GameItemProperties("test-inventory", multiplayer.clients[1])
 
+        // Create a game inventory for server with the same ID
+        val serverInventory = GameItemProperties("test-inventory", multiplayer.server)
+
         // Verify initial state is synchronized
         assertEquals(0, client1Inventory.properties.size, "Initial properties size via client1")
         assertEquals(0, client2Inventory.properties.size, "Initial properties size via client2")
 
-        // Client 1 adds an item property
-        client1Inventory.properties["Sword"] = 10
+        // Server adds an item property
+        serverInventory.properties["Sword"] = 10
 
-        // Verify property is synchronized to client 2
+        // Verify property is synchronized to clients
         assertEquals(1, client1Inventory.properties.size, "Properties size after put via client1")
         assertEquals(1, client2Inventory.properties.size, "Properties size after put via client2")
         assertEquals(10, client1Inventory.properties["Sword"], "Property value via client1")
         assertEquals(10, client2Inventory.properties["Sword"], "Property value via client2")
 
-        // Client 2 adds another property
-        client2Inventory.properties["Shield"] = 20
+        // Server adds another property
+        serverInventory.properties["Shield"] = 20
 
         // Verify both properties are synchronized
         assertEquals(2, client1Inventory.properties.size, "Properties size after second put via client1")
@@ -66,11 +68,13 @@ class FunMapTest {
         // Create a game inventory for each client with the same ID
         val client1Inventory = GameItemProperties("test-inventory", multiplayer.clients[0])
         val client2Inventory = GameItemProperties("test-inventory", multiplayer.clients[1])
+        // Create a game inventory for server with the same ID
+        val serverInventory = GameItemProperties("test-inventory", multiplayer.server)
 
         // Test put operation
-        client1Inventory.properties["Sword"] = 10
-        client1Inventory.properties["Shield"] = 20
-        client1Inventory.properties["Potion"] = 5
+        serverInventory.properties["Sword"] = 10
+        serverInventory.properties["Shield"] = 20
+        serverInventory.properties["Potion"] = 5
         assertEquals(3, client1Inventory.properties.size, "Properties size after puts via client1")
         assertEquals(3, client2Inventory.properties.size, "Properties size after puts via client2")
         assertEquals(10, client1Inventory.properties["Sword"], "First property after puts via client1")
@@ -81,12 +85,12 @@ class FunMapTest {
         assertEquals(5, client2Inventory.properties["Potion"], "Third property after puts via client2")
 
         // Test update operation
-        client2Inventory.properties["Shield"] = 25
+        serverInventory.properties["Shield"] = 25
         assertEquals(25, client1Inventory.properties["Shield"], "Property after update via client1")
         assertEquals(25, client2Inventory.properties["Shield"], "Property after update via client2")
 
         // Test remove operation
-        val removedValue = client1Inventory.properties.remove("Potion")
+        val removedValue = serverInventory.properties.remove("Potion")
         assertEquals(5, removedValue, "Removed value should be 5")
         assertEquals(2, client1Inventory.properties.size, "Properties size after remove via client1")
         assertEquals(2, client2Inventory.properties.size, "Properties size after remove via client2")
@@ -107,7 +111,7 @@ class FunMapTest {
 
         // Test putAll operation
         val additionalItems = mapOf("Helmet" to 15, "Boots" to 12)
-        client2Inventory.properties.putAll(additionalItems)
+        serverInventory.properties.putAll(additionalItems)
         assertEquals(4, client1Inventory.properties.size, "Properties size after putAll via client1")
         assertEquals(4, client2Inventory.properties.size, "Properties size after putAll via client2")
         assertEquals(15, client1Inventory.properties["Helmet"], "New property 'Helmet' after putAll via client1")
@@ -116,7 +120,7 @@ class FunMapTest {
         assertEquals(12, client2Inventory.properties["Boots"], "New property 'Boots' after putAll via client2")
 
         // Test clear operation
-        client1Inventory.properties.clear()
+        serverInventory.properties.clear()
         assertEquals(0, client1Inventory.properties.size, "Properties size after clear via client1")
         assertEquals(0, client2Inventory.properties.size, "Properties size after clear via client2")
         assertTrue(client1Inventory.properties.isEmpty(), "Properties should be empty after clear via client1")
@@ -134,6 +138,8 @@ class FunMapTest {
         // Create a game inventory with initial properties for each client
         val client1Inventory = GameItemPropertiesWithInitialItems("test-inventory", multiplayer.clients[0])
         val client2Inventory = GameItemPropertiesWithInitialItems("test-inventory", multiplayer.clients[1])
+        // Create a game inventory with initial properties for server
+        val serverInventory = GameItemPropertiesWithInitialItems("test-inventory", multiplayer.server)
 
         // Verify initial state is synchronized
         assertEquals(3, client1Inventory.initialProperties.size, "Initial properties size via client1")
@@ -145,8 +151,8 @@ class FunMapTest {
         assertEquals(20, client2Inventory.initialProperties["Shield"], "Second initial property via client2")
         assertEquals(5, client2Inventory.initialProperties["Potion"], "Third initial property via client2")
 
-        // Client 1 modifies the map
-        client1Inventory.initialProperties.remove("Shield")
+        // Server modifies the map
+        serverInventory.initialProperties.remove("Shield")
 
         // Verify change is synchronized
         assertEquals(2, client1Inventory.initialProperties.size, "Properties size after remove via client1")

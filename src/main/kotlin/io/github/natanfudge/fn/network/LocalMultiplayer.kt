@@ -63,7 +63,11 @@ class LocalMultiplayer(
      */
     val clients: List<FunClient> = List(playerCount) { clientNum ->
         FunClient(object : FunCommunication {
-            override fun send(values: List<SerializableValue<*>>) {
+//            override fun send(values: List<SerializableValue<*>>) {
+//                TODO("Not yet implemented")
+//            }
+
+            override fun send(message: NetworkValue) {
                 TODO("Not yet implemented")
             }
 

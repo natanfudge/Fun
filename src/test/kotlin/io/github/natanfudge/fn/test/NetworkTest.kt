@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test
 /**
  * Examples demonstrating the usage of the Fun networking system.
  */
-@Disabled
 class NetworkTest {
     /**
      * Demonstrates how to use the Fun networking system to synchronize state between multiple clients
@@ -30,6 +29,9 @@ class NetworkTest {
         // Create a game session for player 2 (using client 1)
         val clientB = CardGameSession("cosmic-duel", multiplayer.clients[1], "playerB")
 
+        // Create a game session for server
+        val serverSession = CardGameSession("cosmic-duel", multiplayer.server, "server")
+
         // Initially, both players have their starting resources
         assertEquals(3, clientA.playerAMana, "playerA mana via clientA")
         assertEquals(3, clientA.playerBMana, "playerB mana via clientA")
@@ -38,8 +40,9 @@ class NetworkTest {
         assertEquals("playerA", clientA.currentTurn, "Current turn via clientA")
         assertEquals("playerA", clientB.currentTurn, "Current turn via clientB")
 
-        // Client A (playerA) plays a card that costs 2 mana during playerA's turn
-        clientA.playCard("Cosmic Dragon", 2)
+        // Server simulates playerA playing a card that costs 2 mana during playerA's turn
+        serverSession.currentTurn = "playerA" // Ensure it's playerA's turn
+        serverSession.playCard("Cosmic Dragon", 2)
 
         // Verify state is updated and synchronized across both clients
         assertEquals(1, clientA.playerAMana, "playerA mana after playing card via clientA")
@@ -47,15 +50,16 @@ class NetworkTest {
         assertEquals("Cosmic Dragon", clientA.lastPlayedCard, "Last played card via clientA")
         assertEquals("Cosmic Dragon", clientB.lastPlayedCard, "Last played card via clientB")
 
-        // Client A ends their turn
-        clientA.endTurn()
+        // Server ends playerA's turn
+        serverSession.endTurn()
 
         // Verify turn changed
-        assertEquals("playerB", clientA.currentTurn, "Current turn after clientA ends turn (via clientA)")
-        assertEquals("playerB", clientB.currentTurn, "Current turn after clientA ends turn (via clientB)")
+        assertEquals("playerB", clientA.currentTurn, "Current turn after server ends playerA's turn (via clientA)")
+        assertEquals("playerB", clientB.currentTurn, "Current turn after server ends playerA's turn (via clientB)")
 
-        // Client B (playerB) plays a card during playerB's turn
-        clientB.playCard("Nebula Shield", 1)
+        // Server simulates playerB playing a card during playerB's turn
+        serverSession.currentTurn = "playerB" // Ensure it's playerB's turn
+        serverSession.playCard("Nebula Shield", 1)
 
         // Verify state is updated and synchronized
         assertEquals(4, clientA.playerBMana, "playerB mana after playing card via clientA") // 3 + 2 - 1 = 4 mana left
@@ -63,8 +67,8 @@ class NetworkTest {
         assertEquals("Nebula Shield", clientA.lastPlayedCard, "Last played card via clientA")
         assertEquals("Nebula Shield", clientB.lastPlayedCard, "Last played card via clientB")
 
-        // Client B ends their turn
-        clientB.endTurn()
+        // Server ends playerB's turn
+        serverSession.endTurn()
 
         // Verify turn changed back to playerA and mana is increased
         assertEquals("playerA", clientA.currentTurn, "Current turn after full round (via clientA)")
@@ -100,15 +104,17 @@ class CardGameSession(
     /**
      * Simulates playing a card from hand, reducing mana and updating the last played card.
      * Only works if it's the player's turn and they have enough mana.
+     * Server can play cards for any player.
      */
     fun playCard(cardName: String, manaCost: Int) {
-        // Only allow the player to play a card on their turn
-        if (currentTurn != playerId) {
+        // If this is the server, it can play cards for any player
+        // If this is a client, only allow the player to play a card on their turn
+        if (playerId != "server" && currentTurn != playerId) {
             return
         }
 
-        // Check if the player has enough mana and reduce it
-        when (playerId) {
+        // Check if the current turn player has enough mana and reduce it
+        when (currentTurn) {
             "playerA" -> {
                 if (playerAMana >= manaCost) {
                     playerAMana -= manaCost
@@ -127,10 +133,12 @@ class CardGameSession(
     /**
      * Ends the current player's turn and updates game state accordingly.
      * Only works if it's the player's turn.
+     * Server can end turn for any player.
      */
     fun endTurn() {
-        // Only allow the player to end the turn if it's their turn
-        if (currentTurn != playerId) {
+        // If this is the server, it can end turn for any player
+        // If this is a client, only allow the player to end the turn if it's their turn
+        if (playerId != "server" && currentTurn != playerId) {
             return
         }
 

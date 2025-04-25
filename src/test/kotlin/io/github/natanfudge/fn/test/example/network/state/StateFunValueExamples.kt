@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
 
-@Disabled
 class StateFunValueExamples {
     @Test
     fun funValueExample() {
@@ -24,24 +23,29 @@ class StateFunValueExamples {
         val multiplayer = LocalMultiplayer(2)
         val player1 = Player("player-1", multiplayer.clients[0])
         val player2 = Player("player-1", multiplayer.clients[1]) // Same ID to sync state
+        val serverPlayer = Player("player-1", multiplayer.server) // Server instance for state changes
 
         // Verify initial values are synchronized
         assertEquals(100, player2.health)
         assertEquals("Player", player2.name)
 
-        // Modify values on player1 and verify they sync to player2
-        player1.health = 75
-        player1.name = "Updated Player"
+        // Modify values on server and verify they sync to clients
+        serverPlayer.health = 75
+        serverPlayer.name = "Updated Player"
 
+        assertEquals(75, player1.health)
+        assertEquals("Updated Player", player1.name)
         assertEquals(75, player2.health)
         assertEquals("Updated Player", player2.name)
 
-        // Modify values on player2 and verify they sync back to player1
-        player2.health = 50
-        player2.name = "Player Two"
+        // Modify more values on server and verify they sync to clients
+        serverPlayer.health = 50
+        serverPlayer.name = "Player Two"
 
         assertEquals(50, player1.health)
         assertEquals("Player Two", player1.name)
+        assertEquals(50, player2.health)
+        assertEquals("Player Two", player2.name)
     }
 
     @Test
@@ -52,12 +56,6 @@ class StateFunValueExamples {
             var hp by funValue(50)
         }
 
-        @PredictedRpc
-        fun playCard(player: Player) {
-            player.context.sendMessageToServer(TODO())
-            player.mana--
-            player.hp++
-        }
 
         // Set up a multiplayer environment with two clients
         val multiplayer = LocalMultiplayer(2)
@@ -74,8 +72,8 @@ class StateFunValueExamples {
         // Verify initial values are synchronized
         assertEquals(100, player2.mana)
 
-        playCard(player1)
-
+        serverPlayer.mana = 99
+        serverPlayer.hp = 101
         // Modify values on player1 and verify they sync to player2
 //        serverPlayer.mana = 75
 
@@ -84,23 +82,5 @@ class StateFunValueExamples {
         assertEquals(101, player2.hp)
         assertEquals(101, player2.hp)
 
-    }
-}
-
-
-annotation class PredictedRpc
-
-//TODO: All state modifications should be done like this:
-class ServerHandler {
-    class Player(id: String, context: FunContext): Fun(id , context) {
-        var mana: Int by funValue(100)
-        var hp by funValue(50)
-    }
-    // The big thing here is going to be figuring out how to pass this Player thing.
-    // As long as the Player is registered at some point in the server, we can fetch it out of a map.
-    // We will need to add a @Serializable(with = FunSerializer). Compiler plugin should get rid of that.
-    fun playCard(player: Player) {
-        player.mana--
-        player.hp++
     }
 }

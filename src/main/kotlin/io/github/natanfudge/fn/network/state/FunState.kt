@@ -16,7 +16,7 @@ import kotlinx.serialization.json.Json
 // ....
 // }
 // We let the user implement those and we just run it on both the client and the server. Server-made state changes are synced.
-//
+//0 . Change the tests to be client + server with server making the changes for them to make sense
 // 1. The main issue I'm having is i'm not sure who should initiate state changes. I originally thought that the client will tell the server
 // to perform an action and then simulate that action, but it might make sense to have the server initiate things. I guess it depends on input events vs game events.
 // I need an example of a game so better model the API.
