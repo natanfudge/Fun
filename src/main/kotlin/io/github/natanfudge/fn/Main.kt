@@ -3,11 +3,14 @@ package io.github.natanfudge.fn
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.window.GlfwWebgpuWindow
 
+interface Restartable<T> {
+    fun restart(params: T? = null)
+}
+
 
 // -XX:+AllowEnhancedClassRedefinition -XX:HotswapAgent=core, use jbr_25
 fun main() {
     val window = GlfwWebgpuWindow()
-    println("Start 4")
 
     FunHotReload.observation.listen {
         println("Reloading")
@@ -17,11 +20,6 @@ fun main() {
         }
     }
     window.show()
-//    application {
-//        Window(::exitApplication) {
-//            Text("ALO")
-//        }
-//    }
 }
 
 

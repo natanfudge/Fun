@@ -3,6 +3,8 @@ package io.github.natanfudge.fn.window
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Window
+import io.github.natanfudge.fn.Restartable
 import io.github.natanfudge.fn.compose.ComposeMainApp
 import io.github.natanfudge.fn.compose.GlInitComposeGlfwAdapter
 import org.lwjgl.glfw.GLFW
@@ -13,7 +15,7 @@ import org.lwjgl.opengl.GL11.GL_TRUE
 import org.lwjgl.system.MemoryUtil.NULL
 
 
-class GlfwWebgpuWindow {
+class GlfwWebgpuWindow: Restartable<WindowConfig> {
     private lateinit var instance: GlInitGlfwWindowInstance
     private var open = true
 
@@ -108,7 +110,6 @@ class GlfwWebgpuWindow {
                 waitingTasks.forEach { it() }
                 waitingTasks.clear()
             }
-//            Thread.sleep(30)// Temporary hack
         }
         instance.close()
     }
@@ -120,7 +121,8 @@ class GlfwWebgpuWindow {
     }
 
 
-    fun restart(config: WindowConfig = WindowConfig()) {
+    override fun restart(config: WindowConfig? ) {
+        val config = config ?: WindowConfig()
         instance.close()
         instance = GlInitGlfwWindowInstance(config)
     }

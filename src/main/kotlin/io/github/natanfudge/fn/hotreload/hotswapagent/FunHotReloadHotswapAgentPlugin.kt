@@ -73,9 +73,10 @@ class FunHotReloadHotswapAgentPlugin {
          * @param ctClass see @OnClassLoadEvent javadoc for available parameter types. CtClass is convenient way
          * to enhance method bytecode using javaasist
          */
-        @OnClassLoadEvent(classNameRegexp = "io.github.natanfudge.fu.hotreload.FunHotReload")
+        @OnClassLoadEvent(classNameRegexp = "io.github.natanfudge.fn.hotreload.FunHotReload")
         @JvmStatic
         fun transformTestEntityService(ctClass: CtClass) {
+            LOGGER.info("FunHotReload initialized")
             // You need always find a place from which to initialize the plugin.
             // Initialization will create new plugin instance (notice that transformTestEntityService is
             // a static method), inject agent services (@Inject) and register event listeners (@OnClassLoadEvent and @OnResourceFileEvent).
@@ -101,6 +102,7 @@ class ReloadClassCommand(var appClassLoader: ClassLoader, var className: String?
 
     override fun executeCommand() {
         try {
+            LOGGER.info("Restarting components...")
             // Now we have application classloader and the service on which to invoke the method, we can use
             // reflection directly
             // but for demonstration purpose we invoke a plugin class, that lives in the application classloader

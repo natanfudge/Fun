@@ -55,6 +55,8 @@ version = "1.0-SNAPSHOT"
 repositories {
     mavenCentral()
     google()
+    //wgpu4k snapshot & preview repository
+    maven("https://gitlab.com/api/v4/projects/25805863/packages/maven")
 }
 
 
@@ -79,6 +81,7 @@ dependencies {
     implementation(compose.material3)
     implementation(project.dependencies.platform("io.insert-koin:koin-bom:$koin_version"))
     implementation("io.insert-koin:koin-core")
+    implementation(libs.wgpu4k)
     runtimeOnly(compose.desktop.windows_x64)
 
     testImplementation(libs.bundles.commonTest)
@@ -87,7 +90,7 @@ dependencies {
 kotlin {
     jvmToolchain {
         this.languageVersion = JavaLanguageVersion.of(21)
-        vendor = JvmVendorSpec.JETBRAINS
+//        vendor = JvmVendorSpec.JETBRAINS
     }
     sourceSets.all {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")
