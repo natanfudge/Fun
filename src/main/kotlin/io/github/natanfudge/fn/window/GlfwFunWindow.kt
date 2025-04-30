@@ -1,25 +1,65 @@
 package io.github.natanfudge.fn.window
 
 import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.window.Window
-import io.github.natanfudge.fn.Restartable
-import io.github.natanfudge.fn.compose.ComposeMainApp
-import io.github.natanfudge.fn.compose.GlInitComposeGlfwAdapter
-import org.lwjgl.glfw.GLFW
+import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
-import org.lwjgl.opengl.GL11.GL_TRUE
 import org.lwjgl.system.MemoryUtil.NULL
 
 
-class GlfwWebgpuWindow: Restartable<WindowConfig> {
+data class WindowConfig(
+    val initialWindowWidth: Int = 800,
+    val initialWindowHeight: Int = 600,
+    val initialTitle: String = "Fun",
+    val fps: Int = 60,
+)
+
+interface WindowCallbacks {
+    fun init(handle: WindowHandle)
+    fun frame(delta: Double)
+    fun resize(width: Int, height: Int)
+    fun pointerEvent(
+        eventType: PointerEventType,
+        position: Offset,
+        scrollDelta: Offset = Offset.Zero,
+        timeMillis: Long = currentTimeForEvent(),
+        type: PointerType = PointerType.Mouse,
+        buttons: PointerButtons? = null,
+        keyboardModifiers: PointerKeyboardModifiers? = null,
+        nativeEvent: Any? = null,
+        button: PointerButton? = null,
+    )
+
+    fun keyEvent(
+        event: KeyEvent,
+    )
+
+    fun densityChange(newDensity: Density)
+}
+
+private fun currentTimeForEvent(): Long = (currentNanoTime() / 1E6).toLong()
+
+
+typealias WindowHandle = Long
+
+data class GlfwConfig(
+    val disableApi: Boolean,
+    val showWindow: Boolean,
+)
+
+class GlfwFunWindow(val glfw: GlfwConfig) {
     private lateinit var instance: GlInitGlfwWindowInstance
     private var open = true
 
     private var windowPos: IntOffset? = null
+
+    private lateinit var callbacks: WindowCallbacks
 
     @OptIn(InternalComposeUiApi::class)
     private inner class GlInitGlfwWindowInstance(config: WindowConfig) {
@@ -27,12 +67,9 @@ class GlfwWebgpuWindow: Restartable<WindowConfig> {
 
         init {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE)
+            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE)
+            if (glfw.disableApi) glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
             glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4)
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6)
-            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE)
-            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE) // For macOS compatibility
         }
 
         val windowHandle = glfwCreateWindow(
@@ -44,42 +81,48 @@ class GlfwWebgpuWindow: Restartable<WindowConfig> {
                 glfwTerminate()
                 throw RuntimeException("Failed to create the GLFW window")
             }
-            glfwMakeContextCurrent(windowHandle)
-            GL.createCapabilities()
+            if (!glfw.disableApi) {
+                glfwMakeContextCurrent(windowHandle)
+                GL.createCapabilities()
+            }
 
             glfwSetWindowCloseCallback(windowHandle) {
-                open = false
+                close()
             }
 
             if (windowPos != null) {
                 // Keep the window in the same position when reloading
                 glfwSetWindowPos(windowHandle, windowPos!!.x, windowPos!!.y)
             }
-            glfwShowWindow(windowHandle)
+            if (glfw.showWindow) {
+                glfwShowWindow(windowHandle)
+            }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
                 windowPos = IntOffset(x, y)
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
-                compose.resize(windowWidth, windowHeight)
-                render() // We want to content to adapt faster to resize changes so we rerender right away.
+                frame() // We want to content to adapt faster to resize changes so we rerender right away.
             }
+            callbacks.init(windowHandle)
         }
 
-        val dispatcher = GlfwCoroutineDispatcher()
-
-        val compose = GlInitComposeGlfwAdapter(
-            config.initialWindowWidth, config.initialWindowHeight, windowHandle,dispatcher,
-            density = Density(glfwGetWindowContentScale(windowHandle)),
-            composeContent = { ComposeMainApp() }
-        )
 
         fun close() {
-            compose.close()
             glfwSetWindowCloseCallback(windowHandle, null)
             glfwDestroyWindow(windowHandle)
         }
 
+    }
+
+
+    private var lastFrameTimeNano = 0L
+
+    private fun frame() {
+        val time = System.nanoTime()
+        val delta = time - lastFrameTimeNano
+        lastFrameTimeNano = time
+        callbacks.frame(delta.toDouble() / 1e9)
     }
 
     /**
@@ -90,7 +133,8 @@ class GlfwWebgpuWindow: Restartable<WindowConfig> {
     }
 
 
-    fun show(config: WindowConfig = WindowConfig()) {
+    fun show(config: WindowConfig, callbacks: WindowCallbacks) {
+        this.callbacks = callbacks
         GLFWErrorCallback.createPrint(System.err).set()
 
         // Initialize GLFW. Most GLFW functions will not work before doing this.
@@ -102,11 +146,12 @@ class GlfwWebgpuWindow: Restartable<WindowConfig> {
 
         while (open) {
             glfwPollEvents()
+            val time = System.nanoTime()
+            val delta = time - lastFrameTimeNano
+            if (delta >= 1e9 / config.fps) {
+                frame()
+            }
             with(instance) {
-                dispatcher.poll()
-                if (compose.invalid) {
-                    render()
-                }
                 waitingTasks.forEach { it() }
                 waitingTasks.clear()
             }
@@ -114,23 +159,12 @@ class GlfwWebgpuWindow: Restartable<WindowConfig> {
         instance.close()
     }
 
-    fun render() = with(instance) {
-        compose.draw()
-        GLFW.glfwSwapBuffers(windowHandle)
-        compose.invalid = false
-    }
-
-
-    override fun restart(config: WindowConfig? ) {
-        val config = config ?: WindowConfig()
+    fun restart(config: WindowConfig = WindowConfig()) {
         instance.close()
         instance = GlInitGlfwWindowInstance(config)
     }
-}
 
-
-private fun glfwGetWindowContentScale(window: Long): Float {
-    val array = FloatArray(1)
-    GLFW.glfwGetWindowContentScale(window, array, FloatArray(1))
-    return array[0]
+    fun close() {
+        open = false
+    }
 }

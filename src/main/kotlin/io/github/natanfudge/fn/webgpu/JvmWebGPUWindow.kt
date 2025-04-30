@@ -1,112 +1,136 @@
 package io.github.natanfudge.fn.webgpu
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.unit.Density
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.Kernel32
 import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
+import io.github.natanfudge.fn.window.*
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
-import io.ygdrasil.wgpu.WGPULogLevel_Trace
+import io.ygdrasil.wgpu.WGPULogLevel_Info
 import io.ygdrasil.wgpu.wgpuSetLogCallback
 import io.ygdrasil.wgpu.wgpuSetLogLevel
-import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWNativeCocoa.glfwGetCocoaWindow
 import org.lwjgl.glfw.GLFWNativeWayland.glfwGetWaylandDisplay
 import org.lwjgl.glfw.GLFWNativeWayland.glfwGetWaylandWindow
 import org.lwjgl.glfw.GLFWNativeWin32.glfwGetWin32Window
 import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Display
 import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
-import org.lwjgl.system.MemoryUtil.NULL
 import org.rococoa.ID
 import org.rococoa.Rococoa
-import java.util.*
-import java.util.Queue
+import kotlin.collections.any
+import kotlin.collections.first
+import kotlin.text.startsWith
 
+data class WebGPUContext(
+    val context: NativeSurface,
+    val adapter: GPUAdapter,
+    val presentationFormat: GPUTextureFormat,
+) : AutoClose  {
+    private val autoClose = AutoCloseImpl()
+    override val <T : AutoCloseable> T.ac: T
+        get() {
+            autoClose.toClose.add(this)
+            return this
+        }
+    override fun close() {
+        autoClose.close()
+        context.close()
+        adapter.close()
+    }
+}
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-class WebGPUWindow constructor(val fps: Int, val width: UInt, val height: UInt, val title: String, logLevel: UInt = WGPULogLevel_Trace) : AutoCloseable {
+class WebGPUWindow (
+    private val init: WebGPUContext.() -> (delta: Double) -> Unit,
+//    private val frame: WebGPUContext.() -> Unit,
+) : AutoCloseable {
+    private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true))
+
     init {
         LibraryLoader.load()
-        wgpuSetLogLevel(logLevel)
+        wgpuSetLogLevel(WGPULogLevel_Info)
         val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, userdata ->
             val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
             println("$level: $message")
         }
         wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
-        glfwInit()
-        // WGPU will show the window at the right timing
-        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
-        // Disable context creation, WGPU will manage that
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
     }
 
-    val windowHandler = glfwCreateWindow(width.toInt(), height.toInt(), title, NULL, NULL)
-    val gpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
-    val nativeSurface = gpu.getNativeSurface(windowHandler)
-    val waitingTasks = mutableListOf<() -> Unit>()
+    private val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
+
+    private lateinit var context: WebGPUContext
+
+    private lateinit var _frame: (Double) -> Unit
+
+
+    fun show(config: WindowConfig) {
+        window.show(config, object : WindowCallbacks {
+            override fun init(handle: WindowHandle) {
+                val nativeSurface = wgpu.getNativeSurface(handle)
+                val adapter = wgpu.requestAdapter(nativeSurface) ?: error("Could not get wgpu adapter")
+                nativeSurface.computeSurfaceCapabilities(adapter)
+                val format = nativeSurface.supportedFormats.first()
+                context = WebGPUContext(nativeSurface, adapter, format)
+                _frame = init(context)
+            }
+
+            override fun frame(delta: Double) {
+                _frame(delta)
+            }
+
+            override fun resize(width: Int, height: Int) {
+
+            }
+
+            override fun pointerEvent(
+                eventType: PointerEventType,
+                position: Offset,
+                scrollDelta: Offset,
+                timeMillis: Long,
+                type: PointerType,
+                buttons: PointerButtons?,
+                keyboardModifiers: PointerKeyboardModifiers?,
+                nativeEvent: Any?,
+                button: PointerButton?,
+            ) {
+
+            }
+
+            override fun keyEvent(event: KeyEvent) {
+
+            }
+
+            override fun densityChange(newDensity: Density) {
+
+            }
+
+        })
+
+    }
+
 
     /**
      * Submits a callback to run on the main thread.
      */
     fun submitTask(task: () -> Unit) {
-        waitingTasks.add(task)
+        window.submitTask(task)
     }
 
-
-    fun requestAdapter(powerPreference: GPUPowerPreference?): Adapter = gpu.requestAdapter(nativeSurface, powerPreference)
-        ?: error("failed to get WebGPU adapter")
-
-    init {
-        glfwShowWindow(windowHandler)
+    fun restart() {
+        context.close()
+        window.restart()
     }
 
-    fun getPresentationFormat(adapter: Adapter): GPUTextureFormat {
-        nativeSurface.computeSurfaceCapabilities(adapter)
-        return nativeSurface.supportedFormats.first()
-    }
-
-    /**
-     * You should NOT close this yourself! It's part of the window, and will be closed together with it
-     */
-    fun getWebGPUContext() = nativeSurface
-
-    private val requestedFrames: Queue<() -> Unit> = LinkedList()
-
-    fun requestAnimationFrame(frame: () -> Unit) {
-        requestedFrames.add(frame)
-    }
-
-    /**
-     * We call this to avoid invalid frames being rendered
-     */
-    fun clearFrameQueue() {
-        requestedFrames.clear()
-    }
-
-    private var lastFrameTimeNano = 0L
-
-    fun display() {
-        while (!glfwWindowShouldClose(windowHandler)) {
-            glfwPollEvents()
-            val time = System.nanoTime()
-            val delta = time - lastFrameTimeNano
-            if (delta >= 1e9 / fps) {
-                lastFrameTimeNano = time
-                if (requestedFrames.isNotEmpty()) {
-                    val nextFrame = requestedFrames.remove()
-                    nextFrame()
-                }
-            }
-            waitingTasks.forEach { it() }
-            waitingTasks.clear()
-        }
-    }
 
     override fun close() {
-        glfwDestroyWindow(windowHandler)
-        gpu.close()
-        nativeSurface.close()
+        window.close()
+        context.close()
     }
 }
 

@@ -12,7 +12,7 @@ object FunHotReload {
 
     /**
      * The [callback] will be called on an alternate thread so be wary of that.
-     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.window.GlfwWebgpuWindow.submitTask]
+     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.window.GlfwComposeWindow.submitTask]
      */
     fun observe(callback: (Unit) -> Unit) = observation.listen(callback)
 

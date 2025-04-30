@@ -1,29 +1,29 @@
 package io.github.natanfudge.fn.webgpu
 
-import io.ygdrasil.webgpu.Adapter
-import io.ygdrasil.webgpu.GPUPowerPreference
-import io.ygdrasil.webgpu.GPUTextureFormat
-import io.ygdrasil.webgpu.NativeSurface
 import kotlin.collections.isNotEmpty
 import kotlin.use
 
+interface AutoClose: AutoCloseable {
+    val <T : AutoCloseable> T.ac: T
+}
 
-class AutoClose: AutoCloseable {
+class AutoCloseImpl: AutoClose {
     companion object {
-        operator fun invoke(wgpuCode: AutoClose.() -> Unit) {
-            AutoClose().use {
+        operator fun invoke(wgpuCode: AutoCloseImpl.() -> Unit) {
+            AutoCloseImpl().use {
                 it.wgpuCode()
             }
         }
     }
 
-    private val toClose = mutableListOf<AutoCloseable>()
+     val toClose = mutableListOf<AutoCloseable>()
 
-    val <T : AutoCloseable> T.ac: T
+    override val <T : AutoCloseable> T.ac: T
         get() {
             toClose.add(this)
             return this
         }
+
 
     override fun close() {
         val closeErrors = mutableListOf<Throwable>()
