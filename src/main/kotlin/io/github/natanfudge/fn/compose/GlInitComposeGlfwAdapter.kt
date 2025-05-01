@@ -7,31 +7,29 @@ import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.window.subscribeToGLFWEvents
 import kotlinx.coroutines.CoroutineDispatcher
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
 import org.lwjgl.opengl.GL11
-import org.lwjgl.opengl.GL11.glDeleteTextures
 import org.lwjgl.opengl.GL12
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL43.GL_FRAMEBUFFER_BINDING
+import org.lwjgl.system.MemoryUtil
+import java.awt.image.BufferedImage
 import java.io.File
+import java.nio.ByteBuffer
 
-
-//TODO: 2. Hotkey routing (GLFW -> Compose -> User)
 
 @OptIn(InternalComposeUiApi::class)
 internal class GlInitComposeGlfwAdapter(
     initialWidth: Int,
     initialHeight: Int,
-    windowHandle: Long,
     dispatcher: CoroutineDispatcher,
     private val density: Density,
     private val composeContent: @Composable () -> Unit,
+    val drawOffscreen: Boolean = false,
 ) {
-    val drawOffscreen = false
 
     @OptIn(InternalComposeUiApi::class)
     private inner class GlInitFixedSizeComposeWindow(
@@ -48,30 +46,35 @@ internal class GlInitComposeGlfwAdapter(
         }
         val canvas = surface.canvas.asComposeCanvas()
 
-        val colorTexture = if (drawOffscreen) createColorTexture(width, height, { "Compose Color Texture" }) {
-            normalTextureConfig()
-        } else null
-        val depthTexture = if (drawOffscreen) createDepthTexture(width, height, { "Compose Depth Texture" }) {
-            normalTextureConfig()
-        } else null
+//        val colorTexture = if (drawOffscreen) createColorTexture(width, height, { "Compose Color Texture" }) {
+//            normalTextureConfig()
+//        } else null
+//        val depthTexture = if (drawOffscreen) createDepthTexture(width, height, { "Compose Depth Texture" }) {
+//            normalTextureConfig()
+//        } else null
 
-        init {
-            if (colorTexture != null && depthTexture != null) {
-                attachColorTextureToFrameBuffer(colorTexture)
-                attachDepthTextureToFrameBuffer(depthTexture)
-            }
-        }
+//        init {
+//            if (colorTexture != null && depthTexture != null) {
+//                attachColorTextureToFrameBuffer(colorTexture)
+//                attachDepthTextureToFrameBuffer(depthTexture)
+//            }
+//        }
 
         fun close() {
             surface.close()
-            if (colorTexture != null && depthTexture != null) {
-                glDeleteTextures(colorTexture)
-                glDeleteTextures(depthTexture)
-            }
+//            if (colorTexture != null && depthTexture != null) {
+//                glDeleteTextures(colorTexture)
+//                glDeleteTextures(depthTexture)
+//            }
         }
     }
 
     val context = DirectContext.makeGL()
+
+    //TODO: draw and free
+    var frame1: ByteBuffer? = null
+    //TODO: it may be a good idea to use two "framebuffers"
+//    var frame2: ByteBuffer? = null
 
     private lateinit var window: GlInitFixedSizeComposeWindow
 
@@ -84,7 +87,7 @@ internal class GlInitComposeGlfwAdapter(
         invalid = true
     }
 
-    private val composeScene = PlatformLayersComposeScene(
+    val scene = PlatformLayersComposeScene(
         coroutineContext = dispatcher,
         density = density,
         invalidate = frameDispatcher::scheduleFrame,
@@ -95,8 +98,7 @@ internal class GlInitComposeGlfwAdapter(
      * Depends on the [window], must be updated when the [window] updates.
      */
     init {
-        composeScene.subscribeToGLFWEvents(windowHandle)
-        composeScene.setContent {
+        scene.setContent {
             composeContent()
         }
     }
@@ -117,6 +119,8 @@ internal class GlInitComposeGlfwAdapter(
 
     var invalid = true
 
+    var drawToFrame1 = true
+
     fun draw() = glDebugGroup(5, groupName = { "Compose Render" }) {
         try {
             // When updates are needed - render new content
@@ -125,9 +129,28 @@ internal class GlInitComposeGlfwAdapter(
             System.err.println("Error during Skia rendering! This is usually a Compose user error.")
             e.printStackTrace()
         }
-        if (drawOffscreen) {
-            writeSkiaToImage()
+
+//        if(drawToFrame1) {
+//
+//        }
+
+        // SLOW: This method of copying the frame into ByteArrays and then drawing them as a texture is extremely slow, but there
+        // is probably no better alternative at the moment. We need some way to draw skia into a WebGPU context.
+        // For that we need:
+        // A. Skiko vulkan support
+        // B. Skiko graphite support for WebGPU support
+        // C. Compose skiko vulkan / webgpu / metal support
+        // D. Integrate the rendering with each rendering api separately - we need to 'fetch' the vulkan context in our main webgpu app, and draw compose on top of it, and same for the other APIs.
+
+        if (frame1 != null) {
+            MemoryUtil.memFree(frame1)
         }
+        frame1 = getFrameBytes()
+
+
+//        if (drawOffscreen) {
+//        writeSkiaToImage()
+//        }
     }
 
 
@@ -140,35 +163,47 @@ internal class GlInitComposeGlfwAdapter(
 
         // Render to the framebuffer
         glDebugGroup(3, groupName = { "Compose Render Content" }) {
-            composeScene.render(window.canvas, System.nanoTime())
+            scene.render(window.canvas, System.nanoTime())
         }
         glDebugGroup(4, groupName = { "Compose Flush" }) {
             context.flush()
         }
     }
 
-    private fun writeSkiaToImage() {
+    //TODO: Don't do this bytearray stuff, just keep it a BYteBuffer and free it as you need to
+    private fun getFrameBytes(): ByteBuffer {
         val width = window.width
         val height = window.height
 
-        // Allocate buffer for pixel data
-        val buffer = java.nio.ByteBuffer.allocateDirect(width * height * 4)
-        buffer.order(java.nio.ByteOrder.nativeOrder())
-
-        // Read pixels from framebuffer
+        val buffer = MemoryUtil.memAlloc(width * height * 4)
+//        try {
         glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
+        return buffer
+//            val bytes = ByteArray(width * height * 4)
+//            buffer.get(bytes)
+//            return bytes
+//        }
+//        finally {
+//            MemoryUtil.memFree(buffer)
+//        }
+    }
 
-        // Create buffered image (note: OpenGL has origin at bottom left, we need to flip it)
-        val image = java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+    private fun writeSkiaToImage() {
+        val bytes = getFrameBytes()
+        val width = window.width
+        val height = window.height
+
+        val image = BufferedImage(window.width, window.height, BufferedImage.TYPE_INT_ARGB)
+
 
         // Copy pixels to image with Y-flip
         for (y in 0 until height) {
             for (x in 0 until width) {
                 val i = (y * width + x) * 4
-                val r = buffer.get(i).toInt() and 0xFF
-                val g = buffer.get(i + 1).toInt() and 0xFF
-                val b = buffer.get(i + 2).toInt() and 0xFF
-                val a = buffer.get(i + 3).toInt() and 0xFF
+                val r = bytes[i].toInt() and 0xFF
+                val g = bytes[i + 1].toInt() and 0xFF
+                val b = bytes[i + 2].toInt() and 0xFF
+                val a = bytes[i + 3].toInt() and 0xFF
 
                 // RGBA to ARGB conversion + Y-flip
                 val color = (a shl 24) or (r shl 16) or (g shl 8) or b
@@ -192,7 +227,7 @@ internal class GlInitComposeGlfwAdapter(
 
 
     fun resize(width: Int, height: Int) = glDebugGroup(500, groupName = { "Skia Resize" }) {
-        composeScene.size = IntSize(width, height)
+        scene.size = IntSize(width, height)
         window.close()
         window = GlInitFixedSizeComposeWindow(width, height, context)
         invalid = true
@@ -200,7 +235,7 @@ internal class GlInitComposeGlfwAdapter(
 
     fun close() {
         glDeleteFramebuffers(frameBuffer)
-        composeScene.close()
+        scene.close()
         window.close()
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
     }

@@ -99,8 +99,8 @@ class WebGPUWindow(
                 }
             }
 
-            override fun windowClose() {
-                _userCallbacks.windowClose()
+            override fun windowClosePressed() {
+                _userCallbacks.windowClosePressed()
                 close()
             }
 

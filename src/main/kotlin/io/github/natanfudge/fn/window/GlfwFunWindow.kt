@@ -30,7 +30,11 @@ interface RepeatingWindowCallbacks {
      * Will be called once on startup as well
      */
     fun resize(width: Int, height: Int) {}
-    fun windowClose() {}
+
+    /**
+     * You should close the window here
+     */
+    fun windowClosePressed() {}
     @Deprecated("I don't think i need this one")
     fun setMinimized(minimized: Boolean) {}
     fun pointerEvent(
@@ -103,7 +107,7 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
             }
 
             glfwSetWindowCloseCallback(windowHandle) {
-                callbacks.windowClose()
+                callbacks.windowClosePressed()
 //                close()
             }
             glfwSetWindowIconifyCallback(windowHandle) { _, minimized ->

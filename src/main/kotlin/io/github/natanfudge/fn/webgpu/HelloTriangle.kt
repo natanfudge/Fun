@@ -8,7 +8,7 @@ import kotlinx.coroutines.runBlocking
 
 //TODO: next step: try to open another window to render the compose stuff in it
 
-val HOT_RELOAD_SHADERS = true
+const val HOT_RELOAD_SHADERS = true
 
 fun main() {
     val config = WindowConfig(fps = 60, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)

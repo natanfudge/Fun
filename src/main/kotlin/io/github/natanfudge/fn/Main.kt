@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn
 
 import io.github.natanfudge.fn.hotreload.FunHotReload
-import io.github.natanfudge.fn.window.GlfwComposeWindow
 
 interface Restartable<T> {
     fun restart(params: T? = null)
