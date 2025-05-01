@@ -19,6 +19,9 @@ import org.lwjgl.system.MemoryUtil
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.ByteBuffer
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 
 @OptIn(InternalComposeUiApi::class)
@@ -71,8 +74,6 @@ internal class GlInitComposeGlfwAdapter(
 
     val context = DirectContext.makeGL()
 
-    //TODO: draw and free
-    var frame1: ByteBuffer? = null
     //TODO: it may be a good idea to use two "framebuffers"
 //    var frame2: ByteBuffer? = null
 
@@ -116,10 +117,23 @@ internal class GlInitComposeGlfwAdapter(
         }
     }
 
+    /**
+     * The ByteBuffer will be null if no frame has been created yet
+     */
+    fun getFrame(usage: (ByteBuffer?) -> Unit) {
+        frameLock.withLock {
+            usage(frame)
+        }
+    }
+
+    private val frameLock = ReentrantLock()
+
+
+    private var frame: ByteBuffer? = null
 
     var invalid = true
 
-    var drawToFrame1 = true
+//    var drawToFrame1 = true
 
     fun draw() = glDebugGroup(5, groupName = { "Compose Render" }) {
         try {
@@ -142,10 +156,13 @@ internal class GlInitComposeGlfwAdapter(
         // C. Compose skiko vulkan / webgpu / metal support
         // D. Integrate the rendering with each rendering api separately - we need to 'fetch' the vulkan context in our main webgpu app, and draw compose on top of it, and same for the other APIs.
 
-        if (frame1 != null) {
-            MemoryUtil.memFree(frame1)
+        frameLock.withLock {
+            if (frame != null) {
+                MemoryUtil.memFree(frame)
+            }
+            frame = getFrameBytes()
         }
-        frame1 = getFrameBytes()
+
 
 
 //        if (drawOffscreen) {

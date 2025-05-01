@@ -18,7 +18,7 @@ fun main() {
 
             val manager = PipelineManager(
                 device, presentationFormat,
-                vertexShader = ShaderSource.HotFile("main"),
+                vertexShader = ShaderSource.HotFile("triangle"),
                 hotReloadShaders = HOT_RELOAD_SHADERS
             ).ac
 

@@ -23,6 +23,7 @@ lwjgl-bom = { group = "org.lwjgl", name = "lwjgl-bom", version.ref = "lwjgl" }
 lwjgl-core = { group = "org.lwjgl", name = "lwjgl" }
 lwjgl-glfw = { group = "org.lwjgl", name = "lwjgl-glfw" }
 lwjgl-opengl = { group = "org.lwjgl", name = "lwjgl-opengl" }
+lwjgl-stb = {group ="org.lwjgl", name = "lwjgl-stb"}
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 multiplatform-settings-noarg = { group = "com.russhwolf", name = "multiplatform-settings-no-arg", version.ref = "multiplatformSettings" }
@@ -36,7 +37,7 @@ wgpu4k = { module = "io.ygdrasil:wgpu4k-toolkit", version.ref = "wgpu4k" }
 
 [bundles]
 lwjgl = [
-    "lwjgl-core", "lwjgl-glfw", "lwjgl-opengl"
+    "lwjgl-core", "lwjgl-glfw", "lwjgl-opengl", "lwjgl-stb"
 ]
 jvmMain = [
     "logback-classic",
