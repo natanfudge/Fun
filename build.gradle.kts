@@ -79,8 +79,10 @@ dependencies {
     val koin_version = "4.0.3"
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
+    implementation(compose.components.resources)
     implementation(project.dependencies.platform("io.insert-koin:koin-bom:$koin_version"))
     implementation("io.insert-koin:koin-core")
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
     implementation(libs.wgpu4k)
     runtimeOnly(compose.desktop.windows_x64)
 

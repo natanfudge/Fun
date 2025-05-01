@@ -6,7 +6,10 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fn.webgpu.AutoClose
+import io.github.natanfudge.fn.webgpu.AutoCloseImpl
 import org.jetbrains.skiko.currentNanoTime
+import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
@@ -20,10 +23,16 @@ data class WindowConfig(
     val fps: Int = 60,
 )
 
-interface WindowCallbacks {
-    fun init(handle: WindowHandle)
-    fun frame(delta: Double)
-    fun resize(width: Int, height: Int)
+interface RepeatingWindowCallbacks {
+    fun AutoClose.frame(delta: Double) {}
+
+    /**
+     * Will be called once on startup as well
+     */
+    fun resize(width: Int, height: Int) {}
+    fun windowClose() {}
+    @Deprecated("I don't think i need this one")
+    fun setMinimized(minimized: Boolean) {}
     fun pointerEvent(
         eventType: PointerEventType,
         position: Offset,
@@ -34,13 +43,20 @@ interface WindowCallbacks {
         keyboardModifiers: PointerKeyboardModifiers? = null,
         nativeEvent: Any? = null,
         button: PointerButton? = null,
-    )
+    ) {
+    }
 
     fun keyEvent(
         event: KeyEvent,
-    )
+    ) {
+    }
 
-    fun densityChange(newDensity: Density)
+    fun densityChange(newDensity: Density) {}
+}
+
+interface WindowCallbacks : RepeatingWindowCallbacks {
+    fun init(handle: WindowHandle) {}
+
 }
 
 private fun currentTimeForEvent(): Long = (currentNanoTime() / 1E6).toLong()
@@ -67,7 +83,7 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
         init {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE)
+//            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE)
             if (glfw.disableApi) glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
             glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
         }
@@ -87,7 +103,11 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
             }
 
             glfwSetWindowCloseCallback(windowHandle) {
-                close()
+                callbacks.windowClose()
+//                close()
+            }
+            glfwSetWindowIconifyCallback(windowHandle) { _, minimized ->
+                callbacks.setMinimized(minimized)
             }
 
             if (windowPos != null) {
@@ -102,9 +122,66 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
+                callbacks.resize(windowWidth, windowHeight)
                 frame() // We want to content to adapt faster to resize changes so we rerender right away.
             }
+
+            glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
+                // We're going to send the clicks to the GUI even if it is not focused, to be able to actually move from opengl focus to Compose focus.
+                callbacks.pointerEvent(
+                    position = glfwGetCursorPos(windowHandle),
+                    eventType = when (action) {
+                        GLFW_PRESS -> PointerEventType.Press
+                        GLFW_RELEASE -> PointerEventType.Release
+                        else -> PointerEventType.Unknown
+                    },
+                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                )
+            }
+
+            glfwSetCursorPosCallback(windowHandle) { window, xpos, ypos ->
+                callbacks.pointerEvent(
+                    position = Offset(xpos.toFloat(), ypos.toFloat()),
+                    eventType = PointerEventType.Move,
+                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                )
+            }
+
+            glfwSetScrollCallback(windowHandle) { window, xoffset, yoffset ->
+                callbacks.pointerEvent(
+                    eventType = PointerEventType.Scroll,
+                    position = glfwGetCursorPos(windowHandle),
+                    scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
+                    nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
+                )
+
+            }
+
+            glfwSetCursorEnterCallback(windowHandle) { _, entered ->
+                callbacks.pointerEvent(
+                    position = glfwGetCursorPos(windowHandle),
+                    eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
+                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                )
+            }
+
+            glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
+                val event = glfwToComposeEvent(key, action, mods)
+                callbacks.keyEvent(event)
+            }
+
+            glfwSetCharCallback(windowHandle) { window, codepoint ->
+                for (char in Character.toChars(codepoint)) {
+                    callbacks.keyEvent(typedCharacterToComposeEvent(char))
+                }
+            }
+
+            glfwSetWindowContentScaleCallback(windowHandle) { _, xscale, _ ->
+                callbacks.densityChange(Density(xscale))
+            }
+
             callbacks.init(windowHandle)
+            callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         }
 
 
@@ -118,11 +195,18 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
     private var lastFrameTimeNano = 0L
 
+    private val frameAutoclose = AutoCloseImpl()
+
     private fun frame() {
         val time = System.nanoTime()
         val delta = time - lastFrameTimeNano
         lastFrameTimeNano = time
-        callbacks.frame(delta.toDouble() / 1e9)
+        frameAutoclose.use {
+            with(callbacks) {
+                it.frame(delta.toDouble() / 1e9)
+            }
+        }
+
     }
 
     /**
@@ -146,6 +230,7 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
         while (open) {
             glfwPollEvents()
+            if (!open) break
             val time = System.nanoTime()
             val delta = time - lastFrameTimeNano
             if (delta >= 1e9 / config.fps) {
@@ -167,4 +252,11 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
     fun close() {
         open = false
     }
+}
+
+private fun glfwGetCursorPos(window: Long): Offset {
+    val x = DoubleArray(1)
+    val y = DoubleArray(1)
+    GLFW.glfwGetCursorPos(window, x, y)
+    return Offset(x[0].toFloat(), y[0].toFloat())
 }

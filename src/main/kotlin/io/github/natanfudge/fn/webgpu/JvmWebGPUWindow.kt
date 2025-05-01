@@ -24,31 +24,31 @@ import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Display
 import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
 import org.rococoa.ID
 import org.rococoa.Rococoa
-import kotlin.collections.any
-import kotlin.collections.first
-import kotlin.text.startsWith
 
 data class WebGPUContext(
     val context: NativeSurface,
     val adapter: GPUAdapter,
     val presentationFormat: GPUTextureFormat,
-) : AutoClose  {
+) : AutoClose {
     private val autoClose = AutoCloseImpl()
     override val <T : AutoCloseable> T.ac: T
         get() {
             autoClose.toClose.add(this)
             return this
         }
+
     override fun close() {
         autoClose.close()
         context.close()
         adapter.close()
     }
 }
+
+
+
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
-class WebGPUWindow (
-    private val init: WebGPUContext.() -> (delta: Double) -> Unit,
-//    private val frame: WebGPUContext.() -> Unit,
+class WebGPUWindow(
+    private val init: WebGPUContext.() -> RepeatingWindowCallbacks,
 ) : AutoCloseable {
     private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true))
 
@@ -66,7 +66,9 @@ class WebGPUWindow (
 
     private lateinit var context: WebGPUContext
 
-    private lateinit var _frame: (Double) -> Unit
+    private lateinit var _userCallbacks: RepeatingWindowCallbacks
+
+    private var minimized = false
 
 
     fun show(config: WindowConfig) {
@@ -77,15 +79,33 @@ class WebGPUWindow (
                 nativeSurface.computeSurfaceCapabilities(adapter)
                 val format = nativeSurface.supportedFormats.first()
                 context = WebGPUContext(nativeSurface, adapter, format)
-                _frame = init(context)
+                _userCallbacks = init(context)
             }
 
-            override fun frame(delta: Double) {
-                _frame(delta)
+            override fun AutoClose.frame(delta: Double) {
+                if (!minimized) {
+                    with(_userCallbacks) {
+                        frame(delta)
+                    }
+                }
             }
 
             override fun resize(width: Int, height: Int) {
+                if (width == 0 && height == 0) {
+                    minimized = true
+                } else {
+                    minimized = false
+                    _userCallbacks.resize(width, height)
+                }
+            }
 
+            override fun windowClose() {
+                _userCallbacks.windowClose()
+                close()
+            }
+
+            override fun setMinimized(minimized: Boolean) {
+                _userCallbacks.setMinimized(minimized)
             }
 
             override fun pointerEvent(
@@ -99,15 +119,15 @@ class WebGPUWindow (
                 nativeEvent: Any?,
                 button: PointerButton?,
             ) {
-
+                _userCallbacks.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
             }
 
             override fun keyEvent(event: KeyEvent) {
-
+                _userCallbacks.keyEvent(event)
             }
 
             override fun densityChange(newDensity: Density) {
-
+                _userCallbacks.densityChange(newDensity)
             }
 
         })
