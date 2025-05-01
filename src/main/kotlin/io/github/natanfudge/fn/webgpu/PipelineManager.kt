@@ -1,10 +1,10 @@
 package io.github.natanfudge.fn.webgpu
 
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.files.KotlinURI
-import io.github.natanfudge.fn.files.uriParentDirectory
+import io.github.natanfudge.fn.files.readString
 import io.ygdrasil.webgpu.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.files.Path
 import natan.`fun`.generated.resources.Res
 import org.intellij.lang.annotations.Language
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -57,14 +57,15 @@ class PipelineManager(
             rebuildPipeline()
 
             if (hotReloadShaders) {
-                var watchedUri: KotlinURI? = null
+                var watchedUri: Path? = null
+                // It's important to watch and reload the SOURCE file and not the built file so we don't have to rebuild
                 if (vertexShader is ShaderSource.HotFile) {
-                    watchedUri = vertexShader.getParentDirectory()
+                    watchedUri = vertexShader.getSourceFile().parent!!
                     reloadOnDirectoryChange(watchedUri)
                 }
 
                 if (fragmentShader is ShaderSource.HotFile) {
-                    val fragmentUri = fragmentShader.getParentDirectory()
+                    val fragmentUri = fragmentShader.getSourceFile().parent!!
                     // Avoid reloading twice when both shaders are in the same directory
                     if (fragmentUri != watchedUri) {
                         reloadOnDirectoryChange(fragmentUri)
@@ -74,15 +75,16 @@ class PipelineManager(
         }
     }
 
-    private fun ShaderSource.HotFile.getParentDirectory() = Res.getUri(fullPath()).uriParentDirectory()
+    // HACK: this might not work always
+    private fun ShaderSource.HotFile.getSourceFile() = Path("src/main/composeResources/", fullPath())
 
-    private fun reloadOnDirectoryChange(uri: KotlinURI) {
-        println("Listening to shader changes at $uri!")
-        fileSystemWatcher.onDirectoryChanged(uri) {
+    private fun reloadOnDirectoryChange(dir: Path) {
+        println("Listening to shadffer changes at $dir!")
+        fileSystemWatcher.onDirectoryChanged(dir) {
             // SLOW: consider making this async
             runBlocking {
-                println("Reloading shaders at '${uri}'")
-                loadShaders()
+                println("Reloading shaders at '${dir}'")
+                rebuildPipeline()
             }
         }
     }
@@ -128,7 +130,10 @@ class PipelineManager(
     @OptIn(ExperimentalResourceApi::class)
     private suspend fun loadShader(source: ShaderSource): GPUShaderModule = with(closeContext) {
         val source = when (source) {
-            is ShaderSource.HotFile -> Res.readBytes(source.fullPath()).decodeToString()
+            // Load directly from source when hot reloading
+            is ShaderSource.HotFile -> if (hotReloadShaders) source.getSourceFile().readString()
+            else Res.readBytes(source.fullPath()).decodeToString()
+
             is ShaderSource.RawString -> source.shader
         }
 
