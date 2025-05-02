@@ -16,13 +16,12 @@ fun main() {
     GlfwComposeWindow().show(WindowConfig())
 }
 
-//TODO: 1.  fix input
-// 2. Fix window resize
+//TODO:
 // 3. Refactor GlInitComposeGlfwAdapter
 // 4. Add a mechanism for checking for FPS drops
 // 5. Add some performance monitoring
 
-typealias ComposeFrameCallback = (bytes: ByteArray, width: Int,height: Int) -> Unit
+typealias ComposeFrameCallback = (bytes: ByteArray, width: Int, height: Int) -> Unit
 
 class GlfwComposeWindow(
     show: Boolean = false,
@@ -32,61 +31,12 @@ class GlfwComposeWindow(
     val dispatcher = GlfwCoroutineDispatcher()
 
     private lateinit var compose: GlInitComposeGlfwAdapter
-    var windowHandle: Long = 0
 
-    private var pendingResizes = 0
 
-    private var justResized = false
-
-    /**
-     * When the window is resizing, we want to wait for it to complete before serving the next frame in [getFrame]
-     */
-//    private val windowResizingLock = Semaphore(1)
-
-    var less = 0
-
-//    private var pendingFrame: ((ByteArray) -> Unit)? = null
-
-    private var onFrameReady: ComposeFrameCallback = {_,_,_ ->}
+    private var onFrameReady: ComposeFrameCallback = { _, _, _ -> }
 
     fun onFrameReady(callback: ComposeFrameCallback) {
         this.onFrameReady = callback
-    }
-
-//    /**
-//     * WIll return false if the frame is not ready yet
-//     */
-//    fun getFrame(usage: (ByteArray?, frameWidth: Int, frameHeight: Int) -> Unit): Boolean {
-//        // Wait for possible resizings to occur
-////        println("Resizes at frame: $pendingResizes")
-//        println("Checking resize: $pendingResizes")
-//        if (pendingResizes > 0 || !::compose.isInitialized) {
-//            return false
-//        }
-////        while (pendingResizes > 0 ) {
-////            if(less++ % 500 == 0) {
-////                println("Waiting for yield")
-////            }
-////            TODO: should prob use semaphore
-////            return
-////            Thread.yield()
-////        }
-////        if (::compose.isInitialized) {
-//        compose.getFrame(usage)
-//        return true
-////        } else {
-////            usage(null, 0, 0)
-////        }
-//    }
-
-
-    private var onResizeComplete: () -> Unit = {}
-//    private var onResizeCom
-    /**
-     * Will be called on window's thread
-     */
-    fun onResizeComplete(callback: () -> Unit) {
-        this.onResizeComplete = callback
     }
 
     private var initialized = false
@@ -105,87 +55,57 @@ class GlfwComposeWindow(
             button: PointerButton?,
         ) {
             if (!initialized) return
-//            window.submitTask {
-                compose.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
-//            }
+            compose.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
         }
 
         override fun keyEvent(event: KeyEvent) {
             if (!initialized) return
-//            window.submitTask {
-                compose.scene.sendKeyEvent(event)
-//            }
+            compose.scene.sendKeyEvent(event)
         }
 
         override fun resize(width: Int, height: Int) {
             if (!initialized) return
 
-            // Please wait - i'm resizing the window
-            pendingResizes++
-            justResized = true
-            println("Resizes after increment: $pendingResizes")
-//            windowResizingLock.acquire()
-//            window.submitTask {
-                println("Compose width set to $width")
-                // Resize dummy window to match
-                GLFW.glfwSetWindowSize(window.handle, width, height)
-                compose.resize(width, height)
-                pendingResizes--
-//                if (pendingResizes == 0) {
-//                    onResizeComplete()
-//                }
-                println("Resizes after decrement: $pendingResizes")
-                // It's OK we can keep rendering now
-//                if (windowResizingLock.isLocked) {
-//                    windowResizingLock.unlock()
-//                }
-//            }
+
+            // Resize dummy window to match
+            GLFW.glfwSetWindowSize(window.handle, width, height)
+            compose.resize(width, height)
+
         }
 
         override fun densityChange(newDensity: Density) {
             if (!initialized) return
-//            window.submitTask {
-                compose.scene.density = newDensity
-//            }
+            compose.scene.density = newDensity
         }
 
         override fun windowClosePressed() {
             if (!initialized) return
-//            window.submitTask {
-                window.close()
-                compose.close()
-//            }
+            window.close()
+            compose.close()
         }
 
         override fun AutoClose.frame(delta: Double) {
             dispatcher.poll()
             if (compose.invalid) {
-                GLFW.glfwMakeContextCurrent(windowHandle)
+                GLFW.glfwMakeContextCurrent(window.handle)
                 compose.draw()
-                glfwSwapBuffers(windowHandle)
+                glfwSwapBuffers(window.handle)
                 compose.invalid = false
             }
         }
     }
-
-//    private val waitingTasks
 
 
     @OptIn(InternalComposeUiApi::class)
     fun show(config: WindowConfig) {
         window.show(config, object : WindowCallbacks {
             override fun init(handle: WindowHandle) {
-                windowHandle = handle
                 compose = GlInitComposeGlfwAdapter(
                     config.initialWindowWidth, config.initialWindowHeight, dispatcher,
                     density = Density(glfwGetWindowContentScale(handle)),
                     composeContent = { ComposeMainApp() },
-                    onFrameReady = {b, w, h ->
-                        onFrameReady(b,w,h)
-//                        if (justResized) {
-//                            onResizeComplete()
-//                            justResized = false
-//                        }
+                    onFrameReady = { b, w, h ->
+                        onFrameReady(b, w, h)
                     }
                 )
                 initialized = true
@@ -197,12 +117,6 @@ class GlfwComposeWindow(
     fun restart(config: WindowConfig = WindowConfig()) {
         window.restart(config)
     }
-
-//    fun submitRestart(config: WindowConfig = WindowConfig()) {
-//        window.submitTask {
-//            window.restart(config)
-//        }
-//    }
 }
 
 

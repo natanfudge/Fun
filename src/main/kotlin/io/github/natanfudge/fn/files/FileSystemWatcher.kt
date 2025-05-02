@@ -43,7 +43,7 @@ class FileSystemWatcher: AutoCloseable {
      * [Key.close] should be called on the returned value to stop listening to file changes for that path.
      */
     fun onDirectoryChanged(path: Path, callback: () -> Unit): Key {
-        val key =  path.toNio().register(service, StandardWatchEventKinds.ENTRY_MODIFY, ENTRY_CREATE, ENTRY_DELETE)
+        val key =  path.toNio().register(service, StandardWatchEventKinds.ENTRY_MODIFY)
 
         watchKeys[key] = callback
         return Key(key)
@@ -54,6 +54,7 @@ class FileSystemWatcher: AutoCloseable {
     fun poll() {
         val key = service.poll()
         if (key != null) {
+            key.pollEvents()
             val callback = watchKeys[key] ?: error("Missing callback for registered key $key")
             callback()
             key.reset() // We still want to hear from this event

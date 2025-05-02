@@ -16,7 +16,7 @@ fun main() {
         init = {
             val device = runBlocking { adapter.requestDevice().getOrThrow() }.ac
 
-            val manager = PipelineManager(
+            val manager = ManagedPipeline(
                 device, presentationFormat,
                 vertexShader = ShaderSource.HotFile("triangle"),
                 hotReloadShaders = HOT_RELOAD_SHADERS

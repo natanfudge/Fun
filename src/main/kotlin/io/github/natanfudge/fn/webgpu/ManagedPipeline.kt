@@ -14,13 +14,13 @@ sealed interface ShaderSource {
 
     /**
      * Will be fetched from `files/shaders/${path}.wgsl`
-     * If [PipelineManager.hotReloadShaders] is true, changes to this file will be auto-reloaded.
+     * If [ManagedPipeline.hotReloadShaders] is true, changes to this file will be auto-reloaded.
      */
     data class HotFile(val path: String) : ShaderSource
 }
 
 @OptIn(ExperimentalResourceApi::class)
-class PipelineManager(
+class ManagedPipeline(
     private val device: GPUDevice,
     val presentationFormat: GPUTextureFormat,
     val vertexShader: ShaderSource,
