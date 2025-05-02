@@ -7,11 +7,13 @@ import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.window.ComposeFrameCallback
 import kotlinx.coroutines.CoroutineDispatcher
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
 import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL11.glReadPixels
 import org.lwjgl.opengl.GL12
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.opengl.GL43.GL_FRAMEBUFFER_BINDING
@@ -19,7 +21,6 @@ import org.lwjgl.system.MemoryUtil
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.ByteBuffer
-import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -31,7 +32,8 @@ internal class GlInitComposeGlfwAdapter(
     dispatcher: CoroutineDispatcher,
     private val density: Density,
     private val composeContent: @Composable () -> Unit,
-    val drawOffscreen: Boolean = false,
+    private val onFrameReady: ComposeFrameCallback
+//    val drawOffscreen: Boolean = false,
 ) {
 
     @OptIn(InternalComposeUiApi::class)
@@ -49,6 +51,9 @@ internal class GlInitComposeGlfwAdapter(
         }
         val canvas = surface.canvas.asComposeCanvas()
 
+        val frame = ByteArray(width * height * 4)
+        val frameByteBuffer = MemoryUtil.memAlloc(width * height * 4)
+
 //        val colorTexture = if (drawOffscreen) createColorTexture(width, height, { "Compose Color Texture" }) {
 //            normalTextureConfig()
 //        } else null
@@ -65,6 +70,7 @@ internal class GlInitComposeGlfwAdapter(
 
         fun close() {
             surface.close()
+            MemoryUtil.memFree(frameByteBuffer)
 //            if (colorTexture != null && depthTexture != null) {
 //                glDeleteTextures(colorTexture)
 //                glDeleteTextures(depthTexture)
@@ -105,14 +111,14 @@ internal class GlInitComposeGlfwAdapter(
     }
 
 
-    private var frameBuffer: Int = 0
+//    private var frameBuffer: Int = 0
 
     private fun init(width: Int, height: Int) {
         glDebugGroup(1, groupName = { "Skia Init" }) {
-            frameBuffer = createFramebuffer(name = { "Compose Framebuffer" })
-            if (drawOffscreen) {
-                glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer)
-            }
+//            frameBuffer = createFramebuffer(name = { "Compose Framebuffer" })
+//            if (drawOffscreen) {
+//                glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer)
+//            }
             window = GlInitFixedSizeComposeWindow(width, height, context)
         }
     }
@@ -120,16 +126,17 @@ internal class GlInitComposeGlfwAdapter(
     /**
      * The ByteBuffer will be null if no frame has been created yet
      */
-    fun getFrame(usage: (ByteBuffer?) -> Unit) {
+    fun getFrame(usage: (ByteArray, frameWidth: Int, frameHeight: Int) -> Unit) {
         frameLock.withLock {
-            usage(frame)
+            usage(window.frame, window.width, window.height)
         }
     }
 
     private val frameLock = ReentrantLock()
 
 
-    private var frame: ByteBuffer? = null
+    //TODO: move into the fixedSize thing and close
+
 
     var invalid = true
 
@@ -144,6 +151,7 @@ internal class GlInitComposeGlfwAdapter(
             e.printStackTrace()
         }
 
+
 //        if(drawToFrame1) {
 //
 //        }
@@ -156,13 +164,17 @@ internal class GlInitComposeGlfwAdapter(
         // C. Compose skiko vulkan / webgpu / metal support
         // D. Integrate the rendering with each rendering api separately - we need to 'fetch' the vulkan context in our main webgpu app, and draw compose on top of it, and same for the other APIs.
 
+        glReadPixels(0, 0, window.width, window.height, GL_RGBA, GL_UNSIGNED_BYTE, window.frameByteBuffer)
+        val buffer = getFrameBytes()
         frameLock.withLock {
-            if (frame != null) {
-                MemoryUtil.memFree(frame)
-            }
-            frame = getFrameBytes()
+            buffer.get(window.frame)
+//            if (frame != null) {
+//                MemoryUtil.memFree(frame)
+//            }
+            //SLOW: we should reuse the same ByteArray and only rebuild it when screen size changes
+//            frame = ByteArray(window.width * window.height * 4)
         }
-
+        onFrameReady(window.frame, window.width, window.height)
 
 
 //        if (drawOffscreen) {
@@ -204,43 +216,44 @@ internal class GlInitComposeGlfwAdapter(
 //            MemoryUtil.memFree(buffer)
 //        }
     }
+//
+//    private fun writeSkiaToImage() {
+////        val bytes = getFrameBytes()
+//        val bytes = frame
+//        val width = window.width
+//        val height = window.height
+//
+//        val image = BufferedImage(window.width, window.height, BufferedImage.TYPE_INT_ARGB)
+//
+//
+//        // Copy pixels to image with Y-flip
+//        for (y in 0 until height) {
+//            for (x in 0 until width) {
+//                val i = (y * width + x) * 4
+//                val r = bytes[i].toInt() and 0xFF
+//                val g = bytes[i + 1].toInt() and 0xFF
+//                val b = bytes[i + 2].toInt() and 0xFF
+//                val a = bytes[i + 3].toInt() and 0xFF
+//
+//                // RGBA to ARGB conversion + Y-flip
+//                val color = (a shl 24) or (r shl 16) or (g shl 8) or b
+//                image.setRGB(x, height - y - 1, color)
+//            }
+//        }
+//
+//        // Save image to file
+//        try {
+//            File("compose-renders").mkdirs()
+//            val file = java.io.File("compose-renders/compose-render-${renderI++}.png")
+//            if (file.exists()) file.delete()
+//            javax.imageio.ImageIO.write(image, "PNG", file)
+//            println("Screenshot saved to ${file.absolutePath}")
+//        } catch (e: java.io.IOException) {
+//            System.err.println("Failed to save screenshot: ${e.message}")
+//        }
+//    }
 
-    private fun writeSkiaToImage() {
-        val bytes = getFrameBytes()
-        val width = window.width
-        val height = window.height
-
-        val image = BufferedImage(window.width, window.height, BufferedImage.TYPE_INT_ARGB)
-
-
-        // Copy pixels to image with Y-flip
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                val i = (y * width + x) * 4
-                val r = bytes[i].toInt() and 0xFF
-                val g = bytes[i + 1].toInt() and 0xFF
-                val b = bytes[i + 2].toInt() and 0xFF
-                val a = bytes[i + 3].toInt() and 0xFF
-
-                // RGBA to ARGB conversion + Y-flip
-                val color = (a shl 24) or (r shl 16) or (g shl 8) or b
-                image.setRGB(x, height - y - 1, color)
-            }
-        }
-
-        // Save image to file
-        try {
-            File("compose-renders").mkdirs()
-            val file = java.io.File("compose-renders/compose-render-${renderI++}.png")
-            if (file.exists()) file.delete()
-            javax.imageio.ImageIO.write(image, "PNG", file)
-            println("Screenshot saved to ${file.absolutePath}")
-        } catch (e: java.io.IOException) {
-            System.err.println("Failed to save screenshot: ${e.message}")
-        }
-    }
-
-    private var renderI = 0
+//    private var renderI = 0
 
 
     fun resize(width: Int, height: Int) = glDebugGroup(500, groupName = { "Skia Resize" }) {
@@ -251,10 +264,10 @@ internal class GlInitComposeGlfwAdapter(
     }
 
     fun close() {
-        glDeleteFramebuffers(frameBuffer)
+//        glDeleteFramebuffers(frameBuffer)
         scene.close()
         window.close()
-        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+//        glBindFramebuffer(GL_FRAMEBUFFER, 0)
     }
 }
 

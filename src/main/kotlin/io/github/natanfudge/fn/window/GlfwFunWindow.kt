@@ -2,93 +2,55 @@ package io.github.natanfudge.fn.window
 
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
-import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
-import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryUtil.NULL
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
-
-data class WindowConfig(
-    val initialWindowWidth: Int = 800,
-    val initialWindowHeight: Int = 600,
-    val initialTitle: String = "Fun",
-    val fps: Int = 60,
-)
-
-interface RepeatingWindowCallbacks {
-    fun AutoClose.frame(delta: Double) {}
-
-    /**
-     * Will be called once on startup as well
-     */
-    fun resize(width: Int, height: Int) {}
-
-    /**
-     * You should close the window here
-     */
-    fun windowClosePressed() {}
-    @Deprecated("I don't think i need this one")
-    fun setMinimized(minimized: Boolean) {}
-    fun pointerEvent(
-        eventType: PointerEventType,
-        position: Offset,
-        scrollDelta: Offset = Offset.Zero,
-        timeMillis: Long = currentTimeForEvent(),
-        type: PointerType = PointerType.Mouse,
-        buttons: PointerButtons? = null,
-        keyboardModifiers: PointerKeyboardModifiers? = null,
-        nativeEvent: Any? = null,
-        button: PointerButton? = null,
-    ) {
-    }
-
-    fun keyEvent(
-        event: KeyEvent,
-    ) {
-    }
-
-    fun densityChange(newDensity: Density) {}
-}
-
-interface WindowCallbacks : RepeatingWindowCallbacks {
-    fun init(handle: WindowHandle) {}
-
-}
-
-private fun currentTimeForEvent(): Long = (currentNanoTime() / 1E6).toLong()
-
-
-typealias WindowHandle = Long
+var onTheFlyDebugRequested = false
 
 data class GlfwConfig(
     val disableApi: Boolean,
     val showWindow: Boolean,
 )
 
-class GlfwFunWindow(val glfw: GlfwConfig) {
+class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
     private lateinit var instance: GlInitGlfwWindowInstance
-    private var open = true
+     var open = false
 
     private var windowPos: IntOffset? = null
 
     private lateinit var callbacks: WindowCallbacks
 
+    val handle get() = instance.windowHandle
+
     @OptIn(InternalComposeUiApi::class)
     private inner class GlInitGlfwWindowInstance(config: WindowConfig) {
         val waitingTasks = mutableListOf<() -> Unit>()
 
+        /**
+         * It's important to lock on this when modifying [waitingTasks] because [submitTask] occurs on a different thread than the running of [waitingTasks]
+         */
+        val taskLock = ReentrantLock()
+
         init {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
 //            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE)
-            if (glfw.disableApi) glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
+            if (glfw.disableApi) {
+                glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
+            } else {
+                glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API)
+            }
+            //TODO: maybe unfloaty- them after init so they will be less annoying?
             glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
         }
 
@@ -127,6 +89,7 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
                 callbacks.resize(windowWidth, windowHeight)
+                //TODO: this frame() call is sussy because it will occur on the wrong thread for Compose
                 frame() // We want to content to adapt faster to resize changes so we rerender right away.
             }
 
@@ -171,6 +134,7 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
             glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
                 val event = glfwToComposeEvent(key, action, mods)
+                if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
                 callbacks.keyEvent(event)
             }
 
@@ -191,23 +155,43 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
         fun close() {
             glfwSetWindowCloseCallback(windowHandle, null)
+            if (!glfw.disableApi) {
+                glfwMakeContextCurrent(windowHandle)
+            }
             glfwDestroyWindow(windowHandle)
         }
 
     }
-
+// 1534157416736
+    // 1534157437760
 
     private var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
 
-    private fun frame() {
+    fun pollTasks() {
+        with(instance) {
+//                    println("Task lock for $name")
+            taskLock.withLock {
+                waitingTasks.forEach { it() }
+                waitingTasks.clear()
+            }
+//                    println("Task unlock for $name")
+        }
+    }
+
+    fun frame() {
         val time = System.nanoTime()
         val delta = time - lastFrameTimeNano
         lastFrameTimeNano = time
         frameAutoclose.use {
             with(callbacks) {
+//                println("Before Window frame of $name")
+//                if(glfw.disableApi) {
+//                    glfwMakeContextCurrent(handle)
+//                }
                 it.frame(delta.toDouble() / 1e9)
+//                println("After window frame of $name")
             }
         }
 
@@ -217,11 +201,14 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
      * Submits a callback to run on the main thread.
      */
     fun submitTask(task: () -> Unit) {
-        instance.waitingTasks.add(task)
+        instance.taskLock.withLock {
+            instance.waitingTasks.add(task)
+        }
     }
 
 
-    fun show(config: WindowConfig, callbacks: WindowCallbacks) {
+    fun show(config: WindowConfig, callbacks: WindowCallbacks, loop: Boolean = true) {
+        open = true
         this.callbacks = callbacks
         GLFWErrorCallback.createPrint(System.err).set()
 
@@ -232,20 +219,30 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
         instance = GlInitGlfwWindowInstance(config)
 
-        while (open) {
-            glfwPollEvents()
-            if (!open) break
-            val time = System.nanoTime()
-            val delta = time - lastFrameTimeNano
-            if (delta >= 1e9 / config.fps) {
-                frame()
+        if(loop) {
+            while (open) {
+//            println("Polling in $name")
+                glfwPollEvents()
+//            println("After polling in $name")
+                if (!open) break
+                val time = System.nanoTime()
+                val delta = time - lastFrameTimeNano
+                if (delta >= 1e9 / config.fps) {
+//                println("Frame passed in $name")
+
+                    pollTasks()
+//                println("Frame")
+//                println("Before frame of $name")
+                    frame()
+//                println("After frame of $name" +
+//                        "")
+                }
+
             }
-            with(instance) {
-                waitingTasks.forEach { it() }
-                waitingTasks.clear()
-            }
+
         }
-        instance.close()
+
+
     }
 
     fun restart(config: WindowConfig = WindowConfig()) {
@@ -255,6 +252,7 @@ class GlfwFunWindow(val glfw: GlfwConfig) {
 
     fun close() {
         open = false
+        instance.close()
     }
 }
 

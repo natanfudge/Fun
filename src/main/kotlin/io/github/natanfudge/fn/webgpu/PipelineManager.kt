@@ -36,6 +36,10 @@ class PipelineManager(
 ) : AutoCloseable {
     private var _pipeline: GPURenderPipeline? = null
 
+    /**
+     * Gets the currently active pipeline. Note that this value can change over time so atm you should access this every frame
+     * TODO: maybe add some "dependant objects" thing to not recreate them every frame
+     */
     val pipeline get() = _pipeline ?: error("Pipeline not initialized yet. This should never happen")
 
     private val fileSystemWatcher = FileSystemWatcher()

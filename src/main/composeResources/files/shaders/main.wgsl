@@ -1,3 +1,4 @@
+// Full-screen quad
 const positions = array<f32, 12>(
     // x y
     -1,-1,
@@ -7,6 +8,7 @@ const positions = array<f32, 12>(
     1,-1,
     1,1
 );
+
 
 struct VertexOutput {
   @builtin(position) Position : vec4f,
@@ -26,9 +28,9 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> VertexOutput {
 }
 
 
-
-//TODO: sample from image
+@group(0) @binding(1) var texSampler: sampler;
+@group(0) @binding(2) var texture: texture_2d<f32>;
 @fragment
 fn fs_main(@location(0) fragUV: vec2f) -> @location(0) vec4<f32> {
-    return vec4<f32>(fragUV.x,fragUV.y, 0, 1.0);
+    return textureSample(texture, texSampler, fragUV);
 }

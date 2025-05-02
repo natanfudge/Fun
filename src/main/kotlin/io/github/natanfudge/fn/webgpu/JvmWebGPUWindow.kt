@@ -50,7 +50,7 @@ data class WebGPUContext(
 class WebGPUWindow(
     private val init: WebGPUContext.() -> RepeatingWindowCallbacks,
 ) : AutoCloseable {
-    private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true))
+    private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
 
     init {
         LibraryLoader.load()
@@ -83,8 +83,10 @@ class WebGPUWindow(
             }
 
             override fun AutoClose.frame(delta: Double) {
+//                println("Pre-minimized frame")
                 if (!minimized) {
                     with(_userCallbacks) {
+//                        println("WEbGPU Frame")
                         frame(delta)
                     }
                 }
@@ -134,6 +136,17 @@ class WebGPUWindow(
 
     }
 
+    val open get() = window.open
+
+    //TODO: unsphagetti
+    fun frame() {
+        window.frame()
+    }
+
+    fun pollTasks() {
+        window.pollTasks()
+    }
+
 
     /**
      * Submits a callback to run on the main thread.
@@ -142,9 +155,9 @@ class WebGPUWindow(
         window.submitTask(task)
     }
 
-    fun restart() {
+    fun restart(config: WindowConfig= WindowConfig()) {
         context.close()
-        window.restart()
+        window.restart(config)
     }
 
 

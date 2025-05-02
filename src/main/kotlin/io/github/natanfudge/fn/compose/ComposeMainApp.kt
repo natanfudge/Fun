@@ -18,7 +18,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun ComposeMainApp() {
-    println("Recompose")
+    println("Recompose ")
 
     var color by remember { mutableStateOf(Color.Red) }
     LaunchedEffect(Unit) {
@@ -33,7 +33,7 @@ fun ComposeMainApp() {
                 Text("Value = ${color}", color = Color.White, fontSize = 30.sp)
             }
 
-            Text("SUS", color = Color.White)
+            Text("New thing f", color = Color.White)
 
         }
 

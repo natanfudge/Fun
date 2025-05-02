@@ -1,0 +1,121 @@
+package io.github.natanfudge.fn.window
+
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerButtons
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.unit.Density
+import io.github.natanfudge.fn.webgpu.AutoClose
+import org.jetbrains.skiko.currentNanoTime
+
+data class WindowConfig(
+    val initialWindowWidth: Int = 800,
+    val initialWindowHeight: Int = 600,
+    val initialTitle: String = "Fun",
+    val fps: Int = 60,
+)
+
+interface RepeatingWindowCallbacks {
+    fun AutoClose.frame(delta: Double) {}
+
+    /**
+     * Will be called once on startup as well
+     */
+    fun resize(width: Int, height: Int) {}
+
+    /**
+     * You should close the window here
+     */
+    fun windowClosePressed() {}
+    @Deprecated("I don't think i need this one")
+    fun setMinimized(minimized: Boolean) {}
+    fun pointerEvent(
+        eventType: PointerEventType,
+        position: Offset,
+        scrollDelta: Offset = Offset.Zero,
+        timeMillis: Long = currentTimeForEvent(),
+        type: PointerType = PointerType.Mouse,
+        buttons: PointerButtons? = null,
+        keyboardModifiers: PointerKeyboardModifiers? = null,
+        nativeEvent: Any? = null,
+        button: PointerButton? = null,
+    ) {
+    }
+
+    fun keyEvent(
+        event: KeyEvent,
+    ) {
+    }
+
+    fun densityChange(newDensity: Density) {}
+}
+
+interface WindowCallbacks : RepeatingWindowCallbacks {
+    fun init(handle: WindowHandle) {}
+}
+
+fun RepeatingWindowCallbacks.compose(other: RepeatingWindowCallbacks) = ComposedWindowCallback(this, other)
+
+/**
+ * Combines two [RepeatingWindowCallbacks] to transmit the events to both of them, first to the [first] and then to the [second].
+ */
+class ComposedWindowCallback(val first: RepeatingWindowCallbacks, val second: RepeatingWindowCallbacks): RepeatingWindowCallbacks {
+//    override fun init(handle: WindowHandle) {
+//        first.init(handle)
+//        second.init(handle)
+//    }
+
+    override fun densityChange(newDensity: Density) {
+        first.densityChange(newDensity)
+        second.densityChange(newDensity)
+    }
+
+    override fun AutoClose.frame(delta: Double) {
+//        println("First part frame")
+        with(first) {
+            frame(delta)
+        }
+//        println("Second part frame")
+        with(second){
+            frame(delta)
+        }
+    }
+
+    override fun keyEvent(event: KeyEvent) {
+        first.keyEvent(event)
+        second.keyEvent(event)
+    }
+
+    override fun pointerEvent(
+        eventType: PointerEventType,
+        position: Offset,
+        scrollDelta: Offset,
+        timeMillis: Long,
+        type: PointerType,
+        buttons: PointerButtons?,
+        keyboardModifiers: PointerKeyboardModifiers?,
+        nativeEvent: Any?,
+        button: PointerButton?
+    ) {
+        first.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+        second.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+    }
+
+    override fun resize(width: Int, height: Int) {
+        first.resize(width, height)
+        second.resize(width,height)
+    }
+
+    override fun windowClosePressed() {
+        first.windowClosePressed()
+        second.windowClosePressed()
+    }
+}
+
+private fun currentTimeForEvent(): Long = (currentNanoTime() / 1E6).toLong()
+
+
+typealias WindowHandle = Long
