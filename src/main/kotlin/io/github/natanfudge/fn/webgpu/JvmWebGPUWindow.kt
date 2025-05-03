@@ -16,6 +16,9 @@ import io.ygdrasil.wgpu.WGPULogCallback
 import io.ygdrasil.wgpu.WGPULogLevel_Info
 import io.ygdrasil.wgpu.wgpuSetLogCallback
 import io.ygdrasil.wgpu.wgpuSetLogLevel
+import org.lwjgl.glfw.GLFW
+import org.lwjgl.glfw.GLFW.glfwGetVideoMode
+import org.lwjgl.glfw.GLFW.glfwGetWindowMonitor
 import org.lwjgl.glfw.GLFWNativeCocoa.glfwGetCocoaWindow
 import org.lwjgl.glfw.GLFWNativeWayland.glfwGetWaylandDisplay
 import org.lwjgl.glfw.GLFWNativeWayland.glfwGetWaylandWindow
@@ -45,10 +48,9 @@ data class WebGPUContext(
 }
 
 
-
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 class WebGPUWindow(
-    private val init: WebGPUContext.() -> RepeatingWindowCallbacks,
+    private val init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks,
 ) : AutoCloseable {
     private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
 
@@ -69,9 +71,15 @@ class WebGPUWindow(
     private lateinit var _userCallbacks: RepeatingWindowCallbacks
 
     private var minimized = false
+    private var _windowRefreshRate = 0
 
+    /**
+     * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
+     */
+    val refreshRate get() = _windowRefreshRate
 
     fun show(config: WindowConfig) {
+
         window.show(config, object : WindowCallbacks {
             override fun init(handle: WindowHandle) {
                 val nativeSurface = wgpu.getNativeSurface(handle)
@@ -79,15 +87,24 @@ class WebGPUWindow(
                 nativeSurface.computeSurfaceCapabilities(adapter)
                 val format = nativeSurface.supportedFormats.first()
                 context = WebGPUContext(nativeSurface, adapter, format)
-                _userCallbacks = init(context)
+                _userCallbacks = init(context, this@WebGPUWindow)
+                _windowRefreshRate = getRefreshRate(handle)
             }
 
-            override fun AutoClose.frame(delta: Double) {
-//                println("Pre-minimized frame")
+            private fun getRefreshRate(window: Long): Int {
+                // Get the monitor the window is currently on
+                var monitor = glfwGetWindowMonitor(window)
+                if (monitor == 0L) monitor = GLFW.glfwGetPrimaryMonitor()
+                if (monitor == 0L) error("Could not get any monitor for refresh rate")
+                val vidMode = glfwGetVideoMode(monitor) ?: error("Failed to get video mode")
+
+                return vidMode.refreshRate()
+            }
+
+            override fun AutoClose.frame(deltaMs: Double) {
                 if (!minimized) {
                     with(_userCallbacks) {
-//                        println("WEbGPU Frame")
-                        frame(delta)
+                        frame(deltaMs)
                     }
                 }
             }
@@ -132,21 +149,13 @@ class WebGPUWindow(
                 _userCallbacks.densityChange(newDensity)
             }
 
+            override fun windowMove(x: Int, y: Int) {
+                _userCallbacks.windowMove(x, y)
+            }
+
         })
 
     }
-
-    val open get() = window.open
-
-    //TODO: unsphagetti
-    fun frame() {
-        window.frame()
-    }
-
-    fun pollTasks() {
-        window.pollTasks()
-    }
-
 
     /**
      * Submits a callback to run on the main thread.
@@ -155,7 +164,7 @@ class WebGPUWindow(
         window.submitTask(task)
     }
 
-    fun restart(config: WindowConfig= WindowConfig()) {
+    fun restart(config: WindowConfig = WindowConfig()) {
         context.close()
         window.restart(config)
     }

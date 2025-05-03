@@ -5,9 +5,7 @@ import kotlin.use
 
 interface AutoClose: AutoCloseable {
     val <T : AutoCloseable> T.ac: T
-}
 
-class AutoCloseImpl: AutoClose {
     companion object {
         operator fun invoke(wgpuCode: AutoCloseImpl.() -> Unit) {
             AutoCloseImpl().use {
@@ -15,6 +13,10 @@ class AutoCloseImpl: AutoClose {
             }
         }
     }
+}
+
+class AutoCloseImpl: AutoClose {
+
 
      val toClose = mutableListOf<AutoCloseable>()
 

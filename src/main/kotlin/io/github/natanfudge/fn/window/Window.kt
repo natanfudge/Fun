@@ -15,11 +15,11 @@ data class WindowConfig(
     val initialWindowWidth: Int = 800,
     val initialWindowHeight: Int = 600,
     val initialTitle: String = "Fun",
-    val fps: Int = 60,
+    val maxFps: Int = 60,
 )
 
 interface RepeatingWindowCallbacks {
-    fun AutoClose.frame(delta: Double) {}
+    fun AutoClose.frame(deltaMs: Double) {}
 
     /**
      * Will be called once on startup as well
@@ -51,6 +51,7 @@ interface RepeatingWindowCallbacks {
     }
 
     fun densityChange(newDensity: Density) {}
+    fun windowMove(x: Int, y: Int){}
 }
 
 interface WindowCallbacks : RepeatingWindowCallbacks {
@@ -73,14 +74,14 @@ class ComposedWindowCallback(val first: RepeatingWindowCallbacks, val second: Re
         second.densityChange(newDensity)
     }
 
-    override fun AutoClose.frame(delta: Double) {
+    override fun AutoClose.frame(deltaMs: Double) {
 //        println("First part frame")
         with(first) {
-            frame(delta)
+            frame(deltaMs)
         }
 //        println("Second part frame")
         with(second){
-            frame(delta)
+            frame(deltaMs)
         }
     }
 
@@ -112,6 +113,11 @@ class ComposedWindowCallback(val first: RepeatingWindowCallbacks, val second: Re
     override fun windowClosePressed() {
         first.windowClosePressed()
         second.windowClosePressed()
+    }
+
+    override fun windowMove(x: Int, y: Int) {
+        first.windowMove(x,y)
+        second.windowMove(x,y)
     }
 }
 

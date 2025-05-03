@@ -1,34 +1,27 @@
 package io.github.natanfudge.fn.files
 
 import kotlinx.io.files.Path
-import java.net.URI
 import java.nio.file.FileSystems
 import java.nio.file.Paths
 import java.nio.file.StandardWatchEventKinds
-import java.nio.file.StandardWatchEventKinds.ENTRY_CREATE
-import java.nio.file.StandardWatchEventKinds.ENTRY_DELETE
 import java.nio.file.WatchKey
-import kotlin.io.path.toPath
 
 
 fun kotlinx.io.files.Path.toNio(): java.nio.file.Path = Paths.get(toString())
 
+
 /**
- * There is no kotlin multiplatform URI yet
+ * You should use only once instance of this, as it behaves weirdly when you try to register the same path twice in different parts of the code
  */
-typealias KotlinURI = String
-// SLOW: kind of an awkward way of doing this
-fun KotlinURI.uriParentDirectory() = URI.create(this).toPath().parent.toUri().toString()
-
-
-
-class FileSystemWatcher: AutoCloseable {
+class FileSystemWatcher : AutoCloseable {
     private val service = FileSystems.getDefault().newWatchService()
 
-    private val watchKeys = mutableMapOf<WatchKey, () -> Unit>()
+    private val watchKeys = mutableMapOf<WatchKey, MutableList<() -> Unit>>()
+    private val registeredPaths = mutableSetOf<Path>()
 
     inner class Key(
-        val key: WatchKey
+        val key: WatchKey,
+        val path: Path,
     ) {
         fun close() {
             key.cancel()
@@ -43,10 +36,17 @@ class FileSystemWatcher: AutoCloseable {
      * [Key.close] should be called on the returned value to stop listening to file changes for that path.
      */
     fun onDirectoryChanged(path: Path, callback: () -> Unit): Key {
-        val key =  path.toNio().register(service, StandardWatchEventKinds.ENTRY_MODIFY)
+        val key = path.toNio().register(service, StandardWatchEventKinds.ENTRY_MODIFY)
 
-        watchKeys[key] = callback
-        return Key(key)
+        if (path !in registeredPaths) {
+            watchKeys[key] = mutableListOf(callback)
+            registeredPaths.add(path)
+        } else {
+            // If it's in the registered paths, we can add it to the list of listeners for this path
+            watchKeys.getValue(key).add(callback)
+        }
+
+        return Key(key, path)
     }
 
 
@@ -56,7 +56,7 @@ class FileSystemWatcher: AutoCloseable {
         if (key != null) {
             key.pollEvents()
             val callback = watchKeys[key] ?: error("Missing callback for registered key $key")
-            callback()
+            callback.forEach { it() }
             key.reset() // We still want to hear from this event
         }
     }

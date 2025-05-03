@@ -3,7 +3,7 @@ package io.github.natanfudge.fn.network
 import io.github.natanfudge.fn.network.state.NetworkValue
 import io.github.natanfudge.fn.network.state.StateChangeValue
 
-//TODO: I think it makes sense to allow configuring what happens when you access a value you can't see.
+//IDEA: I think it makes sense to allow configuring what happens when you access a value you can't see.
 // Either on a global level - throw / return current
 // Or a Fun level - throw / return current
 // Or a state level - throw / return current
@@ -63,12 +63,9 @@ class LocalMultiplayer(
      */
     val clients: List<FunClient> = List(playerCount) { clientNum ->
         FunClient(object : FunCommunication {
-//            override fun send(values: List<SerializableValue<*>>) {
-//                TODO("Not yet implemented")
-//            }
 
             override fun send(message: NetworkValue) {
-                TODO("Not yet implemented")
+                error("to do")
             }
 
         })

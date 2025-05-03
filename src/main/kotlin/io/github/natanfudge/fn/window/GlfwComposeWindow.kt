@@ -1,5 +1,7 @@
 package io.github.natanfudge.fn.window
 
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.KeyEvent
@@ -16,14 +18,11 @@ fun main() {
     GlfwComposeWindow().show(WindowConfig())
 }
 
-//TODO:
-// 3. Refactor GlInitComposeGlfwAdapter
-// 4. Add a mechanism for checking for FPS drops
-// 5. Add some performance monitoring
 
 typealias ComposeFrameCallback = (bytes: ByteArray, width: Int, height: Int) -> Unit
 
 class GlfwComposeWindow(
+    val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
     private val window = GlfwFunWindow(GlfwConfig(disableApi = false, showWindow = show), name = "Compose")
@@ -40,6 +39,7 @@ class GlfwComposeWindow(
     }
 
     private var initialized = false
+
 
     @OptIn(InternalComposeUiApi::class)
     val callbacks = object : RepeatingWindowCallbacks {
@@ -84,7 +84,7 @@ class GlfwComposeWindow(
             compose.close()
         }
 
-        override fun AutoClose.frame(delta: Double) {
+        override fun AutoClose.frame(deltaMs: Double) {
             dispatcher.poll()
             if (compose.invalid) {
                 GLFW.glfwMakeContextCurrent(window.handle)
@@ -92,6 +92,10 @@ class GlfwComposeWindow(
                 glfwSwapBuffers(window.handle)
                 compose.invalid = false
             }
+        }
+
+        override fun windowMove(x: Int, y: Int) {
+
         }
     }
 
@@ -103,7 +107,7 @@ class GlfwComposeWindow(
                 compose = GlInitComposeGlfwAdapter(
                     config.initialWindowWidth, config.initialWindowHeight, dispatcher,
                     density = Density(glfwGetWindowContentScale(handle)),
-                    composeContent = { ComposeMainApp() },
+                    composeContent = { content() },
                     onFrameReady = { b, w, h ->
                         onFrameReady(b, w, h)
                     }

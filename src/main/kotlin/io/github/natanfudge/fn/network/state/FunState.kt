@@ -6,7 +6,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
 
-//TODO: things to think about:
+// IDEA: things to think about:
 // 0. Had an amazing epiphany - the cases where you want to send messages to the server are extremely limited - specifically -
 // just input! We set up these events on the engine side:
 // fun onKeypress(key: Key) {
@@ -49,9 +49,8 @@ import kotlinx.serialization.json.Json
 // 15. Compose MutableState integration
 // 16. Send state changes in batches. Configurable amount of delay to organize batches. Default - a few ms, configurable to maybe even 0.1ms.
 // 17. simulated latency, enabled by default
+// 18. Make sure messages arrive at the order they were sent (see multithreading doc in FunState)
 
-//TODO: things to implement:
-// 1. Make sure messages arrive at the order they were sent (see multithreading doc in FunState)
 
 /**
  * Represents a serialized value that can be sent over the network.

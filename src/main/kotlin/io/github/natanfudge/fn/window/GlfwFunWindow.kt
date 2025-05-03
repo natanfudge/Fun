@@ -23,6 +23,7 @@ data class GlfwConfig(
     val showWindow: Boolean,
 )
 
+// Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
     private lateinit var instance: GlInitGlfwWindowInstance
      var open = false
@@ -32,6 +33,8 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
     private lateinit var callbacks: WindowCallbacks
 
     val handle get() = instance.windowHandle
+
+
 
     @OptIn(InternalComposeUiApi::class)
     private inner class GlInitGlfwWindowInstance(config: WindowConfig) {
@@ -50,7 +53,6 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
             } else {
                 glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API)
             }
-            //TODO: maybe unfloaty- them after init so they will be less annoying?
             glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
         }
 
@@ -59,6 +61,8 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
         )
 
         init {
+            // Unfloaty it because it's annoying, it was only enabled for it to be focused initially
+            glfwSetWindowAttrib(windowHandle, GLFW_FLOATING, GLFW_FALSE)
             if (windowHandle == NULL) {
                 glfwTerminate()
                 throw RuntimeException("Failed to create the GLFW window")
@@ -85,11 +89,11 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
             }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
                 windowPos = IntOffset(x, y)
+                callbacks.windowMove(x,y)
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
                 callbacks.resize(windowWidth, windowHeight)
-                //TODO: this frame() call is sussy because it will occur on the wrong thread for Compose
                 frame() // We want to content to adapt faster to resize changes so we rerender right away.
             }
 
@@ -190,7 +194,7 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
 //                if(glfw.disableApi) {
 //                    glfwMakeContextCurrent(handle)
 //                }
-                it.frame(delta.toDouble() / 1e9)
+                it.frame(delta.toDouble() / 1e6)
 //                println("After window frame of $name")
             }
         }
@@ -227,7 +231,7 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
                 if (!open) break
                 val time = System.nanoTime()
                 val delta = time - lastFrameTimeNano
-                if (delta >= 1e9 / config.fps) {
+                if (delta >= 1e9 / config.maxFps) {
 //                println("Frame passed in $name")
 
                     pollTasks()

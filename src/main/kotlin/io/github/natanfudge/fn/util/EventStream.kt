@@ -34,7 +34,7 @@ class Listener<in T>(internal val callback: (T) -> Unit, private val observable:
 }
 
 
- //TODO: it would make sense for eventstreams to have a string identifier to be able to track them in runtime.
+ // IDEA: it would make sense for eventstreams to have a string identifier to be able to track them in runtime.
 // Then inside components we can have an API like this
 // class MyThing(override val id: String): Component {
 //      val firedFireballs by event<Int>()

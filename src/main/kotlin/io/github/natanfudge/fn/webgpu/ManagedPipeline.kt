@@ -22,6 +22,7 @@ sealed interface ShaderSource {
 @OptIn(ExperimentalResourceApi::class)
 class ManagedPipeline(
     private val device: GPUDevice,
+    private val fsWatcher: FileSystemWatcher,
     val presentationFormat: GPUTextureFormat,
     val vertexShader: ShaderSource,
     /**
@@ -38,22 +39,33 @@ class ManagedPipeline(
 
     /**
      * Gets the currently active pipeline. Note that this value can change over time so atm you should access this every frame
-     * TODO: maybe add some "dependant objects" thing to not recreate them every frame
+     * SLOW: maybe add some "dependant objects" thing to not recreate them every frame
      */
     val pipeline get() = _pipeline ?: error("Pipeline not initialized yet. This should never happen")
 
-    private val fileSystemWatcher = FileSystemWatcher()
-
-    /**
-     * Should be called every frame for hot reloading shaders.
-     */
-    fun poll() {
-        if (hotReloadShaders) {
-            fileSystemWatcher.poll()
-        }
-    }
-
     private val closeContext = AutoCloseImpl()
+
+    // Allow transparency
+    private val colorState = ColorTargetState(
+        format = presentationFormat,
+        // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
+        blend = BlendState(
+            color = BlendComponent(
+                srcFactor = GPUBlendFactor.SrcAlpha,
+                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                operation = GPUBlendOperation.Add
+            ),
+            alpha = BlendComponent(
+                srcFactor = GPUBlendFactor.One,
+                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                operation = GPUBlendOperation.Add
+            )
+        ),
+        writeMask = setOf(GPUColorWrite.All)
+    )
+
+    private var vertexChangeListener: FileSystemWatcher.Key? = null
+    private var fragmentChangeListener: FileSystemWatcher.Key? = null
 
     init {
         // SLOW: consider making this async
@@ -65,14 +77,14 @@ class ManagedPipeline(
                 // It's important to watch and reload the SOURCE file and not the built file so we don't have to rebuild
                 if (vertexShader is ShaderSource.HotFile) {
                     watchedUri = vertexShader.getSourceFile().parent!!
-                    reloadOnDirectoryChange(watchedUri)
+                    vertexChangeListener = reloadOnDirectoryChange(watchedUri)
                 }
 
                 if (fragmentShader is ShaderSource.HotFile) {
                     val fragmentUri = fragmentShader.getSourceFile().parent!!
                     // Avoid reloading twice when both shaders are in the same directory
                     if (fragmentUri != watchedUri) {
-                        reloadOnDirectoryChange(fragmentUri)
+                        fragmentChangeListener = reloadOnDirectoryChange(fragmentUri)
                     }
                 }
             }
@@ -82,9 +94,9 @@ class ManagedPipeline(
     // HACK: this might not work always
     private fun ShaderSource.HotFile.getSourceFile() = Path("src/main/composeResources/", fullPath())
 
-    private fun reloadOnDirectoryChange(dir: Path) {
+    private fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
         println("Listening to shadffer changes at $dir!")
-        fileSystemWatcher.onDirectoryChanged(dir) {
+        return fsWatcher.onDirectoryChanged(dir) {
             // SLOW: consider making this async
             runBlocking {
                 println("Reloading shaders at '${dir}'")
@@ -94,6 +106,8 @@ class ManagedPipeline(
     }
 
     private var pipelineIndex = 0
+
+
 
     private suspend fun rebuildPipeline() = with(closeContext) {
         if (_pipeline != null) {
@@ -109,13 +123,13 @@ class ManagedPipeline(
                 ),
                 fragment = FragmentState(
                     module = fragment,
-                    targets = listOf(ColorTargetState(presentationFormat)),
-                    entryPoint = "fs_main"
+                    targets = listOf(colorState),
+                    entryPoint = "fs_main",
                 ),
                 primitive = PrimitiveState(
                     topology = GPUPrimitiveTopology.TriangleList
                 ),
-                label = "Pipeline ${pipelineIndex++}"
+                label = "Pipeline ${pipelineIndex++}",
             )
         ).ac
     }
@@ -147,7 +161,8 @@ class ManagedPipeline(
     }
 
     override fun close() {
-        fileSystemWatcher.close()
+        vertexChangeListener?.close()
+        fragmentChangeListener?.close()
         closeContext.close()
     }
 }
