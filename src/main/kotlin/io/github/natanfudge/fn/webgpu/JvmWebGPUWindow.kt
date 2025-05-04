@@ -16,6 +16,7 @@ import io.ygdrasil.wgpu.WGPULogCallback
 import io.ygdrasil.wgpu.WGPULogLevel_Info
 import io.ygdrasil.wgpu.wgpuSetLogCallback
 import io.ygdrasil.wgpu.wgpuSetLogLevel
+import kotlinx.coroutines.runBlocking
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.glfwGetVideoMode
 import org.lwjgl.glfw.GLFW.glfwGetWindowMonitor
@@ -32,6 +33,7 @@ data class WebGPUContext(
     val context: NativeSurface,
     val adapter: GPUAdapter,
     val presentationFormat: GPUTextureFormat,
+    val device: GPUDevice
 ) : AutoClose {
     private val autoClose = AutoCloseImpl()
     override val <T : AutoCloseable> T.ac: T
@@ -44,15 +46,18 @@ data class WebGPUContext(
         autoClose.close()
         context.close()
         adapter.close()
+        device.close()
     }
 }
 
 
-@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 class WebGPUWindow(
     private val init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks,
 ) : AutoCloseable {
     private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
+
+    val width get() = window.width
+    val height get() = window.height
 
     init {
         LibraryLoader.load()
@@ -79,14 +84,14 @@ class WebGPUWindow(
     val refreshRate get() = _windowRefreshRate
 
     fun show(config: WindowConfig) {
-
         window.show(config, object : WindowCallbacks {
             override fun init(handle: WindowHandle) {
                 val nativeSurface = wgpu.getNativeSurface(handle)
                 val adapter = wgpu.requestAdapter(nativeSurface) ?: error("Could not get wgpu adapter")
                 nativeSurface.computeSurfaceCapabilities(adapter)
                 val format = nativeSurface.supportedFormats.first()
-                context = WebGPUContext(nativeSurface, adapter, format)
+                val device =    runBlocking { adapter.requestDevice().getOrThrow() }
+                context = WebGPUContext(nativeSurface, adapter, format, device)
                 _userCallbacks = init(context, this@WebGPUWindow)
                 _windowRefreshRate = getRefreshRate(handle)
             }
@@ -106,6 +111,7 @@ class WebGPUWindow(
                     with(_userCallbacks) {
                         frame(deltaMs)
                     }
+                    context.context.present()
                 }
             }
 
@@ -113,6 +119,12 @@ class WebGPUWindow(
                 if (width == 0 && height == 0) {
                     minimized = true
                 } else {
+                    context.context.configure(
+                        SurfaceConfiguration(
+                            context.device, format = context.presentationFormat
+                        ),
+                        width = width.toUInt(), height = height.toUInt()
+                    )
                     minimized = false
                     _userCallbacks.resize(width, height)
                 }
@@ -121,10 +133,6 @@ class WebGPUWindow(
             override fun windowClosePressed() {
                 _userCallbacks.windowClosePressed()
                 close()
-            }
-
-            override fun setMinimized(minimized: Boolean) {
-                _userCallbacks.setMinimized(minimized)
             }
 
             override fun pointerEvent(
@@ -165,7 +173,11 @@ class WebGPUWindow(
     }
 
     fun restart(config: WindowConfig = WindowConfig()) {
+        runBlocking {
+            context.device.poll()
+        }
         context.close()
+
         window.restart(config)
     }
 

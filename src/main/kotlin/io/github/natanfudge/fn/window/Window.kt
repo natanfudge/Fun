@@ -30,8 +30,6 @@ interface RepeatingWindowCallbacks {
      * You should close the window here
      */
     fun windowClosePressed() {}
-    @Deprecated("I don't think i need this one")
-    fun setMinimized(minimized: Boolean) {}
     fun pointerEvent(
         eventType: PointerEventType,
         position: Offset,
@@ -58,7 +56,7 @@ interface WindowCallbacks : RepeatingWindowCallbacks {
     fun init(handle: WindowHandle) {}
 }
 
-fun RepeatingWindowCallbacks.compose(other: RepeatingWindowCallbacks) = ComposedWindowCallback(this, other)
+fun RepeatingWindowCallbacks.combine(other: RepeatingWindowCallbacks) = ComposedWindowCallback(this, other)
 
 /**
  * Combines two [RepeatingWindowCallbacks] to transmit the events to both of them, first to the [first] and then to the [second].

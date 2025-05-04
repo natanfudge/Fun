@@ -1,16 +1,21 @@
 package io.github.natanfudge.fn.webgpu
 
+import ffi.MemoryBuffer
+import ffi.NativeAddress
 import io.ygdrasil.webgpu.ArrayBuffer
+import io.ygdrasil.webgpu.Buffer
 import io.ygdrasil.webgpu.BufferDescriptor
 import io.ygdrasil.webgpu.Extent3D
+import io.ygdrasil.webgpu.GPUBuffer
 import io.ygdrasil.webgpu.GPUBufferUsage
 import io.ygdrasil.webgpu.GPUDevice
+import io.ygdrasil.webgpu.GPUSize64
 import io.ygdrasil.webgpu.GPUTexture
 import io.ygdrasil.webgpu.Origin3D
 import io.ygdrasil.webgpu.TexelCopyBufferLayout
 import io.ygdrasil.webgpu.TexelCopyTextureInfo
 import io.ygdrasil.webgpu.asArrayBuffer
-import io.ygdrasil.webgpu.mapFrom
+import io.ygdrasil.wgpu.wgpuBufferGetMappedRange
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import kotlin.use
@@ -54,3 +59,14 @@ fun GPUDevice.copyExternalImageToTexture(source: ByteArray, texture: GPUTexture,
     segment.asArrayBuffer(byteSizeToCopy)
         .let(action)
 }
+
+// Hopefully there will be an api for this in the future
+fun GPUBuffer.mapFrom(buffer: IntArray, offset: GPUSize64 = 0u) {
+    val bufferSize = (buffer.size * Int.SIZE_BYTES).toULong()
+    wgpuBufferGetMappedRange((this as Buffer).handler, offset, bufferSize)
+        .asBuffer(bufferSize)
+        .writeInts(buffer)
+}
+
+private fun NativeAddress?.asBuffer(size: ULong): MemoryBuffer =
+    MemoryBuffer((this ?: error("buffer should not be null")), size)

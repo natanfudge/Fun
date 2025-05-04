@@ -27,13 +27,13 @@ fun ComposeMainApp() {
     }
     // We add a little padding so skia won't flag our color as "the background color" and this will conflict
     // with the fact we override the background color to be transparent.
-    Box(Modifier.padding(10.dp).border(1.dp, Color.Green).background(color.copy(alpha = 0.5f)).fillMaxSize()) {
+    Box(Modifier.padding(10.dp).border(1.dp, Color.Green).background(color.copy(alpha = 0.5f))) {
         Column {
             Button(onClick = {color = if(color == Color.Red) Color.Blue else Color.Red}) {
-                Text("Value = $color", color = Color.White, fontSize = 30.sp)
+                Text("Compose Button", color = Color.White, fontSize = 30.sp)
             }
 
-            Text("New thing f", color = Color.White)
+            Text("Some Compose text", color = Color.White)
         }
     }
 }

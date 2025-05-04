@@ -14,16 +14,16 @@ sealed interface ShaderSource {
 
     /**
      * Will be fetched from `files/shaders/${path}.wgsl`
-     * If [ManagedPipeline.hotReloadShaders] is true, changes to this file will be auto-reloaded.
+     * If [ReloadingPipeline.hotReloadShaders] is true, changes to this file will be auto-reloaded.
      */
     data class HotFile(val path: String) : ShaderSource
 }
 
 @OptIn(ExperimentalResourceApi::class)
-class ManagedPipeline(
+class ReloadingPipeline(
     private val device: GPUDevice,
     private val fsWatcher: FileSystemWatcher,
-    val presentationFormat: GPUTextureFormat,
+//    val presentationFormat: GPUTextureFormat,
     val vertexShader: ShaderSource,
     /**
      * If null, the vertex shader source will be used for the fragment shader as well
@@ -34,6 +34,7 @@ class ManagedPipeline(
      * This has a large overhead and should not be used in production.
      */
     val hotReloadShaders: Boolean = true,
+    val config: (vertex: GPUShaderModule, fragment: GPUShaderModule) -> RenderPipelineDescriptor
 ) : AutoCloseable {
     private var _pipeline: GPURenderPipeline? = null
 
@@ -45,24 +46,7 @@ class ManagedPipeline(
 
     private val closeContext = AutoCloseImpl()
 
-    // Allow transparency
-    private val colorState = ColorTargetState(
-        format = presentationFormat,
-        // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
-        blend = BlendState(
-            color = BlendComponent(
-                srcFactor = GPUBlendFactor.SrcAlpha,
-                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
-                operation = GPUBlendOperation.Add
-            ),
-            alpha = BlendComponent(
-                srcFactor = GPUBlendFactor.One,
-                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
-                operation = GPUBlendOperation.Add
-            )
-        ),
-        writeMask = setOf(GPUColorWrite.All)
-    )
+
 
     private var vertexChangeListener: FileSystemWatcher.Key? = null
     private var fragmentChangeListener: FileSystemWatcher.Key? = null
@@ -105,33 +89,13 @@ class ManagedPipeline(
         }
     }
 
-    private var pipelineIndex = 0
-
-
 
     private suspend fun rebuildPipeline() = with(closeContext) {
         if (_pipeline != null) {
             _pipeline!!.close()
         }
         val (vertex, fragment) = loadShaders()
-        _pipeline = device.createRenderPipeline(
-            RenderPipelineDescriptor(
-                layout = null,
-                vertex = VertexState(
-                    module = vertex,
-                    entryPoint = "vs_main"
-                ),
-                fragment = FragmentState(
-                    module = fragment,
-                    targets = listOf(colorState),
-                    entryPoint = "fs_main",
-                ),
-                primitive = PrimitiveState(
-                    topology = GPUPrimitiveTopology.TriangleList
-                ),
-                label = "Pipeline ${pipelineIndex++}",
-            )
-        ).ac
+        _pipeline = device.createRenderPipeline(config(vertex, fragment)).ac
     }
 
     /**

@@ -26,7 +26,7 @@ data class GlfwConfig(
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
     private lateinit var instance: GlInitGlfwWindowInstance
-     var open = false
+    var open = false
 
     private var windowPos: IntOffset? = null
 
@@ -34,6 +34,11 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
 
     val handle get() = instance.windowHandle
 
+    var width: Int = 0
+    var height: Int = 0
+
+//    val width get() = instance.width
+//    val height get() = instance.height
 
 
     @OptIn(InternalComposeUiApi::class)
@@ -44,6 +49,8 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
          * It's important to lock on this when modifying [waitingTasks] because [submitTask] occurs on a different thread than the running of [waitingTasks]
          */
         val taskLock = ReentrantLock()
+
+
 
         init {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
@@ -74,10 +81,6 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
 
             glfwSetWindowCloseCallback(windowHandle) {
                 callbacks.windowClosePressed()
-//                close()
-            }
-            glfwSetWindowIconifyCallback(windowHandle) { _, minimized ->
-                callbacks.setMinimized(minimized)
             }
 
             if (windowPos != null) {
@@ -89,10 +92,12 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
             }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
                 windowPos = IntOffset(x, y)
-                callbacks.windowMove(x,y)
+                callbacks.windowMove(x, y)
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
+                width = windowWidth
+                height = windowHeight
                 callbacks.resize(windowWidth, windowHeight)
                 frame() // We want to content to adapt faster to resize changes so we rerender right away.
             }
@@ -166,21 +171,16 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
         }
 
     }
-// 1534157416736
-    // 1534157437760
-
     private var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
 
     fun pollTasks() {
         with(instance) {
-//                    println("Task lock for $name")
             taskLock.withLock {
                 waitingTasks.forEach { it() }
                 waitingTasks.clear()
             }
-//                    println("Task unlock for $name")
         }
     }
 
@@ -190,12 +190,7 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
         lastFrameTimeNano = time
         frameAutoclose.use {
             with(callbacks) {
-//                println("Before Window frame of $name")
-//                if(glfw.disableApi) {
-//                    glfwMakeContextCurrent(handle)
-//                }
                 it.frame(delta.toDouble() / 1e6)
-//                println("After window frame of $name")
             }
         }
 
@@ -212,6 +207,8 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
 
 
     fun show(config: WindowConfig, callbacks: WindowCallbacks, loop: Boolean = true) {
+        width = config.initialWindowWidth
+        height = config.initialWindowHeight
         open = true
         this.callbacks = callbacks
         GLFWErrorCallback.createPrint(System.err).set()
@@ -223,29 +220,20 @@ class GlfwFunWindow(val glfw: GlfwConfig, val name: String) {
 
         instance = GlInitGlfwWindowInstance(config)
 
-        if(loop) {
+        if (loop) {
             while (open) {
-//            println("Polling in $name")
                 glfwPollEvents()
-//            println("After polling in $name")
                 if (!open) break
                 val time = System.nanoTime()
                 val delta = time - lastFrameTimeNano
                 if (delta >= 1e9 / config.maxFps) {
-//                println("Frame passed in $name")
 
                     pollTasks()
-//                println("Frame")
-//                println("Before frame of $name")
                     frame()
-//                println("After frame of $name" +
-//                        "")
                 }
 
             }
-
         }
-
 
     }
 

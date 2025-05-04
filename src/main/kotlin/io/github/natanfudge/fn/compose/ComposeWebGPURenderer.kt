@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.webgpu.AutoClose
-import io.github.natanfudge.fn.webgpu.ManagedPipeline
+import io.github.natanfudge.fn.webgpu.ReloadingPipeline
 import io.github.natanfudge.fn.webgpu.ShaderSource
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.fn.window.GlfwComposeWindow
@@ -22,18 +22,54 @@ class ComposeWebGPURenderer(private val config: WindowConfig, content: @Composab
     var textureHeight = config.initialWindowHeight
     lateinit var composeTexture: GPUTexture
     lateinit var sampler: GPUSampler
-    lateinit var fullscreenQuad: ManagedPipeline
+    lateinit var fullscreenQuad: ReloadingPipeline
 
     /**
      * Should be called during webgpu initialization
      */
     fun init(device: GPUDevice, ac: AutoClose, fsWatcher: FileSystemWatcher, presentationFormat: GPUTextureFormat) = with(ac) {
-        fullscreenQuad = ManagedPipeline(
-            device, fsWatcher, presentationFormat,
+        // Allow transparency
+        val colorState = ColorTargetState(
+            format = presentationFormat,
+            // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
+            blend = BlendState(
+                color = BlendComponent(
+                    srcFactor = GPUBlendFactor.SrcAlpha,
+                    dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                    operation = GPUBlendOperation.Add
+                ),
+                alpha = BlendComponent(
+                    srcFactor = GPUBlendFactor.One,
+                    dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                    operation = GPUBlendOperation.Add
+                )
+            ),
+            writeMask = setOf(GPUColorWrite.All)
+        )
+
+        fullscreenQuad = ReloadingPipeline(
+            device, fsWatcher,
             vertexShader = ShaderSource.HotFile("fullscreen_quad.vertex"),
             fragmentShader = ShaderSource.HotFile("fullscreen_quad.fragment"),
             hotReloadShaders = HOT_RELOAD_SHADERS
-        ).ac
+        ) { vertex, fragment ->
+            RenderPipelineDescriptor(
+                layout = null,
+                vertex = VertexState(
+                    module = vertex,
+                    entryPoint = "vs_main"
+                ),
+                fragment = FragmentState(
+                    module = fragment,
+                    targets = listOf(colorState),
+                    entryPoint = "fs_main",
+                ),
+                primitive = PrimitiveState(
+                    topology = GPUPrimitiveTopology.TriangleList
+                ),
+                label = "Compose Pipeline",
+            )
+        }.ac
 
         //TODO: with better "lifecycle integration" this would look better...
         composeTexture = device.createTexture(
@@ -75,7 +111,18 @@ class ComposeWebGPURenderer(private val config: WindowConfig, content: @Composab
     /**
      * Should be called every frame to draw Compose content
      */
-    fun frame(device: GPUDevice, ac: AutoClose, pass: GPURenderPassEncoder)  = with(ac){
+    fun frame(device: GPUDevice, ac: AutoClose, encoder: GPUCommandEncoder, drawTarget: GPUTextureView) = with(ac) {
+        val renderPassDescriptor = RenderPassDescriptor(
+            colorAttachments = listOf(
+                RenderPassColorAttachment(
+                    view = drawTarget,
+                    clearValue = Color(0.0, 0.0, 0.0, 0.0),
+                    loadOp = GPULoadOp.Load, // Keep the previous content, we want to overlay on top of it
+                    storeOp = GPUStoreOp.Store
+                ),
+            ),
+        )
+
         // Create bind group for the sampler, and texture
         val bindGroup = device.createBindGroup(
             BindGroupDescriptor(
@@ -92,7 +139,7 @@ class ComposeWebGPURenderer(private val config: WindowConfig, content: @Composab
                 )
             )
         ).ac
-
+        val pass = encoder.beginRenderPass(renderPassDescriptor)
         pass.setPipeline(fullscreenQuad.pipeline)
         pass.setBindGroup(0u, bindGroup)
         pass.draw(6u)
