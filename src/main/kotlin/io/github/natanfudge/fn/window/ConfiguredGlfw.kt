@@ -180,6 +180,15 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
         callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
     }
+    val dimensionsLifecycle = windowLifecycle.bindBindable("GLFW fixed size window") {
+        val w = IntArray(1)
+        val h = IntArray(1)
+        glfwGetWindowSize(it.handle, w, h)
+        WindowDimensions(w[0], h[0])
+    }
+    val frameLifecycle = BindableLifecycle.createRoot<Double, Double>("GLFW Frame") {
+        it
+    }
 
     var open = false
 
@@ -192,12 +201,6 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
     val handle get() = window.handle
 
 
-    val dimensionsLifecycle = windowLifecycle.bindBindable("GLFW fixed size window") {
-        val w = IntArray(1)
-        val h = IntArray(1)
-        glfwGetWindowSize(handle, w, h)
-        WindowDimensions(w[0], h[0])
-    }
     private var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
@@ -208,11 +211,15 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
         val delta = time - lastFrameTimeNano
         lastFrameTimeNano = time
         frameAutoclose.use {
-            with(callbacks) {
-                it.frame(delta.toDouble() / 1e6)
-            }
-        }
+            val deltaMs = delta.toDouble() / 1e6
 
+            frameLifecycle.start(deltaMs)
+            with(callbacks) {
+                it.frame(deltaMs)
+            }
+            //TODO: we can do away with WindowCallbacks#init, resize, frame soon, getting rid of frame might be hard because we need present() to run AFTER. in that case we can just put it in the code I think. or on the close of the frame on the WEBGPU parent!
+            frameLifecycle.end()
+        }
     }
 
 
@@ -250,7 +257,6 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
 
     fun close() {
         open = false
-        dimensionsLifecycle.end()
         windowLifecycle.end()
     }
 }

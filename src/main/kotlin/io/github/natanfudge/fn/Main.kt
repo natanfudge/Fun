@@ -4,13 +4,17 @@ import io.github.natanfudge.fn.compose.ComposeMainApp
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.render.FunFixedSizeWindow
-import io.github.natanfudge.fn.render.funRender
-import io.github.natanfudge.fn.util.bindState
+import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.WindowConfig
 
 // KEEP IN MIND: If we could improve wgpu error handling, we could figure out why we get index out of bounds exceptions when we restart sometimes
 
+//TODo: lifecycle refactorings:
+// 1. Compose lifecycle
+// 2. Webgpu lifecycle
+// 3. Pipeline lifecycle
+// 4. funRender should include the dimensionLifecycle declaration
 
 const val HOT_RELOAD_SHADERS = true
 
@@ -21,15 +25,16 @@ fun main() {
     val compose = ComposeWebGPURenderer(config) { ComposeMainApp() }
 
     val window = WebGPUWindow()
+    window.bindFunLifecycles()
 
-    val surfaceLifecycle by window.surfaceLifecycle
-
-    val dimensionsLifecycle = window.dimensionsLifecycle.bindState("Fun fixed size window") {
-        FunFixedSizeWindow(surfaceLifecycle.device, this)
-    }
-
-    //TODO: after I cleanup the lifecycle stuff, funRender should include the dimensionLifecycle declaration
-    window.init = { window -> funRender(window, compose, dimensionsLifecycle) }
+//    val surfaceLifecycle by window.surfaceLifecycle
+//
+//    val dimensionsLifecycle = window.dimensionsLifecycle.bindState("Fun fixed size window") {
+//        FunFixedSizeWindow(surfaceLifecycle.device, this)
+//    }
+//
+//    //TODO: after I cleanup the lifecycle stuff, funRender should include the dimensionLifecycle declaration
+//    window.init = { window -> funRender(window, compose, dimensionsLifecycle) }
 
     FunHotReload.observation.listen {
         println("Reload")

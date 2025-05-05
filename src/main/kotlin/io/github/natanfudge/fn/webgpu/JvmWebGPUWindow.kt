@@ -35,16 +35,16 @@ data class WebGPUContext(
     val adapter: GPUAdapter,
     val presentationFormat: GPUTextureFormat,
     val device: GPUDevice
-) : AutoClose {
-    private val autoClose = AutoCloseImpl()
-    override val <T : AutoCloseable> T.ac: T
-        get() {
-            autoClose.toClose.add(this)
-            return this
-        }
+): AutoCloseable /*: AutoClose*/ {
+//    private val autoClose = AutoCloseImpl()
+//    override val <T : AutoCloseable> T.ac: T
+//        get() {
+//            autoClose.toClose.add(this)
+//            return this
+//        }
 
     override fun close() {
-        autoClose.close()
+//        autoClose.close()
         context.close()
         adapter.close()
         device.close()
@@ -54,7 +54,7 @@ data class WebGPUContext(
 
 class WebGPUWindow : AutoCloseable {
     //TODO: use lifecycles
-     lateinit var init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks
+//     lateinit var init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks
     private val window = ConfiguredGlfw(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
 
     val dimensionsLifecycle = window.dimensionsLifecycle
@@ -63,6 +63,8 @@ class WebGPUWindow : AutoCloseable {
     val surfaceLifecycle = BindableLifecycle.createRoot<WebGPUContext, WebGPUContext>("WebGPU Surface") {
         it
     }
+
+    val frameLifecycle = window.frameLifecycle
 
     private val dimensions by dimensionsLifecycle
 
@@ -83,7 +85,7 @@ class WebGPUWindow : AutoCloseable {
 
     private lateinit var context: WebGPUContext
 
-    private lateinit var _userCallbacks: RepeatingWindowCallbacks
+//    private lateinit var _userCallbacks: RepeatingWindowCallbacks
 
     private var minimized = false
     private var _windowRefreshRate = 0
@@ -105,7 +107,7 @@ class WebGPUWindow : AutoCloseable {
                 ).getOrThrow() }
                 context = WebGPUContext(nativeSurface, adapter, format, device)
                 surfaceLifecycle.start(context)
-                _userCallbacks = init(context, this@WebGPUWindow)
+//                _userCallbacks = init(context, this@WebGPUWindow)
                 _windowRefreshRate = getRefreshRate(handle)
             }
 
@@ -121,9 +123,9 @@ class WebGPUWindow : AutoCloseable {
 
             override fun AutoClose.frame(deltaMs: Double) {
 //                if (!minimized) {
-                    with(_userCallbacks) {
-                        frame(deltaMs)
-                    }
+//                    with(_userCallbacks) {
+//                        frame(deltaMs)
+//                    }
                     context.context.present()
 //                }
             }
@@ -139,12 +141,12 @@ class WebGPUWindow : AutoCloseable {
                         width = width.toUInt(), height = height.toUInt()
                     )
                     minimized = false
-                    _userCallbacks.resize(width, height)
+//                    _userCallbacks.resize(width, height)
 //                }
             }
 
             override fun windowClosePressed() {
-                _userCallbacks.windowClosePressed()
+//                _userCallbacks.windowClosePressed()
                 close()
             }
 
@@ -159,19 +161,19 @@ class WebGPUWindow : AutoCloseable {
                 nativeEvent: Any?,
                 button: PointerButton?,
             ) {
-                _userCallbacks.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+//                _userCallbacks.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
             }
 
             override fun keyEvent(event: KeyEvent) {
-                _userCallbacks.keyEvent(event)
+//                _userCallbacks.keyEvent(event)
             }
 
             override fun densityChange(newDensity: Density) {
-                _userCallbacks.densityChange(newDensity)
+//                _userCallbacks.densityChange(newDensity)
             }
 
             override fun windowMove(x: Int, y: Int) {
-                _userCallbacks.windowMove(x, y)
+//                _userCallbacks.windowMove(x, y)
             }
 
         })

@@ -7,13 +7,15 @@ interface AutoClose: AutoCloseable {
     val <T : AutoCloseable> T.ac: T
 
     companion object {
-        operator fun invoke(wgpuCode: AutoCloseImpl.() -> Unit) {
-            AutoCloseImpl().use {
+        operator fun <T> invoke(wgpuCode: AutoCloseImpl.() -> T):T {
+            return AutoCloseImpl().use {
                 it.wgpuCode()
             }
         }
     }
 }
+
+fun AutoClose.withUse(usage: AutoClose.() -> Unit) = use(usage)
 
 class AutoCloseImpl: AutoClose {
      val toClose = mutableListOf<AutoCloseable>()
