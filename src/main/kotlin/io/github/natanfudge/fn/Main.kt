@@ -3,7 +3,9 @@ package io.github.natanfudge.fn
 import io.github.natanfudge.fn.compose.ComposeMainApp
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.hotreload.FunHotReload
+import io.github.natanfudge.fn.render.FunFixedSizeWindow
 import io.github.natanfudge.fn.render.funRender
+import io.github.natanfudge.fn.util.bindState
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.WindowConfig
 
@@ -18,10 +20,16 @@ fun main() {
 
     val compose = ComposeWebGPURenderer(config) { ComposeMainApp() }
 
+    val window = WebGPUWindow()
 
-    val window = WebGPUWindow(
-        init = { window -> funRender(window, compose) },
-    )
+    val surfaceLifecycle by window.surfaceLifecycle
+
+    val dimensionsLifecycle = window.dimensionsLifecycle.bindState("Fun fixed size window") {
+        FunFixedSizeWindow(surfaceLifecycle.device, this)
+    }
+
+    //TODO: after I cleanup the lifecycle stuff, funRender should include the dimensionLifecycle declaration
+    window.init = { window -> funRender(window, compose, dimensionsLifecycle) }
 
     FunHotReload.observation.listen {
         println("Reload")

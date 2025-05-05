@@ -10,6 +10,7 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
+import io.github.natanfudge.fn.util.BindableLifecycle
 import io.github.natanfudge.fn.window.*
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
@@ -51,13 +52,22 @@ data class WebGPUContext(
 }
 
 
-class WebGPUWindow(
-    private val init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks,
-) : AutoCloseable {
-    private val window = GlfwFunWindow(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
+class WebGPUWindow : AutoCloseable {
+    //TODO: use lifecycles
+     lateinit var init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks
+    private val window = ConfiguredGlfw(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
 
-    val width get() = window.width
-    val height get() = window.height
+    val dimensionsLifecycle = window.dimensionsLifecycle
+
+    //TODO: Switch everything to use this system
+    val surfaceLifecycle = BindableLifecycle.createRoot<WebGPUContext, WebGPUContext>("WebGPU Surface") {
+        it
+    }
+
+    private val dimensions by dimensionsLifecycle
+
+    val width get() = dimensions.width
+    val height get() = dimensions.height
 
     init {
         LibraryLoader.load()
@@ -90,8 +100,11 @@ class WebGPUWindow(
                 val adapter = wgpu.requestAdapter(nativeSurface) ?: error("Could not get wgpu adapter")
                 nativeSurface.computeSurfaceCapabilities(adapter)
                 val format = nativeSurface.supportedFormats.first()
-                val device =    runBlocking { adapter.requestDevice().getOrThrow() }
+                val device =    runBlocking { adapter.requestDevice(
+                    DeviceDescriptor()
+                ).getOrThrow() }
                 context = WebGPUContext(nativeSurface, adapter, format, device)
+                surfaceLifecycle.start(context)
                 _userCallbacks = init(context, this@WebGPUWindow)
                 _windowRefreshRate = getRefreshRate(handle)
             }
@@ -107,18 +120,18 @@ class WebGPUWindow(
             }
 
             override fun AutoClose.frame(deltaMs: Double) {
-                if (!minimized) {
+//                if (!minimized) {
                     with(_userCallbacks) {
                         frame(deltaMs)
                     }
                     context.context.present()
-                }
+//                }
             }
 
             override fun resize(width: Int, height: Int) {
-                if (width == 0 && height == 0) {
-                    minimized = true
-                } else {
+//                if (width == 0 && height == 0) {
+//                    minimized = true
+//                } else {
                     context.context.configure(
                         SurfaceConfiguration(
                             context.device, format = context.presentationFormat
@@ -127,7 +140,7 @@ class WebGPUWindow(
                     )
                     minimized = false
                     _userCallbacks.resize(width, height)
-                }
+//                }
             }
 
             override fun windowClosePressed() {

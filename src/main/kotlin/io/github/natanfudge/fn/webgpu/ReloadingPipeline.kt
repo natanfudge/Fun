@@ -79,7 +79,7 @@ class ReloadingPipeline(
     private fun ShaderSource.HotFile.getSourceFile() = Path("src/main/composeResources/", fullPath())
 
     private fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
-        println("Listening to shadffer changes at $dir!")
+        println("Listening to shader changes at $dir!")
         return fsWatcher.onDirectoryChanged(dir) {
             // SLOW: consider making this async
             runBlocking {

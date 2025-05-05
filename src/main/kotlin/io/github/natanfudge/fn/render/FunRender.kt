@@ -3,8 +3,10 @@ package io.github.natanfudge.fn.render
 import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.util.StatefulLifecycle
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.RepeatingWindowCallbacks
+import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.fn.window.combine
 import io.github.natanfudge.wgpu4k.matrix.Mat4
 import io.github.natanfudge.wgpu4k.matrix.Vec3
@@ -35,11 +37,33 @@ import kotlin.math.sin
 // 14. Physics
 // 15. Trying making a basic game
 // 16. Integrate the Fun "ECS" system and allow assigning physicality to components, allowing you to click on things and view their state
-fun WebGPUContext.funRender(window: WebGPUWindow, compose: ComposeWebGPURenderer): RepeatingWindowCallbacks {
+
+class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions): AutoCloseable {
+    // Create z buffer
+    val depthTexture = device.createTexture(
+        TextureDescriptor(
+            size = Extent3D(dims.width.toUInt(), dims.height.toUInt()),
+            format = GPUTextureFormat.Depth24Plus,
+            usage = setOf(GPUTextureUsage.RenderAttachment)
+        )
+    )
+    val depthStencilView = depthTexture.createView()
+
+    override fun close() {
+        depthStencilView.close()
+        depthTexture.close()
+    }
+}
+
+fun WebGPUContext.funRender(window: WebGPUWindow, compose: ComposeWebGPURenderer, dimensionsLifecycle: StatefulLifecycle<WindowDimensions, FunFixedSizeWindow>): RepeatingWindowCallbacks {
     val fsWatcher = FileSystemWatcher()
     compose.init(device, this, fsWatcher, presentationFormat)
 
     val cubeMesh = Mesh.UnitCube
+
+    val fixedSizeValue by dimensionsLifecycle
+
+
 
     val cube = ReloadingPipeline(
         device, fsWatcher,
@@ -66,10 +90,8 @@ fun WebGPUContext.funRender(window: WebGPUWindow, compose: ComposeWebGPURenderer
             ),
             primitive = PrimitiveState(
                 topology = GPUPrimitiveTopology.TriangleList,
-//                cullMode = GPUCullMode.None // TODO: restore
                 cullMode = GPUCullMode.Back
             ),
-//            depthStencil = null
             depthStencil = DepthStencilState(
                 format = GPUTextureFormat.Depth24Plus,
                 depthWriteEnabled = true,
@@ -85,15 +107,6 @@ fun WebGPUContext.funRender(window: WebGPUWindow, compose: ComposeWebGPURenderer
         )
     ).ac
 
-    // Create z buffer
-    val depthTexture = device.createTexture(
-        TextureDescriptor(
-            size = Extent3D(window.width.toUInt(), window.height.toUInt()),
-            format = GPUTextureFormat.Depth24Plus,
-            usage = setOf(GPUTextureUsage.RenderAttachment)
-        )
-    ).ac
-    val depthStencilView = depthTexture.createView().ac
 
 
     verticesBuffer.mapFrom(cubeMesh.vertices.array)
@@ -143,7 +156,7 @@ fun WebGPUContext.funRender(window: WebGPUWindow, compose: ComposeWebGPURenderer
                     ),
                 ),
                 depthStencilAttachment = RenderPassDepthStencilAttachment(
-                    view = depthStencilView,
+                    view = fixedSizeValue.depthStencilView,
                     depthClearValue = 1.0f,
                     depthLoadOp = GPULoadOp.Clear,
                     depthStoreOp = GPUStoreOp.Store
@@ -200,7 +213,7 @@ private fun checkForFrameDrops(window: WebGPUWindow, deltaMs: Double) {
         val missingFrames = (deltaMs / normalFrameTimeMs).roundToInt() - 1
         val plural = missingFrames > 1
         println(
-            "Frame delayed, took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs}ms," +
+            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
                     " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
         )
     }

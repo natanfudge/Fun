@@ -98,6 +98,9 @@ kotlin {
     sourceSets.all {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")
     }
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+    }
 }
 
 

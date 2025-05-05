@@ -7,7 +7,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.Density
-import io.github.natanfudge.fn.compose.ComposeMainApp
 import io.github.natanfudge.fn.compose.GlInitComposeGlfwAdapter
 import io.github.natanfudge.fn.webgpu.AutoClose
 import org.lwjgl.glfw.GLFW
@@ -25,7 +24,7 @@ class GlfwComposeWindow(
     val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
-    private val window = GlfwFunWindow(GlfwConfig(disableApi = false, showWindow = show), name = "Compose")
+    private val window = ConfiguredGlfw(GlfwConfig(disableApi = false, showWindow = show), name = "Compose")
 
     val dispatcher = GlfwCoroutineDispatcher()
 
