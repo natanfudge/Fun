@@ -7,8 +7,15 @@ import io.github.natanfudge.fn.webgpu.AutoCloseImpl
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
+enum class FunLogLevel(val value: Int) {
+    Verbose(0),
+    Debug(1),
+    Info(2),
+    Warn(3),
+    Error(4)
+}
 
-//TODO: might remove <T>
+
 class BindableLifecycleBuilder {
     internal var _onDestroy: (() -> Unit)? = null
 
@@ -17,8 +24,15 @@ class BindableLifecycleBuilder {
     }
 }
 
-//TODO: cool lifecycle tree visualization
+//NICETOHAVE: cool lifecycle tree visualization
 
+val activeLogLevel = FunLogLevel.Debug
+
+private inline fun log(level: FunLogLevel, msg: () -> String) {
+    if (level.value >= activeLogLevel.value) {
+        println(msg())
+    }
+}
 
 class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>) : StatefulLifecycle<P, I> {
     companion object {
@@ -27,7 +41,11 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
          * [callback] must return a value that may be used by other parts of the code by calling `bind*{}` on the result of this function.
          * If [R] is [AutoCloseable], it will be automatically closed when `this` lifecycle dies.
          */
-        fun <I : Any, R : Any> createRoot(label: String, callback: BindableLifecycleBuilder.(I) -> R): BindableLifecycle<I, R> {
+        fun <I : Any, R : Any> createRoot(
+            label: String,
+            logLevel: FunLogLevel = FunLogLevel.Debug,
+            callback: BindableLifecycleBuilder.(I) -> R,
+        ): BindableLifecycle<I, R> {
             val custom = object : StatefulLifecycleImpl<I, R>() {
                 val builder = BindableLifecycleBuilder()
 
@@ -37,12 +55,12 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
                 }
 
                 override fun create(parent: I): R {
-                    println("Start of $this")
+                    log(logLevel) { "Start of $this" }
                     return callback(builder, parent)
                 }
 
                 override fun destroy(obj: R) {
-                    println("End of $this")
+                    log(logLevel) { "End of $this" }
                     if (obj is AutoCloseable) {
                         obj.close()
                     }
@@ -63,6 +81,8 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
     override fun toString(): String {
         return lifecycle.toString()
     }
+
+    //  TODO: compress all the features into this one class - closing, logging, and holding statem
 
     override fun start(parent: P) {
         create(parent)
@@ -102,7 +122,6 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
         if (error != null) throw error
     }
 
-    // TODO: maybe need unbind?
     fun bind(cycle: Lifecycle<I>) {
         children.add(cycle)
     }
@@ -123,7 +142,7 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
             children.zip(childrenValues!!).forEach { (child, value) ->
                 if (value == null) {
                     println("Warning: Skipping death of Lifecycle $child as it did not birth properly.")
-                }else {
+                } else {
 //                } else if (child is StatefulLifecycle<*, *>) {
 //                    (child as StatefulLifecycle<*, Any?>).destroy(value)
 //                } else {
@@ -158,10 +177,35 @@ fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, callback: (T) 
 }
 
 /**
+ * Causes [callback] to be called whenever this lifecycle is birthed, before all other callbacks.
+ */
+fun <T : Any> BindableLifecycle<*, T>.bindHighPriority(label: String = "unnamed callback", logLevel: FunLogLevel, callback: (T) -> Unit): Lifecycle<T> {
+    val lifecycle = object : Lifecycle<T> {
+        override fun toString(): String {
+            return label
+        }
+
+        override fun start(parent: T) {
+            log(logLevel) { "Running '$this' for birth of '${this@bindHighPriority}'" }
+            callback(parent)
+        }
+
+        override fun end() {
+        }
+    }
+    bindHighPriority(lifecycle)
+    return lifecycle
+}
+
+/**
  * Causes [callback] to be called whenever this lifecycle is birthed.
  * [callback] must return a function that will be called before this lifecycle dies.
  */
-fun <T : Any> BindableLifecycle<*, T>.bindCloseable(label: String? = null, callback: AutoClose.(T) -> (() -> Unit)): StatefulLifecycle<T, () -> Unit> {
+fun <T : Any> BindableLifecycle<*, T>.bindCloseable(
+    label: String? = null,
+    logLevel: FunLogLevel = FunLogLevel.Debug,
+    callback: AutoClose.(T) -> (() -> Unit),
+): StatefulLifecycle<T, () -> Unit> {
     val autoclose = AutoCloseImpl()
     val lifecycle = object : StatefulLifecycleImpl<T, () -> Unit>() {
         override fun toString(): String {
@@ -169,12 +213,14 @@ fun <T : Any> BindableLifecycle<*, T>.bindCloseable(label: String? = null, callb
         }
 
         override fun create(parent: T): () -> Unit {
-            println("Running initialization of '$this' for birth of ${this@bindCloseable}")
+            log(logLevel) { "Running initialization of '$this' for birth of ${this@bindCloseable}" }
             return autoclose.callback(parent)
         }
 
         override fun destroy(destruction: () -> Unit) {
-            println("Running destruction of '$this' for death of ${this@bindCloseable}")
+            log(logLevel) {
+                "Running destruction of '$this' for death of ${this@bindCloseable}"
+            }
             destruction()
             autoclose.close()
         }
@@ -183,8 +229,12 @@ fun <T : Any> BindableLifecycle<*, T>.bindCloseable(label: String? = null, callb
     return lifecycle
 }
 
-fun <T : Any> BindableLifecycle<*, T>.bindAutoclose(label: String? = null, callback: AutoClose.(T) -> Unit): StatefulLifecycle<T, () -> Unit> {
-    return bindCloseable(label) {
+fun <T : Any> BindableLifecycle<*, T>.bindAutoclose(
+    label: String? = null,
+    logLevel: FunLogLevel = FunLogLevel.Debug,
+    callback: AutoClose.(T) -> Unit,
+): StatefulLifecycle<T, () -> Unit> {
+    return bindCloseable(label, logLevel) {
         callback(it);
         {}
     }
@@ -197,9 +247,10 @@ fun <T : Any> BindableLifecycle<*, T>.bindAutoclose(label: String? = null, callb
  */
 fun <T : Any, R : Any> BindableLifecycle<*, T>.bindBindable(
     label: String = "unnamed bindable",
+    logLevel: FunLogLevel = FunLogLevel.Debug,
     callback: BindableLifecycleBuilder.(T) -> R,
 ): BindableLifecycle<T, R> {
-    val bindable = BindableLifecycle.createRoot(label, callback)
+    val bindable = BindableLifecycle.createRoot(label, logLevel, callback)
     bind(bindable)
     return bindable
 }
@@ -211,9 +262,10 @@ fun <T : Any, R : Any> BindableLifecycle<*, T>.bindBindable(
  */
 fun <T : Any, R : Any> BindableLifecycle<*, T>.bindHighPriorityBindable(
     label: String = "unnamed bindable",
+    logLevel: FunLogLevel = FunLogLevel.Debug,
     callback: BindableLifecycleBuilder.(T) -> R,
 ): BindableLifecycle<T, R> {
-    val bindable = BindableLifecycle.createRoot(label, callback)
+    val bindable = BindableLifecycle.createRoot(label, logLevel, callback)
     bindHighPriority(bindable)
     return bindable
 }
@@ -244,7 +296,7 @@ fun <T : Any, R : Any> BindableLifecycle<*, T>.bindState(label: String? = null, 
     return lifecycle
 }
 
-//TODO: could consider having a GeneralLifecycle that just has fun performStage(stage) and then we have performStage(birth) performStage(death)
+//NOTE: could consider having a GeneralLifecycle that just has fun performStage(stage) and then we have performStage(birth) performStage(death)
 // but it could be more general to include intermediate stages
 interface Lifecycle<Parent : Any> {
     fun start(parent: Parent)
@@ -271,9 +323,6 @@ abstract class StatefulLifecycleImpl<Parent : Any, S : Any> : StatefulLifecycle<
 
     override var state: S? = null
 
-//    val isCreated get() = state != null
-//
-//    val assertValue get() = state!!
 
     final override fun start(parent: Parent) {
         state = create(parent)
@@ -297,3 +346,8 @@ fun <T : Any> Lifecycle<T>.restart(value: T) {
     end()
     start(value)
 }
+
+//fun <T : Any> StatefulLifecycle<T, *>.restart(value: T = assertValue) {
+//    end()
+//    start(value)
+//}

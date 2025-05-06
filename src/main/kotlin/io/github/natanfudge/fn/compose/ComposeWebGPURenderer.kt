@@ -69,7 +69,6 @@ class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
-//TODO: maybe make this inner class
 class ComposeTexture(dimensions: WindowDimensions, window: StatefulLifecycle<*, ComposeWebgpuSurface>, compose: GlfwComposeWindow) : AutoCloseable {
     val composeTexture = window.assertValue.ctx.device.createTexture(
         TextureDescriptor(
@@ -80,18 +79,6 @@ class ComposeTexture(dimensions: WindowDimensions, window: StatefulLifecycle<*, 
     )
 
     val listener = compose.frame.listen { (bytes, width, height) ->
-//            val mismatchingDim = width != textureWidth || height != textureHeight
-//            if (mismatchingDim) {
-//                textureWidth = width
-//                textureHeight = height
-//                composeTexture = device.createTexture(
-//                    TextureDescriptor(
-//                        size = Extent3D(textureWidth.toUInt(), textureHeight.toUInt(), 1u),
-//                        format = GPUTextureFormat.RGBA8UnormSrgb,
-//                        usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
-//                    )
-//                ).ac
-//            }
         window.assertValue.ctx.device.copyExternalImageToTexture(
             source = bytes,
             texture = composeTexture,
@@ -105,18 +92,11 @@ class ComposeTexture(dimensions: WindowDimensions, window: StatefulLifecycle<*, 
 }
 
 class ComposeWebGPURenderer(private val config: WindowConfig, hostWindow: WebGPUWindow, show: Boolean = false, content: @Composable () -> Unit) {
-    private val compose = GlfwComposeWindow(content, show = show)
+    private val compose = GlfwComposeWindow(hostWindow.window, content, show = show)
 
     init {
         compose.show(config)
     }
-
-//    var textureWidth = config.initialWindowWidth
-//    var textureHeight = config.initialWindowHeight
-//    lateinit var composeTexture: GPUTexture
-//    lateinit var sampler: GPUSampler
-//    lateinit var fullscreenQuad: ReloadingPipeline
-
     val surfaceLifecycle = hostWindow.surfaceLifecycle.bindState("Compose WebGPU Surface") {
         ComposeWebgpuSurface(it)
     }
@@ -124,52 +104,8 @@ class ComposeWebGPURenderer(private val config: WindowConfig, hostWindow: WebGPU
     val surface by surfaceLifecycle
 
     val texture by hostWindow.dimensionsLifecycle.bindState("Compose Texture") {
-        ComposeTexture(it, surfaceLifecycle,compose)
+        ComposeTexture(it, surfaceLifecycle, compose)
     }
-
-//    /**
-//     * Should be called during webgpu initialization
-//     */
-//    fun init(device: GPUDevice, ac: AutoClose, fsWatcher: FileSystemWatcher, presentationFormat: GPUTextureFormat) = with(ac) {
-//
-//
-//        //TODO: with better "lifecycle integration" this would look better...
-//        composeTexture = device.createTexture(
-//            TextureDescriptor(
-//                size = Extent3D(textureWidth.toUInt(), textureHeight.toUInt(), 1u),
-//                format = GPUTextureFormat.RGBA8UnormSrgb,
-//                usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
-//            )
-//        ).ac
-//
-//        sampler = device.createSampler(
-//            SamplerDescriptor(
-//                magFilter = GPUFilterMode.Linear,
-//                minFilter = GPUFilterMode.Linear
-//            )
-//        ).ac
-//
-//        compose.frame.listen { (bytes, width, height) ->
-////            val mismatchingDim = width != textureWidth || height != textureHeight
-////            if (mismatchingDim) {
-////                textureWidth = width
-////                textureHeight = height
-////                composeTexture = device.createTexture(
-////                    TextureDescriptor(
-////                        size = Extent3D(textureWidth.toUInt(), textureHeight.toUInt(), 1u),
-////                        format = GPUTextureFormat.RGBA8UnormSrgb,
-////                        usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
-////                    )
-////                ).ac
-////            }
-//            device.copyExternalImageToTexture(
-//                source = bytes,
-//                texture = composeTexture,
-//                width = width, height = height
-//            )
-//        }
-//    }
-
     /**
      * Should be called every frame to draw Compose content
      */

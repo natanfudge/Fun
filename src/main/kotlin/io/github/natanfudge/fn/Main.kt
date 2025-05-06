@@ -6,6 +6,7 @@ import io.github.natanfudge.fn.compose.GlfwComposeWindow
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.render.FunFixedSizeWindow
 import io.github.natanfudge.fn.render.bindFunLifecycles
+import io.github.natanfudge.fn.util.restart
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.WindowConfig
 
@@ -20,7 +21,7 @@ fun main() {
     val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
 
     val window = WebGPUWindow()
-    val compose = ComposeWebGPURenderer(config, window, show = true) { ComposeMainApp() }
+    val compose = ComposeWebGPURenderer(config, window, show = false) { ComposeMainApp() }
 
     window.bindFunLifecycles(compose)
 
@@ -28,9 +29,10 @@ fun main() {
         println("Reload")
 
         window.submitTask {
+            window.surfaceLifecycle.restart(window.window.windowLifecycle.assertValue)
             // Very important to run this on the main thread
-            window.restart(config)
-            compose.restart()
+//            window.restart(config)
+//            compose.restart()
         }
     }
 

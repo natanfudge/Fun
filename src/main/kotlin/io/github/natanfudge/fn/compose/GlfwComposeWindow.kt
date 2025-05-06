@@ -12,8 +12,10 @@ import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.util.bind
+import io.github.natanfudge.fn.util.bindHighPriority
 import io.github.natanfudge.fn.util.bindHighPriorityBindable
 import io.github.natanfudge.fn.util.bindState
 import io.github.natanfudge.fn.webgpu.AutoClose
@@ -30,7 +32,6 @@ import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
 
 
-typealias ComposeFrameCallback = (bytes: ByteArray, width: Int, height: Int) -> Unit
 
 @OptIn(InternalComposeUiApi::class)
 class FixedSizeComposeWindow(
@@ -106,6 +107,7 @@ private fun createSurface(width: Int, height: Int, context: DirectContext): Surf
 )
 
 class GlfwComposeWindow(
+    host: GlfwWindowConfig,
     val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
@@ -131,6 +133,23 @@ class GlfwComposeWindow(
         window.scene.size = IntSize(it.width, it.height)
 
         FixedSizeComposeWindow(it.width, it.height, window.context)
+    }
+
+    init {
+        // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
+        host.frameLifecycle.bindHighPriority("Compose Frame Store",FunLogLevel.Verbose ) {
+            frame()
+        }
+    }
+
+    private fun frame() {
+        window.dispatcher.poll()
+        if (dimensions.invalid) {
+            GLFW.glfwMakeContextCurrent(this@GlfwComposeWindow.glfw.handle)
+            draw()
+            glfwSwapBuffers(this@GlfwComposeWindow.glfw.handle)
+            dimensions.invalid = false
+        }
     }
 
 
@@ -218,16 +237,6 @@ class GlfwComposeWindow(
         override fun densityChange(newDensity: Density) {
             if (!windowLifecycle.isCreated) return
             window.scene.density = newDensity
-        }
-
-        override fun AutoClose.frame(deltaMs: Double) {
-            window.dispatcher.poll()
-            if (dimensions.invalid) {
-                GLFW.glfwMakeContextCurrent(this@GlfwComposeWindow.glfw.handle)
-                draw()
-                glfwSwapBuffers(this@GlfwComposeWindow.glfw.handle)
-                dimensions.invalid = false
-            }
         }
     }
 

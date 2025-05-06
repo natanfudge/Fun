@@ -33,9 +33,13 @@ import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
 import org.rococoa.ID
 import org.rococoa.Rococoa
 
+private var contextIndex = 0
+
 class WebGPUContext(
     handle: Long,
+    init: WindowConfig
 ) : AutoCloseable {
+    val myIndex = contextIndex++
     val context = wgpu.getNativeSurface(handle)
     val adapter = wgpu.requestAdapter(context)
         ?.also { context.computeSurfaceCapabilities(it) }
@@ -44,13 +48,23 @@ class WebGPUContext(
     val presentationFormat = context.supportedFormats.first()
     val device = runBlocking {
         adapter.requestDevice(
-            DeviceDescriptor()
+            DeviceDescriptor(label = myIndex.toString())
         ).getOrThrow()
     }
     /**
      * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
      */
     val refreshRate = getRefreshRate(handle)
+
+    //TODO: i'm replacing this with combined lifecycles , the dimension will depend on the surface and this will run automatically
+//    init {
+//        context.configure(
+//            SurfaceConfiguration(
+//                device, format = presentationFormat
+//            ),
+//            width = init.initialWindowWidth.toUInt(), height = init.initialWindowHeight.toUInt()
+//        )
+//    }
 
     override fun close() {
         closeAll(context, adapter, device)
@@ -73,12 +87,12 @@ class WebGPUWindow {
         val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
     }
 
-    private val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
+     val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
 
 
     // Surface needs to initialize before the dimensions
     val surfaceLifecycle = window.windowLifecycle.bindHighPriorityBindable("WebGPU Surface") {
-        WebGPUContext(it.handle)
+        WebGPUContext(it.handle, it.init)
     }
 
     val dimensionsLifecycle = window.dimensionsLifecycle.bindBindable("WebGPU resize") { dim ->
@@ -91,8 +105,17 @@ class WebGPUWindow {
         dim
     }
 
+    //TODO: All i need to do is to get the dimensions lifecycle to run when the surface is reset.
+
 
     private val surface by surfaceLifecycle
+
+    //TODO: need a way to combine lifecycles. Stop doing the use() bullshit it's causing issues
+    // Basically, we need to define a set of dependent components for a thing, and it will initially run when both are satisified, and when either change
+    // it will re-run.
+//    val frameLifecycle = window.frameLifecycle.bindBindable {
+//        it
+//    }.also { surfaceLifecycle.bind(it) }
 
     val frameLifecycle = window.frameLifecycle
 

@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.render
 import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.bindAutoclose
 import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.bindState
@@ -12,6 +13,7 @@ import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4
 import io.github.natanfudge.wgpu4k.matrix.Vec3
 import io.ygdrasil.webgpu.*
+import org.jetbrains.skia.skottie.LogLevel
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -133,19 +135,23 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
+//class FunRendering(val )
+
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer) {
     val sizedWindow by dimensionsLifecycle.bindState("Fun fixed sized window") {
         FunFixedSizeWindow(surfaceLifecycle.assertValue.device, it)
     }
 
-    val surface by surfaceLifecycle.bindBindable {
+    val surface by surfaceLifecycle.bindBindable("Fun Surface") {
         FunSurface(it)
     }
-    frameLifecycle.bindAutoclose { deltaMs ->
+    frameLifecycle.bindAutoclose("Fun Frame", FunLogLevel.Verbose) { deltaMs ->
         with(surface) {
+            println("Drawing with context index ${ctx.myIndex}")
             // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
             val windowFrame = ctx.context.getCurrentTexture()
                 .also { it.texture.ac } // Close texture
+            println("After stall, index is  ${surface.ctx.myIndex}")
 
             checkForFrameDrops(ctx, deltaMs)
 

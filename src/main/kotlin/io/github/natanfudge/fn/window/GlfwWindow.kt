@@ -7,6 +7,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.util.BindableLifecycle
+import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.restart
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -189,7 +190,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
         glfwGetWindowSize(it.handle, w, h)
         WindowDimensions(w[0], h[0], it.handle)
     }
-    val frameLifecycle = BindableLifecycle.createRoot<Double, Double>("GLFW Frame") {
+    val frameLifecycle = BindableLifecycle.createRoot<Double, Double>("GLFW Frame", FunLogLevel.Verbose) {
         it
     }
 
