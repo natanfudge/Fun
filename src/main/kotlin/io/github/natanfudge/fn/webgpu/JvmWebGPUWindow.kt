@@ -10,7 +10,10 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
-import io.github.natanfudge.fn.util.BindableLifecycle
+import io.github.natanfudge.fn.util.bindBindable
+import io.github.natanfudge.fn.util.bindHighPriorityBindable
+import io.github.natanfudge.fn.util.closeAll
+import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
 import io.github.natanfudge.fn.window.*
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
@@ -30,154 +33,78 @@ import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
 import org.rococoa.ID
 import org.rococoa.Rococoa
 
-data class WebGPUContext(
-    val context: NativeSurface,
-    val adapter: GPUAdapter,
-    val presentationFormat: GPUTextureFormat,
-    val device: GPUDevice
-): AutoCloseable /*: AutoClose*/ {
-//    private val autoClose = AutoCloseImpl()
-//    override val <T : AutoCloseable> T.ac: T
-//        get() {
-//            autoClose.toClose.add(this)
-//            return this
-//        }
+class WebGPUContext(
+    handle: Long,
+) : AutoCloseable {
+    val context = wgpu.getNativeSurface(handle)
+    val adapter = wgpu.requestAdapter(context)
+        ?.also { context.computeSurfaceCapabilities(it) }
+        ?: error("Could not get wgpu adapter")
+
+    val presentationFormat = context.supportedFormats.first()
+    val device = runBlocking {
+        adapter.requestDevice(
+            DeviceDescriptor()
+        ).getOrThrow()
+    }
+    /**
+     * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
+     */
+    val refreshRate = getRefreshRate(handle)
 
     override fun close() {
-//        autoClose.close()
-        context.close()
-        adapter.close()
-        device.close()
+        closeAll(context, adapter, device)
     }
 }
 
 
-class WebGPUWindow : AutoCloseable {
-    //TODO: use lifecycles
-//     lateinit var init: WebGPUContext.(WebGPUWindow) -> RepeatingWindowCallbacks
-    private val window = ConfiguredGlfw(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
+class WebGPUWindow {
+    companion object {
+        init {
+            LibraryLoader.load()
+            wgpuSetLogLevel(WGPULogLevel_Info)
+            val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, userdata ->
+                val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
+                println("$level: $message")
+            }
+            wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
+        }
 
-    val dimensionsLifecycle = window.dimensionsLifecycle
-
-    //TODO: Switch everything to use this system
-    val surfaceLifecycle = BindableLifecycle.createRoot<WebGPUContext, WebGPUContext>("WebGPU Surface") {
-        it
+        val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
     }
+
+    private val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
+
+
+    // Surface needs to initialize before the dimensions
+    val surfaceLifecycle = window.windowLifecycle.bindHighPriorityBindable("WebGPU Surface") {
+        WebGPUContext(it.handle)
+    }
+
+    val dimensionsLifecycle = window.dimensionsLifecycle.bindBindable("WebGPU resize") { dim ->
+        surface.context.configure(
+            SurfaceConfiguration(
+                surface.device, format = surface.presentationFormat
+            ),
+            width = dim.width.toUInt(), height = dim.height.toUInt()
+        )
+        dim
+    }
+
+
+    private val surface by surfaceLifecycle
 
     val frameLifecycle = window.frameLifecycle
 
-    private val dimensions by dimensionsLifecycle
 
-    val width get() = dimensions.width
-    val height get() = dimensions.height
-
-    init {
-        LibraryLoader.load()
-        wgpuSetLogLevel(WGPULogLevel_Info)
-        val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, userdata ->
-            val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
-            println("$level: $message")
-        }
-        wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
-    }
-
-    private val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
-
-    private lateinit var context: WebGPUContext
-
-//    private lateinit var _userCallbacks: RepeatingWindowCallbacks
-
-    private var minimized = false
-    private var _windowRefreshRate = 0
-
-    /**
-     * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
-     */
-    val refreshRate get() = _windowRefreshRate
-
-    fun show(config: WindowConfig) {
-        window.show(config, object : WindowCallbacks {
-            override fun init(handle: WindowHandle) {
-                val nativeSurface = wgpu.getNativeSurface(handle)
-                val adapter = wgpu.requestAdapter(nativeSurface) ?: error("Could not get wgpu adapter")
-                nativeSurface.computeSurfaceCapabilities(adapter)
-                val format = nativeSurface.supportedFormats.first()
-                val device =    runBlocking { adapter.requestDevice(
-                    DeviceDescriptor()
-                ).getOrThrow() }
-                context = WebGPUContext(nativeSurface, adapter, format, device)
-                surfaceLifecycle.start(context)
-//                _userCallbacks = init(context, this@WebGPUWindow)
-                _windowRefreshRate = getRefreshRate(handle)
-            }
-
-            private fun getRefreshRate(window: Long): Int {
-                // Get the monitor the window is currently on
-                var monitor = glfwGetWindowMonitor(window)
-                if (monitor == 0L) monitor = GLFW.glfwGetPrimaryMonitor()
-                if (monitor == 0L) error("Could not get any monitor for refresh rate")
-                val vidMode = glfwGetVideoMode(monitor) ?: error("Failed to get video mode")
-
-                return vidMode.refreshRate()
-            }
-
+    fun show(config: WindowConfig, callbackHook: RepeatingWindowCallbacks? = null) {
+        val baseCallbacks = object : RepeatingWindowCallbacks {
             override fun AutoClose.frame(deltaMs: Double) {
-//                if (!minimized) {
-//                    with(_userCallbacks) {
-//                        frame(deltaMs)
-//                    }
-                    context.context.present()
-//                }
+                surface.context.present()
             }
-
-            override fun resize(width: Int, height: Int) {
-//                if (width == 0 && height == 0) {
-//                    minimized = true
-//                } else {
-                    context.context.configure(
-                        SurfaceConfiguration(
-                            context.device, format = context.presentationFormat
-                        ),
-                        width = width.toUInt(), height = height.toUInt()
-                    )
-                    minimized = false
-//                    _userCallbacks.resize(width, height)
-//                }
-            }
-
-            override fun windowClosePressed() {
-//                _userCallbacks.windowClosePressed()
-                close()
-            }
-
-            override fun pointerEvent(
-                eventType: PointerEventType,
-                position: Offset,
-                scrollDelta: Offset,
-                timeMillis: Long,
-                type: PointerType,
-                buttons: PointerButtons?,
-                keyboardModifiers: PointerKeyboardModifiers?,
-                nativeEvent: Any?,
-                button: PointerButton?,
-            ) {
-//                _userCallbacks.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
-            }
-
-            override fun keyEvent(event: KeyEvent) {
-//                _userCallbacks.keyEvent(event)
-            }
-
-            override fun densityChange(newDensity: Density) {
-//                _userCallbacks.densityChange(newDensity)
-            }
-
-            override fun windowMove(x: Int, y: Int) {
-//                _userCallbacks.windowMove(x, y)
-            }
-
-        })
-
+        }
+        val callbacks = callbackHook?.combine(baseCallbacks) ?: baseCallbacks
+        window.show(config, callbacks)
     }
 
     /**
@@ -188,18 +115,9 @@ class WebGPUWindow : AutoCloseable {
     }
 
     fun restart(config: WindowConfig = WindowConfig()) {
-        runBlocking {
-            context.device.poll()
-        }
-        context.close()
+        surface.close()
 
         window.restart(config)
-    }
-
-
-    override fun close() {
-        window.close()
-        context.close()
     }
 }
 
@@ -254,3 +172,12 @@ private fun WGPU.getNativeSurface(window: Long): NativeSurface = when (os) {
 
 
 private fun Long.toPointer(): Pointer = Pointer(this)
+private fun getRefreshRate(window: Long): Int {
+    // Get the monitor the window is currently on
+    var monitor = glfwGetWindowMonitor(window)
+    if (monitor == 0L) monitor = GLFW.glfwGetPrimaryMonitor()
+    if (monitor == 0L) error("Could not get any monitor for refresh rate")
+    val vidMode = glfwGetVideoMode(monitor) ?: error("Failed to get video mode")
+
+    return vidMode.refreshRate()
+}

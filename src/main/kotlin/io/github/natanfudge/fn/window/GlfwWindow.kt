@@ -27,9 +27,10 @@ data class GlfwConfig(
 class WindowDimensions(
     val width: Int,
     val height: Int,
+    val handle: WindowHandle
 )
 
-class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig) : AutoCloseable {
+class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
     private val waitingTasks = mutableListOf<() -> Unit>()
 
     /**
@@ -67,8 +68,9 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig) : AutoCloseable
 
 
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
-class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
+class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
     fun submitTask(task: () -> Unit) = window.submitTask(task)
+
     val windowLifecycle: BindableLifecycle<WindowConfig, GlfwWindow> = BindableLifecycle.createRoot("GLFW $name Window") { config ->
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (glfw.disableApi) {
@@ -81,7 +83,7 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
         val windowHandle = glfwCreateWindow(
             config.initialWindowWidth, config.initialWindowHeight, config.initialTitle, NULL, NULL
         )
-        val window = GlfwWindow(windowHandle, glfw)
+        val window = GlfwWindow(windowHandle, glfw, config)
 
         // Unfloaty it because it's annoying, it was only enabled for it to be focused initially
         glfwSetWindowAttrib(windowHandle, GLFW_FLOATING, GLFW_FALSE)
@@ -96,6 +98,7 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
 
         glfwSetWindowCloseCallback(windowHandle) {
             callbacks.windowClosePressed()
+            open = false
         }
 
         if (windowPos != null) {
@@ -176,7 +179,7 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
             callbacks.densityChange(Density(xscale))
         }
 
-        callbacks.init(windowHandle)
+//        callbacks.init(windowHandle)
         callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
     }
@@ -184,7 +187,7 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
-        WindowDimensions(w[0], h[0])
+        WindowDimensions(w[0], h[0], it.handle)
     }
     val frameLifecycle = BindableLifecycle.createRoot<Double, Double>("GLFW Frame") {
         it
@@ -194,17 +197,15 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
 
     private var windowPos: IntOffset? = null
 
-    private lateinit var callbacks: WindowCallbacks
+    private lateinit var callbacks: RepeatingWindowCallbacks
 
     private val window by windowLifecycle
 
     val handle get() = window.handle
 
-
     private var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
-
 
     fun frame() {
         val time = System.nanoTime()
@@ -222,8 +223,10 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
         }
     }
 
+    //TODO: current problem: open is set to false when the window is closed. i could go back to the previous approach of closing manually, but i do want to figure out
+    // a lifecycle way of doing it.
 
-    fun show(config: WindowConfig, callbacks: WindowCallbacks, loop: Boolean = true) {
+    fun show(config: WindowConfig, callbacks: RepeatingWindowCallbacks, loop: Boolean = true) {
         open = true
         this.callbacks = callbacks
         GLFWErrorCallback.createPrint(System.err).set()
@@ -232,6 +235,7 @@ class ConfiguredGlfw(val glfw: GlfwConfig, val name: String) {
         if (!glfwInit()) {
             throw IllegalStateException("Unable to initialize GLFW")
         }
+
 
         windowLifecycle.start(config)
 

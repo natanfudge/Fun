@@ -2,116 +2,56 @@
 
 package io.github.natanfudge.fn.util
 
+import io.github.natanfudge.fn.webgpu.AutoClose
+import io.github.natanfudge.fn.webgpu.AutoCloseImpl
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
 
-//TODO: add autoclosing to this, maybe as a later on top because we do have die()
-class ProcessState : AutoCloseable {
-    val someComplexCalculation = 123
-    override fun close() {
-        println("Auto-closing process")
-    }
-}
-
-class ProcessLifecycle : StatefulLifecycle<Unit, ProcessState>() {
-    override fun toString(): String {
-        return "Process"
-    }
-
-    override fun create(parent: Unit): ProcessState {
-        println("Process start")
-        val state = ProcessState()
-        return state
-    }
-
-    override fun destroy(state: ProcessState) {
-        println("Process end")
-    }
-}
-
-//class WindowState {
-//    val handle  = 123456
-//}
-//class WindowLifecycle: StatefulLifecycle<ProcessState, WindowState> {
-//    override fun birth(parent: ProcessState): WindowState {
-//        println("Creating window")
-//        return WindowState()
-//    }
-//
-//    override fun die(state: WindowState) {
-//        println("Deleting window")
-//    }
-//}
 
 //TODO: might remove <T>
-class BindableLifecycleBuilder<T: Any> {
+class BindableLifecycleBuilder {
     internal var _onDestroy: (() -> Unit)? = null
-//    internal val childrenLifecycles = mutableListOf<Lifecycle<T>>()
+
     fun onDestroy(callback: () -> Unit) {
         _onDestroy = callback
     }
-//    fun child(label: String = "unnamed child", callback: () -> Unit) {
-//        childrenLifecycles.add(CustomLifecycle(label) { callback() })
-//    }
 }
 
-//TODO: a big thing i need to think about is how to get lifecycles to access each other
+//TODO: cool lifecycle tree visualization
 
-class CustomBindableLifecycle<I : Any, R : Any>(private val label: String, private val callback: BindableLifecycleBuilder<R>.(I) -> R) : StatefulLifecycle<I, R>() {
-    val builder = BindableLifecycleBuilder<R>()
 
-    override fun toString(): String {
-        return label
-    }
-
-    override fun create(parent: I): R {
-        println("Start of $this")
-        return callback(builder, parent)
-    }
-
-    override fun destroy(obj: R) {
-        println("End of $this")
-        if (obj is AutoCloseable) {
-            obj.close()
-        }
-        if (builder._onDestroy != null) {
-            builder._onDestroy!!()
-        }
-    }
-}
-
-//class CustomLifecycle<I : Any, R : Any>(private val label: String, private val callback: (I) -> R) : StatefulLifecycle<I, R>() {
-//    override fun toString(): String {
-//        return label
-//    }
-//
-//    override fun create(parent: I): R {
-//        println("Start of $this")
-//        return callback(parent)
-//    }
-//
-//    override fun destroy(obj: R) {
-//        println("End of $this")
-//        if (obj is AutoCloseable) {
-//            obj.close()
-//        }
-//    }
-//}
-
-//TODO: think how we can log birth/death properly
-class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>) : StatefulLifecycle<P, I>() {
+class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>) : StatefulLifecycle<P, I> {
     companion object {
         /**
          * Causes [callback] to be called whenever this lifecycle is birthed.
          * [callback] must return a value that may be used by other parts of the code by calling `bind*{}` on the result of this function.
          * If [R] is [AutoCloseable], it will be automatically closed when `this` lifecycle dies.
          */
-        fun <I : Any, R : Any> createRoot(label: String, callback: BindableLifecycleBuilder<R>.(I) -> R): BindableLifecycle<I, R> {
-            val custom = CustomBindableLifecycle(label ,callback)
+        fun <I : Any, R : Any> createRoot(label: String, callback: BindableLifecycleBuilder.(I) -> R): BindableLifecycle<I, R> {
+            val custom = object : StatefulLifecycleImpl<I, R>() {
+                val builder = BindableLifecycleBuilder()
+
+
+                override fun toString(): String {
+                    return label
+                }
+
+                override fun create(parent: I): R {
+                    println("Start of $this")
+                    return callback(builder, parent)
+                }
+
+                override fun destroy(obj: R) {
+                    println("End of $this")
+                    if (obj is AutoCloseable) {
+                        obj.close()
+                    }
+                    if (builder._onDestroy != null) {
+                        builder._onDestroy!!()
+                    }
+                }
+            }
             val bindable = BindableLifecycle(custom)
-//            for(child in custom.builder.childrenLifecycles) {
-//                bindable.bind(child)
-//            }
 
             return bindable
         }
@@ -119,18 +59,35 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
 
     private val children = mutableListOf<Lifecycle<I>>()
     private var childrenValues: List<*>? = null
-//    private var selfValue: I? = null
 
     override fun toString(): String {
         return lifecycle.toString()
     }
 
-    override fun create(parentValue: P): I {
-        val selfValue = lifecycle.create(parentValue)
+    override fun start(parent: P) {
+        create(parent)
+    }
+
+    override fun end() {
+        if (state != null) {
+            destroy(state!!)
+        } else {
+            println("Warning: '$this' destroyed before it could be constructed")
+        }
+    }
+
+    override var state: I? = null
+
+    private fun create(parentValue: P) {
+        lifecycle.start(parentValue)
+        val state = lifecycle.assertValue
+        this.state = state
+//        val selfValue = lifecycle.create(parentValue)
+
         var error: Throwable? = null
         childrenValues = children.map {
             try {
-                it.start(selfValue)
+                it.start(state)
                 if (it is StatefulLifecycle<I, *>) {
                     it.state
                 } else {
@@ -143,7 +100,6 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
         }
         // Don't swallow errors, it was just delayed so the other children could run normally
         if (error != null) throw error
-        return selfValue
     }
 
     // TODO: maybe need unbind?
@@ -151,14 +107,15 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
         children.add(cycle)
     }
 
+    fun bindHighPriority(cycle: Lifecycle<I>) {
+        children.add(0, cycle)
+    }
+
     fun unbind(cycle: Lifecycle<I>) {
         children.remove(cycle)
     }
 
-    override fun destroy(selfValue: I) {
-        if(toString().contains("GLFW fixed")) {
-            val x= 2 //TODO: remove
-        }
+    private fun destroy(selfValue: I) {
         if (childrenValues == null) {
             println("Warning: ManagedLifecycle${this} closed before it was started successfully")
         } else {
@@ -166,17 +123,17 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
             children.zip(childrenValues!!).forEach { (child, value) ->
                 if (value == null) {
                     println("Warning: Skipping death of Lifecycle $child as it did not birth properly.")
-                } else if (child is StatefulLifecycle<*, *>) {
-                    (child as StatefulLifecycle<*, Any?>).destroy(value)
-                } else {
+                }else {
+//                } else if (child is StatefulLifecycle<*, *>) {
+//                    (child as StatefulLifecycle<*, Any?>).destroy(value)
+//                } else {
                     child.end()
                 }
             }
         }
 
-        lifecycle.destroy(selfValue)
+        lifecycle.end()
     }
-
 }
 
 /**
@@ -204,35 +161,60 @@ fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, callback: (T) 
  * Causes [callback] to be called whenever this lifecycle is birthed.
  * [callback] must return a function that will be called before this lifecycle dies.
  */
-fun <T : Any> BindableLifecycle<*, T>.bindCloseable(label: String? = null, callback: (T) -> (() -> Unit)): StatefulLifecycle<T, () -> Unit> {
-    val lifecycle = object : StatefulLifecycle<T, () -> Unit>() {
+fun <T : Any> BindableLifecycle<*, T>.bindCloseable(label: String? = null, callback: AutoClose.(T) -> (() -> Unit)): StatefulLifecycle<T, () -> Unit> {
+    val autoclose = AutoCloseImpl()
+    val lifecycle = object : StatefulLifecycleImpl<T, () -> Unit>() {
         override fun toString(): String {
             return label ?: "unnamed closeable"
         }
 
         override fun create(parent: T): () -> Unit {
             println("Running initialization of '$this' for birth of ${this@bindCloseable}")
-            return callback(parent)
+            return autoclose.callback(parent)
         }
 
         override fun destroy(destruction: () -> Unit) {
             println("Running destruction of '$this' for death of ${this@bindCloseable}")
             destruction()
+            autoclose.close()
         }
     }
     bind(lifecycle)
     return lifecycle
 }
 
+fun <T : Any> BindableLifecycle<*, T>.bindAutoclose(label: String? = null, callback: AutoClose.(T) -> Unit): StatefulLifecycle<T, () -> Unit> {
+    return bindCloseable(label) {
+        callback(it);
+        {}
+    }
+}
 
 /**
  * Causes [callback] to be called whenever this lifecycle is birthed.
  * [callback] must return a value that may be used by other parts of the code by calling `bind*{}` on the result of this function.
  * If [R] is [AutoCloseable], it will be automatically closed when `this` lifecycle dies.
  */
-fun <T : Any, R : Any> BindableLifecycle<*, T>.bindBindable(label: String = "unnamed bindable", callback: BindableLifecycleBuilder<R>.(T) -> R): BindableLifecycle<T, R> {
+fun <T : Any, R : Any> BindableLifecycle<*, T>.bindBindable(
+    label: String = "unnamed bindable",
+    callback: BindableLifecycleBuilder.(T) -> R,
+): BindableLifecycle<T, R> {
     val bindable = BindableLifecycle.createRoot(label, callback)
     bind(bindable)
+    return bindable
+}
+
+/**
+ * Causes [callback] to be called whenever this lifecycle is birthed, and before all other bound lifecycles.
+ * [callback] must return a value that may be used by other parts of the code by calling `bind*{}` on the result of this function.
+ * If [R] is [AutoCloseable], it will be automatically closed when `this` lifecycle dies.
+ */
+fun <T : Any, R : Any> BindableLifecycle<*, T>.bindHighPriorityBindable(
+    label: String = "unnamed bindable",
+    callback: BindableLifecycleBuilder.(T) -> R,
+): BindableLifecycle<T, R> {
+    val bindable = BindableLifecycle.createRoot(label, callback)
+    bindHighPriority(bindable)
     return bindable
 }
 
@@ -240,8 +222,8 @@ fun <T : Any, R : Any> BindableLifecycle<*, T>.bindBindable(label: String = "unn
  * Causes [callback] to be called whenever this lifecycle is birthed.
  * [callback] must return a value that may be used by other parts of the code by calling `use()`
  */
-fun <T : Any, R : Any> BindableLifecycle<*, T>.bindState(label: String? = null, callback: T.() -> R): StatefulLifecycle<T, R> {
-    val lifecycle = object : StatefulLifecycle<T, R>() {
+fun <T : Any, R : Any> BindableLifecycle<*, T>.bindState(label: String? = null, callback: (T) -> R): StatefulLifecycle<T, R> {
+    val lifecycle = object : StatefulLifecycleImpl<T, R>() {
         override fun toString(): String {
             return label ?: "unnamed stateful"
         }
@@ -262,59 +244,36 @@ fun <T : Any, R : Any> BindableLifecycle<*, T>.bindState(label: String? = null, 
     return lifecycle
 }
 
-
-//private inline fun String?.labelOr(ifNull: () -> String) = if(this == null) ifNull() else "'$this'"
-
-
-object BuiltinLifecycles {
-    val Process = BindableLifecycle.createRoot<Unit, ProcessState>("Process") {
-        ProcessState()
-    }
-}
-
-class MyProcessLifecycleState(val parent: ProcessState) {
-    val customData = 987
-
-}
-
-
-fun main() {
-    val myLifecycle = BuiltinLifecycles.Process.bindBindable("Custom lifecycle") {
-        MyProcessLifecycleState(it)
-    }
-    myLifecycle.bind {
-        println("Child custom lifecycle born, accessing grantparent ${it.parent.someComplexCalculation}")
-    }
-    myLifecycle.bind {
-        println("Doing some custom inner shit with ${it.customData}")
-    }
-    myLifecycle.bindCloseable("The greatest closeable") {
-        println("Constructing something externally");
-        {
-            println("Destroying it")
-        }
-    }
-    BuiltinLifecycles.Process.start(Unit)
-    BuiltinLifecycles.Process.end()
-}
-
 //TODO: could consider having a GeneralLifecycle that just has fun performStage(stage) and then we have performStage(birth) performStage(death)
 // but it could be more general to include intermediate stages
 interface Lifecycle<Parent : Any> {
     fun start(parent: Parent)
     fun end()
 }
+//TODO: I gotta reduce the size of the stack trace somehow
 
-abstract class StatefulLifecycle<Parent : Any, S : Any> : Lifecycle<Parent>, ReadOnlyProperty<Any?, S> {
-    abstract fun create(parent: Parent): S
-
-    abstract fun destroy(state: S)
-
-    var state: S? = null
+interface StatefulLifecycle<Parent : Any, S : Any> : Lifecycle<Parent>, ReadOnlyProperty<Any?, S> {
+    val state: S?
 
     val isCreated get() = state != null
 
     val assertValue get() = state!!
+
+    override fun getValue(thisRef: Any?, property: KProperty<*>): S {
+        return state ?: error("Attempt to get state of '$this' before it was initialized")
+    }
+}
+
+abstract class StatefulLifecycleImpl<Parent : Any, S : Any> : StatefulLifecycle<Parent, S> {
+    abstract fun create(parent: Parent): S
+
+    abstract fun destroy(state: S)
+
+    override var state: S? = null
+
+//    val isCreated get() = state != null
+//
+//    val assertValue get() = state!!
 
     final override fun start(parent: Parent) {
         state = create(parent)
@@ -332,14 +291,6 @@ abstract class StatefulLifecycle<Parent : Any, S : Any> : Lifecycle<Parent>, Rea
         return state ?: error("Attempt to get state of '$this' before it was initialized")
     }
 }
-
-//class Val<T: Any>(private val lifecycle: StatefulLifecycle<*,T>) : ReadOnlyProperty<Any?, T> {
-//    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
-//        return lifecycle.state ?: error("Attempt to get state of $this@use before it was initialized")
-//    }
-//}
-//
-//fun <T : Any> StatefulLifecycle<*, T>.use() = Val(this)
 
 
 fun <T : Any> Lifecycle<T>.restart(value: T) {

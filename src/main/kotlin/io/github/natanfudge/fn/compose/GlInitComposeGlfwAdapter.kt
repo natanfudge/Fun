@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.window.ComposeFrameCallback
 import kotlinx.coroutines.CoroutineDispatcher
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
@@ -20,6 +19,8 @@ import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
 
 
+
+
 @OptIn(InternalComposeUiApi::class)
 internal class GlInitComposeGlfwAdapter(
     initialWidth: Int,
@@ -29,13 +30,13 @@ internal class GlInitComposeGlfwAdapter(
     private val composeContent: @Composable () -> Unit,
     private val onFrameReady: ComposeFrameCallback,
 ) {
+
     @OptIn(InternalComposeUiApi::class)
     private inner class GlInitFixedSizeComposeWindow(
         val width: Int,
         val height: Int,
         context: DirectContext,
     ) {
-
         // Skia Surface, bound to the OpenGL context
         val surface = glDebugGroup(0, groupName = { "Compose Surface Init" }) {
             createSurface(width, height, context)

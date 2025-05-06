@@ -9,7 +9,7 @@ package io.github.natanfudge.fn.util
 interface EventStream<T> {
     /**
      * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [MutEventStream]).
-     * @return a [Listener] instance which can be used to stop receiving events via [Listener.detach] when they are no longer needed, preventing memory leaks
+     * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks
      * and unnecessary processing.
      * @see EventStream
      */
@@ -18,17 +18,17 @@ interface EventStream<T> {
 
 
 /**
- * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [detach] method
+ * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method
  * to stop listening. This is typically returned by [EventStream.listen].
  * @see EventStream
  */
-class Listener<in T>(internal val callback: (T) -> Unit, private val observable: MutEventStream<T>) {
+class Listener<in T>(internal val callback: (T) -> Unit, private val observable: MutEventStream<T>): AutoCloseable {
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
      * @see EventStream
      */
-    fun detach() {
+    override fun close() {
         observable.detach(this)
     }
 }
@@ -71,7 +71,7 @@ class MutEventStream<T> : EventStream<T> {
 
     /**
      * Removes the specified [listener] from the internal list, preventing it from receiving future events.
-     * This is typically called by [Listener.detach].
+     * This is typically called by [Listener.close].
      * @see EventStream
      */
     internal fun detach(listener: Listener<T>) {

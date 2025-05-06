@@ -18,6 +18,9 @@ data class WindowConfig(
     val maxFps: Int = 60,
 )
 
+//fun RepeatingWindowCallbacks.withInit(() -> Unit)
+
+//TODO: needs to be refactored
 interface RepeatingWindowCallbacks {
     fun AutoClose.frame(deltaMs: Double) {}
 
@@ -52,9 +55,9 @@ interface RepeatingWindowCallbacks {
     fun windowMove(x: Int, y: Int){}
 }
 
-interface WindowCallbacks : RepeatingWindowCallbacks {
-    fun init(handle: WindowHandle) {}
-}
+//interface WindowCallbacks : RepeatingWindowCallbacks {
+//    fun init(handle: WindowHandle) {}
+//}
 
 fun RepeatingWindowCallbacks.combine(other: RepeatingWindowCallbacks) = ComposedWindowCallback(this, other)
 

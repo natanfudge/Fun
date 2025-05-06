@@ -26,7 +26,7 @@ class ObservableExamples {
         assertEquals(listOf("Hello", "World"), receivedValues, "receivedValues")
 
         // Detach the listener
-        listener.detach()
+        listener.close()
 
         // Emit another value that should not be received
         observable.emit("Not received")
