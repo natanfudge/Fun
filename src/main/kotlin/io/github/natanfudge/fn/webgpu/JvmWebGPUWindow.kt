@@ -11,6 +11,7 @@ import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
 import io.github.natanfudge.fn.util.bindBindable
+import io.github.natanfudge.fn.util.bindBindableTwoParents
 import io.github.natanfudge.fn.util.bindHighPriorityBindable
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
@@ -71,6 +72,10 @@ class WebGPUContext(
     }
 }
 
+data class WebGPUFixedSizeSurface(
+    val surface: WebGPUContext,
+    val dimensions: WindowDimensions
+)
 
 class WebGPUWindow {
     companion object {
@@ -95,15 +100,17 @@ class WebGPUWindow {
         WebGPUContext(it.handle, it.init)
     }
 
-    val dimensionsLifecycle = window.dimensionsLifecycle.bindBindable("WebGPU resize") { dim ->
+    val dimensionsLifecycle = window.dimensionsLifecycle.bindBindableTwoParents(surfaceLifecycle, "WebGPU Dimensions") { dim, surface ->
         surface.context.configure(
             SurfaceConfiguration(
                 surface.device, format = surface.presentationFormat
             ),
             width = dim.width.toUInt(), height = dim.height.toUInt()
         )
-        dim
+        WebGPUFixedSizeSurface(surface, dim)
     }
+
+
 
     //TODO: All i need to do is to get the dimensions lifecycle to run when the surface is reset.
 

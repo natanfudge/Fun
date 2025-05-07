@@ -3,23 +3,23 @@ package io.github.natanfudge.fn.render
 import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.util.FunLogLevel
-import io.github.natanfudge.fn.util.bindAutoclose
-import io.github.natanfudge.fn.util.bindBindable
-import io.github.natanfudge.fn.util.bindState
-import io.github.natanfudge.fn.util.closeAll
+import io.github.natanfudge.fn.util.*
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4
 import io.github.natanfudge.wgpu4k.matrix.Vec3
 import io.ygdrasil.webgpu.*
-import org.jetbrains.skia.skottie.LogLevel
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 //TODO:
+// 5. Rewrite Lifecycles to use a Tree/Graph thing
+// 5.5 Figure out if there's a way to resolve hot reloading being bad with lambdas.
+// I figured it out. It's probably because we have old lambdas stored in the graph, and it's trying to run them and failing.
+// We need some way to evict the old lambdas and replace them but tbh I don't know if that is even possible. We might need to put everything in a special
+// callback and rerun the callback whenever the code is reloaded.
 // Fix error handling of wgpu!!
 // 6. Start drawing basic objects:
 //   A. An origin marker
@@ -52,50 +52,16 @@ class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions) : AutoCl
     val depthStencilView = depthTexture.createView()
 
     override fun close() {
-        depthStencilView.close()
-        depthTexture.close()
+        closeAll(depthStencilView, depthTexture)
     }
 }
 
+
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val fsWatcher = FileSystemWatcher()
 
     val cubeMesh = Mesh.UnitCube
 
-    val cube = ReloadingPipeline(
-        ctx.device, fsWatcher,
-        vertexShader = ShaderSource.HotFile("cube.vertex"),
-        fragmentShader = ShaderSource.HotFile("cube.fragment"),
-    ) { vertex, fragment ->
-        RenderPipelineDescriptor(
-            vertex = VertexState(
-                module = vertex,
-                entryPoint = "main",
-                buffers = listOf(
-                    VertexBufferLayout(
-                        arrayStride = 4uL * 3uL, // 4floats × 3bytes  (12bytes per vertex)
-                        attributes = listOf(
-                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 0uL, shaderLocation = 0u), // Position
-                        )
-                    ),
-                )
-            ),
-            fragment = FragmentState(
-                module = fragment,
-                entryPoint = "main",
-                targets = listOf(ColorTargetState(ctx.presentationFormat))
-            ),
-            primitive = PrimitiveState(
-                topology = GPUPrimitiveTopology.TriangleList,
-                cullMode = GPUCullMode.Back
-            ),
-            depthStencil = DepthStencilState(
-                format = GPUTextureFormat.Depth24Plus,
-                depthWriteEnabled = true,
-                depthCompare = GPUCompareFunction.Less
-            )
-        )
-    }
+
     val verticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = cubeMesh.vertexCount * 4uL * 3uL, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
@@ -131,27 +97,85 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 
     override fun close() {
-        closeAll(cube, verticesBuffer, indicesBuffer, uniformBuffer)
+        closeAll(verticesBuffer, indicesBuffer, uniformBuffer)
     }
 }
 
+
 //class FunRendering(val )
 
-fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer) {
+fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
     val sizedWindow by dimensionsLifecycle.bindState("Fun fixed sized window") {
-        FunFixedSizeWindow(surfaceLifecycle.assertValue.device, it)
+        FunFixedSizeWindow(it.surface.device, it.dimensions)
     }
 
     val surface by surfaceLifecycle.bindBindable("Fun Surface") {
         FunSurface(it)
     }
+
+    val cubeLifecycle = createReloadingPipeline(
+        surfaceLifecycle, fsWatcher,
+        vertexShader = ShaderSource.HotFile("cube.vertex"),
+        fragmentShader = ShaderSource.HotFile("cube.fragment")
+    ) { vertex, fragment ->
+        RenderPipelineDescriptor(
+            vertex = VertexState(
+                module = vertex,
+                entryPoint = "main",
+                buffers = listOf(
+                    VertexBufferLayout(
+                        arrayStride = 4uL * 3uL, // 4floats × 3bytes  (12bytes per vertex)
+                        attributes = listOf(
+                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 0uL, shaderLocation = 0u), // Position
+                        )
+                    ),
+                )
+            ),
+            fragment = FragmentState(
+                module = fragment,
+                entryPoint = "main",
+                targets = listOf(ColorTargetState(presentationFormat))
+            ),
+            primitive = PrimitiveState(
+                topology = GPUPrimitiveTopology.TriangleList,
+                cullMode = GPUCullMode.Back
+            ),
+            depthStencil = DepthStencilState(
+                format = GPUTextureFormat.Depth24Plus,
+                depthWriteEnabled = true,
+                depthCompare = GPUCompareFunction.Less
+            )
+        )
+    }
+
+    val x = 1
+
+    val uniformBindGroup by cubeLifecycle.bindState {
+        it.ctx.device.createBindGroup(
+            BindGroupDescriptor(
+                layout = it.pipeline.getBindGroupLayout(0u),
+                entries = listOf(
+                    BindGroupEntry(
+                        binding = 0u,
+                        resource = BufferBinding(
+                            buffer = surface.uniformBuffer // HACK: this has a good chance of failing if we reload the wrong part of the lifecycle tree,
+                            // since we didn't explicitly depend on the fun surface's lifecycle.
+                        )
+                    )
+                )
+            )
+        )
+    }
+
+    val cube by cubeLifecycle
+
+
     frameLifecycle.bindAutoclose("Fun Frame", FunLogLevel.Verbose) { deltaMs ->
         with(surface) {
-            println("Drawing with context index ${ctx.myIndex}")
+
             // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
             val windowFrame = ctx.context.getCurrentTexture()
                 .also { it.texture.ac } // Close texture
-            println("After stall, index is  ${surface.ctx.myIndex}")
 
             checkForFrameDrops(ctx, deltaMs)
 
@@ -187,21 +211,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer) {
                 viewProjection.array
             )
 
-            //TODO: this should be in the pipeline lifecycle
-            val uniformBindGroup = ctx.device.createBindGroup(
-                BindGroupDescriptor(
-                    layout = cube.pipeline.getBindGroupLayout(0u),
-                    entries = listOf(
-                        BindGroupEntry(
-                            binding = 0u,
-                            resource = BufferBinding(
-                                buffer = uniformBuffer
-                            )
-                        )
-                    )
-                )
-            ).ac
-
 
             val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
             pass.setPipeline(cube.pipeline)
@@ -211,7 +220,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer) {
             pass.drawIndexed(cubeMesh.indexCount.toUInt())
             pass.end()
 
-            compose.frame(ctx.device, this@bindAutoclose, commandEncoder, textureView)
+            compose.frame( commandEncoder, textureView)
 
             ctx.device.queue.submit(listOf(commandEncoder.finish()));
         }
@@ -219,6 +228,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer) {
     }
 
 }
+
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000
     // It's not exact, but if it's almost twice as long (or more), it means we took too much time to make a frame
