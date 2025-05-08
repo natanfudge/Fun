@@ -5,6 +5,7 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.kotlin.dsl.register
+import org.jetbrains.compose.reload.ComposeHotRun
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -13,6 +14,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("com.google.osdetector") version "1.7.3"
+    id("org.jetbrains.compose.hot-reload") version "1.0.0-alpha09"
 }
 
 
@@ -47,6 +49,10 @@ graalvmNative {
             }
         }
     }
+}
+
+tasks.withType<ComposeHotRun>().configureEach {
+    mainClass.set("io.github.natanfudge.fn.MainKt")
 }
 
 group = "natan"
@@ -99,7 +105,7 @@ kotlin {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")
     }
     compilerOptions {
-        freeCompilerArgs.add("-Xcontext-parameters")
+        freeCompilerArgs.add("-Xcontext-parameters", )
     }
 }
 

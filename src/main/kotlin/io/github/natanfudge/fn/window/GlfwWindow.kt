@@ -215,6 +215,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
         frameAutoclose.use {
             val deltaMs = delta.toDouble() / 1e6
 
+
             frameLifecycle.start(deltaMs,)
             with(callbacks) {
                 it.frame(deltaMs)

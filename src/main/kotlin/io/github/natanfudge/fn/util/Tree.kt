@@ -42,3 +42,4 @@ private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T, visitor: (p
         visitConnectionsRecur(child, node.value, visitor)
     }
 }
+

@@ -9,6 +9,9 @@ import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4
 import io.github.natanfudge.wgpu4k.matrix.Vec3
 import io.ygdrasil.webgpu.*
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -104,6 +107,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 //class FunRendering(val )
 
+@OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
     val sizedWindow by dimensionsLifecycle.bindState("Fun fixed sized window") {
         FunFixedSizeWindow(it.surface.device, it.dimensions)
@@ -167,24 +171,53 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
+    val pair = 1 to 2
+
     val cube by cubeLifecycle
 
+    val lifecycle = object: Lifecycle<WebGPUFrame> {
+        override fun start(parent: WebGPUFrame, parentIndex: Int) {
+            pair.first
+            println("halo")
+        }
 
-    frameLifecycle.bindAutoclose("Fun Frame", FunLogLevel.Verbose) { deltaMs ->
+        override fun end() {
+        }
+
+    }
+
+    frameLifecycle.bind(lifecycle)
+
+//    frameLifecycle.bind {
+//        pair.first
+////        println(y)
+////        y.incrementAndFetch()
+////                    if (HOT_RELOAD_SHADERS) {
+////                fsWatcher.poll()
+////            }
+////        println(x)
+//    }
+
+
+    frameLifecycle.bindAutoclose("Fun Frame", FunLogLevel.Verbose) { frame ->
         with(surface) {
 
-            // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
-            val windowFrame = ctx.context.getCurrentTexture()
-                .also { it.texture.ac } // Close texture
+//            // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
+//            val windowFrame = ctx.context.getCurrentTexture()
+//                .also { it.texture.ac } // Close texture
 
-            checkForFrameDrops(ctx, deltaMs)
+//            println(x + 10)
 
-            if (HOT_RELOAD_SHADERS) {
-                fsWatcher.poll()
-            }
+            println(x)
+
+            checkForFrameDrops(ctx, frame.deltaMs)
+
+//            if (HOT_RELOAD_SHADERS) {
+//                fsWatcher.poll()
+//            }
             val commandEncoder = ctx.device.createCommandEncoder().ac
 
-            val textureView = windowFrame.texture.createView().ac
+            val textureView = frame.windowFrame.texture.createView().ac
             val renderPassDescriptor = RenderPassDescriptor(
                 colorAttachments = listOf(
                     RenderPassColorAttachment(

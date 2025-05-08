@@ -30,7 +30,7 @@ class BindableLifecycleBuilder {
 
 val activeLogLevel = FunLogLevel.Debug
 
-private inline fun log(level: FunLogLevel, msg: () -> String) {
+ inline fun log(level: FunLogLevel, msg: () -> String) {
     if (level.value >= activeLogLevel.value) {
         println(msg())
     }
@@ -176,7 +176,7 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
 /**
  * Causes [callback] to be called whenever this lifecycle is birthed.
  */
-fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, callback: (T) -> Unit): Lifecycle<T> {
+inline fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, crossinline callback: (T) -> Unit): Lifecycle<T> {
     val lifecycle = object : Lifecycle<T> {
         override fun toString(): String {
             return label ?: "unnamed callback"
@@ -219,10 +219,10 @@ fun <T : Any> BindableLifecycle<*, T>.bindHighPriority(label: String = "unnamed 
  * Causes [callback] to be called whenever this lifecycle is birthed.
  * [callback] must return a function that will be called before this lifecycle dies.
  */
-fun <T : Any> BindableLifecycle<*, T>.bindCloseable(
+inline fun <T : Any> BindableLifecycle<*, T>.bindCloseable(
     label: String? = null,
     logLevel: FunLogLevel = FunLogLevel.Debug,
-    callback: AutoCloseCallback<T, () -> Unit>
+    crossinline callback: AutoClose.(T) -> (() -> Unit)
 ): StatefulLifecycle<T, () -> Unit> {
     val autoclose = AutoCloseImpl()
     val lifecycle = object : StatefulLifecycleImpl<T, () -> Unit>() {
@@ -232,9 +232,10 @@ fun <T : Any> BindableLifecycle<*, T>.bindCloseable(
 
         override fun create(parent: T): () -> Unit {
             log(logLevel) { "Running initialization of '$this' for birth of ${this@bindCloseable}" }
-            return with(callback) {
-                autoclose.call(parent)
-            }
+            return autoclose.callback(parent)
+//            return with(callback) {
+//                autoclose.call(parent)
+//            }
 //            return autoclose.callback(parent)
         }
 
@@ -253,16 +254,17 @@ fun <T : Any> BindableLifecycle<*, T>.bindCloseable(
 fun interface AutoCloseCallback<T, R> {
     fun AutoClose.call(value: T): R
 }
-
-fun <T : Any> BindableLifecycle<*, T>.bindAutoclose(
+//TODO: note why we do inline here
+inline fun <T : Any> BindableLifecycle<*, T>.bindAutoclose(
     label: String? = null,
     logLevel: FunLogLevel = FunLogLevel.Debug,
-    callback: AutoCloseCallback<T, Unit>,
+    crossinline callback: AutoClose.(T) -> Unit,
 ): StatefulLifecycle<T, () -> Unit> {
     return bindCloseable(label, logLevel) {
-        with(callback) {
-            call(it)
-        };
+        callback(it);
+//        with(callback) {
+//            call(it)
+//        };
 //        callback.call(it);
         {}
     }

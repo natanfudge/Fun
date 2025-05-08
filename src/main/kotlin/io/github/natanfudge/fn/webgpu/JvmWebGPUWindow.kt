@@ -38,7 +38,6 @@ private var contextIndex = 0
 
 class WebGPUContext(
     handle: Long,
-    init: WindowConfig
 ) : AutoCloseable {
     val myIndex = contextIndex++
     val context = wgpu.getNativeSurface(handle)
@@ -57,16 +56,6 @@ class WebGPUContext(
      */
     val refreshRate = getRefreshRate(handle)
 
-    //TODO: i'm replacing this with combined lifecycles , the dimension will depend on the surface and this will run automatically
-//    init {
-//        context.configure(
-//            SurfaceConfiguration(
-//                device, format = presentationFormat
-//            ),
-//            width = init.initialWindowWidth.toUInt(), height = init.initialWindowHeight.toUInt()
-//        )
-//    }
-
     override fun close() {
         closeAll(context, adapter, device)
     }
@@ -76,6 +65,21 @@ data class WebGPUFixedSizeSurface(
     val surface: WebGPUContext,
     val dimensions: WindowDimensions
 )
+
+data class WebGPUFrame(
+    val ctx: WebGPUContext,
+    val deltaMs: Double
+) : AutoCloseable {
+    // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
+    // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
+    // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
+    // https://github.com/JetBrains/JetBrainsRuntime/issues/534
+    val windowFrame = ctx.context.getCurrentTexture()
+
+    override fun close() {
+        windowFrame.texture.close()
+    }
+}
 
 class WebGPUWindow {
     companion object {
@@ -97,7 +101,8 @@ class WebGPUWindow {
 
     // Surface needs to initialize before the dimensions
     val surfaceLifecycle = window.windowLifecycle.bindHighPriorityBindable("WebGPU Surface") {
-        WebGPUContext(it.handle, it.init)
+
+        WebGPUContext(it.handle)
     }
 
     val dimensionsLifecycle = window.dimensionsLifecycle.bindBindableTwoParents(surfaceLifecycle, "WebGPU Dimensions") { dim, surface ->
@@ -124,8 +129,11 @@ class WebGPUWindow {
 //        it
 //    }.also { surfaceLifecycle.bind(it) }
 
-    val frameLifecycle = window.frameLifecycle
+//    val frameLifecycle = window.frameLifecycle
 
+    val frameLifecycle = window.frameLifecycle.bindBindable {
+        WebGPUFrame(surface, it)
+    }
 
     fun show(config: WindowConfig, callbackHook: RepeatingWindowCallbacks? = null) {
         val baseCallbacks = object : RepeatingWindowCallbacks {
