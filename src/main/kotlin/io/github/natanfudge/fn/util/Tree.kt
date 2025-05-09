@@ -2,6 +2,10 @@ package io.github.natanfudge.fn.util
 
 import java.util.LinkedList
 import java.util.Queue
+import kotlin.collections.ArrayDeque
+import kotlin.collections.List
+import kotlin.collections.MutableList
+import kotlin.collections.isNotEmpty
 
 interface Tree<T> {
     val value: T
@@ -9,7 +13,7 @@ interface Tree<T> {
 }
 
 interface MutableTree<T> : Tree<T> {
-   override val children: MutableList<MutableTree<T>>
+    override val children: MutableList<MutableTree<T>>
 }
 
 data class MutableTreeImpl<T>(override val value: T, override val children: MutableList<MutableTree<T>>) : MutableTree<T>
@@ -29,17 +33,45 @@ inline fun <T> Tree<T>.visit(visitor: (T) -> Unit) {
 }
 
 /**
+ * Visits the tree *bottom-up* (reverse breadth-first, aka reverse level-order).
+ *
+ * Nodes on the same level are still reported left-to-right; only the levels
+ * themselves are reversed.  Runs in O(n) time and O(n) extra space.
+ */
+inline fun <T> Tree<T>.visitBottomUp(visitor: (T) -> Unit) {
+    val queue: ArrayDeque<Tree<T>> = ArrayDeque()
+    val output: ArrayDeque<T> = ArrayDeque()   // acts as a stack
+
+    queue.add(this)
+    while (queue.isNotEmpty()) {
+        val node = queue.removeFirst()
+
+        // Collect the value; we'll emit later in reverse.
+        output.addFirst(node.value)
+
+        // Enqueue children *after* the push so they’re processed before
+        // their parent when we later pop from 'output'.
+        // Children go in natural order so left-to-right is preserved.
+        queue.addAll(node.children)
+    }
+
+    // Now emit bottom-up.
+    for (value in output) visitor(value)
+}
+
+/**
  * Visits each node in the tree depth-first, providing its parent in the process. For the root, the [seed] value will be given as the parent.
  */
- fun <T> Tree<T>.visitConnections(seed: T, visitor: (parent: T, child:T) -> Unit) {
+fun <T> Tree<T>.visitConnections(seed: T, visitor: (parent: T, child: T) -> Unit) {
     visitConnectionsRecur(this, seed, visitor)
 }
 
-private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T, visitor: (parent: T, child:T) -> Unit) {
+private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T, visitor: (parent: T, child: T) -> Unit) {
     visitor(parentValue, node.value)
 
     for (child in node.children) {
         visitConnectionsRecur(child, node.value, visitor)
     }
 }
+
 

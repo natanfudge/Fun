@@ -36,7 +36,7 @@ val activeLogLevel = FunLogLevel.Debug
     }
 }
 
-data class LifecycleChild<P : Any>(val index: Int, val lifecycle: Lifecycle<P>)
+data class LifecycleChild<P : Any>(val index: Int, val lifecycle: LifecycleOld<P>)
 
 class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>) : StatefulLifecycle<P, I> {
     companion object {
@@ -140,15 +140,15 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
 
     }
 
-    fun bind(cycle: Lifecycle<I>, parentIndex: Int = 0) {
+    fun bind(cycle: LifecycleOld<I>, parentIndex: Int = 0) {
         children.add(LifecycleChild(parentIndex, cycle))
     }
 
-    fun bindHighPriority(cycle: Lifecycle<I>, parentIndex: Int = 0) {
+    fun bindHighPriority(cycle: LifecycleOld<I>, parentIndex: Int = 0) {
         children.add(0, LifecycleChild(parentIndex, cycle))
     }
 
-    fun unbind(cycle: Lifecycle<I>) {
+    fun unbind(cycle: LifecycleOld<I>) {
         children.removeAll { it.lifecycle == cycle }
     }
 
@@ -176,8 +176,8 @@ class BindableLifecycle<P : Any, I : Any>(val lifecycle: StatefulLifecycle<P, I>
 /**
  * Causes [callback] to be called whenever this lifecycle is birthed.
  */
-inline fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, crossinline callback: (T) -> Unit): Lifecycle<T> {
-    val lifecycle = object : Lifecycle<T> {
+inline fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, crossinline callback: (T) -> Unit): LifecycleOld<T> {
+    val lifecycle = object : LifecycleOld<T> {
         override fun toString(): String {
             return label ?: "unnamed callback"
         }
@@ -197,8 +197,8 @@ inline fun <T : Any> BindableLifecycle<*, T>.bind(label: String? = null, crossin
 /**
  * Causes [callback] to be called whenever this lifecycle is birthed, before all other callbacks.
  */
-fun <T : Any> BindableLifecycle<*, T>.bindHighPriority(label: String = "unnamed callback", logLevel: FunLogLevel, callback: (T) -> Unit): Lifecycle<T> {
-    val lifecycle = object : Lifecycle<T> {
+fun <T : Any> BindableLifecycle<*, T>.bindHighPriority(label: String = "unnamed callback", logLevel: FunLogLevel, callback: (T) -> Unit): LifecycleOld<T> {
+    val lifecycle = object : LifecycleOld<T> {
         override fun toString(): String {
             return label
         }
@@ -319,8 +319,8 @@ fun <P1 : Any, P2 : Any, R : Any> BindableLifecycle<*, P1>.bindBindableTwoParent
     val lifecycle = TwoParentLifecycle(custom)
     val bindable = BindableLifecycle(lifecycle)
 
-    this.bind(bindable as Lifecycle<P1>)
-    parent2.bind(bindable as Lifecycle<P2>, parentIndex = 1)
+    this.bind(bindable as LifecycleOld<P1>)
+    parent2.bind(bindable as LifecycleOld<P2>, parentIndex = 1)
     return bindable
 }
 
@@ -372,13 +372,13 @@ fun <T : Any, R : Any> BindableLifecycle<*, T>.bindState(label: String? = null, 
 
 //NOTE: could consider having a GeneralLifecycle that just has fun performStage(stage) and then we have performStage(birth) performStage(death)
 // but it could be more general to include intermediate stages
-interface Lifecycle<Parent : Any> {
+interface LifecycleOld<Parent : Any> {
     fun start(parent: Parent, parentIndex: Int = 0)
     fun end()
 }
 //TODO: I gotta reduce the size of the stack trace somehow
 
-interface StatefulLifecycle<Parent : Any, S : Any> : Lifecycle<Parent>, ReadOnlyProperty<Any?, S> {
+interface StatefulLifecycle<Parent : Any, S : Any> : LifecycleOld<Parent>, ReadOnlyProperty<Any?, S> {
     val state: S?
 
     val isCreated get() = state != null
@@ -448,7 +448,7 @@ class TwoParentLifecycle<P1 : Any, P2 : Any, S : Any>(val wrapped: StatefulLifec
 }
 
 //TODo: better document what parentIndex means
-fun <T : Any> Lifecycle<T>.restart(value: T, parentIndex: Int = 0) {
+fun <T : Any> LifecycleOld<T>.restart(value: T, parentIndex: Int = 0) {
     end()
     start(value, parentIndex)
 }

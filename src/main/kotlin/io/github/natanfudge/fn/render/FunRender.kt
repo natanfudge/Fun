@@ -1,17 +1,14 @@
 package io.github.natanfudge.fn.render
 
-import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.*
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.WindowDimensions
-import io.github.natanfudge.wgpu4k.matrix.Mat4
-import io.github.natanfudge.wgpu4k.matrix.Vec3
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
+import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
-import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -67,16 +64,15 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     val verticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = cubeMesh.vertexCount * 4uL * 3uL, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
+            size = cubeMesh.vertexCount * Vec3f.SIZE_BYTES, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
             usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
             mappedAtCreation = true
         )
     )
 
-
     val indicesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = cubeMesh.indexCount * 4uL,
+            size = cubeMesh.indexCount * Float.SIZE_BYTES.toULong(),
             usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
             mappedAtCreation = true
         )
@@ -84,11 +80,11 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = 64uL,// 4x4 matrix
+            size = Mat4f.SIZE_BYTES.toULong(),// 4x4 matrix
             usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
         )
     )
-    val viewProjection = Mat4.identity()
+    val viewProjection = Mat4f.identity()
 
     init {
         verticesBuffer.mapFrom(cubeMesh.vertices.array)
@@ -104,8 +100,6 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
-
-//class FunRendering(val )
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
@@ -175,7 +169,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
     val cube by cubeLifecycle
 
-    val lifecycle = object: Lifecycle<WebGPUFrame> {
+    val lifecycle = object: LifecycleOld<WebGPUFrame> {
         override fun start(parent: WebGPUFrame, parentIndex: Int) {
             pair.first
             println("halo")
@@ -235,8 +229,8 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                 )
             )
             val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
-            Mat4.identity(viewProjection)
-            viewProjection.rotate(Vec3(sin(now), cos(now), 0f), 1f, viewProjection)
+            Mat4f.identity(viewProjection)
+            viewProjection.rotate(Vec3f(sin(now), cos(now), 0f), 1f, viewProjection)
 
             ctx.device.queue.writeBuffer(
                 uniformBuffer,

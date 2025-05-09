@@ -5,3 +5,11 @@ fun closeAll(vararg closeable: AutoCloseable) {
         closeable.close()
     }
 }
+
+inline fun <T> Iterable<T>.allIndexed(iter: (Int, T) -> Boolean): Boolean {
+    forEachIndexed { i, el ->
+        val result = iter(i, el)
+        if (!result) return false
+    }
+    return true
+}
