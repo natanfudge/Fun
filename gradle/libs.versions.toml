@@ -41,7 +41,9 @@ lwjgl = [
 ]
 jvmMain = [
     "logback-classic",
-    # Workaround for https://youtrack.jetbrains.com/issue/KTIJ-8414/Rendered-KDoc-Quick-Doc-popup-or-Reader-mode-for-sample-which-references-code-in-another-package-is-shown-as-Unresolved
+
+]
+jvmTest = [
     "junit-jupiter-api", "junit-jupiter-engine"
 ]
 jvmMainCompileOnly = [
@@ -50,7 +52,6 @@ jvmMainCompileOnly = [
 commonMain = [
     "serialization-json", "multiplatform-settings-noarg", "multiplatform-settings-serialization", "coroutines",
 ]
-# Workaround for https://youtrack.jetbrains.com/issue/KTIJ-8414/Rendered-KDoc-Quick-Doc-popup-or-Reader-mode-for-sample-which-references-code-in-another-package-is-shown-as-Unresolved
 commonTest = [
     "kotlin-test"
 ]

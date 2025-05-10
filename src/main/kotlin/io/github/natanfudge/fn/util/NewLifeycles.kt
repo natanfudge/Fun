@@ -25,9 +25,14 @@ import kotlin.reflect.KProperty
  * [P] is the type of the parent(s) of this lifecycle, and [T] is the type of the root of this lifecycle.
  * Note that we don't do `Lifecycle<P,T> = MutableTree<P,T>` because that would signify everything is `<P,T>` all the way down, which is not true.
  */
- class Lifecycle<P : Any, T : Any> private constructor(private val tree: LifecycleTree): ReadOnlyProperty<Any?,T> {
+class Lifecycle<P : Any, T : Any> private constructor(private val tree: LifecycleTree) : ReadOnlyProperty<Any?, T> {
     companion object {
-        fun <P : Any, T : Any> create(label: String,  logLevel: FunLogLevel = FunLogLevel.Debug,stop: (T) -> Unit = {},  start: AutoClose.(P) -> T): Lifecycle<P, T> {
+        fun <P : Any, T : Any> create(
+            label: String,
+            logLevel: FunLogLevel = FunLogLevel.Debug,
+            stop: (T) -> Unit = {},
+            start: AutoClose.(P) -> T,
+        ): Lifecycle<P, T> {
             return Lifecycle(
                 MutableTreeImpl(
                     value = LifecycleData(
@@ -45,6 +50,15 @@ import kotlin.reflect.KProperty
             )
         }
     }
+
+    fun removeChildren(): List<Lifecycle<T, *>> {
+        // Copy list
+        val children = tree.children.toList().map { Lifecycle<T, Any>(it) }
+        tree.children.clear()
+        tree.value.childrenParentIndices.clear()
+        return children
+    }
+
 
     /**
      * Starts this and all children recursively.
@@ -116,7 +130,7 @@ import kotlin.reflect.KProperty
     fun <CP : Any, CT : Any> bind(child: Lifecycle<CP, CT>, runEarly: Boolean = false) {
         val parentIndex = child.tree.value.parentCount
         child.tree.value.parentCount++
-        if(runEarly) {
+        if (runEarly) {
             tree.value.childrenParentIndices.add(0, parentIndex)
             tree.children.add(0, child.tree)
         } else {
@@ -129,11 +143,18 @@ import kotlin.reflect.KProperty
      * Calls [start] when `this` starts, and [stop] when this stops.
      * @param early If true, the child will be inserted before all other children, ensuring it runs first.
      */
-    fun <CT : Any> bind(label: String,logLevel: FunLogLevel = FunLogLevel.Debug, stop: (CT) -> Unit = {},  early: Boolean = false, start: AutoClose.(T) -> CT): Lifecycle<T, CT> {
-        val ls = create(label, logLevel, stop,  start)
+    fun <CT : Any> bind(
+        label: String,
+        logLevel: FunLogLevel = FunLogLevel.Debug,
+        stop: (CT) -> Unit = {},
+        early: Boolean = false,
+        start: AutoClose.(T) -> CT,
+    ): Lifecycle<T, CT> {
+        val ls = create(label, logLevel, stop, start)
         bind(ls, early)
         return ls
     }
+
     /**
      * Calls [start] when `this` and [secondLifecycle] start, and [stop] when this and [secondLifecycle] stop.
      */
@@ -143,8 +164,8 @@ import kotlin.reflect.KProperty
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         start: (T, P2) -> CT,
-        ): Lifecycle<T, CT> {
-        val ls = create<List<Any>, CT>(label,logLevel, stop,{ parents ->
+    ): Lifecycle<T, CT> {
+        val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
             start(parentA, parentB)
@@ -156,6 +177,7 @@ import kotlin.reflect.KProperty
 
     val isInitialized get() = tree.value.selfState != null
     val assertValue: T get() = tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
+    val value: T? get() = tree.value.selfState as T?
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): T {
         return tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
@@ -298,10 +320,16 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
 
 
     if (run) {
-        val result = autoClose.start(
-            parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
-        )
-        selfState = result
+        try {
+            val result = autoClose.start(
+                parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
+            )
+            selfState = result
+        } catch (e: Throwable) {
+            log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
+            e.printStackTrace()
+        }
+
     }
 }
 
@@ -385,7 +413,7 @@ private fun <P : Any, T : Any> logLifecycleStart(
                 if (seedValue != null) {
                     append(" with seed value '$seedValue'")
                 }
-                if (prevSelf != null){
+                if (prevSelf != null) {
                     append(", replacing previous self values '$prevSelf'")
                 }
                 if (prevParent != null) {

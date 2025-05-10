@@ -101,11 +101,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
-//TODO: 1. Fix reloading failing:
-//// Caused by:
-////  In wgpuDeviceCreateRenderPipeline, label = 'Compose Pipeline'
-////    Error matching ShaderStages(FRAGMENT) shader requirements against the pipeline
-////      Unable to find entry point 'fs_main'
+// TODO:
 // 2. Test hot reloading
 // 3. Setup lambda cleanup on reload
 // 4. Start catching wgpu errors with new api
@@ -114,7 +110,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-    val sizedWindow by dimensionsLifecycle.bind("Fun fixed sized window") {
+    val sizedWindow by dimensionsLifecycle.bind("Fun Dimensions") {
         FunFixedSizeWindow(it.surface.device, it.dimensions)
     }
 
@@ -179,10 +175,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     val cube by cubeLifecycle
 
 
+    val x = 1 to 2
 
 
     frameLifecycle.bind("Fun Frame", FunLogLevel.Verbose) { frame ->
         with(surface) {
+
+//            println(x.first)
 
 //            // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
 //            val windowFrame = ctx.context.getCurrentTexture()

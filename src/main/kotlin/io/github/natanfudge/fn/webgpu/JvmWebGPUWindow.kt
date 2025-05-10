@@ -1,9 +1,6 @@
 package io.github.natanfudge.fn.webgpu
 
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.pointer.*
-import androidx.compose.ui.unit.Density
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.Kernel32
 import darwin.CAMetalLayer
@@ -11,9 +8,6 @@ import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
 import io.github.natanfudge.fn.util.FunLogLevel
-import io.github.natanfudge.fn.util.bindBindable
-import io.github.natanfudge.fn.util.bindBindableTwoParents
-import io.github.natanfudge.fn.util.bindHighPriorityBindable
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
 import io.github.natanfudge.fn.window.*
@@ -85,7 +79,7 @@ data class WebGPUFrame(
     }
 }
 
-class WebGPUWindow {
+class WebGPUWindow(config: WindowConfig) {
     companion object {
         init {
             LibraryLoader.load()
@@ -100,7 +94,7 @@ class WebGPUWindow {
         val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
     }
 
-     val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU")
+     val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU", config)
 
 
     // Surface needs to initialize before the dimensions
@@ -138,15 +132,19 @@ class WebGPUWindow {
         WebGPUFrame(surface, it)
     }
 
-    fun show(config: WindowConfig, callbackHook: RepeatingWindowCallbacks? = null) {
+    fun setCallbacks(hook: RepeatingWindowCallbacks) {
         val baseCallbacks = object : RepeatingWindowCallbacks {
             override fun AutoClose.frame(deltaMs: Double) {
                 surface.context.present()
             }
         }
-        val callbacks = callbackHook?.combine(baseCallbacks) ?: baseCallbacks
-        window.show(config, callbacks)
+        val callbacks = hook.combine(baseCallbacks)
+        window.setCallbacks(callbacks)
     }
+
+//    fun show(config: WindowConfig) {
+//        window.show(config)
+//    }
 
     /**
      * Submits a callback to run on the main thread.
@@ -155,10 +153,10 @@ class WebGPUWindow {
         window.submitTask(task)
     }
 
-    fun restart(config: WindowConfig = WindowConfig()) {
-        surface.close()
+    fun restart() {
+//        surface.close() //TODO: need to make sure commenting this out is OK
 
-        window.restart(config)
+        window.restart()
     }
 }
 

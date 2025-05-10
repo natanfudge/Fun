@@ -105,7 +105,7 @@ class GlfwComposeWindow(
     val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
-    private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose")
+    private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose", host.config)
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
     val windowLifecycle = glfw.windowLifecycle.bind("Compose Window", early = true) {
@@ -123,12 +123,14 @@ class GlfwComposeWindow(
     val window: ComposeGlfwWindow by windowLifecycle
     val frame = MutEventStream<ComposeFrameEvent>()
 
-    val dimensions by glfw.dimensionsLifecycle.bind("Compose Fixed Size Window") {
+    val dimensionsLifecycle = glfw.dimensionsLifecycle.bind("Compose Fixed Size Window") {
         GLFW.glfwSetWindowSize(it.handle, it.width, it.height)
         window.scene.size = IntSize(it.width, it.height)
 
         FixedSizeComposeWindow(it.width, it.height, window.context)
     }
+
+    val dimensions by dimensionsLifecycle
 
     init {
         // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
@@ -236,13 +238,13 @@ class GlfwComposeWindow(
     }
 
 
-    @OptIn(InternalComposeUiApi::class)
-    fun show(config: WindowConfig) {
-        glfw.show(config, object : RepeatingWindowCallbacks {}, loop = false)
-    }
+//    @OptIn(InternalComposeUiApi::class)
+//    fun show(config: WindowConfig) {
+//        glfw.show(config,  loop = false)
+//    }
 
-    fun restart(config: WindowConfig = WindowConfig()) {
-        glfw.restart(config)
+    fun restart() {
+        glfw.restart()
     }
 }
 

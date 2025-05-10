@@ -1,24 +1,20 @@
 package io.github.natanfudge.fn.window
 
+import io.github.natanfudge.fn.core.ProcessLifecycle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
-import io.github.natanfudge.fn.util.BindableLifecycle
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.bindBindable
-import io.github.natanfudge.fn.util.restart
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
 import org.lwjgl.glfw.GLFW.*
-import org.lwjgl.glfw.GLFWErrorCallback
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
-import kotlin.properties.ReadOnlyProperty
 
 var onTheFlyDebugRequested = false
 
@@ -30,7 +26,7 @@ data class GlfwConfig(
 data class WindowDimensions(
     val width: Int,
     val height: Int,
-    val handle: WindowHandle
+    val handle: WindowHandle,
 )
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
@@ -71,10 +67,10 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
 
 
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
-class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
+class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: WindowConfig) {
     fun submitTask(task: () -> Unit) = window.submitTask(task)
 
-    val windowLifecycle: Lifecycle<WindowConfig, GlfwWindow> = Lifecycle.create("GLFW $name Window") { config ->
+    val windowLifecycle: Lifecycle<Unit, GlfwWindow> = ProcessLifecycle.bind("GLFW $name Window") {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (glfw.disableApi) {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
@@ -196,17 +192,17 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
         it
     }
 
-    var open = false
+    internal var open = true
 
     private var windowPos: IntOffset? = null
 
-    private lateinit var callbacks: RepeatingWindowCallbacks
+    private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
 
-    private val window: GlfwWindow by windowLifecycle
+    internal val window: GlfwWindow by windowLifecycle
 
     val handle get() = window.handle
 
-    private var lastFrameTimeNano = 0L
+    internal var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
 
@@ -218,7 +214,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
             val deltaMs = delta.toDouble() / 1e6
 
 
-            frameLifecycle.start(deltaMs,)
+            frameLifecycle.start(deltaMs)
             with(callbacks) {
                 it.frame(deltaMs)
             }
@@ -227,45 +223,64 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
         }
     }
 
+    fun setCallbacks(callbacks: RepeatingWindowCallbacks) {
+        this.callbacks = callbacks
+    }
+
     //TODO: current problem: open is set to false when the window is closed. i could go back to the previous approach of closing manually, but i do want to figure out
     // a lifecycle way of doing it.
 
-    fun show(config: WindowConfig, callbacks: RepeatingWindowCallbacks, loop: Boolean = true) {
-        open = true
-        this.callbacks = callbacks
-        GLFWErrorCallback.createPrint(System.err).set()
+//    fun show(config: WindowConfig, loop: Boolean = true) {
+////        GLFWErrorCallback.createPrint(System.err).set()
+////
+////        // Initialize GLFW. Most GLFW functions will not work before doing this.
+////        if (!glfwInit()) {
+////            throw IllegalStateException("Unable to initialize GLFW")
+////        }
+//
+//
+////        windowLifecycle.start(Unit)
+//
+////        if (loop) {
+////            while (open) {
+////                glfwPollEvents()
+////                if (!open) break
+////                if (window.minimized) continue
+////                val time = System.nanoTime()
+////                val delta = time - lastFrameTimeNano
+////                if (delta >= 1e9 / config.maxFps) {
+////                    window.pollTasks()
+////                    frame()
+////                }
+////            }
+////        }
+//
+//    }
 
-        // Initialize GLFW. Most GLFW functions will not work before doing this.
-        if (!glfwInit()) {
-            throw IllegalStateException("Unable to initialize GLFW")
-        }
-
-
-        windowLifecycle.start(config,)
-
-        if (loop) {
-            while (open) {
-                glfwPollEvents()
-                if (!open) break
-                if (window.minimized) continue
-                val time = System.nanoTime()
-                val delta = time - lastFrameTimeNano
-                if (delta >= 1e9 / config.maxFps) {
-                    window.pollTasks()
-                    frame()
-                }
-            }
-        }
-
-    }
-
-    fun restart(config: WindowConfig = WindowConfig()) {
-        windowLifecycle.restart(config, parentIndex = 0)
+    fun restart() {
+        windowLifecycle.restart()
     }
 
     fun close() {
         open = false
         windowLifecycle.end()
+    }
+}
+
+class GlfwGameLoop(var window: GlfwWindowConfig) {
+
+    fun loop() {
+        while (window.open) {
+            glfwPollEvents()
+            if (!window.open) break
+            if (window.window.minimized) continue
+            val time = System.nanoTime()
+            val delta = time - window.lastFrameTimeNano
+            if (delta >= 1e9 / window.config.maxFps) {
+                window.window.pollTasks()
+                window.frame()
+            }
+        }
     }
 }
 

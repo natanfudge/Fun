@@ -1,44 +1,36 @@
 package io.github.natanfudge.fn
 
-import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
-import io.github.natanfudge.fn.compose.ComposeMainApp
-import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
-import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.hotreload.FunHotReload
-import io.github.natanfudge.fn.render.bindFunLifecycles
-import io.github.natanfudge.fn.util.restart
-import io.github.natanfudge.fn.webgpu.WebGPUWindow
-import io.github.natanfudge.fn.window.WindowConfig
-
 // KEEP IN MIND: If we could improve wgpu error handling, we could figure out why we get index out of bounds exceptions when we restart sometimes
 
 
 const val HOT_RELOAD_SHADERS = true
-fun main() {
-    // We use vsync so don't limit fps
-    val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
-
-    val window = WebGPUWindow()
-    val fsWatcher = FileSystemWatcher()
-    val compose = ComposeWebGPURenderer(config, window, fsWatcher, show = false) { ComposeMainApp() }
-
-    window.bindFunLifecycles(compose, fsWatcher)
-
-    FunHotReload.observation.listen {
-        println("Reload")
-
-
-        // Very important to run this on the main thread
-        window.submitTask {
-            window.surfaceLifecycle.restart()
-        }
-
-    }
-    window.show(config, callbackHook = compose.callbacks)
-}
+//fun main() {
+//    // We use vsync so don't limit fps
+//    val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
+//
+//    val window = WebGPUWindow(config)
+//    val fsWatcher = FileSystemWatcher()
+//    val compose = ComposeWebGPURenderer(window, fsWatcher, show = false) { ComposeMainApp() }
+////    ProcessLifecycle.start(Unit)
+////    compose.BackgroundWindowLifecycle.start(Unit)
+//    window.setCallbacks(compose.callbacks)
+//
+//    window.bindFunLifecycles(compose, fsWatcher)
+//
+//    FunHotReload.observation.listen {
+//        println("Reload")
+//
+//
+//        // Very important to run this on the main thread
+//        window.submitTask {
+//            window.surfaceLifecycle.restart()
+//        }
+//
+//    }
+//    ProcessLifecycle.start(Unit)
+//    GlfwGameLoop(window.window).loop()
+////    window.show(config)
+//}
 
 
 //TODO: current workaround i'm thinking of is evicting and recreating the lfiecycle lambdas, and having a try/catch for that one frame where it fails.
