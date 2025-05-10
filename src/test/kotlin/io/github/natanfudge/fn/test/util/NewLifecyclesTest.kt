@@ -12,7 +12,7 @@ class NewLifecyclesTest {
     private lateinit var rootTracker: CallTracker<String, String>
     private lateinit var childTracker: CallTracker<String, String>
     private lateinit var childTracker2: CallTracker<String, String>
-    private lateinit var multiParentChildTracker: CallTracker<List<Any>, String> // P is List<Any> for bind2 internal
+    private lateinit var multiParentChildTracker: CallTracker<Pair<String, String>, String> // Tracks (P1, P2) inputs for user lambda in bind2
     private lateinit var autoCloseTracker: AutoCloseableTracker
 
     // Helper class for tracking calls
@@ -34,22 +34,25 @@ class NewLifecyclesTest {
                 result
             }
         }
-        
-        // Specific for bind2 where P_Track is List<Any> but user provides (P1, P2) -> T
-        fun <P1, P2> startFnForBind2(actualStart: (P1, P2) -> T_Track): (List<Any>) -> T_Track {
-            return { parentsList ->
-                println("Tracker '$id': START (bind2) called with $parentsList")
+
+        // Specific for the user-provided lambda in bind2.
+        // P_Track for this CallTracker instance should be Pair<P1_actual, P2_actual>.
+        // T_Track is the return type of the user's logic.
+        fun <P1_actual, P2_actual> startFnForBind2UserLogic(
+            actualUserLogic: (P1_actual, P2_actual) -> T_Track
+        ): (P1_actual, P2_actual) -> T_Track {
+            return { p1, p2 ->
+                println("Tracker '$id': BIND2 USER LOGIC start called with ($p1, $p2)")
+                // This cast assumes P_Track is Pair<P1_actual, P2_actual> or compatible (e.g. Pair<Any, Any>)
                 @Suppress("UNCHECKED_CAST")
-                receivedP.add(parentsList as P_Track)
-                startCallCount++
-                val p1 = parentsList[0] as P1
-                val p2 = parentsList[1] as P2
-                val result = actualStart(p1, p2)
-                producedT.add(result)
+                (this.receivedP as MutableList<Pair<P1_actual, P2_actual>>).add(Pair(p1, p2))
+                this.startCallCount++
+                val result = actualUserLogic(p1, p2)
+                this.producedT.add(result)
                 result
             }
         }
-
+        
         fun stopFn(): (T_Track) -> Unit {
             return { t ->
                 println("Tracker '$id': STOP called with $t")
@@ -98,7 +101,7 @@ class NewLifecyclesTest {
         rootTracker = CallTracker("root")
         childTracker = CallTracker("child1")
         childTracker2 = CallTracker("child2")
-        multiParentChildTracker = CallTracker("multiParentChild")
+        multiParentChildTracker = CallTracker<Pair<String, String>, String>("multiParentChild")
         autoCloseTracker = AutoCloseableTracker()
     }
 
@@ -167,7 +170,7 @@ class NewLifecyclesTest {
             start = rootTracker.startFn { "P:$it" },
             stop = rootTracker.stopFn()
         )
-        val childLc = parentLc.bind<String, String>(
+        val childLc = parentLc.bind<String>( // CT = String, T is inferred as String from parentLc
             label = "Child",
             start = childTracker.startFn { parentState -> "C:$parentState" },
             stop = childTracker.stopFn()
@@ -194,7 +197,7 @@ class NewLifecyclesTest {
             start = rootTracker.startFn { "P:$it" },
             stop = rootTracker.stopFn()
         )
-        parentLc.bind<String, String>(
+        parentLc.bind<String>( // CT = String, T is inferred as String from parentLc
             label = "ChildRestart",
             start = childTracker.startFn { parentState -> "C:$parentState" },
             stop = childTracker.stopFn()
@@ -228,9 +231,9 @@ class NewLifecyclesTest {
 
         // Note: The P type for the returned lifecycle from bind2 is cast to the first parent's T type.
         // Internally, its LifecycleData expects List<Any>.
-        val childC = parentA.bind2<String, String>(
+        val childC = parentA.bind2<String, String>( // CT = String, P2 = String
             parentB, "ChildC",
-            start = multiParentChildTracker.startFnForBind2 { pA_state: String, pB_state: String -> "C_from($pA_state, $pB_state)" },
+            start = multiParentChildTracker.startFnForBind2UserLogic { pA_state: String, pB_state: String -> "C_from($pA_state, $pB_state)" },
             stop = multiParentChildTracker.stopFn()
         )
 
@@ -242,7 +245,7 @@ class NewLifecyclesTest {
         parentB.start("dataB")
         assertEquals(1, childTracker.startCallCount) // ParentB started
         assertEquals(1, multiParentChildTracker.startCallCount) // ChildC started
-        assertEquals(listOf("A:dataA", "B:dataB"), multiParentChildTracker.receivedP.first())
+        assertEquals(Pair("A:dataA", "B:dataB"), multiParentChildTracker.receivedP.first())
         assertEquals("C_from(A:dataA, B:dataB)", multiParentChildTracker.producedT.first())
 
         parentA.end() // Ending one parent
@@ -263,16 +266,16 @@ class NewLifecyclesTest {
         val parentA = Lifecycle.Companion.create<String, String>("ParentA_re", rootTracker.startFn { "A:$it" }, rootTracker.stopFn())
         val parentB = Lifecycle.Companion.create<String, String>("ParentB_re", childTracker.startFn { "B:$it" }, childTracker.stopFn())
 
-        val childC = parentA.bind2<String, String>(
+        val childC = parentA.bind2<String, String>( // CT = String, P2 = String
             parentB, "ChildC_re",
-            start = multiParentChildTracker.startFnForBind2 { pA_state: String, pB_state: String -> "C($pA_state, $pB_state)" },
+            start = multiParentChildTracker.startFnForBind2UserLogic { pA_state: String, pB_state: String -> "C($pA_state, $pB_state)" },
             stop = multiParentChildTracker.stopFn()
         )
 
         parentA.start("a1")
         parentB.start("b1") // ChildC starts with (A:a1, B:b1)
         assertEquals(1, multiParentChildTracker.startCallCount)
-        assertEquals(listOf("A:a1", "B:b1"), multiParentChildTracker.receivedP.last())
+        assertEquals(Pair("A:a1", "B:b1"), multiParentChildTracker.receivedP.last())
         assertEquals("C(A:a1, B:b1)", multiParentChildTracker.producedT.last())
 
         rootTracker.clear()
@@ -296,10 +299,9 @@ class NewLifecyclesTest {
         // It receives new data from A and existing data from B
         assertEquals(1, multiParentChildTracker.startCallCount)
         // The visitCounter logic and "squeeze out" should make childC re-run.
-        // parentState for childC becomes [A:a2, B:b1]
-        // The startRecur for childC will be called with seedValue=A:a2 and parentIndex=0
-        // Then the while loop in parentA.start() should trigger childC to run fully.
-        assertEquals(listOf("A:a2", "B:b1"), multiParentChildTracker.receivedP.last())
+        // parentState for childC becomes [A:a2, B:b1] (internally for its LifecycleData)
+        // The user lambda for childC will be called with ("A:a2", "B:b1")
+        assertEquals(Pair("A:a2", "B:b1"), multiParentChildTracker.receivedP.last())
         assertEquals("C(A:a2, B:b1)", multiParentChildTracker.producedT.last())
         assertEquals(1, multiParentChildTracker.stopCallCount) // Old C(A:a1, B:b1) stopped
         assertEquals("C(A:a1, B:b1)", multiParentChildTracker.stoppedWithT.last())
@@ -323,14 +325,14 @@ class NewLifecyclesTest {
     
     @Test
     fun `failure - start lifecycle with null seed when parentState is also null`() {
-        val lc = Lifecycle.Companion.create<String?, String>( // Allow P to be nullable for test
+        val lc = Lifecycle.Companion.create<String, String>( // P must be non-nullable String
             label = "NullSeedFailLC",
-            start = { seed -> "Started: ${seed ?: "null_seed"}" },
+            start = { seed: String -> "Started with $seed" }, // Lambda takes String
             stop = { }
         )
 
         val exception = assertThrows<IllegalStateException> {
-            lc.start(null) // seedValue is null, parentState is initially null
+            lc.start(null) // seedValue (P?) is null, parentState (P) for lc is initially null
         }
         println("Caught expected exception: ${exception.message}")
         assertTrue(exception.message?.contains("startSingle should not have been run with a null seedValue when there is no preexisting parent state") == true)
@@ -368,24 +370,39 @@ class NewLifecyclesTest {
     }
     
     @Test
-    fun `failure - starting a multi-parent child directly via restart (leads to null seed error)`() {
+    fun `failure - starting a multi-parent child directly via restart (child does not actually start)`() {
         // This test demonstrates that restarting a multi-parent child that hasn't been fully initialized
-        // by its actual parents will lead to the "null seedValue when there is no preexisting parent state" error,
-        // because its internal parentState (which is a List) won't be properly formed.
-        val parentA = Lifecycle.Companion.create<String, String>("ParentA_fail", start = { "A:$it" }, stop = {})
-        val parentB = Lifecycle.Companion.create<String, String>("ParentB_fail", start = { "B:$it" }, stop = {})
+        // by its actual parents will not cause its start lambda to execute,
+        // because its internal parentState (which is a List) won't be properly formed with actual values.
+        val parentA = Lifecycle.Companion.create<String, String>("ParentA_fail_restart", start = { "A:$it" }, stop = {})
+        val parentB = Lifecycle.Companion.create<String, String>("ParentB_fail_restart", start = { "B:$it" }, stop = {})
 
-        val childC = parentA.bind2<String, String>(parentB, "ChildC_fail",
-            start = { pa, pb -> "C($pa, $pb)" },
-            stop = {}
+        val localMultiParentTracker = CallTracker<Pair<String,String>, String>("childC_fail_tracker")
+
+        val childC = parentA.bind2<String, String>(parentB, "ChildC_fail_restart",
+            start = localMultiParentTracker.startFnForBind2UserLogic { pa, pb -> "C($pa, $pb)" },
+            stop = localMultiParentTracker.stopFn()
         )
         // At this point, childC's LifecycleData has parentCount = 2, but its parentState is null.
+        // Its selfState is also null.
 
-        val exception = assertThrows<IllegalStateException> {
-            childC.restart() // Tries to start with null seed, parentState for childC is null
+        // Attempting to restart it directly.
+        // The Lifecycle.startRecur fix means it won't throw from startRecur itself.
+        // The internal call to childC.data.startSingle(null, 0, canRun=true) will happen.
+        // In startSingle, if parentState is null, it becomes List(2){null}.
+        // The 'run' condition in startSingle will be false because not all parent slots are filled with non-nulls.
+        // So, childC.data.selfState will remain null.
+        // And childC.startRecur will return early due to selfState being null.
+        assertDoesNotThrow {
+            childC.restart()
         }
-        println("Caught expected exception for multi-parent direct restart: ${exception.message}")
-        assertTrue(exception.message?.contains("startSingle should not have been run with a null seedValue when there is no preexisting parent state") == true)
+
+        // Verify that childC's start lambda was not actually called.
+        assertEquals(0, localMultiParentTracker.startCallCount, "ChildC's start lambda should not have been called.")
+        assertEquals(0, localMultiParentTracker.stopCallCount, "ChildC's stop lambda should not have been called as it never started.")
+        // We can't directly access childC.data.selfState here to assert it's null,
+        // but the 0 startCallCount implies it.
+        println("Restarting a multi-parent child that was never fully started did not execute its start logic, as expected.")
     }
 
     @Test
@@ -408,12 +425,12 @@ class NewLifecyclesTest {
     fun `complex hierarchy with shared child (diamond problem)`() {
         val root = Lifecycle.Companion.create<String, String>("Root", rootTracker.startFn { "R:$it" }, rootTracker.stopFn())
         
-        val childA = root.bind<String, String>("ChildA", childTracker.startFn { "CA_from($it)" }, childTracker.stopFn())
-        val childB = root.bind<String, String>("ChildB", childTracker2.startFn { "CB_from($it)" }, childTracker2.stopFn())
+        val childA = root.bind<String>("ChildA", childTracker.startFn { "CA_from($it)" }, childTracker.stopFn()) // CT = String
+        val childB = root.bind<String>("ChildB", childTracker2.startFn { "CB_from($it)" }, childTracker2.stopFn()) // CT = String
 
         // GrandChild depends on ChildA and ChildB
-        val grandChild = childA.bind2<String, String>(childB, "GrandChild",
-            start = multiParentChildTracker.startFnForBind2 { cA_state: String, cB_state: String -> "GC_from($cA_state, $cB_state)" },
+        val grandChild = childA.bind2<String, String>(childB, "GrandChild", // CT = String, P2 = String (from childB)
+            start = multiParentChildTracker.startFnForBind2UserLogic { cA_state: String, cB_state: String -> "GC_from($cA_state, $cB_state)" },
             stop = multiParentChildTracker.stopFn()
         )
 
@@ -434,9 +451,9 @@ class NewLifecyclesTest {
         
         // GrandChild starts
         assertEquals(1, multiParentChildTracker.startCallCount)
-        // The order in the list for GrandChild's parents depends on bind order
-        // childA.bind2(childB,...) -> childA is parent 0, childB is parent 1
-        assertEquals(listOf("CA_from(R:root_data)", "CB_from(R:root_data)"), multiParentChildTracker.receivedP.first())
+        // The order in the Pair for GrandChild's parents depends on bind order
+        // childA.bind2(childB,...) -> childA's state is first, childB's state is second in the Pair
+        assertEquals(Pair("CA_from(R:root_data)", "CB_from(R:root_data)"), multiParentChildTracker.receivedP.first())
         assertEquals("GC_from(CA_from(R:root_data), CB_from(R:root_data))", multiParentChildTracker.producedT.first())
 
         rootTracker.clear(); childTracker.clear(); childTracker2.clear(); multiParentChildTracker.clear()

@@ -146,32 +146,55 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
 
     private fun startRecur(seedValue: P?, parentIndex: Int, visitCounter: MutableMap<LifecycleTree, Int>) {
         val data = tree.value as LifecycleData<P, T> // The Lifecycle<P,T> wrapper ensures us that the root is indeed LifecycleData<P, T>
+        // Attempt to start/update the current lifecycle node.
+        // The canRun=true here is because startRecur is either:
+        // 1. The top-level call from Lifecycle.start() (which implies it should try to run).
+        // 2. A recursive call for a child that was deemed runnable by its parent.
+        // 3. A call from the "squeeze-out" loop, which is also a "try to run" scenario.
         data.startSingle(seedValue, parentIndex, canRun = true)
 
         val selfState = data.selfState
-            ?: error("A lifecycle with multiple parents cannot be started by itself without it having previously started by its parents.")
-        check(data.childrenParentIndices.size == tree.children.size)
+        if (selfState == null) {
+            // If, after attempting to start/update, selfState is still null,
+            // it means this lifecycle isn't fully ready (e.g., a multi-parent lifecycle still waiting for other parents,
+            // or its start lambda couldn't produce a value perhaps due to its own internal logic or incomplete parent data).
+            // In this state, it cannot provide a valid state to its children, so we should not proceed to start them.
+            // The visitCounter mechanism (if this node is part of it) should ensure it's re-evaluated if other relevant parent lifecycles start or update.
+            return
+        }
+
+        // If we've reached here, selfState is non-null, meaning the current lifecycle has successfully started/updated.
+        // Now, proceed to process its children.
+
+        check(data.childrenParentIndices.size == tree.children.size) {
+            "Mismatch between tracked children parent indices (${data.childrenParentIndices.size}) and actual children count (${tree.children.size}) for lifecycle '${data.label}'"
+        }
         data.childrenParentIndices.forEachIndexed { i, childParentIndex ->
-            val child = tree.children[i]
-            val wrappedChild = Lifecycle<T, Any>(child)
-            val runChild = if (child.value.parentCount < 2) true
-            else {
-                val previousVisitCount = visitCounter.getOrElse(child) { 0 }
+            val childTree = tree.children[i]
+            // The child lifecycle expects the current lifecycle's output (selfState of type T) as its input (P type for the child).
+            val wrappedChild = Lifecycle<T, Any>(childTree) // Child's P type is T (selfState's type), CT is Any for generality here.
+
+            val runChildNow = if (childTree.value.parentCount < 2) {
+                true // Single-parent children always try to run if their parent runs.
+            } else {
+                // Multi-parent child logic:
+                val previousVisitCount = visitCounter.getOrElse(childTree) { 0 }
                 // Side effect - update the amount of visits of the child
-                visitCounter[child] = previousVisitCount + 1
+                visitCounter[childTree] = previousVisitCount + 1
                 // The child can be ran if this is the last remaining parent
-                val run = previousVisitCount == child.value.parentCount - 1
+                val run = previousVisitCount == childTree.value.parentCount - 1
                 // Side effect - stop tracking the child's visit counter. This also means that we won't try to re-run this child later.
-                if (run) visitCounter.remove(child)
+                if (run) visitCounter.remove(childTree)
                 run
             }
-            if (runChild) {
-                // Child ready to run - execute its code and keep following it recursively
+            if (runChildNow) {
+                // This child is ready to be fully started/restarted.
                 wrappedChild.startRecur(selfState, childParentIndex, visitCounter)
             } else {
-                val childValue = child.value as LifecycleData<T, Any>
-                // Child not ready to run - just update its parent state
-                childValue.startSingle(selfState, childParentIndex, canRun = false)
+                // This multi-parent child is not yet ready for a full run (waiting for other parents).
+                // Just provide it with the current parent's state.
+                val childLifecycleData = childTree.value as LifecycleData<T, Any>
+                childLifecycleData.startSingle(selfState, childParentIndex, canRun = false)
             }
         }
     }
