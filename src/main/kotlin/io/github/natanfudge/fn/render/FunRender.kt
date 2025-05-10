@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.render
 
+import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.*
@@ -100,14 +101,24 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
+//TODO: 1. Fix reloading failing:
+//// Caused by:
+////  In wgpuDeviceCreateRenderPipeline, label = 'Compose Pipeline'
+////    Error matching ShaderStages(FRAGMENT) shader requirements against the pipeline
+////      Unable to find entry point 'fs_main'
+// 2. Test hot reloading
+// 3. Setup lambda cleanup on reload
+// 4. Start catching wgpu errors with new api
+
+
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-    val sizedWindow by dimensionsLifecycle.bindState("Fun fixed sized window") {
+    val sizedWindow by dimensionsLifecycle.bind("Fun fixed sized window") {
         FunFixedSizeWindow(it.surface.device, it.dimensions)
     }
 
-    val surface by surfaceLifecycle.bindBindable("Fun Surface") {
+    val surface by surfaceLifecycle.bind("Fun Surface") {
         FunSurface(it)
     }
 
@@ -148,7 +159,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
     val x = 1
 
-    val uniformBindGroup by cubeLifecycle.bindState {
+    val uniformBindGroup by cubeLifecycle.bind("Fun BindGroup") {
         it.ctx.device.createBindGroup(
             BindGroupDescriptor(
                 layout = it.pipeline.getBindGroupLayout(0u),
@@ -165,35 +176,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    val pair = 1 to 2
 
     val cube by cubeLifecycle
 
-    val lifecycle = object: LifecycleOld<WebGPUFrame> {
-        override fun start(parent: WebGPUFrame, parentIndex: Int) {
-            pair.first
-            println("halo")
-        }
-
-        override fun end() {
-        }
-
-    }
-
-    frameLifecycle.bind(lifecycle)
-
-//    frameLifecycle.bind {
-//        pair.first
-////        println(y)
-////        y.incrementAndFetch()
-////                    if (HOT_RELOAD_SHADERS) {
-////                fsWatcher.poll()
-////            }
-////        println(x)
-//    }
 
 
-    frameLifecycle.bindAutoclose("Fun Frame", FunLogLevel.Verbose) { frame ->
+
+    frameLifecycle.bind("Fun Frame", FunLogLevel.Verbose) { frame ->
         with(surface) {
 
 //            // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
@@ -202,13 +191,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
 //            println(x + 10)
 
-            println(x)
+//            println(x)
 
             checkForFrameDrops(ctx, frame.deltaMs)
 
-//            if (HOT_RELOAD_SHADERS) {
-//                fsWatcher.poll()
-//            }
+            if (HOT_RELOAD_SHADERS) {
+                fsWatcher.poll()
+            }
             val commandEncoder = ctx.device.createCommandEncoder().ac
 
             val textureView = frame.windowFrame.texture.createView().ac

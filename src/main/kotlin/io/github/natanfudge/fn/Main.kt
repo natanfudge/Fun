@@ -17,42 +17,30 @@ import io.github.natanfudge.fn.window.WindowConfig
 
 
 const val HOT_RELOAD_SHADERS = true
-//fun main() {
-//    // We use vsync so don't limit fps
-//    val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
-//
-//    val window = WebGPUWindow()
-//    val fsWatcher = FileSystemWatcher()
-//    val compose = ComposeWebGPURenderer(config, window, fsWatcher, show = false) { ComposeMainApp() }
-//
-//    window.bindFunLifecycles(compose, fsWatcher)
-//
-//    FunHotReload.observation.listen {
-//        println("Reload")
-//
-//
-//        // Very important to run this on the main thread
-//        window.submitTask {
-//            window.surfaceLifecycle.restart(window.window.windowLifecycle.assertValue)
-//        }
-//
-//        window.show(config, callbackHook = compose.callbacks)
-//    }
-//}
-
 fun main() {
-//    val list = mutableListOf<@Composable () -> Unit>()
-//    list.add {
-//
-//    }
+    // We use vsync so don't limit fps
+    val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
 
-    application {
-        Window(::exitApplication) {
-            Text("gg")
-//            list.forEach { it() }
+    val window = WebGPUWindow()
+    val fsWatcher = FileSystemWatcher()
+    val compose = ComposeWebGPURenderer(config, window, fsWatcher, show = false) { ComposeMainApp() }
+
+    window.bindFunLifecycles(compose, fsWatcher)
+
+    FunHotReload.observation.listen {
+        println("Reload")
+
+
+        // Very important to run this on the main thread
+        window.submitTask {
+            window.surfaceLifecycle.restart()
         }
+
     }
+    window.show(config, callbackHook = compose.callbacks)
 }
+
+
 //TODO: current workaround i'm thinking of is evicting and recreating the lfiecycle lambdas, and having a try/catch for that one frame where it fails.
 
 

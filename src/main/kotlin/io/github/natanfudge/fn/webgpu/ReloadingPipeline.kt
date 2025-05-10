@@ -4,6 +4,7 @@ import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.files.readString
 import io.github.natanfudge.fn.util.BindableLifecycle
+import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.util.restart
@@ -44,13 +45,13 @@ class FunPipeline(
 }
 
 fun createReloadingPipeline(
-    surfaceLifecycle: BindableLifecycle<*, WebGPUContext>,
+    surfaceLifecycle: Lifecycle<*, WebGPUContext>,
     fsWatcher: FileSystemWatcher,
     vertexShader: ShaderSource,
     fragmentShader: ShaderSource = vertexShader,
     descriptorBuilder: WebGPUContext.(GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-): BindableLifecycle<WebGPUContext, FunPipeline> {
-    val lifecycle = surfaceLifecycle.bindBindable {
+): Lifecycle<WebGPUContext, FunPipeline> {
+    val lifecycle = surfaceLifecycle.bind("Reloading Pipeline") {
         // SLOW: this should prob not be blocking like this
         runBlocking {
             FunPipeline(
@@ -64,7 +65,7 @@ fun createReloadingPipeline(
     fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
         println("Listening to shader changes at $dir!")
         return fsWatcher.onDirectoryChanged(dir) {
-            lifecycle.restart(surfaceLifecycle.assertValue)
+            lifecycle.restart()
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.util.BindableLifecycle
 import io.github.natanfudge.fn.util.FunLogLevel
+import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.restart
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -17,6 +18,7 @@ import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.properties.ReadOnlyProperty
 
 var onTheFlyDebugRequested = false
 
@@ -25,7 +27,7 @@ data class GlfwConfig(
     val showWindow: Boolean,
 )
 
-class WindowDimensions(
+data class WindowDimensions(
     val width: Int,
     val height: Int,
     val handle: WindowHandle
@@ -72,7 +74,7 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
 class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
     fun submitTask(task: () -> Unit) = window.submitTask(task)
 
-    val windowLifecycle: BindableLifecycle<WindowConfig, GlfwWindow> = BindableLifecycle.createRoot("GLFW $name Window") { config ->
+    val windowLifecycle: Lifecycle<WindowConfig, GlfwWindow> = Lifecycle.create("GLFW $name Window") { config ->
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (glfw.disableApi) {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
@@ -117,7 +119,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
         glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
             if (windowWidth != 0 && windowHeight != 0) {
                 window.minimized = false
-                dimensionsLifecycle.restart(window)
+                dimensionsLifecycle.restart()
                 callbacks.resize(windowWidth, windowHeight)
                 frame() // We want to content to adapt faster to resize changes so we rerender right away.
             } else {
@@ -184,13 +186,13 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
         callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
     }
-    val dimensionsLifecycle = windowLifecycle.bindBindable("GLFW fixed size window") {
+    val dimensionsLifecycle = windowLifecycle.bind("GLFW fixed size window") {
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
         WindowDimensions(w[0], h[0], it.handle)
     }
-    val frameLifecycle = BindableLifecycle.createRoot<Double, Double>("GLFW Frame", FunLogLevel.Verbose) {
+    val frameLifecycle = Lifecycle.create<Double, Double>("GLFW Frame", FunLogLevel.Verbose) {
         it
     }
 
@@ -200,7 +202,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
 
     private lateinit var callbacks: RepeatingWindowCallbacks
 
-    private val window by windowLifecycle
+    private val window: GlfwWindow by windowLifecycle
 
     val handle get() = window.handle
 
@@ -258,7 +260,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, ) {
     }
 
     fun restart(config: WindowConfig = WindowConfig()) {
-        windowLifecycle.restart(config)
+        windowLifecycle.restart(config, parentIndex = 0)
     }
 
     fun close() {

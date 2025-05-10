@@ -10,6 +10,7 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
+import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.bindBindableTwoParents
 import io.github.natanfudge.fn.util.bindHighPriorityBindable
@@ -39,6 +40,9 @@ private var contextIndex = 0
 class WebGPUContext(
     handle: Long,
 ) : AutoCloseable {
+    override fun toString(): String {
+        return "WebGPU Context #$myIndex"
+    }
     val myIndex = contextIndex++
     val context = wgpu.getNativeSurface(handle)
     val adapter = wgpu.requestAdapter(context)
@@ -100,12 +104,11 @@ class WebGPUWindow {
 
 
     // Surface needs to initialize before the dimensions
-    val surfaceLifecycle = window.windowLifecycle.bindHighPriorityBindable("WebGPU Surface") {
-
+    val surfaceLifecycle = window.windowLifecycle.bind("WebGPU Surface") {
         WebGPUContext(it.handle)
     }
 
-    val dimensionsLifecycle = window.dimensionsLifecycle.bindBindableTwoParents(surfaceLifecycle, "WebGPU Dimensions") { dim, surface ->
+    val dimensionsLifecycle = window.dimensionsLifecycle.bind2(surfaceLifecycle, "WebGPU Dimensions") { dim, surface ->
         surface.context.configure(
             SurfaceConfiguration(
                 surface.device, format = surface.presentationFormat
@@ -131,7 +134,7 @@ class WebGPUWindow {
 
 //    val frameLifecycle = window.frameLifecycle
 
-    val frameLifecycle = window.frameLifecycle.bindBindable {
+    val frameLifecycle = window.frameLifecycle.bind("WebGPU Frame", FunLogLevel.Verbose) {
         WebGPUFrame(surface, it)
     }
 
