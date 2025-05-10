@@ -16,6 +16,7 @@ plugins {
     id("com.google.osdetector") version "1.7.3"
     id("org.jetbrains.compose.hot-reload") version "1.0.0-alpha10-118"
 }
+
 repositories {
     maven("https://packages.jetbrains.team/maven/p/firework/dev")
 }
