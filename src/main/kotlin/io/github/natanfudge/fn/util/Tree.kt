@@ -3,9 +3,6 @@ package io.github.natanfudge.fn.util
 import java.util.LinkedList
 import java.util.Queue
 import kotlin.collections.ArrayDeque
-import kotlin.collections.List
-import kotlin.collections.MutableList
-import kotlin.collections.isNotEmpty
 
 interface Tree<T> {
     val value: T
@@ -33,16 +30,19 @@ inline fun <T> Tree<T>.visit(visitor: (T) -> Unit) {
 }
 
 /**
- * Visits the tree *bottom-up* (reverse breadth-first, aka reverse level-order).
+ * Visits the tree *bottom-up* (reverse breadth-first, aka reverse level-order), guaranteeing that each distinct node
+ * is visited at most once-even if it appears more than once in the hierarchy.
  *
  * Nodes on the same level are still reported left-to-right; only the levels
  * themselves are reversed.  Runs in O(n) time and O(n) extra space.
  */
-inline fun <T> Tree<T>.visitBottomUp(visitor: (T) -> Unit) {
+inline fun <T> Tree<T>.visitBottomUpUnique(visitor: (T) -> Unit) {
     val queue: ArrayDeque<Tree<T>> = ArrayDeque()
     val output: ArrayDeque<T> = ArrayDeque()   // acts as a stack
+    val seen = mutableSetOf<T>()
 
     queue.add(this)
+    seen.add(this.value)
     while (queue.isNotEmpty()) {
         val node = queue.removeFirst()
 
@@ -52,7 +52,12 @@ inline fun <T> Tree<T>.visitBottomUp(visitor: (T) -> Unit) {
         // Enqueue children *after* the push so they’re processed before
         // their parent when we later pop from 'output'.
         // Children go in natural order so left-to-right is preserved.
-        queue.addAll(node.children)
+        for (child in node.children) {
+            // Enqueue children only if we haven’t met them before.
+            if (seen.add(child.value)) {        // true ↔ it wasn’t there yet
+                queue.add(child)
+            }
+        }
     }
 
     // Now emit bottom-up.

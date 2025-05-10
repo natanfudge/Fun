@@ -24,7 +24,7 @@ import io.github.natanfudge.fn.error.UnfunStateException
 @JvmInline
 value class Lifecycle<P : Any, T : Any> private constructor(private val tree: LifecycleTree) {
     companion object {
-        fun <P : Any, T : Any> create(start: (P) -> T, stop: (T) -> Unit, logLevel: FunLogLevel, label: String): Lifecycle<P, T> {
+        fun <P : Any, T : Any> create(label: String, start: (P) -> T, stop: (T) -> Unit, logLevel: FunLogLevel = FunLogLevel.Debug): Lifecycle<P, T> {
             return Lifecycle(
                 MutableTreeImpl(
                     value = LifecycleData(
@@ -45,9 +45,11 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
 
     /**
      * Starts this and all children recursively.
+     *
+     * If this lifecycle has multiple parents, [parentIndex] may be used to specify which parent has a new value for this lifecycle.
      * Passing null to [seedValue] would try to start the lifecycle with its existing data. It's recommended to use restart() for this purpose.
      */
-    fun start(seedValue: P?, parentIndex: Int) {
+    fun start(seedValue: P?, parentIndex: Int = 0) {
         // The visitCounter tracks how many times each lifecycle node was visited.
         // For single-parent nodes, we can just run them immediately without tracking their visit counter.
         // For multi-parent nodes, initially, we will first increment their visit counter at the first visits, and when the final parent has visited
@@ -75,7 +77,7 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
      */
     fun end() {
         // note that this might not work for cases where a specific close order is desired.
-        tree.visitBottomUp {
+        tree.visitBottomUpUnique {
             it.endSingle()
         }
     }
@@ -113,6 +115,34 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
         tree.children.add(child.tree)
     }
 
+    /**
+     * Calls [start] when `this` starts, and [stop] when this stops.
+     */
+    fun <CT : Any> bind(label: String, start: (T) -> CT, stop: (CT) -> Unit = {}, logLevel: FunLogLevel = FunLogLevel.Debug): Lifecycle<T, CT> {
+        val ls = create(label, start, stop, logLevel)
+        bind(ls)
+        return ls
+    }
+    /**
+     * Calls [start] when `this` and [secondLifecycle] start, and [stop] when this and [secondLifecycle] stop.
+     */
+    fun <CT : Any, P2 : Any> bind2(
+        secondLifecycle: Lifecycle<*, P2>,
+        label: String,
+        start: (T, P2) -> CT,
+        stop: (CT) -> Unit = {},
+        logLevel: FunLogLevel = FunLogLevel.Debug,
+    ): Lifecycle<T, CT> {
+        val ls = create<List<Any>, CT>(label, { parents ->
+            val parentA = parents[0] as T
+            val parentB = parents[1] as P2
+            start(parentA, parentB)
+        }, stop, logLevel)
+        this.bind(ls)
+        secondLifecycle.bind(ls)
+        return ls as Lifecycle<T, CT>
+    }
+
 
     private fun startRecur(seedValue: P?, parentIndex: Int, visitCounter: MutableMap<LifecycleTree, Int>) {
         val data = tree.value as LifecycleData<P, T> // The Lifecycle<P,T> wrapper ensures us that the root is indeed LifecycleData<P, T>
@@ -137,7 +167,7 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
             }
             if (runChild) {
                 // Child ready to run - execute its code and keep following it recursively
-                wrappedChild.start(selfState, childParentIndex)
+                wrappedChild.startRecur(selfState, childParentIndex, visitCounter)
             } else {
                 val childValue = child.value as LifecycleData<T, Any>
                 // Child not ready to run - just update its parent state
@@ -213,16 +243,20 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     logLifecycleStart(this, hasMultipleParents, prevParent, label, prevSelf, run, parentIndex, seedValue)
 
     // Only modify data.parentState later to not mess with the logs
-    if (hasMultipleParents && seedValue != null) {
-        (parentState as MutableList<Any?>)[parentIndex] = seedValue
+    if (seedValue != null) {
+        if (hasMultipleParents) {
+            (parentState as MutableList<Any?>)[parentIndex] = seedValue
+        } else {
+            parentState = seedValue
+        }
     }
 
     // TODO: remember to lock the start() and end() methods when a reload is occurring. It might be a good idea to also catch errors and try again for edge cases when reloading.
 
-    parentState = seedValue
+
     if (run) {
         val result = start(
-            seedValue ?: prevParent ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
+            parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
         )
         selfState = result
     }
@@ -232,10 +266,10 @@ private fun LifecycleData<*, *>.endSingle() {
     val label = label
     val state = selfState
     if (state == null) {
-        log(FunLogLevel.Warn) { "Failed to close $label as it was not successfully started" }
+        log(FunLogLevel.Warn) { "Failed to close '$label' as it was not successfully started" }
     } else {
         log(logLevel) {
-            "Closing $label with $state"
+            "Closing '$label' with '$state'"
         }
         stop as (Any?) -> Unit
         stop(state)
@@ -244,8 +278,6 @@ private fun LifecycleData<*, *>.endSingle() {
         }
     }
 }
-
-
 
 
 private fun <P : Any, T : Any> verifyState(prevParent: P?, prevSelf: T?) {
@@ -309,7 +341,7 @@ private fun <P : Any, T : Any> logLifecycleStart(
                 if (seedValue != null) {
                     append(" with seed value '$seedValue'")
                 }
-                if (prevSelf != null) append(", replacing previous self value '$prevSelf'")
+                if (prevSelf != null) append(", replacing previous self values '$prevSelf'")
                 if (prevParent != null) {
                     if (prevSelf != null) append(" and")
                     else append(" replacing")
@@ -320,28 +352,27 @@ private fun <P : Any, T : Any> logLifecycleStart(
     }
 }
 
-//TODO: 1. try recreating the problematic parts of the Fun hierarchy
-// 2. Tell ai to write some tests
-// "generate tests for Lifecycle, exploring all possible options and failures. When asserting a failure, have it print out the actual failure when it occurs."
 
 fun main() {
-    val cycle = Lifecycle.create<Float, Float>(
-        start = {
-            println("Starting test root with value $it")
-            it
-        },
-        stop = { println("Ending test root with value $it") },
-        logLevel = FunLogLevel.Info,
-        label = "Test Root"
+    val window = Lifecycle.create<Float, Float>(
+        label = "Window",
+        start = { it },
+        stop = { },
     )
 
+    val dimensions = window.bind("Dimensions", start = { it }, stop = {})
 
-    cycle.start(0.5f, 0)
 
-    cycle.end()
+    val wgpuSurface = window.bind("WebGPU Surface", start = { it }, stop = {})
+    val wgpuDimensions = dimensions.bind2(wgpuSurface, "WebGPU Dimensions", start = { dim, surface -> dim + surface }, stop = {})
+    val composeTexture = wgpuDimensions.bind("Compose Texture", start = { it }, stop = {})
+    val composePipeline = wgpuSurface.bind("Compose Pipeline", start = { it }, stop = {})
+    val composeBindGroup = composePipeline.bind2(composeTexture, "Compose BindGroup", start = { pipeline, tex -> pipeline + tex }, stop = {})
 
-    cycle.start(0.8f, 0)
 
-    cycle.restart()
+    window.start(0.5f)
 
+    window.end()
+
+    wgpuSurface.restart()
 }
