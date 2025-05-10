@@ -3,6 +3,10 @@
 package io.github.natanfudge.fn.util
 
 import io.github.natanfudge.fn.error.UnfunStateException
+import io.github.natanfudge.fn.webgpu.AutoClose
+import io.github.natanfudge.fn.webgpu.AutoCloseImpl
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
 
 
 /**
@@ -21,10 +25,9 @@ import io.github.natanfudge.fn.error.UnfunStateException
  * [P] is the type of the parent(s) of this lifecycle, and [T] is the type of the root of this lifecycle.
  * Note that we don't do `Lifecycle<P,T> = MutableTree<P,T>` because that would signify everything is `<P,T>` all the way down, which is not true.
  */
-@JvmInline
-value class Lifecycle<P : Any, T : Any> private constructor(private val tree: LifecycleTree) {
+ class Lifecycle<P : Any, T : Any> private constructor(private val tree: LifecycleTree): ReadOnlyProperty<Any?,T> {
     companion object {
-        fun <P : Any, T : Any> create(label: String, start: (P) -> T, stop: (T) -> Unit, logLevel: FunLogLevel = FunLogLevel.Debug): Lifecycle<P, T> {
+        fun <P : Any, T : Any> create(label: String,  logLevel: FunLogLevel = FunLogLevel.Debug,stop: (T) -> Unit = {},  start: AutoClose.(P) -> T): Lifecycle<P, T> {
             return Lifecycle(
                 MutableTreeImpl(
                     value = LifecycleData(
@@ -107,20 +110,28 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
      * If this is the only lifecycle [child] is bound to, then the data of this lifecycle will be passed directly (CP = T)
      * If [child] will be bound to more lifecycles, the child will receive a list of values, each having the value of each parent,
      * ordered by the order it was bound to its parents.
+     *
+     * @param runEarly If true, the child will be inserted before all other children, ensuring it runs first.
      */
-    fun <CP : Any, CT : Any> bind(child: Lifecycle<CP, CT>) {
+    fun <CP : Any, CT : Any> bind(child: Lifecycle<CP, CT>, runEarly: Boolean = false) {
         val parentIndex = child.tree.value.parentCount
         child.tree.value.parentCount++
-        tree.value.childrenParentIndices.add(parentIndex)
-        tree.children.add(child.tree)
+        if(runEarly) {
+            tree.value.childrenParentIndices.add(0, parentIndex)
+            tree.children.add(0, child.tree)
+        } else {
+            tree.value.childrenParentIndices.add(parentIndex)
+            tree.children.add(child.tree)
+        }
     }
 
     /**
      * Calls [start] when `this` starts, and [stop] when this stops.
+     * @param early If true, the child will be inserted before all other children, ensuring it runs first.
      */
-    fun <CT : Any> bind(label: String, start: (T) -> CT, stop: (CT) -> Unit = {}, logLevel: FunLogLevel = FunLogLevel.Debug): Lifecycle<T, CT> {
-        val ls = create(label, start, stop, logLevel)
-        bind(ls)
+    fun <CT : Any> bind(label: String,logLevel: FunLogLevel = FunLogLevel.Debug, stop: (CT) -> Unit = {},  early: Boolean = false, start: AutoClose.(T) -> CT): Lifecycle<T, CT> {
+        val ls = create(label, logLevel, stop,  start)
+        bind(ls, early)
         return ls
     }
     /**
@@ -129,18 +140,25 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
     fun <CT : Any, P2 : Any> bind2(
         secondLifecycle: Lifecycle<*, P2>,
         label: String,
-        start: (T, P2) -> CT,
-        stop: (CT) -> Unit = {},
         logLevel: FunLogLevel = FunLogLevel.Debug,
-    ): Lifecycle<T, CT> {
-        val ls = create<List<Any>, CT>(label, { parents ->
+        stop: (CT) -> Unit = {},
+        start: (T, P2) -> CT,
+        ): Lifecycle<T, CT> {
+        val ls = create<List<Any>, CT>(label,logLevel, stop,{ parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
             start(parentA, parentB)
-        }, stop, logLevel)
+        })
         this.bind(ls)
         secondLifecycle.bind(ls)
         return ls as Lifecycle<T, CT>
+    }
+
+    val isInitialized get() = tree.value.selfState != null
+    val assertValue: T get() = tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
+
+    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
     }
 
 
@@ -203,7 +221,7 @@ value class Lifecycle<P : Any, T : Any> private constructor(private val tree: Li
 }
 
 private class LifecycleData<P : Any, T : Any>(
-    val start: (P) -> T,
+    val start: AutoClose.(P) -> T,
     val stop: (T) -> Unit,
     var parentState: P?,
     var selfState: T?,
@@ -221,7 +239,9 @@ private class LifecycleData<P : Any, T : Any>(
     // TODO: also when we unbind reorganize parentState because we could have created holes
     val logLevel: FunLogLevel,
     val label: String,
-)
+) {
+    val autoClose = AutoCloseImpl()
+}
 
 private typealias LifecycleTree = MutableTree<LifecycleData<*, *>>
 
@@ -278,7 +298,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
 
 
     if (run) {
-        val result = start(
+        val result = autoClose.start(
             parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
         )
         selfState = result
@@ -299,6 +319,7 @@ private fun LifecycleData<*, *>.endSingle() {
         if (state is AutoCloseable) {
             state.close()
         }
+        autoClose.close()
     }
 }
 

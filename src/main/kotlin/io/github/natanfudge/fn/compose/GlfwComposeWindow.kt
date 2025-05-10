@@ -14,11 +14,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.MutEventStream
-import io.github.natanfudge.fn.util.bind
-import io.github.natanfudge.fn.util.bindHighPriority
-import io.github.natanfudge.fn.util.bindHighPriorityBindable
-import io.github.natanfudge.fn.util.bindState
-import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.window.*
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
@@ -30,7 +25,6 @@ import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
-
 
 
 @OptIn(InternalComposeUiApi::class)
@@ -100,10 +94,10 @@ private fun createSurface(width: Int, height: Int, context: DirectContext): Surf
     )!!
 }
 
- data class ComposeFrameEvent(
+data class ComposeFrameEvent(
     val bytes: ByteArray,
     val width: Int,
-    val height: Int
+    val height: Int,
 )
 
 class GlfwComposeWindow(
@@ -113,7 +107,8 @@ class GlfwComposeWindow(
 ) {
     private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose")
 
-    val windowLifecycle = glfw.windowLifecycle.bindHighPriorityBindable("Compose Window") {
+    // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
+    val windowLifecycle = glfw.windowLifecycle.bind("Compose Window", early = true) {
         glDebugGroup(1, groupName = { "Compose Init" }) {
             ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight,
@@ -128,7 +123,7 @@ class GlfwComposeWindow(
     val window: ComposeGlfwWindow by windowLifecycle
     val frame = MutEventStream<ComposeFrameEvent>()
 
-    val dimensions by glfw.dimensionsLifecycle.bindState("Compose Fixed Size Window") {
+    val dimensions by glfw.dimensionsLifecycle.bind("Compose Fixed Size Window") {
         GLFW.glfwSetWindowSize(it.handle, it.width, it.height)
         window.scene.size = IntSize(it.width, it.height)
 
@@ -137,7 +132,7 @@ class GlfwComposeWindow(
 
     init {
         // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
-        host.frameLifecycle.bindHighPriority("Compose Frame Store",FunLogLevel.Verbose ) {
+        host.frameLifecycle.bind("Compose Frame Store", FunLogLevel.Verbose, early = true) {
             frame()
         }
     }
@@ -217,17 +212,17 @@ class GlfwComposeWindow(
             nativeEvent: Any?,
             button: PointerButton?,
         ) {
-            if (!windowLifecycle.isCreated) return
+            if (!windowLifecycle.isInitialized) return
             window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
         }
 
         override fun keyEvent(event: KeyEvent) {
-            if (!windowLifecycle.isCreated) return
+            if (!windowLifecycle.isInitialized) return
             window.scene.sendKeyEvent(event)
         }
 
         override fun resize(width: Int, height: Int) {
-            if (!windowLifecycle.isCreated) return
+            if (!windowLifecycle.isInitialized) return
 
 
             // Resize dummy window to match
@@ -235,7 +230,7 @@ class GlfwComposeWindow(
         }
 
         override fun densityChange(newDensity: Density) {
-            if (!windowLifecycle.isCreated) return
+            if (!windowLifecycle.isInitialized) return
             window.scene.density = newDensity
         }
     }

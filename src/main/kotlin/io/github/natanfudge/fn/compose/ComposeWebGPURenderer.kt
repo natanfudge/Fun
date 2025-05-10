@@ -64,7 +64,7 @@ class ComposeWebGPURenderer(
         compose.show(config)
     }
 
-    val surfaceLifecycle = hostWindow.surfaceLifecycle.bindState("Compose WebGPU Surface") {
+    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind("Compose WebGPU Surface") {
         ComposeWebgpuSurface(it)
     }
 
@@ -115,7 +115,7 @@ class ComposeWebGPURenderer(
 
     val surface by surfaceLifecycle
 
-    val textureLifecycle = hostWindow.dimensionsLifecycle.bindHighPriorityBindable("Compose Texture") {
+    val textureLifecycle = hostWindow.dimensionsLifecycle.bind("Compose Texture") {
         ComposeTexture(it, compose, it.surface)
     }
 
