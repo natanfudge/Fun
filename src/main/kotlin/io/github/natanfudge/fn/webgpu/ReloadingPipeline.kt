@@ -7,7 +7,6 @@ import io.github.natanfudge.fn.util.BindableLifecycle
 import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.util.restart
-import io.ygdrasil.webgpu.GPUDevice
 import io.ygdrasil.webgpu.GPURenderPipelineDescriptor
 import io.ygdrasil.webgpu.GPUShaderModule
 import io.ygdrasil.webgpu.ShaderModuleDescriptor
@@ -92,7 +91,7 @@ fun createReloadingPipeline(
 
 @OptIn(ExperimentalResourceApi::class)
 private suspend fun loadShader(source: ShaderSource): String {
-    return when (source) {
+    val code = when (source) {
         // Load directly from source when hot reloading
         is ShaderSource.HotFile -> if (HOT_RELOAD_SHADERS) {
             val file = source.getSourceFile()
@@ -102,6 +101,7 @@ private suspend fun loadShader(source: ShaderSource): String {
 
         is ShaderSource.RawString -> source.shader
     }
+    return code
 }
 
 private fun ShaderSource.HotFile.fullPath() = "files/shaders/${path}.wgsl"
