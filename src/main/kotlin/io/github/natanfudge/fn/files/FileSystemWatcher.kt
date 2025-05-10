@@ -17,16 +17,33 @@ class FileSystemWatcher : AutoCloseable {
     private val service = FileSystems.getDefault().newWatchService()
 
     private val watchKeys = mutableMapOf<WatchKey, MutableList<() -> Unit>>()
-    private val registeredPaths = mutableSetOf<Path>()
+    private val registeredPaths = mutableMapOf<Path, () -> Unit>()
+
+    //TODO finish this, make sure to close the key properly, we need to check if there are
+//    private val registeredPaths = mutableSetOf<Path>()
 
     inner class Key(
         val key: WatchKey,
         val path: Path,
     ) {
+        //TODO: maybe create a DirectoryWatcher kind of thing to make this simpler
         fun close() {
-            key.cancel()
-            watchKeys.remove(key)
+//            key.cancel()
+//            watchKeys.remove(key)
         }
+    }
+
+    fun onFileChanged(path: Path, callback: () -> Unit): Key {
+        registeredPaths[path] = callback
+        val parent = path.parent
+        requireNotNull(parent)
+
+        //TODO
+//        if(parent path not registered) {
+//            register parent path
+//        }
+
+
     }
 
 
@@ -54,9 +71,16 @@ class FileSystemWatcher : AutoCloseable {
     fun poll() {
         val key = service.poll()
         if (key != null) {
-            key.pollEvents()
-            val callback = watchKeys[key] ?: error("Missing callback for registered key $key")
-            callback.forEach { it() }
+            val events = key.pollEvents()
+            for(event in events) {
+                if(event path is one of registered events) {
+                    invoke event
+                }
+            }
+
+//            println("Event files: ${events.map { it.context() }}")
+//            val callback = watchKeys[key] ?: error("Missing callback for registered key $key")
+//            callback.forEach { it() }
             key.reset() // We still want to hear from this event
         }
     }

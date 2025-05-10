@@ -1,13 +1,11 @@
 package io.github.natanfudge.fn.webgpu
 
 import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
+import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.files.readString
-import io.github.natanfudge.fn.util.BindableLifecycle
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.bindBindable
 import io.github.natanfudge.fn.util.closeAll
-import io.github.natanfudge.fn.util.restart
 import io.ygdrasil.webgpu.GPURenderPipelineDescriptor
 import io.ygdrasil.webgpu.GPUShaderModule
 import io.ygdrasil.webgpu.ShaderModuleDescriptor
@@ -28,12 +26,16 @@ sealed interface ShaderSource {
 }
 
 class FunPipeline(
-    vertexShaderCode: String,
-    fragmentShaderCode: String,
+    val vertexShaderCode: String,
+    val fragmentShaderCode: String,
     descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
     val ctx: WebGPUContext, //TODO: I think it's a mistake putting this here this when the pipeline changes ctx doesn't change.
     // On the other hand when the surface changes ctx does change and then you get old values for the children of this
 ) : AutoCloseable {
+    override fun toString(): String {
+        return "Fun Pipeline with ${vertexShaderCode.length} chars of vertex shader and ${fragmentShaderCode.length} chars of fragment shader"
+    }
+
     val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
     val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
 
@@ -44,13 +46,14 @@ class FunPipeline(
 }
 
 fun createReloadingPipeline(
+    label: String,
     surfaceLifecycle: Lifecycle<*, WebGPUContext>,
     fsWatcher: FileSystemWatcher,
     vertexShader: ShaderSource,
     fragmentShader: ShaderSource = vertexShader,
     descriptorBuilder: WebGPUContext.(GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
 ): Lifecycle<WebGPUContext, FunPipeline> {
-    val lifecycle = surfaceLifecycle.bind("Reloading Pipeline") {
+    val lifecycle = surfaceLifecycle.bind("Reloading Pipeline of $label") {
         // SLOW: this should prob not be blocking like this
         runBlocking {
             FunPipeline(
@@ -64,6 +67,7 @@ fun createReloadingPipeline(
     fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
         println("Listening to shader changes at $dir!")
         return fsWatcher.onDirectoryChanged(dir) {
+            println("Restarting shaders in $dir")
             lifecycle.restart()
         }
     }
@@ -95,15 +99,37 @@ private suspend fun loadShader(source: ShaderSource): String {
     val code = when (source) {
         // Load directly from source when hot reloading
         is ShaderSource.HotFile -> if (HOT_RELOAD_SHADERS) {
+            Thread.sleep(100)
             val file = source.getSourceFile()
+
             println("Loading shader at '${file}'")
             file.readString()
+//            file.readStringAfterExternalEdit()
         } else Res.readBytes(source.fullPath()).decodeToString()
 
         is ShaderSource.RawString -> source.shader
     }
+//    println("Final code = $code")
     return code
 }
+
+///**
+// * Sometimes IntelliJ just replaces the file with an empty file before editing and we get that empty file, so we need to wait a bit
+// */
+//private fun Path.readStringAfterExternalEdit(): String {
+//
+//    val retries = 3
+//    val retryWait = 10L
+//    repeat(retries) {
+//        val content = readString()
+//        if (content.isNotEmpty()) {
+//            return content
+//        } else {
+//            Thread.sleep(retryWait)
+//        }
+//    }
+//    throw UnfunStateException("Failed to reload shader: shader file at '$this' was empty or could not be read.")
+//}
 
 private fun ShaderSource.HotFile.fullPath() = "files/shaders/${path}.wgsl"
 

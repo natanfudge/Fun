@@ -123,6 +123,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     }
 
     val cubeLifecycle = createReloadingPipeline(
+        "Cube",
         surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("cube.vertex"),
         fragmentShader = ShaderSource.HotFile("cube.fragment")
@@ -156,8 +157,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             )
         )
     }
-
-    val x = 1
 
     val uniformBindGroup by cubeLifecycle.bind("Fun BindGroup") {
         it.ctx.device.createBindGroup(

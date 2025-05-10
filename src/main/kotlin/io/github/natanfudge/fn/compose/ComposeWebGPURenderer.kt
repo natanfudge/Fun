@@ -69,7 +69,7 @@ class ComposeWebGPURenderer(
     }
 
 
-    val fullscreenQuadLifecycle = createReloadingPipeline(
+    val fullscreenQuadLifecycle = createReloadingPipeline( "Compose Fullscreen Quad",
         hostWindow.surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("compose/fullscreen_quad.vertex"),
         fragmentShader = ShaderSource.HotFile("compose/fullscreen_quad.fragment"),

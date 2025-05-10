@@ -385,7 +385,9 @@ private fun <P : Any, T : Any> logLifecycleStart(
                 if (seedValue != null) {
                     append(" with seed value '$seedValue'")
                 }
-                if (prevSelf != null) append(", replacing previous self values '$prevSelf'")
+                if (prevSelf != null){
+                    append(", replacing previous self values '$prevSelf'")
+                }
                 if (prevParent != null) {
                     if (prevSelf != null) append(" and")
                     else append(" replacing")
