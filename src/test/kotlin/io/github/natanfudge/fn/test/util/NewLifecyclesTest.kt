@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.test.util
 
+import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.util.Lifecycle
 import org.junit.jupiter.api.Assertions.*
@@ -24,12 +25,12 @@ class NewLifecyclesTest {
         var startCallCount = 0
         var stopCallCount = 0
 
-        fun startFn(transform: (P_Track) -> T_Track): (P_Track) -> T_Track {
-            return { p ->
+        fun startFn(transform: AutoClose.(P_Track) -> T_Track): AutoClose.(P_Track) -> T_Track {
+            return { p -> // `this` is AutoClose here
                 println("Tracker '$id': START called with $p")
                 receivedP.add(p)
                 startCallCount++
-                val result = transform(p)
+                val result = this.transform(p) // Call transform with AutoClose as receiver
                 producedT.add(result)
                 result
             }
@@ -226,13 +227,14 @@ class NewLifecyclesTest {
 
     @Test
     fun `multi-parent lifecycle (bind2) - starts only after all parents start`() {
-        val parentA = Lifecycle.Companion.create<String, String>("ParentA", rootTracker.startFn { "A:$it" }, rootTracker.stopFn())
-        val parentB = Lifecycle.Companion.create<String, String>("ParentB", childTracker.startFn { "B:$it" }, childTracker.stopFn())
+        val parentA = Lifecycle.Companion.create<String, String>(label = "ParentA", start = rootTracker.startFn { "A:$it" }, stop = rootTracker.stopFn())
+        val parentB = Lifecycle.Companion.create<String, String>(label = "ParentB", start = childTracker.startFn { "B:$it" }, stop = childTracker.stopFn())
 
         // Note: The P type for the returned lifecycle from bind2 is cast to the first parent's T type.
         // Internally, its LifecycleData expects List<Any>.
         val childC = parentA.bind2<String, String>( // CT = String, P2 = String
-            parentB, "ChildC",
+            secondLifecycle = parentB,
+            label = "ChildC",
             start = multiParentChildTracker.startFnForBind2UserLogic { pA_state: String, pB_state: String -> "C_from($pA_state, $pB_state)" },
             stop = multiParentChildTracker.stopFn()
         )
@@ -263,11 +265,12 @@ class NewLifecyclesTest {
     
     @Test
     fun `multi-parent lifecycle (bind2) - restart one parent updates child`() {
-        val parentA = Lifecycle.Companion.create<String, String>("ParentA_re", rootTracker.startFn { "A:$it" }, rootTracker.stopFn())
-        val parentB = Lifecycle.Companion.create<String, String>("ParentB_re", childTracker.startFn { "B:$it" }, childTracker.stopFn())
+        val parentA = Lifecycle.Companion.create<String, String>(label = "ParentA_re", start = rootTracker.startFn { "A:$it" }, stop = rootTracker.stopFn())
+        val parentB = Lifecycle.Companion.create<String, String>(label = "ParentB_re", start = childTracker.startFn { "B:$it" }, stop = childTracker.stopFn())
 
         val childC = parentA.bind2<String, String>( // CT = String, P2 = String
-            parentB, "ChildC_re",
+            secondLifecycle = parentB,
+            label = "ChildC_re",
             start = multiParentChildTracker.startFnForBind2UserLogic { pA_state: String, pB_state: String -> "C($pA_state, $pB_state)" },
             stop = multiParentChildTracker.stopFn()
         )
@@ -374,12 +377,14 @@ class NewLifecyclesTest {
         // This test demonstrates that restarting a multi-parent child that hasn't been fully initialized
         // by its actual parents will not cause its start lambda to execute,
         // because its internal parentState (which is a List) won't be properly formed with actual values.
-        val parentA = Lifecycle.Companion.create<String, String>("ParentA_fail_restart", start = { "A:$it" }, stop = {})
-        val parentB = Lifecycle.Companion.create<String, String>("ParentB_fail_restart", start = { "B:$it" }, stop = {})
+        val parentA = Lifecycle.Companion.create<String, String>(label = "ParentA_fail_restart", start = { "A:$it" }, stop = {})
+        val parentB = Lifecycle.Companion.create<String, String>(label = "ParentB_fail_restart", start = { "B:$it" }, stop = {})
 
         val localMultiParentTracker = CallTracker<Pair<String,String>, String>("childC_fail_tracker")
 
-        val childC = parentA.bind2<String, String>(parentB, "ChildC_fail_restart",
+        val childC = parentA.bind2<String, String>(
+            secondLifecycle = parentB,
+            label = "ChildC_fail_restart",
             start = localMultiParentTracker.startFnForBind2UserLogic { pa, pb -> "C($pa, $pb)" },
             stop = localMultiParentTracker.stopFn()
         )
@@ -423,13 +428,15 @@ class NewLifecyclesTest {
     
     @Test
     fun `complex hierarchy with shared child (diamond problem)`() {
-        val root = Lifecycle.Companion.create<String, String>("Root", rootTracker.startFn { "R:$it" }, rootTracker.stopFn())
+        val root = Lifecycle.Companion.create<String, String>(label = "Root", start = rootTracker.startFn { "R:$it" }, stop = rootTracker.stopFn())
         
-        val childA = root.bind<String>("ChildA", childTracker.startFn { "CA_from($it)" }, childTracker.stopFn()) // CT = String
-        val childB = root.bind<String>("ChildB", childTracker2.startFn { "CB_from($it)" }, childTracker2.stopFn()) // CT = String
+        val childA = root.bind<String>(label = "ChildA", start = childTracker.startFn { "CA_from($it)" }, stop = childTracker.stopFn()) // CT = String
+        val childB = root.bind<String>(label = "ChildB", start = childTracker2.startFn { "CB_from($it)" }, stop = childTracker2.stopFn()) // CT = String
 
         // GrandChild depends on ChildA and ChildB
-        val grandChild = childA.bind2<String, String>(childB, "GrandChild", // CT = String, P2 = String (from childB)
+        val grandChild = childA.bind2<String, String>(
+            secondLifecycle = childB,
+            label = "GrandChild", // CT = String, P2 = String (from childB)
             start = multiParentChildTracker.startFnForBind2UserLogic { cA_state: String, cB_state: String -> "GC_from($cA_state, $cB_state)" },
             stop = multiParentChildTracker.stopFn()
         )

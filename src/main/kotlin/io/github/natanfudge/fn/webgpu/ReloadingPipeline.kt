@@ -64,30 +64,39 @@ fun createReloadingPipeline(
         }
     }
 
-    fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
-        println("Listening to shader changes at $dir!")
-        return fsWatcher.onDirectoryChanged(dir) {
-            println("Restarting shaders in $dir")
-            lifecycle.restart()
-        }
-    }
+//    fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
+//        println("Listening to shader changes at $dir!")
+//        return fsWatcher.onDirectoryChanged(dir) {
+//            println("Restarting shaders in $dir")
+//            lifecycle.restart()
+//        }
+//    }
 
     if (HOT_RELOAD_SHADERS) {
-        var watchedUri: Path? = null
+//        var watchedUri: Path? = null
         // It's important to watch and reload the SOURCE file and not the built file so we don't have to rebuild
         if (vertexShader is ShaderSource.HotFile) {
-            watchedUri = vertexShader.getSourceFile().parent!!
             // HACK: we are not closing this for now
-            reloadOnDirectoryChange(watchedUri)
+            fsWatcher.onFileChanged(vertexShader.getSourceFile()) {
+                lifecycle.restart()
+            }
+//            watchedUri = vertexShader.getSourceFile().parent!!
+
+//            reloadOnDirectoryChange(watchedUri)
         }
 
         if (fragmentShader is ShaderSource.HotFile) {
-            val fragmentUri = fragmentShader.getSourceFile().parent!!
-            // Avoid reloading twice when both shaders are in the same directory
-            if (fragmentUri != watchedUri) {
-                // HACK: we are not closing this for now
-                reloadOnDirectoryChange(fragmentUri)
+            // HACK: we are not closing this for now
+            fsWatcher.onFileChanged(fragmentShader.getSourceFile()) {
+                lifecycle.restart()
             }
+
+//            val fragmentUri = fragmentShader.getSourceFile().parent!!
+//            // Avoid reloading twice when both shaders are in the same directory
+//            if (fragmentUri != watchedUri) {
+//                // HACK: we are not closing this for now
+//                reloadOnDirectoryChange(fragmentUri)
+//            }
         }
     }
 
