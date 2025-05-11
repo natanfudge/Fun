@@ -16,7 +16,6 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.withLock
 
@@ -35,6 +34,8 @@ data class WindowDimensions(
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
     private val waitingTasks = mutableListOf<() -> Unit>()
+
+    var lastFrameTimeNano = System.nanoTime()
 
     /**
      * It's important to lock on this when modifying [waitingTasks] because [submitTask] occurs on a different thread than the running of [waitingTasks]
@@ -198,6 +199,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
     internal var open = true
 
+    // I can prob get rid of this
     private var windowPos: IntOffset? = null
 
     private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
@@ -206,14 +208,14 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
     val handle get() = window.handle
 
-    internal var lastFrameTimeNano = 0L
+//    internal var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
 
     fun frame() {
         val time = System.nanoTime()
-        val delta = time - lastFrameTimeNano
-        lastFrameTimeNano = time
+        val delta = time - window.lastFrameTimeNano
+        window.lastFrameTimeNano = time
         frameAutoclose.use {
             val deltaMs = delta.toDouble() / 1e6
 
@@ -282,10 +284,11 @@ class GlfwGameLoop(var window: GlfwWindowConfig) {
         while (window.open) {
             checkForReloads()
             glfwPollEvents()
+            checkForReloads()
             if (!window.open) break
             if (window.window.minimized) continue
             val time = System.nanoTime()
-            val delta = time - window.lastFrameTimeNano
+            val delta = time - window.window.lastFrameTimeNano
             if (delta >= 1e9 / window.config.maxFps) {
                 checkForReloads()
                 window.window.pollTasks()

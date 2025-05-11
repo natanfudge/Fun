@@ -52,12 +52,13 @@ class FunHotReloadHotswapAgentPlugin {
      */
     @OnClassLoadEvent(classNameRegexp = ".*", events = [LoadEvent.REDEFINE])
     fun reloadClass(className: String?) {
-        //TODO: lock app ASAP
         LOGGER.info("Detected class reload: {}", className)
 
+        //BLOCKED: this is a workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535.
+        // Because the lambdas might be invalid on reload, we need to stop the app and recreate all the lambdas.
         // Notify app of reload start
         appClassLoader.loadClass(ReloadClassService::class.java.getName())
-            .getDeclaredMethod("reloadStarted", ).invoke(null)
+            .getDeclaredMethod("reloadStarted").invoke(null)
 
 
         // run the logic in a command. Multiple reload commands may be merged into one execution (see the command class)

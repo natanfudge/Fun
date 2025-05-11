@@ -81,6 +81,7 @@ data class WebGPUFrame(
 
 class WebGPUWindow(config: WindowConfig) {
     companion object {
+        const val SurfaceLifecycleLabel = "WebGPU Surface"
         init {
             LibraryLoader.load()
             wgpuSetLogLevel(WGPULogLevel_Info)
@@ -98,7 +99,7 @@ class WebGPUWindow(config: WindowConfig) {
 
 
     // Surface needs to initialize before the dimensions
-    val surfaceLifecycle = window.windowLifecycle.bind("WebGPU Surface") {
+    val surfaceLifecycle = window.windowLifecycle.bind(SurfaceLifecycleLabel) {
         WebGPUContext(it.handle)
     }
 

@@ -53,23 +53,11 @@ fun main() {
 
     ProcessLifecycle.start(Unit)
 
-    //TODO: 1.
-    // 2. Copy over old data to new children
-    // 3. Restart what we want
-    //
-
-//    val reloadLock = Semaphore( 0)
 
     FunHotReload.reloadStarted.listen {
         println("Reload started: pausing app")
 
         loop.locked = true
-//        loop.lock.tryAcquire() // Block render thread
-//        loop.window.submitTask {
-
-//            reloadLock.lock()
-//            reloadLock.lock() // Block
-//        }
     }
 
     FunHotReload.reloadEnded.listen {
@@ -77,45 +65,19 @@ fun main() {
         loop.reloadCallback = {
             println("Reloading app")
 
-//            reloadLock.tryAcquire()
             // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
             val children = ProcessLifecycle.removeChildren()
+            // Recreate lifecycles tree
             val newWindow = app.init()
-            children.forEach { it.end() }
-
             loop.window = newWindow.window
+            // Copy over old state
+            ProcessLifecycle.copyChildrenStateFrom(children)
 
-            ProcessLifecycle.start(Unit)
-            println("Reload8")
+            ProcessLifecycle.restartByLabel(WebGPUWindow.SurfaceLifecycleLabel)
 
-//            println("Releasing lock")
+            println("Reload13")
 
-//            loop.window.submitTask {
-//                loop.window.surfaceLifecycle.restart()
-//            }
         }
-//         // Restore render thread
-//        // Very important to run this on the main thread
-//        loop.window.submitTask {
-//
-////            reloadLock.tryAcquire()
-//            // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
-//            val children = ProcessLifecycle.removeChildren()
-//            val newWindow = app.init()
-//            children.forEach { it.end() }
-//
-//            loop.window = newWindow.window
-//
-//            ProcessLifecycle.start(Unit)
-//            println("Reload6")
-//
-//            println("Releasing lock")
-//
-////            loop.window.submitTask {
-////                loop.window.surfaceLifecycle.restart()
-////            }
-//        }
-
     }
     loop.loop()
 }

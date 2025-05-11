@@ -52,6 +52,8 @@ class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions) : AutoCl
     )
     val depthStencilView = depthTexture.createView()
 
+//    var x = 2
+
     override fun close() {
         closeAll(depthStencilView, depthTexture)
     }
@@ -102,10 +104,8 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 }
 
 // TODO:
-// 2. Test hot reloading
-// 3. Setup lambda cleanup on reload
-// 4. Start catching wgpu errors with new api
-
+// 1. Start catching wgpu errors with new api
+// 2. Visualize tree
 
 
 @OptIn(ExperimentalAtomicApi::class)
@@ -175,70 +175,54 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     val cube by cubeLifecycle
 
 
-    val x = 1 to 2
-
-
     frameLifecycle.bind("Fun Frame", FunLogLevel.Verbose) { frame ->
-        with(surface) {
+        val ctx = surface.ctx
+        checkForFrameDrops(ctx, frame.deltaMs)
 
-//            println(x.first)
-
-//            // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
-//            val windowFrame = ctx.context.getCurrentTexture()
-//                .also { it.texture.ac } // Close texture
-
-//            println(x + 10)
-
-//            println(x)
-
-            checkForFrameDrops(ctx, frame.deltaMs)
-
-            if (HOT_RELOAD_SHADERS) {
-                fsWatcher.poll()
-            }
-            val commandEncoder = ctx.device.createCommandEncoder().ac
-
-            val textureView = frame.windowFrame.texture.createView().ac
-            val renderPassDescriptor = RenderPassDescriptor(
-                colorAttachments = listOf(
-                    RenderPassColorAttachment(
-                        view = textureView,
-                        clearValue = Color(0.0, 0.0, 0.0, 0.0),
-                        loadOp = GPULoadOp.Clear,
-                        storeOp = GPUStoreOp.Store
-                    ),
-                ),
-                depthStencilAttachment = RenderPassDepthStencilAttachment(
-                    view = sizedWindow.depthStencilView,
-                    depthClearValue = 1.0f,
-                    depthLoadOp = GPULoadOp.Clear,
-                    depthStoreOp = GPUStoreOp.Store
-                )
-            )
-            val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
-            Mat4f.identity(viewProjection)
-            viewProjection.rotate(Vec3f(sin(now), cos(now), 0f), 1f, viewProjection)
-
-            ctx.device.queue.writeBuffer(
-                uniformBuffer,
-                0uL,
-                viewProjection.array
-            )
-
-
-            val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
-            pass.setPipeline(cube.pipeline)
-            pass.setBindGroup(0u, uniformBindGroup)
-            pass.setVertexBuffer(0u, verticesBuffer)
-            pass.setIndexBuffer(indicesBuffer, GPUIndexFormat.Uint32)
-            pass.drawIndexed(cubeMesh.indexCount.toUInt())
-            pass.end()
-
-            compose.frame( commandEncoder, textureView)
-
-            ctx.device.queue.submit(listOf(commandEncoder.finish()));
+        if (HOT_RELOAD_SHADERS) {
+            fsWatcher.poll()
         }
+        val commandEncoder = ctx.device.createCommandEncoder().ac
 
+        val textureView = frame.windowFrame.texture.createView().ac
+        val renderPassDescriptor = RenderPassDescriptor(
+            colorAttachments = listOf(
+                RenderPassColorAttachment(
+                    view = textureView,
+                    clearValue = Color(0.0, 0.0, 0.0, 0.0),
+                    loadOp = GPULoadOp.Clear,
+                    storeOp = GPUStoreOp.Store
+                ),
+            ),
+            depthStencilAttachment = RenderPassDepthStencilAttachment(
+                view = sizedWindow.depthStencilView,
+                depthClearValue = 1.0f,
+                depthLoadOp = GPULoadOp.Clear,
+                depthStoreOp = GPUStoreOp.Store
+            )
+        )
+        val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
+        Mat4f.identity(surface.viewProjection)
+        surface.viewProjection.rotate(Vec3f(sin(now), cos(now), 0f), 1f, surface.viewProjection)
+
+        ctx.device.queue.writeBuffer(
+            surface.uniformBuffer,
+            0uL,
+            surface.viewProjection.array
+        )
+
+
+        val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
+        pass.setPipeline(cube.pipeline)
+        pass.setBindGroup(0u, uniformBindGroup)
+        pass.setVertexBuffer(0u, surface.verticesBuffer)
+        pass.setIndexBuffer(surface.indicesBuffer, GPUIndexFormat.Uint32)
+        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt())
+        pass.end()
+
+        compose.frame(commandEncoder, textureView)
+
+        ctx.device.queue.submit(listOf(commandEncoder.finish()));
     }
 
 }

@@ -4,6 +4,7 @@ import io.github.natanfudge.fn.util.MutEventStream
 
 
 /**
+ * Current limitation - if the schema of lifecycle state changes, hot reloading might fail.
  * Facilitates in-app detection of the JVM hot swap mechanism, allowing us to rerun code when hot swapping, making it more useful.
  */
 object FunHotReload {

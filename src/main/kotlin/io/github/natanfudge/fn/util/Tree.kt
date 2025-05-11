@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package io.github.natanfudge.fn.util
 
 import java.util.LinkedList
@@ -15,6 +17,8 @@ interface MutableTree<T> : Tree<T> {
 
 data class MutableTreeImpl<T>(override val value: T, override val children: MutableList<MutableTree<T>>) : MutableTree<T>
 
+
+
 /**
  * Visits the tree breadth-first.
  */
@@ -26,6 +30,20 @@ inline fun <T> Tree<T>.visit(visitor: (T) -> Unit) {
         val next = queue.poll()
         queue.addAll(next.children)
         visitor(next.value)
+    }
+}
+
+/**
+ * Visits the tree breadth-first.
+ */
+inline fun <T, M :Tree<T>> M.visitSubtrees(visitor: (M) -> Unit) {
+    // Neat trick to have a recursion-less tree visitor - populate a queue as you iterate through the tree
+    val queue: Queue<M> = LinkedList()
+    queue.add(this)
+    while (queue.isNotEmpty()) {
+        val next = queue.poll()
+        queue.addAll(next.children as List<M>)
+        visitor(next)
     }
 }
 

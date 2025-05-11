@@ -107,6 +107,16 @@ class Lifecycle<P : Any, T : Any> private constructor(private val tree: Lifecycl
         start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
     }
 
+    fun restartByLabel(label: String) {
+        tree.visitSubtrees {
+            if (it.value.label == label) {
+                Lifecycle<Any, Any>(it).restart()
+                return
+            }
+        }
+        println("Did not find any lifecycle with the label '$label' to restart")
+    }
+
     /**
      * Restarts this lifecycle with a specific [seedValue]
      */
@@ -183,7 +193,28 @@ class Lifecycle<P : Any, T : Any> private constructor(private val tree: Lifecycl
         return tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
     }
 
+    /**
+     * Copies the state of [lifecycles] into the children lifecycles of `this`.
+     */
+    fun copyChildrenStateFrom(lifecycles: List<Lifecycle<*, *>>) {
+        lifecycles.zip(tree.children).forEach { (source, dest) ->
+            source.copyStateTo(dest)
+        }
+    }
 
+    /**
+     * Copies over all the state of this lifecycle to [other], assuming [other] is of the exact same structure
+     */
+    private fun copyStateTo(other: LifecycleTree) {
+        this.tree.visitTogetherWith(other) { thisNode, otherNode ->
+            otherNode as LifecycleData<Any, Any>
+            otherNode.selfState = thisNode.selfState
+            otherNode.parentState = thisNode.parentState
+        }
+    }
+
+
+    // GLFW WebGPU Window
     private fun startRecur(seedValue: P?, parentIndex: Int, visitCounter: MutableMap<LifecycleTree, Int>) {
         val data = tree.value as LifecycleData<P, T> // The Lifecycle<P,T> wrapper ensures us that the root is indeed LifecycleData<P, T>
         // Attempt to start/update the current lifecycle node.
@@ -262,6 +293,10 @@ private class LifecycleData<P : Any, T : Any>(
     val logLevel: FunLogLevel,
     val label: String,
 ) {
+    override fun toString(): String {
+        return label
+    }
+
     val autoClose = AutoCloseImpl()
 }
 
@@ -293,7 +328,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
 
     val prevParent = parentState
     val prevSelf = selfState
-    verifyState(prevParent, prevSelf)
+    verifyState(prevParent, prevSelf, label)
 
     if (hasMultipleParents) {
         // Start initializing the parent data this lifecycle needs
@@ -352,9 +387,9 @@ private fun LifecycleData<*, *>.endSingle() {
 }
 
 
-private fun <P : Any, T : Any> verifyState(prevParent: P?, prevSelf: T?) {
+private fun <P : Any, T : Any> verifyState(prevParent: P?, prevSelf: T?, label: String) {
     if (prevParent == null && prevSelf != null) {
-        throw UnfunStateException("Since the parent state is always initialized before the self state, this should not be possible")
+        throw UnfunStateException("Lifecycle parent state of '$label' is null while its self state is not null. Since the parent state is always initialized before the self state, this should not be possible")
     }
 }
 
@@ -426,6 +461,13 @@ private fun <P : Any, T : Any> logLifecycleStart(
     }
 }
 
+
+private fun <T> Tree<T>.visitTogetherWith(other: Tree<T>, callback: (T, T) -> Unit) {
+    callback(this.value, other.value)
+    children.zip(other.children).forEach { (thisChild, otherChild) ->
+        thisChild.visitTogetherWith(otherChild, callback)
+    }
+}
 
 fun main() {
     val window = Lifecycle.create<Float, Float>(
