@@ -6,7 +6,7 @@ import java.util.LinkedList
 import java.util.Queue
 import kotlin.collections.ArrayDeque
 
-interface Tree<T> {
+interface Tree<out T> {
     val value: T
     val children: List<Tree<T>>
 }
@@ -17,7 +17,38 @@ interface MutableTree<T> : Tree<T> {
 
 data class MutableTreeImpl<T>(override val value: T, override val children: MutableList<MutableTree<T>>) : MutableTree<T>
 
+/**
+ * Represents the path from the root to a certain node, assuming the list of children is accessed by the given [index] at each layer.
+ */
+data class TreePath(val index: Int, val prev: TreePath?) {
+    companion object {
+        val Root = TreePath(0, null)
+    }
 
+    inline fun visitBottomUp(visitor: (Int, isRoot: Boolean) -> Unit) {
+        var current: TreePath? = this
+        while (current != null) {
+            // isRoot = current.prev == null
+            visitor(current.index, current.prev == null)
+            current = current.prev
+        }
+    }
+
+    fun toList(): List<Int> = buildList {
+        visitBottomUp { index, isRoot ->
+            if (!isRoot) {
+                // The root has no index, it is just the thing itself
+                add(index)
+            }
+        }
+    }.asReversed()
+
+    override fun toString(): String {
+        return toList().toString()
+    }
+
+    fun createChild(index: Int) = TreePath(index, this)
+}
 
 /**
  * Visits the tree breadth-first.

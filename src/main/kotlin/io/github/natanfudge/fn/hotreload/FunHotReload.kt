@@ -14,7 +14,7 @@ object FunHotReload {
 
     /**
      * The [callback] will be called on an alternate thread so be wary of that.
-     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.GlfwComposeWindow.submitTask]
+     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeConfig.submitTask]
      */
     fun observe(callback: (Unit) -> Unit) = reloadEnded.listen(callback)
 

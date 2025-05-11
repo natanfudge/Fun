@@ -9,6 +9,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.core.ProcessLifecycle
+import io.github.natanfudge.fn.core.RootLifecycles
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -184,14 +185,16 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
     }
-    val dimensionsLifecycle = windowLifecycle.bind("GLFW fixed size window") {
+    val dimensionsLifecycle = windowLifecycle.bind("GLFW fixed size window of $name") {
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
         WindowDimensions(w[0], h[0], it.handle)
     }
-    val frameLifecycle = Lifecycle.create<Double, Double>("GLFW Frame", FunLogLevel.Verbose) {
+    val frameLifecycle = Lifecycle.create<Double, Double>("GLFW Frame of $name", FunLogLevel.Verbose) {
         it
+    }.also {
+        RootLifecycles.add(it)
     }
 
     private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}

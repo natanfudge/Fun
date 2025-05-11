@@ -100,15 +100,18 @@ data class ComposeFrameEvent(
     val height: Int,
 )
 
-class GlfwComposeWindow(
+class ComposeConfig(
     host: GlfwWindowConfig,
     val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
+    companion object {
+        const val LifecycleLabel = "Compose Window"
+    }
     private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose", host.config)
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
-    val windowLifecycle = glfw.windowLifecycle.bind("Compose Window", early = true) {
+    val windowLifecycle = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
         glDebugGroup(1, groupName = { "Compose Init" }) {
             ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight,
@@ -142,9 +145,9 @@ class GlfwComposeWindow(
     private fun frame() {
         window.dispatcher.poll()
         if (dimensions.invalid) {
-            GLFW.glfwMakeContextCurrent(this@GlfwComposeWindow.glfw.handle)
+            GLFW.glfwMakeContextCurrent(this@ComposeConfig.glfw.handle)
             draw()
-            glfwSwapBuffers(this@GlfwComposeWindow.glfw.handle)
+            glfwSwapBuffers(this@ComposeConfig.glfw.handle)
             dimensions.invalid = false
         }
     }
@@ -228,7 +231,7 @@ class GlfwComposeWindow(
 
 
             // Resize dummy window to match
-            GLFW.glfwSetWindowSize(this@GlfwComposeWindow.glfw.handle, width, height)
+            GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, width, height)
         }
 
         override fun densityChange(newDensity: Density) {

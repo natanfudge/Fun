@@ -25,7 +25,7 @@ import kotlin.reflect.KProperty
  * [P] is the type of the parent(s) of this lifecycle, and [T] is the type of the root of this lifecycle.
  * Note that we don't do `Lifecycle<P,T> = MutableTree<P,T>` because that would signify everything is `<P,T>` all the way down, which is not true.
  */
-class Lifecycle<P : Any, T : Any> private constructor(private val tree: LifecycleTree) : ReadOnlyProperty<Any?, T> {
+class Lifecycle<P : Any, T : Any> private constructor(internal val tree: LifecycleTree) : ReadOnlyProperty<Any?, T> {
     companion object {
         fun <P : Any, T : Any> create(
             label: String,
@@ -273,7 +273,7 @@ class Lifecycle<P : Any, T : Any> private constructor(private val tree: Lifecycl
 
 }
 
-private class LifecycleData<P : Any, T : Any>(
+internal class LifecycleData<P : Any, T : Any>(
     val start: AutoClose.(P) -> T,
     val stop: (T) -> Unit,
     var parentState: P?,
@@ -300,7 +300,7 @@ private class LifecycleData<P : Any, T : Any>(
     val autoClose = AutoCloseImpl()
 }
 
-private typealias LifecycleTree = MutableTree<LifecycleData<*, *>>
+internal typealias LifecycleTree = MutableTree<LifecycleData<*, *>>
 
 private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     /**

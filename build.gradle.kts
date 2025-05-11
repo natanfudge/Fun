@@ -56,8 +56,8 @@ graalvmNative {
 }
 
 tasks.withType<ComposeHotRun>().configureEach {
-    mainClass.set("io.github.natanfudge.fn.compose.CHRMainKt")
-    compose
+//    mainClass.set("io.github.natanfudge.fn.compose.CHRMainKt")
+    mainClass.set("io.github.natanfudge.fn.core.FunAppKt")
 }
 
 group = "natan"

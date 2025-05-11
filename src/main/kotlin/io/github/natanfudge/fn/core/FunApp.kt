@@ -6,6 +6,8 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import io.github.natanfudge.fn.compose.ComposeConfig
+import io.github.natanfudge.fn.compose.ComposeGlfwWindow
 import io.github.natanfudge.fn.compose.ComposeMainApp
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
@@ -21,6 +23,9 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
+//val RootLifecycles = Lifecycle.create<Unit, Unit>("Root"){it}
+
+val RootLifecycles = mutableListOf<Lifecycle<*,*>>()
 
 val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
     GLFWErrorCallback.createPrint(System.err).set()
@@ -49,10 +54,12 @@ class BaseFunApp {
 }
 
 
+//TODO: assertion `left == right` failed: Sampler[Id(0,1)] is no longer alive crashrino when reloading and then resizing window
 
 
 fun main() {
     val app = BaseFunApp()
+    RootLifecycles.add(ProcessLifecycle)
     val window = app.init()
     val loop = GlfwGameLoop(window.window)
 
@@ -73,11 +80,14 @@ fun main() {
             // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
             val children = ProcessLifecycle.removeChildren()
             // Recreate lifecycles tree
+            RootLifecycles.clear()
+            RootLifecycles.add(ProcessLifecycle)
             val newWindow = app.init()
             loop.window = newWindow.window
             // Copy over old state
             ProcessLifecycle.copyChildrenStateFrom(children)
 
+//            ProcessLifecycle.restartByLabel(ComposeConfig.LifecycleLabel)
             ProcessLifecycle.restartByLabel(WebGPUWindow.SurfaceLifecycleLabel)
 
             println("Reload16")

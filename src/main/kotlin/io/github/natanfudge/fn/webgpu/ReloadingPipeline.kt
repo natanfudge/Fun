@@ -29,43 +29,21 @@ class FunPipeline(
     val vertexShaderCode: String,
     val fragmentShaderCode: String,
     descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-    val ctx: WebGPUContext, //TODO: I think it's a mistake putting this here this when the pipeline changes ctx doesn't change.
+    val ctx: WebGPUContext,
     // On the other hand when the surface changes ctx does change and then you get old values for the children of this
 ) : AutoCloseable {
     override fun toString(): String {
         return "Fun Pipeline with ${vertexShaderCode.length} chars of vertex shader and ${fragmentShaderCode.length} chars of fragment shader"
     }
 
-    init {
-        ctx.device.pushErrorScope(GPUErrorFilter.Validation)
-    }
+    val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
 
-    val vertexShader = try {
-        ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
-    } catch (e: Throwable) {
-        TODO()
-    }
-    val fragmentShader = try {
-        ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
-    } catch (e: Throwable) {
-        TODO()
-    }
+    val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
 
 
 
     val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
 
-    val error = runBlocking {ctx.device.popErrorScope()}
-
-    //TODO: lets see if we can integrate some smart failure handling for lifecycles, otherwise we'll handle it here manually.
-    init {
-//        if(error.isFailure) {
-        error.onSuccess {
-            if(it != null) throw WebGPUException(it)
-        }
-//        }
-        val x = 2
-    }
     override fun close() {
         closeAll(vertexShader, fragmentShader, pipeline)
     }
@@ -90,53 +68,31 @@ fun createReloadingPipeline(
         }
     }
 
-//    fun reloadOnDirectoryChange(dir: Path): FileSystemWatcher.Key {
-//        println("Listening to shader changes at $dir!")
-//        return fsWatcher.onDirectoryChanged(dir) {
-//            println("Restarting shaders in $dir")
-//            lifecycle.restart()
-//        }
-//    }
 
-    if (HOT_RELOAD_SHADERS) {
-//        var watchedUri: Path? = null
-        // It's important to watch and reload the SOURCE file and not the built file so we don't have to rebuild
-        if (vertexShader is ShaderSource.HotFile) {
-            // HACK: we are not closing this for now
-            fsWatcher.onFileChanged(vertexShader.getSourceFile()) {
-                lifecycle.restart()
+    fun reloadOnChange(shaderSource: ShaderSource) {
+        if (shaderSource is ShaderSource.HotFile) {
+            fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
                 runBlocking {
-//                    try {
-//                        // First
-//                        loadShader(vertexShader)
-//                        loadShader(fragmentShader)
-//
-//                    } catch (e: WebGPUException) {
-//
-//                    }
-
-
+                    // Small hack to see if the new shader source is valid - try to compile it and see if it fails
+                    val surface = surfaceLifecycle.assertValue
+                    surface.device.pushErrorScope(GPUErrorFilter.Validation)
+                    val module = surfaceLifecycle.assertValue.device.createShaderModule(ShaderModuleDescriptor(loadShader(shaderSource)))
+                    val error = surface.device.popErrorScope().getOrThrow()
+                    module.close()
+                    if (error == null) {
+                        lifecycle.restart()
+                    } else {
+                        println("Failed to compile new shader for reload: $error")
+                    }
                 }
 
             }
-//            watchedUri = vertexShader.getSourceFile().parent!!
-
-//            reloadOnDirectoryChange(watchedUri)
         }
+    }
 
-        if (fragmentShader is ShaderSource.HotFile) {
-            // HACK: we are not closing this for now
-            fsWatcher.onFileChanged(fragmentShader.getSourceFile()) {
-                lifecycle.restart()
-            }
-
-//            val fragmentUri = fragmentShader.getSourceFile().parent!!
-//            // Avoid reloading twice when both shaders are in the same directory
-//            if (fragmentUri != watchedUri) {
-//                // HACK: we are not closing this for now
-//                reloadOnDirectoryChange(fragmentUri)
-//            }
-        }
+    if (HOT_RELOAD_SHADERS) {
+        reloadOnChange(vertexShader)
+        reloadOnChange(fragmentShader)
     }
 
     return lifecycle
@@ -152,32 +108,13 @@ private suspend fun loadShader(source: ShaderSource): String {
 
             println("Loading shader at '${file}'")
             file.readString()
-//            file.readStringAfterExternalEdit()
         } else Res.readBytes(source.fullPath()).decodeToString()
 
         is ShaderSource.RawString -> source.shader
     }
-//    println("Final code = $code")
     return code
 }
 
-///**
-// * Sometimes IntelliJ just replaces the file with an empty file before editing and we get that empty file, so we need to wait a bit
-// */
-//private fun Path.readStringAfterExternalEdit(): String {
-//
-//    val retries = 3
-//    val retryWait = 10L
-//    repeat(retries) {
-//        val content = readString()
-//        if (content.isNotEmpty()) {
-//            return content
-//        } else {
-//            Thread.sleep(retryWait)
-//        }
-//    }
-//    throw UnfunStateException("Failed to reload shader: shader file at '$this' was empty or could not be read.")
-//}
 
 private fun ShaderSource.HotFile.fullPath() = "files/shaders/${path}.wgsl"
 

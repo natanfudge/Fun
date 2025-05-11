@@ -20,7 +20,7 @@ class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
-class ComposeTexture(dimensions: WebGPUFixedSizeSurface, compose: GlfwComposeWindow, val ctx: WebGPUContext) : AutoCloseable {
+class ComposeTexture(dimensions: WebGPUFixedSizeSurface, compose: ComposeConfig, val ctx: WebGPUContext) : AutoCloseable {
     val composeTexture = dimensions.surface.device.createTexture(
         TextureDescriptor(
             size = Extent3D(dimensions.dimensions.width.toUInt(), dimensions.dimensions.height.toUInt(), 1u),
@@ -54,7 +54,7 @@ class ComposeWebGPURenderer(
     show: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    private val compose = GlfwComposeWindow(hostWindow.window, content, show = show)
+    private val compose = ComposeConfig(hostWindow.window, content, show = show)
 
 
 //    val BackgroundWindowLifecycle = ProcessLifecycle.bind("Compose Background Window", early = true) {
