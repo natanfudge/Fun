@@ -175,5 +175,5 @@ class ComposeWebGPURenderer(
      */
     val callbacks = compose.callbacks
 
-    fun restart() = compose.restart()
+//    fun restart() = compose.restart()
 }

@@ -46,7 +46,10 @@ class WebGPUContext(
     val presentationFormat = context.supportedFormats.first()
     val device = runBlocking {
         adapter.requestDevice(
-            DeviceDescriptor(label = myIndex.toString())
+            DeviceDescriptor(label = myIndex.toString(), onUncapturedError = {
+//                println(it)
+                throw WebGPUException(it)
+            })
         ).getOrThrow()
     }
     /**
@@ -58,6 +61,8 @@ class WebGPUContext(
         closeAll(context, adapter, device)
     }
 }
+
+class WebGPUException(error: GPUError): Exception("WebGPU Error: $error")
 
 data class WebGPUFixedSizeSurface(
     val surface: WebGPUContext,
@@ -154,11 +159,11 @@ class WebGPUWindow(config: WindowConfig) {
         window.submitTask(task)
     }
 
-    fun restart() {
-//        surface.close() //TODO: need to make sure commenting this out is OK
-
-        window.restart()
-    }
+//    fun restart() {
+////        surface.close() //TODO: need to make sure commenting this out is OK
+//
+//        window.restart()
+//    }
 }
 
 private enum class Os {

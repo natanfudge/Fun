@@ -174,8 +174,11 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
     val cube by cubeLifecycle
 
+    val x = 1 to 2
+
 
     frameLifecycle.bind("Fun Frame", FunLogLevel.Verbose) { frame ->
+//        println(x.first)
         val ctx = surface.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
 

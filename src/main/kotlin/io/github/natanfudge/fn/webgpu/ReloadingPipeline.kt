@@ -1,11 +1,11 @@
 package io.github.natanfudge.fn.webgpu
 
 import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
-import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.files.readString
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.closeAll
+import io.ygdrasil.webgpu.GPUErrorFilter
 import io.ygdrasil.webgpu.GPURenderPipelineDescriptor
 import io.ygdrasil.webgpu.GPUShaderModule
 import io.ygdrasil.webgpu.ShaderModuleDescriptor
@@ -36,10 +36,36 @@ class FunPipeline(
         return "Fun Pipeline with ${vertexShaderCode.length} chars of vertex shader and ${fragmentShaderCode.length} chars of fragment shader"
     }
 
-    val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
-    val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
+    init {
+        ctx.device.pushErrorScope(GPUErrorFilter.Validation)
+    }
+
+    val vertexShader = try {
+        ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
+    } catch (e: Throwable) {
+        TODO()
+    }
+    val fragmentShader = try {
+        ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
+    } catch (e: Throwable) {
+        TODO()
+    }
+
+
 
     val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
+
+    val error = runBlocking {ctx.device.popErrorScope()}
+
+    //TODO: lets see if we can integrate some smart failure handling for lifecycles, otherwise we'll handle it here manually.
+    init {
+//        if(error.isFailure) {
+        error.onSuccess {
+            if(it != null) throw WebGPUException(it)
+        }
+//        }
+        val x = 2
+    }
     override fun close() {
         closeAll(vertexShader, fragmentShader, pipeline)
     }
@@ -79,6 +105,19 @@ fun createReloadingPipeline(
             // HACK: we are not closing this for now
             fsWatcher.onFileChanged(vertexShader.getSourceFile()) {
                 lifecycle.restart()
+                runBlocking {
+//                    try {
+//                        // First
+//                        loadShader(vertexShader)
+//                        loadShader(fragmentShader)
+//
+//                    } catch (e: WebGPUException) {
+//
+//                    }
+
+
+                }
+
             }
 //            watchedUri = vertexShader.getSourceFile().parent!!
 

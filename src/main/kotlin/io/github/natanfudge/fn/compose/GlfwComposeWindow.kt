@@ -243,9 +243,9 @@ class GlfwComposeWindow(
 //        glfw.show(config,  loop = false)
 //    }
 
-    fun restart() {
-        glfw.restart()
-    }
+//    fun restart() {
+//        glfw.restart()
+//    }
 }
 
 

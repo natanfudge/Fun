@@ -6,6 +6,7 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.kotlin.dsl.register
 import org.jetbrains.compose.reload.ComposeHotRun
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -14,7 +15,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("com.google.osdetector") version "1.7.3"
-    id("org.jetbrains.compose.hot-reload") version "1.0.0-alpha09"
+    id("org.jetbrains.compose.hot-reload") version "1.0.0-alpha10-120"
 }
 
 repositories {
@@ -55,7 +56,8 @@ graalvmNative {
 }
 
 tasks.withType<ComposeHotRun>().configureEach {
-    mainClass.set("io.github.natanfudge.fn.MainKt")
+    mainClass.set("io.github.natanfudge.fn.compose.CHRMainKt")
+    compose
 }
 
 group = "natan"
@@ -102,7 +104,7 @@ dependencies {
 
 kotlin {
     jvmToolchain {
-        this.languageVersion = JavaLanguageVersion.of(22)
+        this.languageVersion = JavaLanguageVersion.of(21)
 //        vendor = JvmVendorSpec.JETBRAINS
     }
     sourceSets.all {
@@ -136,6 +138,10 @@ compose.desktop {
         this.mainClass = mainclass
     }
 
+}
+
+composeCompiler {
+    featureFlags.add(ComposeFeatureFlag.OptimizeNonSkippingGroups)
 }
 
 tasks.withType<Test>() {

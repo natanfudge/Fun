@@ -44,6 +44,8 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
 
     var minimized = false
 
+    var open = true
+
     fun pollTasks() {
         taskLock.withLock {
             waitingTasks.forEach { it() }
@@ -102,18 +104,13 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
         glfwSetWindowCloseCallback(windowHandle) {
             callbacks.windowClosePressed()
-            open = false
+            window.open = false
         }
 
-        if (windowPos != null) {
-            // Keep the window in the same position when reloading
-            glfwSetWindowPos(windowHandle, windowPos!!.x, windowPos!!.y)
-        }
         if (glfw.showWindow) {
             glfwShowWindow(windowHandle)
         }
         glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-            windowPos = IntOffset(x, y)
             callbacks.windowMove(x, y)
         }
 
@@ -197,18 +194,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         it
     }
 
-    internal var open = true
-
-    // I can prob get rid of this
-    private var windowPos: IntOffset? = null
-
     private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
 
     internal val window: GlfwWindow by windowLifecycle
 
     val handle get() = window.handle
 
-//    internal var lastFrameTimeNano = 0L
 
     private val frameAutoclose = AutoCloseImpl()
 
@@ -233,59 +224,25 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         this.callbacks = callbacks
     }
 
-    //TODO: current problem: open is set to false when the window is closed. i could go back to the previous approach of closing manually, but i do want to figure out
-    // a lifecycle way of doing it.
-
-//    fun show(config: WindowConfig, loop: Boolean = true) {
-////        GLFWErrorCallback.createPrint(System.err).set()
-////
-////        // Initialize GLFW. Most GLFW functions will not work before doing this.
-////        if (!glfwInit()) {
-////            throw IllegalStateException("Unable to initialize GLFW")
-////        }
-//
-//
-////        windowLifecycle.start(Unit)
-//
-////        if (loop) {
-////            while (open) {
-////                glfwPollEvents()
-////                if (!open) break
-////                if (window.minimized) continue
-////                val time = System.nanoTime()
-////                val delta = time - lastFrameTimeNano
-////                if (delta >= 1e9 / config.maxFps) {
-////                    window.pollTasks()
-////                    frame()
-////                }
-////            }
-////        }
-//
-//    }
-
-    fun restart() {
-        windowLifecycle.restart()
-    }
 
     fun close() {
-        open = false
+        window.open = false
         windowLifecycle.end()
     }
 }
 
 class GlfwGameLoop(var window: GlfwWindowConfig) {
-//    val lock = Semaphore(1)
 
     var locked = false
 
     var reloadCallback: (() -> Unit)? = null
 
     fun loop() {
-        while (window.open) {
+        while (window.window.open) {
             checkForReloads()
             glfwPollEvents()
             checkForReloads()
-            if (!window.open) break
+            if (!window.window.open) break
             if (window.window.minimized) continue
             val time = System.nanoTime()
             val delta = time - window.window.lastFrameTimeNano
@@ -293,12 +250,6 @@ class GlfwGameLoop(var window: GlfwWindowConfig) {
                 checkForReloads()
                 window.window.pollTasks()
                 checkForReloads()
-//                if (lock.availablePermits() == 0) {
-//                    println("Acquiring permit")
-//                    lock.acquire()
-//                    // Check again for tasks before next frame
-//                    window.window.pollTasks()
-//                }
                 window.frame()
             }
         }

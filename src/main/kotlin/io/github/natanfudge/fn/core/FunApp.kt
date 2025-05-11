@@ -2,6 +2,10 @@
 
 package io.github.natanfudge.fn.core
 
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
 import io.github.natanfudge.fn.compose.ComposeMainApp
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
@@ -40,11 +44,12 @@ class BaseFunApp {
 
         window.bindFunLifecycles(compose, fsWatcher)
 
-
-
         return window
     }
 }
+
+
+
 
 fun main() {
     val app = BaseFunApp()
@@ -75,7 +80,7 @@ fun main() {
 
             ProcessLifecycle.restartByLabel(WebGPUWindow.SurfaceLifecycleLabel)
 
-            println("Reload13")
+            println("Reload16")
 
         }
     }
