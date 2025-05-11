@@ -1,12 +1,14 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package io.github.natanfudge.fn.window
 
-import io.github.natanfudge.fn.core.ProcessLifecycle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -14,6 +16,8 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.withLock
 
 var onTheFlyDebugRequested = false
@@ -268,18 +272,43 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 }
 
 class GlfwGameLoop(var window: GlfwWindowConfig) {
+//    val lock = Semaphore(1)
+
+    var locked = false
+
+    var reloadCallback: (() -> Unit)? = null
 
     fun loop() {
         while (window.open) {
+            checkForReloads()
             glfwPollEvents()
             if (!window.open) break
             if (window.window.minimized) continue
             val time = System.nanoTime()
             val delta = time - window.lastFrameTimeNano
             if (delta >= 1e9 / window.config.maxFps) {
+                checkForReloads()
                 window.window.pollTasks()
+                checkForReloads()
+//                if (lock.availablePermits() == 0) {
+//                    println("Acquiring permit")
+//                    lock.acquire()
+//                    // Check again for tasks before next frame
+//                    window.window.pollTasks()
+//                }
                 window.frame()
             }
+        }
+    }
+
+    private fun checkForReloads() {
+        while (locked) {
+            if (reloadCallback != null) {
+                reloadCallback!!()
+                reloadCallback = null
+                locked = false
+            }
+            Thread.sleep(10)
         }
     }
 }

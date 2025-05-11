@@ -8,16 +8,17 @@ import io.github.natanfudge.fn.util.MutEventStream
  */
 object FunHotReload {
 //    val observation: Observable<Unit>
-    val observation = MutEventStream<Unit>()
+    val reloadEnded = MutEventStream<Unit>()
+    val reloadStarted = MutEventStream<Unit>()
 
     /**
      * The [callback] will be called on an alternate thread so be wary of that.
      * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.GlfwComposeWindow.submitTask]
      */
-    fun observe(callback: (Unit) -> Unit) = observation.listen(callback)
+    fun observe(callback: (Unit) -> Unit) = reloadEnded.listen(callback)
 
     internal fun notifyReload() {
-        observation.emit(Unit)
+        reloadEnded.emit(Unit)
     }
 
 //    /**

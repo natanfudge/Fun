@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package io.github.natanfudge.fn.core
 
 import io.github.natanfudge.fn.compose.ComposeMainApp
@@ -11,7 +13,9 @@ import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
-
+import java.util.concurrent.Semaphore
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
 val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
@@ -49,13 +53,31 @@ fun main() {
 
     ProcessLifecycle.start(Unit)
 
-    //TODO: 1. Figure out how we can lock frames during reload to avoid many errors
+    //TODO: 1.
     // 2. Copy over old data to new children
     // 3. Restart what we want
     //
-    FunHotReload.observation.listen {
-        // Very important to run this on the main thread
-        loop.window.submitTask {
+
+//    val reloadLock = Semaphore( 0)
+
+    FunHotReload.reloadStarted.listen {
+        println("Reload started: pausing app")
+
+        loop.locked = true
+//        loop.lock.tryAcquire() // Block render thread
+//        loop.window.submitTask {
+
+//            reloadLock.lock()
+//            reloadLock.lock() // Block
+//        }
+    }
+
+    FunHotReload.reloadEnded.listen {
+        // This has has special handling because it needs to run while the gameloop is locked
+        loop.reloadCallback = {
+            println("Reloading app")
+
+//            reloadLock.tryAcquire()
             // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
             val children = ProcessLifecycle.removeChildren()
             val newWindow = app.init()
@@ -64,13 +86,35 @@ fun main() {
             loop.window = newWindow.window
 
             ProcessLifecycle.start(Unit)
-            println("Reload3")
+            println("Reload8")
 
+//            println("Releasing lock")
 
 //            loop.window.submitTask {
 //                loop.window.surfaceLifecycle.restart()
 //            }
         }
+//         // Restore render thread
+//        // Very important to run this on the main thread
+//        loop.window.submitTask {
+//
+////            reloadLock.tryAcquire()
+//            // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
+//            val children = ProcessLifecycle.removeChildren()
+//            val newWindow = app.init()
+//            children.forEach { it.end() }
+//
+//            loop.window = newWindow.window
+//
+//            ProcessLifecycle.start(Unit)
+//            println("Reload6")
+//
+//            println("Releasing lock")
+//
+////            loop.window.submitTask {
+////                loop.window.surfaceLifecycle.restart()
+////            }
+//        }
 
     }
     loop.loop()

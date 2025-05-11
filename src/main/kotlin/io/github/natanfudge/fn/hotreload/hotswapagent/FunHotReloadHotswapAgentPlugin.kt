@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.hotreload.hotswapagent
 
-import io.github.natanfudge.fn.hotreload.FunHotReload.observation
+import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.hotreload.hotswapagent.FunHotReloadHotswapAgentPlugin.Companion.LOGGER
 import org.hotswap.agent.annotation.Init
 import org.hotswap.agent.annotation.LoadEvent
@@ -54,6 +54,12 @@ class FunHotReloadHotswapAgentPlugin {
     fun reloadClass(className: String?) {
         //TODO: lock app ASAP
         LOGGER.info("Detected class reload: {}", className)
+
+        // Notify app of reload start
+        appClassLoader.loadClass(ReloadClassService::class.java.getName())
+            .getDeclaredMethod("reloadStarted", ).invoke(null)
+
+
         // run the logic in a command. Multiple reload commands may be merged into one execution (see the command class)
         scheduler.scheduleCommand(ReloadClassCommand(appClassLoader, className))
     }
@@ -108,7 +114,7 @@ class ReloadClassCommand(var appClassLoader: ClassLoader, var className: String?
             // reflection directly
             // but for demonstration purpose we invoke a plugin class, that lives in the application classloader
             val setExamplePluginResourceText = appClassLoader.loadClass(ReloadClassService::class.java.getName())
-                .getDeclaredMethod("classReloaded", String::class.java)
+                .getDeclaredMethod("reloadEnded", String::class.java)
             setExamplePluginResourceText.invoke(null, className)
         } catch (e: Exception) {
             LOGGER.error("Error invoking {}.reload()", e, ReloadClassService::class.java.getName())
@@ -139,13 +145,18 @@ class ReloadClassCommand(var appClassLoader: ClassLoader, var className: String?
  * classloader.
  */
 object ReloadClassService {
+    @JvmStatic
+    fun reloadStarted() {
+        FunHotReload.reloadStarted.emit(Unit)
+    }
+
     /**
      * Method invoked from ReloadClassCommand using reflection in application classloader.
      *
      * @param className        class name
      */
     @JvmStatic
-    fun classReloaded(className: String?) {
-        observation.emit(Unit)
+    fun reloadEnded(className: String?) {
+        FunHotReload.reloadEnded.emit(Unit)
     }
 }
