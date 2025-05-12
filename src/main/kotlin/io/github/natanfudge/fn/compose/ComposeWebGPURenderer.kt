@@ -1,10 +1,13 @@
 package io.github.natanfudge.fn.compose
 
 import androidx.compose.runtime.Composable
+import io.github.natanfudge.fn.compose.ComposeWebGPURenderer.ComposeBindGroup
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
+import io.github.natanfudge.fn.window.WindowDimensions
 import io.ygdrasil.webgpu.*
+import java.util.function.Consumer
 
 private var samplerIndex = 0
 class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
@@ -29,7 +32,7 @@ class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 private var textureIndex = 0
 
-class ComposeTexture(dimensions: WebGPUFixedSizeSurface, compose: ComposeConfig, val ctx: WebGPUContext) : AutoCloseable {
+class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGlfwWindow, val ctx: WebGPUContext) : AutoCloseable {
     val myIndex=  textureIndex++
     val composeTexture = dimensions.surface.device.createTexture(
         TextureDescriptor(
@@ -42,30 +45,78 @@ class ComposeTexture(dimensions: WebGPUFixedSizeSurface, compose: ComposeConfig,
 
 
 
+//    init {
+//        // Need a new compose frame when the texture is recreated
+//        compose.dimensionsLifecycle.value?.invalid = true
+//    }
+
     init {
-        // Need a new compose frame when the texture is recreated
-        compose.dimensionsLifecycle.value?.invalid = true
+        println("Registering listener with dim= ${dimensions.dimensions}")
     }
 
-    val listener = compose.frameStream.listen { (bytes, width, height) ->
-        println("Writing compose texture")
-        //TODO: restore this when we figure out how to fix it with reload -> resize
-        dimensions.surface.device.copyExternalImageToTexture(
-            source = bytes,
-            texture = composeTexture,
-            width = width, height = height
-        )
-    }
+
+    //
+    private val context = ComposeTextureContext(dimensions.surface.device,composeTexture, dimensions.dimensions)
+
+    //TODO we can def pass a lambda, the bug is something else
+    val listener  = bgWindow.frameStream.listen(context)
+
+//    val listener = compose.frameStream.listen { (bytes, width, height) ->
+//        println("Writing compose texture for dimensions ${dimensions.dimensions}")
+//        //TODO: restore this when we figure out how to fix it with reload -> resize
+//        dimensions.surface.device.copyExternalImageToTexture(
+//            source = bytes,
+//            texture = composeTexture,
+//            width = width, height = height
+//        )
+//    }
+
+
+
+
+
 
 
     override fun toString(): String {
-        return "Compose Texture #$myIndex"
+        return "Compose Texture #$myIndex w=${dimensions.dimensions.width},h=${dimensions.dimensions.height}"
     }
 
+
+
     override fun close() {
+        println("Closing listener with dim= ${dimensions.dimensions}. Index = ${context.index}. I am $myIndex")
         closeAll(listener, composeTexture)
     }
 }
+
+
+
+
+
+
+private var texCtxIndex = 0
+
+private class ComposeTextureContext(val device: GPUDevice, val texture: GPUTexture,val textureDim: WindowDimensions): Consumer<ComposeFrameEvent> {
+    val index = texCtxIndex++
+
+    init {
+        println("Creating ComposeTextureContext #$index")
+    }
+
+    override fun accept(t: ComposeFrameEvent) {
+        println("Writing compose texture for dimensions ${t.width}x${t.height}, with textureDim = $textureDim. I am #$index")
+        device.copyExternalImageToTexture(
+            source = t.bytes,
+            texture = texture,
+            width = t.width, height = t.height
+        )
+    }
+
+    override fun toString(): String {
+        return "ComposeTextureContext #$index"
+    }
+}
+
 
 class ComposeWebGPURenderer(
     hostWindow: WebGPUWindow,
@@ -137,10 +188,11 @@ class ComposeWebGPURenderer(
         )
     }
 
-    val fullscreenQuad by fullscreenQuadLifecycle
 
-    val textureLifecycle = hostWindow.dimensionsLifecycle.bind("Compose Texture") {
-        ComposeTexture(it, compose, it.surface)
+//    val fullscreenQuad by fullscreenQuadLifecycle
+
+    val textureLifecycle = hostWindow.dimensionsLifecycle.bind(compose.windowLifecycle, "Compose Texture") {dim, bgWindow ->
+        ComposeTexture(dim, bgWindow, dim.surface)
     }
 
     class ComposeBindGroup(pipeline: ReloadingPipeline,texture: ComposeTexture, surface: ComposeWebgpuSurface): AutoCloseable {
@@ -163,6 +215,7 @@ class ComposeWebGPURenderer(
             )
 
 
+
         )
         override fun close() {
             closeAll(resource, group)
@@ -172,15 +225,19 @@ class ComposeWebGPURenderer(
 
 
 
-    val bindGroup by fullscreenQuadLifecycle.bind3(textureLifecycle, surfaceLifecycle,"Compose BindGroup") { pipeline, tex, surface ->
+    val bindGroupLifecycle = fullscreenQuadLifecycle.bind(textureLifecycle, surfaceLifecycle,"Compose BindGroup") { pipeline, tex, surface ->
         ComposeBindGroup(pipeline, tex, surface)
     }
+
+    val frameLifecycle = fullscreenQuadLifecycle.bind(bindGroupLifecycle,"Compose Frame"){ pipeline, group ->
+        ComposeFrame(pipeline, group)
+    }
+
 
     /**
      * Should be called every frame to draw Compose content
      */
-    fun frame(encoder: GPUCommandEncoder, drawTarget: GPUTextureView) {
-
+    fun frame(encoder: GPUCommandEncoder, drawTarget: GPUTextureView, composeFrame: ComposeFrame) {
         val renderPassDescriptor = RenderPassDescriptor(
             colorAttachments = listOf(
                 RenderPassColorAttachment(
@@ -194,11 +251,23 @@ class ComposeWebGPURenderer(
 
         // Create bind group for the sampler, and texture
         val pass = encoder.beginRenderPass(renderPassDescriptor)
-        pass.setPipeline(fullscreenQuad.pipeline)
-        pass.setBindGroup(0u, bindGroup.group)
+//        val pipeline = fullscreenQuadLifecycle.assertValue.pipeline
+//        println("Compose pipeline = $pipeline")
+        pass.setPipeline(composeFrame.pipeline.pipeline)
+//        pass.setPipeline()
+        pass.setBindGroup(0u, composeFrame.bindGroup.group)
         pass.draw(6u)
         pass.end()
     }
+
+
+//    fun frame(encoder: GPUCommandEncoder, drawTarget: GPUTextureView) {
+//
+//
+//    }
+
+
+
 
     /**
      * These callbacks should be called when these events occur to let Compose know what is happening
@@ -207,3 +276,7 @@ class ComposeWebGPURenderer(
 
 //    fun restart() = compose.restart()
 }
+
+data class ComposeFrame(
+    val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup
+)

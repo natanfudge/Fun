@@ -104,9 +104,6 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
-// TODO:
-// 1. Start catching wgpu errors with new api
-// 2. Visualize tree
 
 
 @OptIn(ExperimentalAtomicApi::class)
@@ -156,7 +153,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    val bindGroupLifecycle = cubeLifecycle.bind2(surfaceLifecycle,"Fun BindGroup") { pipeline, surface ->
+    val bindGroupLifecycle = cubeLifecycle.bind(surfaceLifecycle,"Fun BindGroup") { pipeline, surface ->
         surface.ctx.device.createBindGroup(
             BindGroupDescriptor(
                 layout = pipeline.pipeline.getBindGroupLayout(0u),
@@ -173,14 +170,17 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     }
 
 
-    val cube by cubeLifecycle
+//    val cube by cubeLifecycle
 
     val x = 1 to 2
 
 
-    frameLifecycle.bind4(
-        surfaceLifecycle,funDimLifecycle, bindGroupLifecycle,"Fun Frame", FunLogLevel.Verbose
-    ) { frame, surface, dimensions, bindGroup ->
+
+    frameLifecycle.bind(
+        surfaceLifecycle,funDimLifecycle, bindGroupLifecycle,cubeLifecycle,
+        compose.frameLifecycle,
+        "Fun Frame", FunLogLevel.Verbose
+    ) { frame, surface, dimensions, bindGroup,cube, composeFrame ->
 //        println(x.first)
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
@@ -227,13 +227,15 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         pass.end()
 
 
-        compose.frame(commandEncoder, textureView)
+        compose.frame(commandEncoder, textureView, composeFrame)
 
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
         ctx.context.present()
     }
 
 }
+
+
 
 
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {

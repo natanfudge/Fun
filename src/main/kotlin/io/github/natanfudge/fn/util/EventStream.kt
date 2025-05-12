@@ -1,5 +1,8 @@
 package io.github.natanfudge.fn.util
 
+import io.github.natanfudge.fn.error.UnfunStateException
+import java.util.function.Consumer
+
 
 /**
  * Allows listening to changes of an object via the [listen] method.
@@ -13,7 +16,7 @@ interface EventStream<T> {
      * and unnecessary processing.
      * @see EventStream
      */
-    fun listen(onEvent: (T) -> Unit): Listener<T>
+    fun listen(onEvent: Consumer<T>): Listener<T>
 }
 
 
@@ -22,7 +25,7 @@ interface EventStream<T> {
  * to stop listening. This is typically returned by [EventStream.listen].
  * @see EventStream
  */
-class Listener<in T>(internal val callback: (T) -> Unit, private val observable: MutEventStream<T>): AutoCloseable {
+class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>): AutoCloseable {
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
@@ -54,8 +57,9 @@ class MutEventStream<T> : EventStream<T> {
     private val listeners = mutableListOf<Listener<T>>()
 
     /** @see EventStream */
-    override fun listen(onEvent: (T) -> Unit): Listener<T> {
+    override fun listen(onEvent: Consumer<T>): Listener<T> {
         val listener = Listener(onEvent, this)
+        println("Adding listener: $onEvent")
         listeners.add(listener)
         return listener
     }
@@ -66,7 +70,7 @@ class MutEventStream<T> : EventStream<T> {
      */
     fun emit(value: T) {
         // Iterate over a copy in case a listener detaches itself during the callback
-        listeners.toList().forEach { it.callback(value) }
+        listeners.toList().forEach { it.callback.accept(value) }
     }
 
     /**
@@ -75,8 +79,10 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     internal fun detach(listener: Listener<T>) {
-        listeners.remove(listener)
+        println("Removing listener: ${listener.callback}")
+        if(!listeners.remove(listener)) throw UnfunStateException("Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
     }
 }
+
 
 

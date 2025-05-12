@@ -16,7 +16,7 @@ import org.intellij.lang.annotations.Language
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 sealed interface ShaderSource {
-    data class RawString(@Language("WGSL") val shader: String, val name: String = "Main") : ShaderSource
+    data class RawString(@param:Language("WGSL") val shader: String, val name: String = "Main") : ShaderSource
 
     /**
      * Will be fetched from `files/shaders/${path}.wgsl`

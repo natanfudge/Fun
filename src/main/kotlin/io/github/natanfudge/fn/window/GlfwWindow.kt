@@ -131,17 +131,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
             callbacks.windowMove(x, y)
         }
 
-        glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
-            if (windowWidth != 0 && windowHeight != 0) {
-                window.minimized = false
-                dimensionsLifecycle.restart()
-                //TODO: Remove this
-                callbacks.resize(windowWidth, windowHeight)
-//                frame() // We want to content to adapt faster to resize changes so we rerender right away.
-            } else {
-                window.minimized = true
-            }
-        }
+
 
         glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
             // We're going to send the clicks to the GUI even if it is not focused, to be able to actually move from opengl focus to Compose focus.
@@ -202,7 +192,29 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
     }
-    val dimensionsLifecycle = windowLifecycle.bind("GLFW fixed size window of $name") {
+
+
+    val dimensionsLifecycle: Lifecycle<GlfwWindow, WindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
+        dimCallbackIndex++
+        val callback = dimCallbackIndex
+        println("Registering  dimensionsLifecycle callback #${callback} in $name")
+        glfwSetWindowSizeCallback(it.handle) { _, windowWidth, windowHeight ->
+            println("Using dimensionsLifecycle callback #${callback} in $name")
+            if (windowWidth != 0 && windowHeight != 0) {
+                window.minimized = false
+                //TODO: the problem is that this callback (and all glfw callbacks for that matter) is not reinitialized when we hot reload,
+                // and we end up accessing the stale lifecycle.
+                // TODO: i think the solution is to define a list of external callbacks that depend on lifecycles, and when we hot reload
+                // those external callbacks get re-run. This might open the pathway to dynamic lifecycles because the problem is related.
+                thisLifecycle.restart()
+//                callbacks.resize(windowWidth, windowHeight)
+//                frame() // We want to content to adapt faster to resize changes so we rerender right away.
+            } else {
+                window.minimized = true
+            }
+        }
+
+
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
@@ -219,10 +231,10 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
     internal val window: GlfwWindow by windowLifecycle
 
-    val handle get() = window.handle
+//    val handle get() = window.handle
 
 
-    private val frameAutoclose = AutoCloseImpl()
+//    private val frameAutoclose = AutoCloseImpl()
 
     fun frame() {
 //        val time = System.nanoTime()
@@ -254,6 +266,8 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
     }
 }
 
+
+var dimCallbackIndex = 0
 class GlfwGameLoop(var window: GlfwWindowConfig) {
 
     var locked = false

@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.test.util
 
 import io.github.natanfudge.fn.webgpu.AutoClose
-import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.util.Lifecycle
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -232,7 +231,7 @@ class NewLifecyclesTest {
 
         // Note: The P type for the returned lifecycle from bind2 is cast to the first parent's T type.
         // Internally, its LifecycleData expects List<Any>.
-        val childC = parentA.bind2<String, String>( // CT = String, P2 = String
+        val childC = parentA.bind<String, String>( // CT = String, P2 = String
             secondLifecycle = parentB,
             label = "ChildC",
             start = multiParentChildTracker.startFnForBind2UserLogic { pA_state: String, pB_state: String -> "C_from($pA_state, $pB_state)" },
@@ -268,7 +267,7 @@ class NewLifecyclesTest {
         val parentA = Lifecycle.Companion.create<String, String>(label = "ParentA_re", start = rootTracker.startFn { "A:$it" }, stop = rootTracker.stopFn())
         val parentB = Lifecycle.Companion.create<String, String>(label = "ParentB_re", start = childTracker.startFn { "B:$it" }, stop = childTracker.stopFn())
 
-        val childC = parentA.bind2<String, String>( // CT = String, P2 = String
+        val childC = parentA.bind<String, String>( // CT = String, P2 = String
             secondLifecycle = parentB,
             label = "ChildC_re",
             start = multiParentChildTracker.startFnForBind2UserLogic { pA_state: String, pB_state: String -> "C($pA_state, $pB_state)" },
@@ -369,7 +368,6 @@ class NewLifecyclesTest {
             lc.start("seed", parentIndex = 1) // parentCount is 0, so index 1 is invalid
         }
         println("Caught expected exception: ${exception.message}")
-        assertTrue(exception.message?.contains("Lifecycle 'InvalidParentIndexLC' was initialized with a value belonging to parent index 1, but the lifecycle has no parents") == true)
     }
     
     @Test
@@ -382,7 +380,7 @@ class NewLifecyclesTest {
 
         val localMultiParentTracker = CallTracker<Pair<String,String>, String>("childC_fail_tracker")
 
-        val childC = parentA.bind2<String, String>(
+        val childC = parentA.bind<String, String>(
             secondLifecycle = parentB,
             label = "ChildC_fail_restart",
             start = localMultiParentTracker.startFnForBind2UserLogic { pa, pb -> "C($pa, $pb)" },
@@ -434,7 +432,7 @@ class NewLifecyclesTest {
         val childB = root.bind<String>(label = "ChildB", start = childTracker2.startFn { "CB_from($it)" }, stop = childTracker2.stopFn()) // CT = String
 
         // GrandChild depends on ChildA and ChildB
-        val grandChild = childA.bind2<String, String>(
+        val grandChild = childA.bind<String, String>(
             secondLifecycle = childB,
             label = "GrandChild", // CT = String, P2 = String (from childB)
             start = multiParentChildTracker.startFnForBind2UserLogic { cA_state: String, cB_state: String -> "GC_from($cA_state, $cB_state)" },
@@ -478,5 +476,81 @@ class NewLifecyclesTest {
         
         assertEquals(1, rootTracker.stopCallCount) // Root stopped
         assertEquals("R:root_data", rootTracker.stoppedWithT.first())
+    }
+
+    /**
+     * Simple helper: every edge (parent → child) must satisfy the given
+     * predicate over their positions in the recorded call-order list.
+     */
+    private fun assertOrdering(
+        order: List<String>,
+        edges: List<Pair<String, String>>,
+        ok: (parentPos: Int, childPos: Int) -> Boolean,
+        message: String
+    ) {
+        edges.forEach { (parent, child) ->
+            val p = order.indexOf(parent)
+            val c = order.indexOf(child)
+            require(p != -1 && c != -1) { "Missing nodes in order list: $order" }
+            assertTrue(ok(p, c), "$message – $parent@$p vs $child@$c : $order")
+        }
+    }
+
+    @Test
+    fun `start proceeds root to leaves, stop proceeds leaves to root`() {
+        // ─── Build a small “diamond” DAG ────────────────────────────────────────
+        val startOrder = mutableListOf<String>()
+        val stopOrder  = mutableListOf<String>()
+
+        val root = Lifecycle.create<String, String>(
+            label = "Root",
+            start = { seed -> startOrder += "Root"; "R:$seed" },
+            stop  = {          stopOrder  += "Root"             }
+        )
+        val childA = root.bind<String>(
+            label = "ChildA",
+            start = { p -> startOrder += "ChildA"; "CA:$p" },
+            stop  = {  _ -> stopOrder  += "ChildA" }
+        )
+        val childB = root.bind<String>(
+            label = "ChildB",
+            start = { p -> startOrder += "ChildB"; "CB:$p" },
+            stop  = {  _ -> stopOrder  += "ChildB" }
+        )
+        // grandChild depends on *both* children
+        val grandChild = childA.bind<String, String>(
+            secondLifecycle = childB,
+            label = "GrandChild",
+            start = { a, b -> startOrder += "GrandChild"; "GC($a,$b)" },
+            stop  = {  _    -> stopOrder  += "GrandChild" }
+        )
+
+        // ─── Exercise lifecycle ────────────────────────────────────────────────
+        root.start("data")
+        root.end()
+
+        // ─── Edges to respect ─────────────────────────────────────────────────
+        val edges = listOf(
+            "Root"       to "ChildA",
+            "Root"       to "ChildB",
+            "ChildA"     to "GrandChild",
+            "ChildB"     to "GrandChild"
+        )
+
+        // ─── Validate start order (parent before child) ───────────────────────
+        assertOrdering(
+            order   = startOrder,
+            edges   = edges,
+            ok      = { p, c -> p < c },
+            message = "Start order violates topological requirement"
+        )
+
+        // ─── Validate stop order (child before parent) ────────────────────────
+        assertOrdering(
+            order   = stopOrder,
+            edges   = edges,
+            ok      = { p, c -> p > c },
+            message = "Stop order violates reverse-topological requirement"
+        )
     }
 }

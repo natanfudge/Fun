@@ -6,6 +6,7 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
+import io.github.natanfudge.fn.compose.ComposeGlfwWindow
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
@@ -65,7 +66,8 @@ class WebGPUException(error: GPUError): Exception("WebGPU Error: $error")
 
 data class WebGPUFixedSizeSurface(
     val surface: WebGPUContext,
-    val dimensions: WindowDimensions
+    val dimensions: WindowDimensions,
+//    val window: ComposeGlfwWindow
 )
 
 data class WebGPUFrame(
@@ -111,7 +113,7 @@ class WebGPUWindow(config: WindowConfig) {
     }
 
     // HACK: early = true here is just bandaid I feel like for proper close ordering. If you don't do this the wgpu surface can crash on resize.
-    val dimensionsLifecycle = window.dimensionsLifecycle.bind2(surfaceLifecycle, "WebGPU Dimensions", early1 = true) { dim, surface ->
+    val dimensionsLifecycle = window.dimensionsLifecycle.bind(surfaceLifecycle, "WebGPU Dimensions", early1 = true) { dim, surface ->
         surface.context.configure(
             SurfaceConfiguration(
                 surface.device, format = surface.presentationFormat
@@ -127,7 +129,7 @@ class WebGPUWindow(config: WindowConfig) {
 
 
 
-    val frameLifecycle = window.frameLifecycle.bind2(dimensionsLifecycle,"WebGPU Frame", FunLogLevel.Verbose) {frame, dim ->
+    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle,"WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
         WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
     }
 
