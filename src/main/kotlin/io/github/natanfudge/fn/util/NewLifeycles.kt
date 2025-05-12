@@ -25,6 +25,7 @@ import kotlin.reflect.KProperty
  * [P] is the type of the parent(s) of this lifecycle, and [T] is the type of the root of this lifecycle.
  * Note that we don't do `Lifecycle<P,T> = MutableTree<P,T>` because that would signify everything is `<P,T>` all the way down, which is not true.
  */
+//TODO: stop using ReadOnlyProperty it causes bugs
 class Lifecycle<P : Any, T : Any> private constructor(internal val tree: LifecycleTree) : ReadOnlyProperty<Any?, T> {
     companion object {
         fun <P : Any, T : Any> create(
@@ -67,32 +68,56 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * Passing null to [seedValue] would try to start the lifecycle with its existing data. It's recommended to use restart() for this purpose.
      */
     fun start(seedValue: P?, parentIndex: Int = 0) {
-        // The visitCounter tracks how many times each lifecycle node was visited.
-        // For single-parent nodes, we can just run them immediately without tracking their visit counter.
-        // For multi-parent nodes, initially, we will first increment their visit counter at the first visits, and when the final parent has visited
-        // we will run them normally.
-        // Afterwards, if all nodes have been visited and we have outstanding multi-parent nodes who have some parents that are never going to visit them,
-        // we will try to rerun them anyway, using their existing data.
-        val visitCounter = mutableMapOf<LifecycleTree, Int>()
-        startRecur(seedValue, parentIndex, visitCounter)
-
-        while (visitCounter.isNotEmpty()) {
-            // Just take one out arbitrarily.
-            // The idea now is to "squeeze out" the last remaining nodes that could possibly be rerun with partial new data.
-            // As soon as another node is run, it could satisfy the requirements of other nodes, unblocking the entire tree traversal.
-            val nextUnblockAttempt = visitCounter.keys.first()
-            visitCounter.remove(nextUnblockAttempt)
-            val wrapped = Lifecycle<Any, Any>(nextUnblockAttempt)
-            // null seedValue as we are not adding any new seed data, just using the existing one
-            // parentIndex is just a placeholder value, it will not be used
-            wrapped.startRecur(seedValue = null, parentIndex = 0, visitCounter)
+        val order = tree.topologicalSort()
+        for ((parents, child) in order) {
+            child as LifecycleData<Any, Any>
+            //TODO: there should just be one startSingle(List) method that sets all of the values and runs always
+            for (parent in parents) {
+                val parentValue =
+                    parent.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
+                child.startSingle(seedValue = parentValue, parentIndex = parent.childIndex, canRun = false)
+            }
+            if (parents.isEmpty()) child.startSingle(seedValue, parentIndex, canRun = false)
+            child.startSingle(null, parentIndex = -1, canRun = true)
+//            if(parent == null) {
+//                // Root node
+//                child as LifecycleData<P, T>
+//                child.startSingle(seedValue,parentIndex, canRun = true)
+//            } else {
+//                child as LifecycleData<Any,Any>
+//
+//            }
         }
+//        // The visitCounter tracks how many times each lifecycle node was visited.
+//        // For single-parent nodes, we can just run them immediately without tracking their visit counter.
+//        // For multi-parent nodes, initially, we will first increment their visit counter at the first visits, and when the final parent has visited
+//        // we will run them normally.
+//        // Afterwards, if all nodes have been visited and we have outstanding multi-parent nodes who have some parents that are never going to visit them,
+//        // we will try to rerun them anyway, using their existing data.
+//        val visitCounter = mutableMapOf<LifecycleTree, Int>()
+//        //TODo: what i did doesn't work because inserted first doesn't mean should run first, sometimes children are visited before their parents and
+//        // are just not run.
+//        startRecur(seedValue, parentIndex, visitCounter)
+//
+//        while (visitCounter.isNotEmpty()) {
+//            // Just take one out arbitrarily.
+//            // The idea now is to "squeeze out" the last remaining nodes that could possibly be rerun with partial new data.
+//            // As soon as another node is run, it could satisfy the requirements of other nodes, unblocking the entire tree traversal.
+//            val nextUnblockAttempt = visitCounter.keys.first()
+//            visitCounter.remove(nextUnblockAttempt)
+//            val wrapped = Lifecycle<Any, Any>(nextUnblockAttempt)
+//            // null seedValue as we are not adding any new seed data, just using the existing one
+//            // parentIndex is just a placeholder value, it will not be used
+//            wrapped.startRecur(seedValue = null, parentIndex = 0, visitCounter)
+//        }
     }
 
     /**
      * Ends this and all children recursively, bottom up, so children are closed before their parents.
      */
     fun end() {
+        //Todo: use a reverse topolgical sort and see if that fixes our issues
+
         // note that this might not work for cases where a specific close order is desired.
         tree.visitBottomUpUnique {
             it.endSingle()
@@ -173,6 +198,8 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
+        early1: Boolean = false,
+        early2: Boolean = false,
         start: (T, P2) -> CT,
     ): Lifecycle<T, CT> {
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
@@ -180,8 +207,60 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
             val parentB = parents[1] as P2
             start(parentA, parentB)
         })
+        this.bind(ls, early1)
+        secondLifecycle.bind(ls, early2)
+        return ls as Lifecycle<T, CT>
+    }
+
+    /**
+     * Calls [start] when `this`, [secondLifecycle], [thirdLifecycle] start, and [stop] when they stop.
+     */
+    fun <CT : Any, P2 : Any, P3 : Any> bind3(
+        secondLifecycle: Lifecycle<*, P2>,
+        thirdLifecycle: Lifecycle<*, P3>,
+        label: String,
+        logLevel: FunLogLevel = FunLogLevel.Debug,
+        stop: (CT) -> Unit = {},
+        early1: Boolean = false,
+        early2: Boolean = false,
+        early3: Boolean = false,
+        start: AutoClose.(T, P2, P3) -> CT,
+    ): Lifecycle<T, CT> {
+        val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
+            val parentA = parents[0] as T
+            val parentB = parents[1] as P2
+            val parentC = parents[2] as P3
+            start(parentA, parentB, parentC)
+        })
+        this.bind(ls, early1)
+        secondLifecycle.bind(ls, early2)
+        thirdLifecycle.bind(ls, early3)
+        return ls as Lifecycle<T, CT>
+    }
+
+    /**
+     * Calls [start] when `this`, [secondLifecycle], [thirdLifecycle] start, and [stop] when they stop.
+     */
+    fun <CT : Any, P2 : Any, P3 : Any, P4 : Any> bind4(
+        secondLifecycle: Lifecycle<*, P2>,
+        thirdLifecycle: Lifecycle<*, P3>,
+        fourthLifecycle: Lifecycle<*, P4>,
+        label: String,
+        logLevel: FunLogLevel = FunLogLevel.Debug,
+        stop: (CT) -> Unit = {},
+        start: AutoClose.(T, P2, P3, P4) -> CT,
+    ): Lifecycle<T, CT> {
+        val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
+            val parentA = parents[0] as T
+            val parentB = parents[1] as P2
+            val parentC = parents[2] as P3
+            val parentD = parents[3] as P4
+            start(parentA, parentB, parentC, parentD)
+        })
         this.bind(ls)
         secondLifecycle.bind(ls)
+        thirdLifecycle.bind(ls)
+        fourthLifecycle.bind(ls)
         return ls as Lifecycle<T, CT>
     }
 
@@ -479,11 +558,11 @@ fun main() {
     val dimensions = window.bind("Dimensions", start = { it }, stop = {})
 
 
-    val wgpuSurface = window.bind("WebGPU Surface", start = { it }, stop = {})
-    val wgpuDimensions = dimensions.bind2(wgpuSurface, "WebGPU Dimensions", start = { dim, surface -> dim + surface }, stop = {})
-    val composeTexture = wgpuDimensions.bind("Compose Texture", start = { it }, stop = {})
-    val composePipeline = wgpuSurface.bind("Compose Pipeline", start = { it }, stop = {})
-    val composeBindGroup = composePipeline.bind2(composeTexture, "Compose BindGroup", start = { pipeline, tex -> pipeline + tex }, stop = {})
+    val wgpuSurface = window.bind("tesgpu Surface", start = { it }, stop = {})
+    val wgpuDimensions = dimensions.bind2(wgpuSurface, "testgpu Dimensions", start = { dim, surface -> dim + surface }, stop = {})
+    val composeTexture = wgpuDimensions.bind("compotest Texture", start = { it }, stop = {})
+    val composePipeline = wgpuSurface.bind("compotest Pipeline", start = { it }, stop = {})
+    val composeBindGroup = composePipeline.bind2(composeTexture, "compotest BindGroup", start = { pipeline, tex -> pipeline + tex }, stop = {})
 
 
     window.start(0.5f)

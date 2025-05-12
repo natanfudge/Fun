@@ -11,6 +11,68 @@ interface Tree<out T> {
     val children: List<Tree<T>>
 }
 
+
+/*
+ * Helper records
+ * ──────────────
+ */
+data class NodeParent<T>(
+    /** parent.value                      */ val value: T,
+    /** index of the child in parent.children */ val childIndex: Int
+)
+
+/** A node plus *all* of its parents (root ⇒ parents == emptyList()) */
+data class TreeEdge<T>(
+    val parents: List<NodeParent<T>>,
+    val child: T
+)
+
+
+
+/** Returns each reachable node exactly once in parent-before-child order. */
+fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
+    /* STEP 1 – DFS reachability & parent collection */
+    val allNodes = mutableSetOf<Tree<T>>()
+    val parents  = mutableMapOf<Tree<T>, MutableList<NodeParent<T>>>()
+
+    fun dfs(node: Tree<T>) {
+        if (!allNodes.add(node)) return            // already seen
+        node.children.forEachIndexed { idx, child ->
+            parents.getOrPut(child) { mutableListOf() }
+                .add(NodeParent(node.value, idx))
+            dfs(child)                             // recurse once per child
+        }
+    }
+    dfs(this)                                     // start from the receiver
+
+    /* STEP 2 – in-degree table from the parents map */
+    val inDeg = mutableMapOf<Tree<T>, Int>().withDefault { 0 }
+    parents.forEach { (child, plist) -> inDeg[child] = plist.size }
+    allNodes.forEach { inDeg.putIfAbsent(it, 0) } // roots default to 0
+
+    /* STEP 3 – Kahn’s queue seeded with every zero-in-degree node */
+    val queue  = ArrayDeque(allNodes.filter { inDeg.getValue(it) == 0 })
+    val result = mutableListOf<TreeEdge<T>>()
+
+    /* STEP 4 – main loop */
+    while (queue.isNotEmpty()) {
+        val node = queue.removeFirst()
+        result += TreeEdge(parents[node].orEmpty(), node.value)
+
+        node.children.forEach { child ->
+            val d = inDeg.getValue(child) - 1
+            inDeg[child] = d
+            if (d == 0) queue.add(child)
+        }
+    }
+
+    /* STEP 5 – sanity check */
+    check(result.size == allNodes.size) { "Graph contains a cycle" }
+    return result
+}
+
+
+
 interface MutableTree<T> : Tree<T> {
     override val children: MutableList<MutableTree<T>>
 }

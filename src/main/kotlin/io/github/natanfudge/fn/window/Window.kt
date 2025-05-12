@@ -22,8 +22,10 @@ data class WindowConfig(
 
 //TODO: needs to be refactored
 interface RepeatingWindowCallbacks {
+    //TODO: we don't use this anymore
     fun AutoClose.frame(deltaMs: Double) {}
 
+    //TODO: this one can be removed we don't use it
     /**
      * Will be called once on startup as well
      */

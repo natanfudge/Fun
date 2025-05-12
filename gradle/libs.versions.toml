@@ -6,7 +6,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
 
 [versions]
-kotlin = "2.1.20"
+kotlin = "2.2.0-Beta2"
 compose = "1.7.3"
 lwjgl = "3.3.6"
 serializationJson = "1.8.0"

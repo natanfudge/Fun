@@ -7,9 +7,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.core.RootLifecycles
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -34,6 +32,9 @@ data class WindowDimensions(
 )
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
+    override fun toString(): String {
+        return "GLFW Window $handle"
+    }
     private val waitingTasks = mutableListOf<() -> Unit>()
 
     var lastFrameTimeNano = System.nanoTime()
@@ -70,6 +71,21 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
             glfwMakeContextCurrent(handle)
         }
         glfwDestroyWindow(handle)
+    }
+}
+
+class GlfwFrame(
+    val window: GlfwWindow,
+) {
+    val time = System.nanoTime()
+    val deltaMs = (time - window.lastFrameTimeNano).toDouble() / 1e6
+
+    init {
+        window.lastFrameTimeNano = time
+    }
+
+    override fun toString(): String {
+        return "Frame delta=$deltaMs, window=$window"
     }
 }
 
@@ -119,8 +135,9 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
             if (windowWidth != 0 && windowHeight != 0) {
                 window.minimized = false
                 dimensionsLifecycle.restart()
+                //TODO: Remove this
                 callbacks.resize(windowWidth, windowHeight)
-                frame() // We want to content to adapt faster to resize changes so we rerender right away.
+//                frame() // We want to content to adapt faster to resize changes so we rerender right away.
             } else {
                 window.minimized = true
             }
@@ -191,11 +208,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         glfwGetWindowSize(it.handle, w, h)
         WindowDimensions(w[0], h[0], it.handle)
     }
-    val frameLifecycle = Lifecycle.create<Double, Double>("GLFW Frame of $name", FunLogLevel.Verbose) {
-        it
-    }.also {
-        RootLifecycles.add(it)
+    val frameLifecycle = dimensionsLifecycle.bind("GLFW Frame of $name", FunLogLevel.Verbose) {
+        GlfwFrame(window)
     }
+//        .also {
+//        RootLifecycles.add(it)
+//    }
 
     private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
 
@@ -207,20 +225,22 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
     private val frameAutoclose = AutoCloseImpl()
 
     fun frame() {
-        val time = System.nanoTime()
-        val delta = time - window.lastFrameTimeNano
-        window.lastFrameTimeNano = time
-        frameAutoclose.use {
-            val deltaMs = delta.toDouble() / 1e6
+//        val time = System.nanoTime()
+//        val delta = time - window.lastFrameTimeNano
+//        window.lastFrameTimeNano = time
+//        frameAutoclose.use {
+//            val deltaMs = delta.toDouble() / 1e6
 
 
-            frameLifecycle.start(deltaMs)
-            with(callbacks) {
-                it.frame(deltaMs)
-            }
-            //TODO: we can do away with WindowCallbacks#init, resize, frame soon, getting rid of frame might be hard because we need present() to run AFTER. in that case we can just put it in the code I think. or on the close of the frame on the WEBGPU parent!
-            frameLifecycle.end()
-        }
+        frameLifecycle.restart()
+
+////            frameLifecycle.start(deltaMs)
+//            with(callbacks) {
+//                it.frame(deltaMs)
+//            }
+//            //TODO: we can do away with WindowCallbacks#init, resize, frame soon, getting rid of frame might be hard because we need present() to run AFTER. in that case we can just put it in the code I think. or on the close of the frame on the WEBGPU parent!
+//            frameLifecycle.end()
+//        }
     }
 
     fun setCallbacks(callbacks: RepeatingWindowCallbacks) {

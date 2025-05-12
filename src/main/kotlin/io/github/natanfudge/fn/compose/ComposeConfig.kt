@@ -13,6 +13,7 @@ import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.util.FunLogLevel
+import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.window.*
 import org.jetbrains.skia.*
@@ -31,11 +32,12 @@ import java.nio.ByteBuffer
 class FixedSizeComposeWindow(
     val width: Int,
     val height: Int,
-    context: DirectContext,
+    val window: ComposeGlfwWindow,
+//    context: DirectContext,
 ) : AutoCloseable {
     // Skia Surface, bound to the OpenGL context
     val surface = glDebugGroup(0, groupName = { "Compose Surface Init" }) {
-        createSurface(width, height, context)
+        createSurface(width, height, window.context)
     }
     val canvas = surface.canvas.asComposeCanvas()
 
@@ -43,6 +45,10 @@ class FixedSizeComposeWindow(
     val frameByteBuffer = MemoryUtil.memAlloc(width * height * 4)
 
     var invalid = true
+
+    override fun toString(): String {
+        return "Compose Window w=$width, h=$height"
+    }
 
     override fun close() {
         surface.close()
@@ -54,6 +60,7 @@ class FixedSizeComposeWindow(
 class ComposeGlfwWindow(
     initialWidth: Int,
     initialHeight: Int,
+    val handle: WindowHandle,
     private val density: Density,
     private val composeContent: @Composable () -> Unit,
     private val onInvalidate: () -> Unit,
@@ -100,8 +107,14 @@ data class ComposeFrameEvent(
     val height: Int,
 )
 
+
+
+
+
 class ComposeConfig(
     host: GlfwWindowConfig,
+//    hostWebGPURenderer: ComposeWebGPURenderer, // Kinda breaking encapsulation here but I don't have a choice because I need the frame
+//// to run AFTER the
     val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
@@ -114,90 +127,111 @@ class ComposeConfig(
     val windowLifecycle = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
         glDebugGroup(1, groupName = { "Compose Init" }) {
             ComposeGlfwWindow(
-                it.init.initialWindowWidth, it.init.initialWindowHeight,
+                it.init.initialWindowWidth, it.init.initialWindowHeight,it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 content
             ) {
-                dimensions.invalid = true
+                // Invalidate Compose frame on change
+                dimensionsLifecycle.assertValue.invalid = true
             }
         }
     }
 
     val window: ComposeGlfwWindow by windowLifecycle
-    val frame = MutEventStream<ComposeFrameEvent>()
+    val frameStream = MutEventStream<ComposeFrameEvent>()
 
-    val dimensionsLifecycle = glfw.dimensionsLifecycle.bind("Compose Fixed Size Window") {
-        GLFW.glfwSetWindowSize(it.handle, it.width, it.height)
-        window.scene.size = IntSize(it.width, it.height)
+//    val resizeOnHostWindowResize = host.dimensionsLifecycle.bind("Compose Resize Adapt") {
+//        GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, it.width, it.height)
+//    }
 
-        FixedSizeComposeWindow(it.width, it.height, window.context)
+    //TODO: I know what happened. It's because of the ordering of unblocking. Both "'Compose Fixed Size Window'" and 'Compose Frame Store' are blocked.
+    // A node is then chosen randomly to be unblocked, when in fact "'Compose Fixed Size Window'" should always be unblocked first.
+    val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> = host.dimensionsLifecycle.bind2(windowLifecycle,"Compose Fixed Size Window") { dim, window ->
+        GLFW.glfwSetWindowSize(dim.handle, dim.width, dim.height)
+        window.scene.size = IntSize(dim.width, dim.height)
+
+        FixedSizeComposeWindow(dim.width, dim.height, window)
     }
 
-    val dimensions by dimensionsLifecycle
+//    val dimensions by dimensionsLifecycle
 
     init {
+//        val resize = dimensionsLifecycle.bind("Background Window Resize") {
+//            GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, it.width, it.height)
+//        }
         // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
-        host.frameLifecycle.bind("Compose Frame Store", FunLogLevel.Verbose, early = true) {
-            frame()
-        }
-    }
-
-    private fun frame() {
-        window.dispatcher.poll()
-        if (dimensions.invalid) {
-            GLFW.glfwMakeContextCurrent(this@ComposeConfig.glfw.handle)
-            draw()
-            glfwSwapBuffers(this@ComposeConfig.glfw.handle)
-            dimensions.invalid = false
-        }
-    }
-
-
-    private fun draw() = glDebugGroup(5, groupName = { "Compose Render" }) {
-        try {
-            // When updates are needed - render new content
-            renderSkia()
-        } catch (e: Throwable) {
-            System.err.println("Error during Skia rendering! This is usually a Compose user error.")
-            e.printStackTrace()
+        // Also we need
+        host.frameLifecycle.bind2(dimensionsLifecycle,"Compose Frame Store", FunLogLevel.Debug, early1 = true) {delta, dim ->
+            val window = dim.window
+            window.dispatcher.poll()
+            if (dim.invalid) {
+                GLFW.glfwMakeContextCurrent(window.handle)
+                println("Before compose draw")
+                dim.draw()
+                println("AFter compose draw")
+                glfwSwapBuffers(window.handle)
+                dim.invalid = false
+            }
         }
 
-        // SLOW: This method of copying the frame into ByteArrays and then drawing them as a texture is extremely slow, but there
-        // is probably no better alternative at the moment. We need some way to draw skia into a WebGPU context.
-        // For that we need:
-        // A. Skiko vulkan support
-        // B. Skiko graphite support for WebGPU support
-        // C. Compose skiko vulkan / webgpu / metal support
-        // D. Integrate the rendering with each rendering api separately - we need to 'fetch' the vulkan context in our main webgpu app, and draw compose on top of it, and same for the other APIs.
-
-        glReadPixels(0, 0, dimensions.width, dimensions.height, GL_RGBA, GL_UNSIGNED_BYTE, dimensions.frameByteBuffer)
-        val buffer = getFrameBytes()
-        buffer.get(dimensions.frame)
-
-        frame.emit(ComposeFrameEvent(dimensions.frame, dimensions.width, dimensions.height))
     }
 
 
-    private fun renderSkia() {
+    private fun FixedSizeComposeWindow.draw() {
+        println("Before glDebugGroup")
+        glDebugGroup(5, groupName = { "Compose Render" }) {
+            println("After glDebugGroup")
+            try {
+                // When updates are needed - render new content
+                renderSkia()
+                println("After renderSkia")
+            } catch (e: Throwable) {
+                System.err.println("Error during Skia rendering! This is usually a Compose user error.")
+                e.printStackTrace()
+            }
+
+            // SLOW: This method of copying the frame into ByteArrays and then drawing them as a texture is extremely slow, but there
+            // is probably no better alternative at the moment. We need some way to draw skia into a WebGPU context.
+            // For that we need:
+            // A. Skiko vulkan support
+            // B. Skiko graphite support for WebGPU support
+            // C. Compose skiko vulkan / webgpu / metal support
+            // D. Integrate the rendering with each rendering api separately - we need to 'fetch' the vulkan context in our main webgpu app, and draw compose on top of it, and same for the other APIs.
+
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, frameByteBuffer)
+            println("After glReadPixels")
+            val buffer = getFrameBytes()
+            println("After getFrameBytes")
+            buffer.get(frame)
+
+            println("Pushing new frame")
+            frameStream.emit(ComposeFrameEvent(frame, width, height))
+        }
+    }
+
+
+    private fun FixedSizeComposeWindow.renderSkia() {
+        println("Before glClearColor")
         // Set color explicitly because skia won't reapply it every time
         glClearColor(0f, 0f, 0f, 0f)
+        println("After glClearColor")
         glDebugGroup(2, groupName = { "Compose Canvas Clear" }) {
-            dimensions.surface.canvas.clear(Color.TRANSPARENT)
+            surface.canvas.clear(Color.TRANSPARENT)
         }
+        println("After clear")
 
         // Render to the framebuffer
         glDebugGroup(3, groupName = { "Compose Render Content" }) {
-            window.scene.render(dimensions.canvas, System.nanoTime())
+            window.scene.render(canvas, System.nanoTime())
         }
+        println("After render")
         glDebugGroup(4, groupName = { "Compose Flush" }) {
             window.context.flush()
         }
+        println("After flush")
     }
 
-    private fun getFrameBytes(): ByteBuffer {
-        val width = dimensions.width
-        val height = dimensions.height
-
+    private fun FixedSizeComposeWindow.getFrameBytes(): ByteBuffer {
         val buffer = MemoryUtil.memAlloc(width * height * 4)
         glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
         return buffer
@@ -227,11 +261,11 @@ class ComposeConfig(
         }
 
         override fun resize(width: Int, height: Int) {
-            if (!windowLifecycle.isInitialized) return
-
-
-            // Resize dummy window to match
-            GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, width, height)
+//            if (!windowLifecycle.isInitialized) return
+//
+//
+//            // Resize dummy window to match
+//            GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, width, height)
         }
 
         override fun densityChange(newDensity: Density) {

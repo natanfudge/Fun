@@ -25,7 +25,7 @@ sealed interface ShaderSource {
     data class HotFile(val path: String) : ShaderSource
 }
 
-class FunPipeline(
+class ReloadingPipeline(
     val vertexShaderCode: String,
     val fragmentShaderCode: String,
     descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
@@ -33,7 +33,7 @@ class FunPipeline(
     // On the other hand when the surface changes ctx does change and then you get old values for the children of this
 ) : AutoCloseable {
     override fun toString(): String {
-        return "Fun Pipeline with ${vertexShaderCode.length} chars of vertex shader and ${fragmentShaderCode.length} chars of fragment shader"
+        return "Reloading Pipeline with ${vertexShaderCode.length} chars of vertex shader and ${fragmentShaderCode.length} chars of fragment shader"
     }
 
     val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
@@ -56,11 +56,11 @@ fun createReloadingPipeline(
     vertexShader: ShaderSource,
     fragmentShader: ShaderSource = vertexShader,
     descriptorBuilder: WebGPUContext.(GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-): Lifecycle<WebGPUContext, FunPipeline> {
+): Lifecycle<WebGPUContext, ReloadingPipeline> {
     val lifecycle = surfaceLifecycle.bind("Reloading Pipeline of $label") {
         // SLOW: this should prob not be blocking like this
         runBlocking {
-            FunPipeline(
+            ReloadingPipeline(
                 vertexShaderCode = loadShader(vertexShader),
                 fragmentShaderCode = loadShader(fragmentShader),
                 { v, f -> it.descriptorBuilder(v, f) }, it

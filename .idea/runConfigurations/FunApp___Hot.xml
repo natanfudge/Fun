@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="FunApp - Hot" type="JetRunConfigurationType" singleton="false">
-    <option name="ALTERNATIVE_JRE_PATH" value="$PROJECT_DIR$/jdks/jbr_25_11_05" />
+    <option name="ALTERNATIVE_JRE_PATH" value="$PROJECT_DIR$/jdks/jbr_25_old" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="MAIN_CLASS_NAME" value="io.github.natanfudge.fn.core.FunAppKt" />
     <module name="Fun.main" />

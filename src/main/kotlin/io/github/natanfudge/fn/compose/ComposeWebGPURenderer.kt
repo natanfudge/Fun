@@ -6,41 +6,60 @@ import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.ygdrasil.webgpu.*
 
+private var samplerIndex = 0
 class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
 
+    val myIndex = samplerIndex++
     val sampler = ctx.device.createSampler(
         SamplerDescriptor(
             magFilter = GPUFilterMode.Linear,
-            minFilter = GPUFilterMode.Linear
+            minFilter = GPUFilterMode.Linear,
+            label = "Compose Sampler #$myIndex"
         )
     )
 
     override fun close() {
         closeAll(sampler)
     }
+
+    override fun toString(): String {
+        return "Compose WebGPU Surface #$myIndex"
+    }
 }
 
+private var textureIndex = 0
+
 class ComposeTexture(dimensions: WebGPUFixedSizeSurface, compose: ComposeConfig, val ctx: WebGPUContext) : AutoCloseable {
+    val myIndex=  textureIndex++
     val composeTexture = dimensions.surface.device.createTexture(
         TextureDescriptor(
             size = Extent3D(dimensions.dimensions.width.toUInt(), dimensions.dimensions.height.toUInt(), 1u),
             format = GPUTextureFormat.RGBA8UnormSrgb,
-            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
+            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst),
+            label = toString()
         )
     )
+
+
 
     init {
         // Need a new compose frame when the texture is recreated
         compose.dimensionsLifecycle.value?.invalid = true
     }
 
-    val listener = compose.frame.listen { (bytes, width, height) ->
+    val listener = compose.frameStream.listen { (bytes, width, height) ->
         println("Writing compose texture")
+        //TODO: restore this when we figure out how to fix it with reload -> resize
         dimensions.surface.device.copyExternalImageToTexture(
             source = bytes,
             texture = composeTexture,
             width = width, height = height
         )
+    }
+
+
+    override fun toString(): String {
+        return "Compose Texture #$myIndex"
     }
 
     override fun close() {
@@ -120,30 +139,41 @@ class ComposeWebGPURenderer(
 
     val fullscreenQuad by fullscreenQuadLifecycle
 
-    val surface by surfaceLifecycle
-
     val textureLifecycle = hostWindow.dimensionsLifecycle.bind("Compose Texture") {
         ComposeTexture(it, compose, it.surface)
     }
 
-
-    val bindGroup by fullscreenQuadLifecycle.bind2(textureLifecycle, "Compose BindGroup") { pipeline, tex ->
-        val group = tex.ctx.device.createBindGroup(
+    class ComposeBindGroup(pipeline: ReloadingPipeline,texture: ComposeTexture, surface: ComposeWebgpuSurface): AutoCloseable {
+        val resource = texture.composeTexture.createView()
+        val group = texture.ctx.device.createBindGroup(
             BindGroupDescriptor(
                 layout = pipeline.pipeline.getBindGroupLayout(0u),
                 entries = listOf(
                     BindGroupEntry(
                         binding = 0u,
-                        resource = surface.sampler // HACK: we likely need a third dependency on the Compose Surface lifecycle
+                        resource = surface.sampler
                     ),
+
                     BindGroupEntry(
                         binding = 1u,
-                        resource = tex.composeTexture.createView()
+                        resource = resource
                     )
+
                 )
             )
+
+
         )
-        group
+        override fun close() {
+            closeAll(resource, group)
+            val x = 2
+        }
+    }
+
+
+
+    val bindGroup by fullscreenQuadLifecycle.bind3(textureLifecycle, surfaceLifecycle,"Compose BindGroup") { pipeline, tex, surface ->
+        ComposeBindGroup(pipeline, tex, surface)
     }
 
     /**
@@ -165,7 +195,7 @@ class ComposeWebGPURenderer(
         // Create bind group for the sampler, and texture
         val pass = encoder.beginRenderPass(renderPassDescriptor)
         pass.setPipeline(fullscreenQuad.pipeline)
-        pass.setBindGroup(0u, bindGroup)
+        pass.setBindGroup(0u, bindGroup.group)
         pass.draw(6u)
         pass.end()
     }

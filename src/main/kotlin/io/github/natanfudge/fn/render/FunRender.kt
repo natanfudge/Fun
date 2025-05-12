@@ -98,6 +98,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 
 
+
     override fun close() {
         closeAll(verticesBuffer, indicesBuffer, uniformBuffer)
     }
@@ -110,17 +111,18 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-    val sizedWindow by dimensionsLifecycle.bind("Fun Dimensions") {
-        FunFixedSizeWindow(it.surface.device, it.dimensions)
-    }
 
-    val surface by surfaceLifecycle.bind("Fun Surface") {
+
+    val surfaceLifecycle = this@bindFunLifecycles.surfaceLifecycle.bind("Fun Surface") {
         FunSurface(it)
+    }
+    val funDimLifecycle = dimensionsLifecycle.bind("Fun Dimensions") {
+        FunFixedSizeWindow(it.surface.device, it.dimensions)
     }
 
     val cubeLifecycle = createReloadingPipeline(
         "Cube",
-        surfaceLifecycle, fsWatcher,
+        this@bindFunLifecycles.surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("cube.vertex"),
         fragmentShader = ShaderSource.HotFile("cube.fragment")
     ) { vertex, fragment ->
@@ -154,16 +156,15 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    val uniformBindGroup by cubeLifecycle.bind("Fun BindGroup") {
-        it.ctx.device.createBindGroup(
+    val bindGroupLifecycle = cubeLifecycle.bind2(surfaceLifecycle,"Fun BindGroup") { pipeline, surface ->
+        surface.ctx.device.createBindGroup(
             BindGroupDescriptor(
-                layout = it.pipeline.getBindGroupLayout(0u),
+                layout = pipeline.pipeline.getBindGroupLayout(0u),
                 entries = listOf(
                     BindGroupEntry(
                         binding = 0u,
                         resource = BufferBinding(
-                            buffer = surface.uniformBuffer // HACK: this has a good chance of failing if we reload the wrong part of the lifecycle tree,
-                            // since we didn't explicitly depend on the fun surface's lifecycle.
+                            buffer = surface.uniformBuffer
                         )
                     )
                 )
@@ -177,9 +178,11 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     val x = 1 to 2
 
 
-    frameLifecycle.bind("Fun Frame", FunLogLevel.Verbose) { frame ->
+    frameLifecycle.bind4(
+        surfaceLifecycle,funDimLifecycle, bindGroupLifecycle,"Fun Frame", FunLogLevel.Verbose
+    ) { frame, surface, dimensions, bindGroup ->
 //        println(x.first)
-        val ctx = surface.ctx
+        val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
 
         if (HOT_RELOAD_SHADERS) {
@@ -198,7 +201,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                 ),
             ),
             depthStencilAttachment = RenderPassDepthStencilAttachment(
-                view = sizedWindow.depthStencilView,
+                view = dimensions.depthStencilView,
                 depthClearValue = 1.0f,
                 depthLoadOp = GPULoadOp.Clear,
                 depthStoreOp = GPUStoreOp.Store
@@ -217,18 +220,21 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
         pass.setPipeline(cube.pipeline)
-        pass.setBindGroup(0u, uniformBindGroup)
+        pass.setBindGroup(0u, bindGroup)
         pass.setVertexBuffer(0u, surface.verticesBuffer)
         pass.setIndexBuffer(surface.indicesBuffer, GPUIndexFormat.Uint32)
         pass.drawIndexed(surface.cubeMesh.indexCount.toUInt())
         pass.end()
 
+
         compose.frame(commandEncoder, textureView)
 
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
+        ctx.context.present()
     }
 
 }
+
 
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000

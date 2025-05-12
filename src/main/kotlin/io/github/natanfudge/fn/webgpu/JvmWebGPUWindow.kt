@@ -1,6 +1,5 @@
 package io.github.natanfudge.fn.webgpu
 
-import androidx.compose.ui.input.pointer.*
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.Kernel32
 import darwin.CAMetalLayer
@@ -71,6 +70,7 @@ data class WebGPUFixedSizeSurface(
 
 data class WebGPUFrame(
     val ctx: WebGPUContext,
+    val dimensions: WindowDimensions,
     val deltaMs: Double
 ) : AutoCloseable {
     // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
@@ -78,6 +78,8 @@ data class WebGPUFrame(
     // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
     // https://github.com/JetBrains/JetBrainsRuntime/issues/534
     val windowFrame = ctx.context.getCurrentTexture()
+
+//    val ctx: WebGPUContext =
 
     override fun close() {
         windowFrame.texture.close()
@@ -108,7 +110,8 @@ class WebGPUWindow(config: WindowConfig) {
         WebGPUContext(it.handle)
     }
 
-    val dimensionsLifecycle = window.dimensionsLifecycle.bind2(surfaceLifecycle, "WebGPU Dimensions") { dim, surface ->
+    // HACK: early = true here is just bandaid I feel like for proper close ordering. If you don't do this the wgpu surface can crash on resize.
+    val dimensionsLifecycle = window.dimensionsLifecycle.bind2(surfaceLifecycle, "WebGPU Dimensions", early1 = true) { dim, surface ->
         surface.context.configure(
             SurfaceConfiguration(
                 surface.device, format = surface.presentationFormat
@@ -120,37 +123,27 @@ class WebGPUWindow(config: WindowConfig) {
 
 
 
-    //TODO: All i need to do is to get the dimensions lifecycle to run when the surface is reset.
-
-
     private val surface by surfaceLifecycle
 
-    //TODO: need a way to combine lifecycles. Stop doing the use() bullshit it's causing issues
-    // Basically, we need to define a set of dependent components for a thing, and it will initially run when both are satisified, and when either change
-    // it will re-run.
-//    val frameLifecycle = window.frameLifecycle.bindBindable {
-//        it
-//    }.also { surfaceLifecycle.bind(it) }
 
-//    val frameLifecycle = window.frameLifecycle
 
-    val frameLifecycle = window.frameLifecycle.bind("WebGPU Frame", FunLogLevel.Verbose) {
-        WebGPUFrame(surface, it)
+    val frameLifecycle = window.frameLifecycle.bind2(dimensionsLifecycle,"WebGPU Frame", FunLogLevel.Verbose) {frame, dim ->
+        WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
     }
 
-    fun setCallbacks(hook: RepeatingWindowCallbacks) {
-        val baseCallbacks = object : RepeatingWindowCallbacks {
-            override fun AutoClose.frame(deltaMs: Double) {
-                surface.context.present()
-            }
-        }
-        val callbacks = hook.combine(baseCallbacks)
-        window.setCallbacks(callbacks)
-    }
 
-//    fun show(config: WindowConfig) {
-//        window.show(config)
+
+//    fun setCallbacks(/*hook: RepeatingWindowCallbacks*/) {
+//        val baseCallbacks = object : RepeatingWindowCallbacks {
+//            override fun AutoClose.frame(deltaMs: Double) {
+////                surface.context.present()
+//            }
+//        }
+//        val callbacks = /*hook.combine(baseCallbacks)*/ baseCallbacks
+//        window.setCallbacks(callbacks)
 //    }
+
+
 
     /**
      * Submits a callback to run on the main thread.
@@ -159,11 +152,6 @@ class WebGPUWindow(config: WindowConfig) {
         window.submitTask(task)
     }
 
-//    fun restart() {
-////        surface.close() //TODO: need to make sure commenting this out is OK
-//
-//        window.restart()
-//    }
 }
 
 private enum class Os {

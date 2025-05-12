@@ -43,11 +43,15 @@ class BaseFunApp {
         val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
 
         val window = WebGPUWindow(config)
-        val fsWatcher = FileSystemWatcher()
-        val compose = ComposeWebGPURenderer(window, fsWatcher, show = false) { ComposeMainApp() }
-        window.setCallbacks(compose.callbacks)
 
+        val fsWatcher = FileSystemWatcher()
+
+        val compose = ComposeWebGPURenderer(window, fsWatcher, show = false) { ComposeMainApp() }
+//        window.setCallbacks(/*compose.callbacks*/)
+        window.window.setCallbacks(compose.callbacks)
+//
         window.bindFunLifecycles(compose, fsWatcher)
+
 
         return window
     }
@@ -77,6 +81,9 @@ fun main() {
         loop.reloadCallback = {
             println("Reloading app")
 
+
+
+
             // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
             val children = ProcessLifecycle.removeChildren()
             // Recreate lifecycles tree
@@ -90,7 +97,7 @@ fun main() {
 //            ProcessLifecycle.restartByLabel(ComposeConfig.LifecycleLabel)
             ProcessLifecycle.restartByLabel(WebGPUWindow.SurfaceLifecycleLabel)
 
-            println("Reload16")
+            println("Reload17")
 
         }
     }
