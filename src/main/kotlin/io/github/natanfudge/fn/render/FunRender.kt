@@ -188,9 +188,9 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         if (HOT_RELOAD_SHADERS) {
             fsWatcher.poll()
         }
-        val commandEncoder = ctx.device.createCommandEncoder().ac
+        val commandEncoder = ctx.device.createCommandEncoder()
 
-        val textureView = frame.windowFrame.texture.createView().ac
+        val textureView = frame.windowTexture
         val renderPassDescriptor = RenderPassDescriptor(
             colorAttachments = listOf(
                 RenderPassColorAttachment(
@@ -230,7 +230,8 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         compose.frame(commandEncoder, textureView, composeFrame)
 
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
-        ctx.context.present()
+
+        commandEncoder
     }
 
 }

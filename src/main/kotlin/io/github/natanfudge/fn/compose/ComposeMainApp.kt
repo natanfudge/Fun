@@ -39,7 +39,9 @@ fun ComposeMainApp() {
             Box(Modifier.padding(10.dp).border(1.dp, Color.Green).background(color.copy(alpha = 0.3f))) {
 //        FreeformMovement {
                 Column {
-                    Button(onClick = { color = if (color == Color.Red) Color.Blue else Color.Red }) {
+                    Button(onClick = {
+                        color = if (color == Color.Red) Color.Blue else Color.Red
+                    }) {
                         Text("Compose Button", color = Color.White, fontSize = 30.sp)
                     }
 
@@ -77,7 +79,10 @@ fun LifecycleTreeUi(lifecycle: Lifecycle<*, *>) {
 
 //    FreeformMovement {
         LabeledTreeLayout(labeledTree, node = { node, path, canExpand ->
-            OutlinedButton(onClick = {}, shape = CircleShape) {
+            OutlinedButton(onClick = {
+                println("Restarting lifecycle ${node.label}")
+                ProcessLifecycle.restartByLabel(node.label)
+            }, shape = CircleShape) {
                 Text(node.toString(), Modifier.width(100.dp), textAlign = TextAlign.Center)
             }
         }, edge = { _, _ ->

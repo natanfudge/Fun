@@ -44,32 +44,24 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
     )
 
 
-
-//    init {
-//        // Need a new compose frame when the texture is recreated
-//        compose.dimensionsLifecycle.value?.invalid = true
-//    }
+    init {
+        // Need a new compose frame when the texture is recreated
+        bgWindow.invalid = true
+    }
 
     init {
         println("Registering listener with dim= ${dimensions.dimensions}")
     }
 
 
-    //
-    private val context = ComposeTextureContext(dimensions.surface.device,composeTexture, dimensions.dimensions)
-
-    //TODO we can def pass a lambda, the bug is something else
-    val listener  = bgWindow.frameStream.listen(context)
-
-//    val listener = compose.frameStream.listen { (bytes, width, height) ->
-//        println("Writing compose texture for dimensions ${dimensions.dimensions}")
-//        //TODO: restore this when we figure out how to fix it with reload -> resize
-//        dimensions.surface.device.copyExternalImageToTexture(
-//            source = bytes,
-//            texture = composeTexture,
-//            width = width, height = height
-//        )
-//    }
+    val listener = bgWindow.frameStream.listen { (bytes, width, height) ->
+        println("Writing compose texture for dimensions ${dimensions.dimensions}")
+        dimensions.surface.device.copyExternalImageToTexture(
+            source = bytes,
+            texture = composeTexture,
+            width = width, height = height
+        )
+    }
 
 
 
@@ -84,10 +76,11 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
 
 
     override fun close() {
-        println("Closing listener with dim= ${dimensions.dimensions}. Index = ${context.index}. I am $myIndex")
+        println("Closing listener with dim= ${dimensions.dimensions}. I am $myIndex")
         closeAll(listener, composeTexture)
     }
 }
+
 
 
 

@@ -6,7 +6,6 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
-import io.github.natanfudge.fn.compose.ComposeGlfwWindow
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
@@ -79,12 +78,14 @@ data class WebGPUFrame(
     // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
     // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
     // https://github.com/JetBrains/JetBrainsRuntime/issues/534
-    val windowFrame = ctx.context.getCurrentTexture()
-
+    private val underlyingWindowFrame = ctx.context.getCurrentTexture()
+    val windowTexture = underlyingWindowFrame.texture.createView()
 //    val ctx: WebGPUContext =
 
     override fun close() {
-        windowFrame.texture.close()
+        ctx.context.present()
+        windowTexture.close()
+        underlyingWindowFrame.texture.close()
     }
 }
 

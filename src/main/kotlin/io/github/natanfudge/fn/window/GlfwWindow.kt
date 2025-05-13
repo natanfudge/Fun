@@ -90,9 +90,13 @@ class GlfwFrame(
 }
 
 
+
+
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: WindowConfig) {
     fun submitTask(task: () -> Unit) = window.submitTask(task)
+
+    private fun dimensionsLifecycleLabel() = "GLFW Dimensions ($name)"
 
     val windowLifecycle: Lifecycle<Unit, GlfwWindow> = ProcessLifecycle.bind("GLFW $name Window") {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
@@ -129,6 +133,18 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         }
         glfwSetWindowPosCallback(windowHandle) { _, x, y ->
             callbacks.windowMove(x, y)
+        }
+
+        glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
+            if (windowWidth != 0 && windowHeight != 0) {
+                window.minimized = false
+
+                // Since this callback doesn't always get recalled on hot reload, we need to make sure we access the latest lifecycle.
+                // This is kind of a hack fix.
+                ProcessLifecycle.restartByLabel(dimensionsLifecycleLabel())
+            } else {
+                window.minimized = true
+            }
         }
 
 
@@ -189,70 +205,31 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         }
 
 //        callbacks.init(windowHandle)
-        callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
+//        callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
     }
 
 
     val dimensionsLifecycle: Lifecycle<GlfwWindow, WindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
-        dimCallbackIndex++
-        val callback = dimCallbackIndex
-        println("Registering  dimensionsLifecycle callback #${callback} in $name")
-        glfwSetWindowSizeCallback(it.handle) { _, windowWidth, windowHeight ->
-            println("Using dimensionsLifecycle callback #${callback} in $name")
-            if (windowWidth != 0 && windowHeight != 0) {
-                window.minimized = false
-                //TODO: the problem is that this callback (and all glfw callbacks for that matter) is not reinitialized when we hot reload,
-                // and we end up accessing the stale lifecycle.
-                // TODO: i think the solution is to define a list of external callbacks that depend on lifecycles, and when we hot reload
-                // those external callbacks get re-run. This might open the pathway to dynamic lifecycles because the problem is related.
-                thisLifecycle.restart()
-//                callbacks.resize(windowWidth, windowHeight)
-//                frame() // We want to content to adapt faster to resize changes so we rerender right away.
-            } else {
-                window.minimized = true
-            }
-        }
-
-
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
         WindowDimensions(w[0], h[0], it.handle)
     }
+
     val frameLifecycle = dimensionsLifecycle.bind("GLFW Frame of $name", FunLogLevel.Verbose) {
         GlfwFrame(window)
     }
-//        .also {
-//        RootLifecycles.add(it)
-//    }
 
     private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
 
     internal val window: GlfwWindow by windowLifecycle
 
-//    val handle get() = window.handle
-
-
-//    private val frameAutoclose = AutoCloseImpl()
-
     fun frame() {
-//        val time = System.nanoTime()
-//        val delta = time - window.lastFrameTimeNano
-//        window.lastFrameTimeNano = time
-//        frameAutoclose.use {
-//            val deltaMs = delta.toDouble() / 1e6
-
-
         frameLifecycle.restart()
 
-////            frameLifecycle.start(deltaMs)
-//            with(callbacks) {
-//                it.frame(deltaMs)
-//            }
 //            //TODO: we can do away with WindowCallbacks#init, resize, frame soon, getting rid of frame might be hard because we need present() to run AFTER. in that case we can just put it in the code I think. or on the close of the frame on the WEBGPU parent!
-//            frameLifecycle.end()
-//        }
+
     }
 
     fun setCallbacks(callbacks: RepeatingWindowCallbacks) {

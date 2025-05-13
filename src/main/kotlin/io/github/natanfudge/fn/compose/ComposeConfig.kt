@@ -44,7 +44,9 @@ class FixedSizeComposeWindow(
     val frame = ByteArray(width * height * 4)
     val frameByteBuffer = MemoryUtil.memAlloc(width * height * 4)
 
-    var invalid = true
+//    init {
+//        window.invalid = true
+//    }
 
     override fun toString(): String {
         return "Compose Window w=$width, h=$height"
@@ -78,6 +80,7 @@ class ComposeGlfwWindow(
         // Draw new skia content
         onInvalidate()
     }
+    var invalid = true
 
     val scene = PlatformLayersComposeScene(
         coroutineContext = dispatcher,
@@ -129,17 +132,18 @@ class ComposeConfig(
     private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose", host.config)
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
-    val windowLifecycle = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
+    val windowLifecycle: Lifecycle<GlfwWindow, ComposeGlfwWindow> = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
         glDebugGroup(1, groupName = { "Compose Init" }) {
-            ComposeGlfwWindow(
+            val window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight,it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 content
             ) {
                 println("Invalidating Compose because of state change")
                 // Invalidate Compose frame on change
-                dimensionsLifecycle.assertValue.invalid = true
+                window.invalid = true
             }
+            window
         }
     }
 
@@ -171,12 +175,12 @@ class ComposeConfig(
         host.frameLifecycle.bind(dimensionsLifecycle,"Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
             val window = dim.window
             window.dispatcher.poll()
-            if (dim.invalid) {
+            if (window.invalid) {
                 println("Drawing new Compose frame")
                 GLFW.glfwMakeContextCurrent(window.handle)
                 dim.draw()
                 glfwSwapBuffers(window.handle)
-                dim.invalid = false
+                window.invalid = false
             }
         }
 
