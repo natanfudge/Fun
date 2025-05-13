@@ -124,29 +124,9 @@ class WebGPUWindow(config: WindowConfig) {
         WebGPUFixedSizeSurface(surface, dim)
     }
 
-
-
-    private val surface by surfaceLifecycle
-
-
-
     val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle,"WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
         WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
     }
-
-
-
-//    fun setCallbacks(/*hook: RepeatingWindowCallbacks*/) {
-//        val baseCallbacks = object : RepeatingWindowCallbacks {
-//            override fun AutoClose.frame(deltaMs: Double) {
-////                surface.context.present()
-//            }
-//        }
-//        val callbacks = /*hook.combine(baseCallbacks)*/ baseCallbacks
-//        window.setCallbacks(callbacks)
-//    }
-
-
 
     /**
      * Submits a callback to run on the main thread.
@@ -154,7 +134,6 @@ class WebGPUWindow(config: WindowConfig) {
     fun submitTask(task: () -> Unit) {
         window.submitTask(task)
     }
-
 }
 
 private enum class Os {

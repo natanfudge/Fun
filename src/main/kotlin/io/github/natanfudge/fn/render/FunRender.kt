@@ -16,12 +16,6 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 //TODO:
-// 5. Rewrite Lifecycles to use a Tree/Graph thing
-// 5.5 Figure out if there's a way to resolve hot reloading being bad with lambdas.
-// I figured it out. It's probably because we have old lambdas stored in the graph, and it's trying to run them and failing.
-// We need some way to evict the old lambdas and replace them but tbh I don't know if that is even possible. We might need to put everything in a special
-// callback and rerun the callback whenever the code is reloaded.
-// Fix error handling of wgpu!!
 // 6. Start drawing basic objects:
 //   A. An origin marker
 //   B. XYZ axis arrows
@@ -52,19 +46,13 @@ class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions) : AutoCl
     )
     val depthStencilView = depthTexture.createView()
 
-//    var x = 2
-
     override fun close() {
         closeAll(depthStencilView, depthTexture)
     }
 }
 
-
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-
     val cubeMesh = Mesh.UnitCube
-
-
     val verticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = cubeMesh.vertexCount * Vec3f.SIZE_BYTES, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
@@ -97,19 +85,13 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
         indicesBuffer.unmap()
     }
 
-
-
     override fun close() {
         closeAll(verticesBuffer, indicesBuffer, uniformBuffer)
     }
 }
 
-
-
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-
-
     val surfaceLifecycle = this@bindFunLifecycles.surfaceLifecycle.bind("Fun Surface") {
         FunSurface(it)
     }
@@ -169,19 +151,11 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-
-//    val cube by cubeLifecycle
-
-    val x = 1 to 2
-
-
-
     frameLifecycle.bind(
         surfaceLifecycle,funDimLifecycle, bindGroupLifecycle,cubeLifecycle,
         compose.frameLifecycle,
         "Fun Frame", FunLogLevel.Verbose
     ) { frame, surface, dimensions, bindGroup,cube, composeFrame ->
-//        println(x.first)
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
 
@@ -217,7 +191,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             surface.viewProjection.array
         )
 
-
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
         pass.setPipeline(cube.pipeline)
         pass.setBindGroup(0u, bindGroup)
@@ -225,7 +198,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         pass.setIndexBuffer(surface.indicesBuffer, GPUIndexFormat.Uint32)
         pass.drawIndexed(surface.cubeMesh.indexCount.toUInt())
         pass.end()
-
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
@@ -235,9 +207,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     }
 
 }
-
-
-
 
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000

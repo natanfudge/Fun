@@ -28,7 +28,8 @@ data class GlfwConfig(
 data class WindowDimensions(
     val width: Int,
     val height: Int,
-    val handle: WindowHandle,
+    val window: GlfwWindow
+//    val handle: WindowHandle,
 )
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
@@ -94,7 +95,7 @@ class GlfwFrame(
 
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: WindowConfig) {
-    fun submitTask(task: () -> Unit) = window.submitTask(task)
+    fun submitTask(task: () -> Unit) = windowLifecycle.value?.submitTask(task)
 
     private fun dimensionsLifecycleLabel() = "GLFW Dimensions ($name)"
 
@@ -214,16 +215,16 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
-        WindowDimensions(w[0], h[0], it.handle)
+        WindowDimensions(w[0], h[0], it)
     }
 
     val frameLifecycle = dimensionsLifecycle.bind("GLFW Frame of $name", FunLogLevel.Verbose) {
-        GlfwFrame(window)
+        GlfwFrame(it.window)
     }
 
     private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
 
-    internal val window: GlfwWindow by windowLifecycle
+//    internal val window: GlfwWindow by windowLifecycle
 
     fun frame() {
         frameLifecycle.restart()
@@ -238,36 +239,37 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
 
     fun close() {
-        window.open = false
+        windowLifecycle.value?.open = false
         windowLifecycle.end()
     }
 }
 
 
-var dimCallbackIndex = 0
 class GlfwGameLoop(var window: GlfwWindowConfig) {
 
     var locked = false
 
     var reloadCallback: (() -> Unit)? = null
 
+    //TODO: I think we might be able to refactor this
     fun loop() {
-        while (window.window.open) {
+        while (window.windowLifecycle.assertValue.open) {
             checkForReloads()
             glfwPollEvents()
             checkForReloads()
-            if (!window.window.open) break
-            if (window.window.minimized) continue
+            if (!window.windowLifecycle.assertValue.open) break
+            if (window.windowLifecycle.assertValue.minimized) continue
             val time = System.nanoTime()
-            val delta = time - window.window.lastFrameTimeNano
-            if (delta >= 1e9 / window.config.maxFps) {
+            val delta = time - window.windowLifecycle.assertValue.lastFrameTimeNano
+            if (delta >= 1e9 / window.windowLifecycle.assertValue.init.maxFps) {
                 checkForReloads()
-                window.window.pollTasks()
+                window.windowLifecycle.assertValue.pollTasks()
                 checkForReloads()
-                window.frame()
+                window.frameLifecycle.restart()
             }
         }
     }
+
 
     private fun checkForReloads() {
         while (locked) {

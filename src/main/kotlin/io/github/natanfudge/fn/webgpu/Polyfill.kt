@@ -15,6 +15,7 @@ import io.ygdrasil.webgpu.Origin3D
 import io.ygdrasil.webgpu.TexelCopyBufferLayout
 import io.ygdrasil.webgpu.TexelCopyTextureInfo
 import io.ygdrasil.webgpu.asArrayBuffer
+import io.ygdrasil.webgpu.writeInto
 import io.ygdrasil.wgpu.wgpuBufferGetMappedRange
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
@@ -35,23 +36,6 @@ fun GPUDevice.copyExternalImageToTexture(source: ByteArray, texture: GPUTexture,
 }
 
 // Workaround for https://github.com/wgpu4k/wgpu4k/issues/132, once that is resolved you should use the function provided by wgpu4k
-// Multiplatform variant of the other one, don't delete this (slow but might be useful)
-//fun ByteArray.toArrayBuffer(device: GPUDevice, usage: (ArrayBuffer) -> Unit) {
-//    floatArrayOf(1f,2f,3f)
-//    device.createBuffer(
-//        BufferDescriptor(
-//            size = size.toULong(),
-//            usage = setOf(GPUBufferUsage.CopySrc, GPUBufferUsage.CopyDst),
-//            mappedAtCreation = true
-//        )
-//    ).use { gpuBuffer ->
-//        // Copy from RAM to GPU
-//        gpuBuffer.mapFrom(this)
-//        // Copy from GPU to RAM, ideally we can just directly create an ArrayBuffer from RAM
-//        usage(gpuBuffer.getMappedRange())
-//    }
-//}
-// Workaround for https://github.com/wgpu4k/wgpu4k/issues/132, once that is resolved you should use the function provided by wgpu4k
  inline fun ByteArray.toArrayBuffer(action: (ArrayBuffer) -> Unit) = Arena.ofConfined().use { arena ->
     val byteSizeToCopy = (this.size).toLong()
     val segment = arena.allocate(byteSizeToCopy)
@@ -62,10 +46,11 @@ fun GPUDevice.copyExternalImageToTexture(source: ByteArray, texture: GPUTexture,
 
 // Hopefully there will be an api for this in the future
 fun GPUBuffer.mapFrom(buffer: IntArray, offset: GPUSize64 = 0u) {
-    val bufferSize = (buffer.size * Int.SIZE_BYTES).toULong()
-    wgpuBufferGetMappedRange((this as Buffer).handler, offset, bufferSize)
-        .asBuffer(bufferSize)
-        .writeInts(buffer)
+    buffer.writeInto(getMappedRange(offset))
+//    val bufferSize = (buffer.size * Int.SIZE_BYTES).toULong()
+//    wgpuBufferGetMappedRange((this as Buffer).handler, offset, bufferSize)
+//        .asBuffer(bufferSize)
+//        .writeInts(buffer)
 }
 
 private fun NativeAddress?.asBuffer(size: ULong): MemoryBuffer =

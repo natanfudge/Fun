@@ -134,20 +134,21 @@ class ComposeConfig(
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
     val windowLifecycle: Lifecycle<GlfwWindow, ComposeGlfwWindow> = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
         glDebugGroup(1, groupName = { "Compose Init" }) {
-            val window = ComposeGlfwWindow(
+            var window: ComposeGlfwWindow? = null
+            window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight,it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 content
             ) {
                 println("Invalidating Compose because of state change")
                 // Invalidate Compose frame on change
-                window.invalid = true
+                window!!.invalid = true
             }
             window
         }
     }
 
-    val window: ComposeGlfwWindow by windowLifecycle
+//    val window: ComposeGlfwWindow by windowLifecycle
 
 //    val resizeOnHostWindowResize = host.dimensionsLifecycle.bind("Compose Resize Adapt") {
 //        GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, it.width, it.height)
@@ -250,13 +251,11 @@ class ComposeConfig(
             nativeEvent: Any?,
             button: PointerButton?,
         ) {
-            if (!windowLifecycle.isInitialized) return
-            window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+            windowLifecycle.value?.scene?.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
         }
 
         override fun keyEvent(event: KeyEvent) {
-            if (!windowLifecycle.isInitialized) return
-            window.scene.sendKeyEvent(event)
+            windowLifecycle.value?.scene?.sendKeyEvent(event)
         }
 
         override fun resize(width: Int, height: Int) {
@@ -268,8 +267,9 @@ class ComposeConfig(
         }
 
         override fun densityChange(newDensity: Density) {
-            if (!windowLifecycle.isInitialized) return
-            window.scene.density = newDensity
+            windowLifecycle.value?.scene?.density = newDensity
+//            if (!windowLifecycle.isInitialized) return
+//            window.scene.density = newDensity
         }
     }
 
