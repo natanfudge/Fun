@@ -47,10 +47,20 @@ class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions) : AutoCl
     )
     val depthStencilView = depthTexture.createView()
 
+    val viewProjection = Mat4f.perspective(
+        fieldOfViewYInRadians = PI.toFloat() / 3,
+        aspect = dims.width.toFloat() / dims.height,
+        zNear = 0.01f,
+        zFar = 100f
+    ).translate(Vec3f(0f,0f,-4f))
+
+
     override fun close() {
         closeAll(depthStencilView, depthTexture)
     }
 }
+
+//TODO: reload -> shader change crasharinos...
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     val cubeMesh = Mesh.UnitCube
@@ -76,7 +86,6 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
             usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
         )
     )
-    val viewProjection = Mat4f.identity()
 
     init {
         verticesBuffer.mapFrom(cubeMesh.vertices.array)
@@ -183,13 +192,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             )
         )
         val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
-        Mat4f.identity(surface.viewProjection)
-        surface.viewProjection.rotate(Vec3f(sin(100f), cos(100f), 0f), 1f, surface.viewProjection)
+//        Mat4f.identity(surface.viewProjection)
+//        surface.viewProjection.rotate(Vec3f(sin(100f), cos(100f), 0f), 1f, surface.viewProjection)
 
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,
             0uL,
-            surface.viewProjection.array
+            dimensions.viewProjection.array
         )
 
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)

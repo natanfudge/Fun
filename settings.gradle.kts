@@ -12,3 +12,12 @@ plugins {
 }
 rootProject.name = "Fun"
 
+val linkMatrix = true
+val matrixDir = file("../wgpu4k-matrix")
+if (linkMatrix) {
+    includeBuild(matrixDir) {
+        dependencySubstitution {
+            substitute(module("io.github.natanfudge:wgpu4k-matrix")).using(project(":"))
+        }
+    }
+}
