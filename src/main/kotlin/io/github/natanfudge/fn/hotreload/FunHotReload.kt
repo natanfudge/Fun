@@ -2,6 +2,10 @@ package io.github.natanfudge.fn.hotreload
 
 import io.github.natanfudge.fn.util.MutEventStream
 
+// To sum up the current commandments of DCEVM:
+// 1. Thou shalt not keep changing code next to long-running code: https://github.com/JetBrains/JetBrainsRuntime/issues/534
+// 2. Thou shalt not store a lambda in memory without recreating it on reload: https://github.com/JetBrains/JetBrainsRuntime/issues/535
+// 3. Thou shalt not store an anonymous class in memory without recreating it on reload: https://github.com/JetBrains/JetBrainsRuntime/issues/536
 
 /**
  * Current limitation - if the schema of lifecycle state changes, hot reloading might fail.

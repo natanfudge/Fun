@@ -43,7 +43,7 @@ fun FreeformMovement( transform: FreeformMovementState = rememberFreeformMovemen
     var prevMousePos by remember<Holder<Offset?>> { Holder(null) }
 
     CompositionLocalProvider(LocalFreeformMovementState provides transform) {
-        //TODO: replace Box with Layout
+        //SLOW: replace Box with Layout
         Box(
             modifier.fillMaxSize()
                 .onPointerChangeEvent(PointerEventType.Press) {

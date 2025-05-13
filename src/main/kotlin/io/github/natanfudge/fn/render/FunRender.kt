@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.render
 
-import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
+import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.*
 import io.github.natanfudge.fn.webgpu.*
@@ -17,6 +17,7 @@ import kotlin.math.sin
 
 //TODO:
 // 6. Start drawing basic objects:
+//   AA. ModelViewProjection transformation
 //   A. An origin marker
 //   B. XYZ axis arrows
 // 7. Figure out how to draw spheres
@@ -183,7 +184,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
         val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
         Mat4f.identity(surface.viewProjection)
-        surface.viewProjection.rotate(Vec3f(sin(now), cos(now), 0f), 1f, surface.viewProjection)
+        surface.viewProjection.rotate(Vec3f(sin(100f), cos(100f), 0f), 1f, surface.viewProjection)
 
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,

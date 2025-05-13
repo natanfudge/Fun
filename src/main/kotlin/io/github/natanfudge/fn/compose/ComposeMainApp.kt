@@ -13,9 +13,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.natanfudge.fn.compose.utils.DagLayout
 import io.github.natanfudge.fn.compose.utils.FreeformMovement
 import io.github.natanfudge.fn.compose.utils.LabeledEdgeTree
 import io.github.natanfudge.fn.compose.utils.LabeledTreeLayout
+import io.github.natanfudge.fn.compose.utils.TransformationMatrix2D
+import io.github.natanfudge.fn.compose.utils.rememberFreeformMovementState
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.core.RootLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
@@ -37,7 +40,6 @@ fun ComposeMainApp() {
             // We add a little padding so skia won't flag our color as "the background color" and this will conflict
             // with the fact we override the background color to be transparent.
             Box(Modifier.padding(10.dp).border(1.dp, Color.Green).background(color.copy(alpha = 0.3f))) {
-//        FreeformMovement {
                 Column {
                     Button(onClick = {
                         color = if (color == Color.Red) Color.Blue else Color.Red
@@ -45,50 +47,28 @@ fun ComposeMainApp() {
                         Text("Compose Button", color = Color.White, fontSize = 30.sp)
                     }
 
-                    FreeformMovement {
+                    FreeformMovement(transform = rememberFreeformMovementState(TransformationMatrix2D(scale = 0.2f))) {
                         Row {
-                            val list = RootLifecycles
-                            val x = 2
-
                             for (root in RootLifecycles) {
-                                val x = 2
                                 LifecycleTreeUi(root)
                             }
                         }
                     }
-
-
-
-//                Text("Some Compose text", color = Color.White)
-
-
                 }
-//        }
-
             }
         }
-
     }
-
-
 }
+
 
 @Composable
 fun LifecycleTreeUi(lifecycle: Lifecycle<*, *>) {
-    val labeledTree = LabeledEdgeTree<LifecycleData<*, *>, Nothing>(lifecycle.tree) { listOf() }
-
-//    FreeformMovement {
-        LabeledTreeLayout(labeledTree, node = { node, path, canExpand ->
-            OutlinedButton(onClick = {
-                println("Restarting lifecycle ${node.label}")
-                ProcessLifecycle.restartByLabel(node.label)
-            }, shape = CircleShape) {
-                Text(node.toString(), Modifier.width(100.dp), textAlign = TextAlign.Center)
-            }
-        }, edge = { _, _ ->
-            Box {}// Empty
-
-        }, horizontalArrangement = Arrangement.SpaceEvenly, verticalArrangement = Arrangement.spacedBy(50.dp), lineColor = Color.White)
-//    }
-
+    DagLayout(lifecycle.tree, node = { node, path, canExpand ->
+        OutlinedButton(onClick = {
+            println("Restarting lifecycle ${node.label}")
+            ProcessLifecycle.restartByLabels(setOf(node.label))
+        }, shape = CircleShape) {
+            Text(node.toString(), Modifier.width(100.dp), textAlign = TextAlign.Center)
+        }
+    }, horizontalArrangement = Arrangement.SpaceEvenly, verticalArrangement = Arrangement.spacedBy(50.dp), lineColor = Color.White)
 }

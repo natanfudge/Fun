@@ -2,6 +2,8 @@
 
 package io.github.natanfudge.fn.util
 
+import io.github.natanfudge.fn.core.ProcessLifecycle
+import io.github.natanfudge.fn.core.mustRerunLifecycles
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -9,11 +11,11 @@ import io.github.natanfudge.fn.webgpu.AutoCloseImpl
 /**
  * Context provided to lifecycle start functions that gives access to the lifecycle being started
  * and implements [AutoClose] to allow for registering resources that should be closed when the lifecycle ends.
- * 
+ *
  * This context is passed to the [start] function of a [Lifecycle] and provides access to the lifecycle
  * being started through [thisLifecycle].
  */
-class LifecycleContext<P: Any, T: Any>(val thisLifecycle: Lifecycle<P,T>) : AutoClose by AutoCloseImpl()
+class LifecycleContext<P : Any, T : Any>(val thisLifecycle: Lifecycle<P, T>) : AutoClose by AutoCloseImpl()
 
 /**
  * In a vacuum, a [Lifecycle] is just a function that runs to create some data, and another function that runs to clean up that data.
@@ -35,21 +37,21 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
     companion object {
         /**
          * Creates a new lifecycle with the specified start and stop functions.
-         * 
+         *
          * The [start] function is called when the lifecycle is started and receives the parent's data as input.
          * It should return the data that this lifecycle will manage.
-         * 
+         *
          * The [stop] function is called when the lifecycle is stopped and receives the data that was created by [start].
-         * 
+         *
          * The [label] is used for logging and debugging purposes to identify this lifecycle.
-         * 
+         *
          * The [logLevel] controls the verbosity of logs for this lifecycle.
          */
         fun <P : Any, T : Any> create(
             label: String,
             logLevel: FunLogLevel = FunLogLevel.Debug,
             stop: (T) -> Unit = {},
-            start: LifecycleContext<P,T>.(P) -> T,
+            start: LifecycleContext<P, T>.(P) -> T,
         ): Lifecycle<P, T> {
             val data = LifecycleData(
                 start = start,
@@ -61,7 +63,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
                 selfState = null,
                 childrenParentIndices = mutableListOf(),
             )
-            val ls = Lifecycle<P,T>(
+            val ls = Lifecycle<P, T>(
                 MutableTreeImpl(
                     value = data,
                     children = mutableListOf()
@@ -74,10 +76,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Removes all children from this lifecycle and returns them as a list.
-     * 
+     *
      * This detaches all child lifecycles from this lifecycle, meaning they will no longer
      * be started or stopped when this lifecycle is started or stopped.
-     * 
+     *
      * @return A list of all removed child lifecycles
      */
     fun removeChildren(): List<Lifecycle<T, *>> {
@@ -95,10 +97,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * This method initializes the lifecycle by calling its [start] function with the provided [seedValue].
      * It then recursively starts all child lifecycles in the correct order, ensuring that parent lifecycles
      * are started before their children.
-     * 
+     *
      * If this lifecycle has multiple parents, [parentIndex] may be used to specify which parent has a new value for this lifecycle.
      * Passing null to [seedValue] would try to start the lifecycle with its existing data. It's recommended to use [restart] for this purpose.
-     * 
+     *
      * @throws IllegalArgumentException if [parentIndex] is invalid
      */
     fun start(seedValue: P?, parentIndex: Int = 0) {
@@ -129,10 +131,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Ends this lifecycle and all its children recursively, bottom up.
-     * 
+     *
      * This method stops all lifecycles in the hierarchy by calling their [stop] functions.
      * Children are closed before their parents to ensure proper cleanup order.
-     * 
+     *
      * If any resources were registered with the [LifecycleContext] during startup,
      * they will be automatically closed when this method is called.
      */
@@ -148,7 +150,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Restarts this lifecycle using its existing data.
-     * 
+     *
      * This is equivalent to calling [end] followed by [start] with null seedValue.
      */
     fun restart() {
@@ -156,28 +158,47 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
     }
 
+    // SLOW: technically we can build a single "Restart" action for all the labels which would be faster than restarting the labels one by one.
+    fun restartByLabels(labels: Set<String>) {
+        tree.visitSubtrees {
+            if (it.value.label in labels) Lifecycle<Any, Any>(it).restart()
+        }
+    }
+
+//    /**
+//     * Finds and restarts a lifecycle with the specified [label] in the hierarchy.
+//     *
+//     * This method searches the entire lifecycle tree for a lifecycle with the given label
+//     * and restarts it if found. If no matching lifecycle is found, a message is printed.
+//     */
+//    fun restartByLabel(label: String) {
+//        tree.visitSubtrees {
+//            if (it.value.label == label) {
+//                Lifecycle<Any, Any>(it).restart()
+//                return
+//            }
+//        }
+//        println("Did not find any lifecycle with the label '$label' to restart")
+//    }
+
     /**
-     * Finds and restarts a lifecycle with the specified [label] in the hierarchy.
-     * 
-     * This method searches the entire lifecycle tree for a lifecycle with the given label
-     * and restarts it if found. If no matching lifecycle is found, a message is printed.
+     * Finds a lifecycle with the specified [label] in the hierarchy.
      */
-    fun restartByLabel(label: String) {
+    fun getByLabel(label: String): Lifecycle<*, *> {
         tree.visitSubtrees {
             if (it.value.label == label) {
-                Lifecycle<Any, Any>(it).restart()
-                return
+                return Lifecycle<Any, Any>(it)
             }
         }
-        println("Did not find any lifecycle with the label '$label' to restart")
+        throw IllegalArgumentException("No such label $label in the lifecycle hierarchy")
     }
 
     /**
      * Restarts this lifecycle with a specific [seedValue] for the specified parent.
-     * 
+     *
      * This is equivalent to calling [end] followed by [start] with the provided seedValue and parentIndex.
      * Use this when you need to restart a lifecycle with new parent data.
-     * 
+     *
      * The [parentIndex] specifies which parent's data to update if this lifecycle has multiple parents.
      */
     fun restart(
@@ -190,10 +211,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Causes [child] to start and stop when `this` starts and stops.
-     * 
+     *
      * This establishes a parent-child relationship between this lifecycle and the [child] lifecycle.
      * When this lifecycle starts, the child will also start, and when this lifecycle stops, the child will also stop.
-     * 
+     *
      * The [child] will receive the data of this lifecycle when it is started.
      * If this is the only lifecycle [child] is bound to, then the data of this lifecycle will be passed directly (CP = T).
      * If [child] will be bound to more lifecycles, the child will receive a list of values, each having the value of each parent,
@@ -216,16 +237,16 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Creates and binds a new child lifecycle to this lifecycle.
-     * 
+     *
      * This is a convenience method that creates a new lifecycle with the given [label], [logLevel],
      * [start], and [stop] functions, and then binds it to this lifecycle.
-     * 
+     *
      * The [start] function is called when the child lifecycle starts and receives this lifecycle's data.
      * The [stop] function is called when the child lifecycle stops.
-     * 
+     *
      * The [early] parameter controls the execution order. If true, the child will be inserted
      * before all other children, ensuring it runs first when this lifecycle starts.
-     * 
+     *
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any> bind(
@@ -233,7 +254,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         early: Boolean = false,
-        start: LifecycleContext<T,CT>.(T) -> CT,
+        start: LifecycleContext<T, CT>.(T) -> CT,
     ): Lifecycle<T, CT> {
         val ls = create(label, logLevel, stop, start)
         bind(ls, early)
@@ -242,17 +263,17 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Creates and binds a new child lifecycle to this lifecycle and [secondLifecycle].
-     * 
+     *
      * This method creates a new lifecycle that depends on both this lifecycle and [secondLifecycle].
      * The child lifecycle will start when both parent lifecycles have started, and will stop when
      * either parent lifecycle stops.
-     * 
+     *
      * The [start] function receives the data from both parent lifecycles and should return the data
      * that the child lifecycle will manage.
-     * 
+     *
      * The [early1] and [early2] parameters control the execution order relative to other children
      * of the respective parent lifecycles.
-     * 
+     *
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any> bind(
@@ -276,18 +297,18 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Creates and binds a new child lifecycle to this lifecycle, [secondLifecycle], and [thirdLifecycle].
-     * 
+     *
      * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle], and [thirdLifecycle].
      * The child lifecycle will start when all three parent lifecycles have started, and will stop when
      * any of the parent lifecycles stops.
-     * 
+     *
      * The [start] function receives the data from all three parent lifecycles and should return the data
      * that the child lifecycle will manage. It also receives an [AutoClose] instance to register resources
      * that should be closed when the lifecycle ends.
-     * 
+     *
      * The [early1], [early2], and [early3] parameters control the execution order relative to other children
      * of the respective parent lifecycles.
-     * 
+     *
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any, P3 : Any> bind(
@@ -315,15 +336,15 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Creates and binds a new child lifecycle to this lifecycle and three other lifecycles.
-     * 
-     * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle], 
-     * [thirdLifecycle], and [fourthLifecycle]. The child lifecycle will start when all four parent 
+     *
+     * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle],
+     * [thirdLifecycle], and [fourthLifecycle]. The child lifecycle will start when all four parent
      * lifecycles have started, and will stop when any of the parent lifecycles stops.
-     * 
+     *
      * The [start] function receives the data from all four parent lifecycles and should return the data
      * that the child lifecycle will manage. It also receives an [AutoClose] instance to register resources
      * that should be closed when the lifecycle ends.
-     * 
+     *
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any, P3 : Any, P4 : Any> bind(
@@ -351,18 +372,18 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Creates and binds a new child lifecycle to this lifecycle and four other lifecycles.
-     * 
-     * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle], 
-     * [thirdLifecycle], [fourthLifecycle], and [fifthLifecycle]. The child lifecycle will start 
+     *
+     * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle],
+     * [thirdLifecycle], [fourthLifecycle], and [fifthLifecycle]. The child lifecycle will start
      * when all five parent lifecycles have started, and will stop when any of the parent lifecycles stops.
-     * 
+     *
      * The [start] function receives the data from all five parent lifecycles and should return the data
      * that the child lifecycle will manage. It also receives an [AutoClose] instance to register resources
      * that should be closed when the lifecycle ends.
-     * 
+     *
      * @return The newly created and bound child lifecycle
      */
-    fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5: Any> bind(
+    fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5 : Any> bind(
         secondLifecycle: Lifecycle<*, P2>,
         thirdLifecycle: Lifecycle<*, P3>,
         fourthLifecycle: Lifecycle<*, P4>,
@@ -390,19 +411,19 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Creates and binds a new child lifecycle to this lifecycle and five other lifecycles.
-     * 
-     * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle], 
-     * [thirdLifecycle], [fourthLifecycle], [fifthLifecycle], and [sixthLifecycle]. The child lifecycle 
-     * will start when all six parent lifecycles have started, and will stop when any of the parent 
+     *
+     * This method creates a new lifecycle that depends on this lifecycle, [secondLifecycle],
+     * [thirdLifecycle], [fourthLifecycle], [fifthLifecycle], and [sixthLifecycle]. The child lifecycle
+     * will start when all six parent lifecycles have started, and will stop when any of the parent
      * lifecycles stops.
-     * 
+     *
      * The [start] function receives the data from all six parent lifecycles and should return the data
      * that the child lifecycle will manage. It also receives an [AutoClose] instance to register resources
      * that should be closed when the lifecycle ends.
-     * 
+     *
      * @return The newly created and bound child lifecycle
      */
-    fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5: Any, P6: Any> bind(
+    fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5 : Any, P6 : Any> bind(
         secondLifecycle: Lifecycle<*, P2>,
         thirdLifecycle: Lifecycle<*, P3>,
         fourthLifecycle: Lifecycle<*, P4>,
@@ -438,10 +459,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Returns the current value of this lifecycle, throwing an error if the lifecycle hasn't been initialized.
-     * 
+     *
      * Use this property when you're certain the lifecycle has been started. If you're not sure,
      * use [value] which returns null for uninitialized lifecycles.
-     * 
+     *
      * @throws IllegalStateException if the lifecycle hasn't been initialized
      */
     val assertValue: T get() = tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
@@ -453,14 +474,15 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     /**
      * Copies the state of [lifecycles] into the children lifecycles of `this`.
-     * 
+     *
      * This method is useful when you have two lifecycle hierarchies with the same structure
      * and you want to transfer the state from one to the other. It copies the state from each
      * lifecycle in [lifecycles] to the corresponding child of this lifecycle.
-     * 
+     *
      * The [lifecycles] list must have the same size and structure as the children of this lifecycle.
      */
     fun copyChildrenStateFrom(lifecycles: List<Lifecycle<*, *>>) {
+        //TODO: this would be more robust if it worked by label
         lifecycles.zip(tree.children).forEach { (source, dest) ->
             source.copyStateTo(dest)
         }
@@ -479,7 +501,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 }
 
 internal class LifecycleData<P : Any, T : Any>(
-    val start: LifecycleContext<P,T>.(P) -> T,
+    val start: LifecycleContext<P, T>.(P) -> T,
     val stop: (T) -> Unit,
     var parentState: P?,
     var selfState: T?,
@@ -493,8 +515,8 @@ internal class LifecycleData<P : Any, T : Any>(
      * [childrenParentIndices] = `[0,0,0]`, and the second lifecycle will have [childrenParentIndices] = `[1,1,1]`.
      */
     val childrenParentIndices: MutableList<Int>,
-    var parentCount: Int, //TODO: when we unbind, have an assertion checking parentCount >=0
-    // TODO: also when we unbind reorganize parentState because we could have created holes
+    var parentCount: Int, // TO DO: when we unbind, have an assertion checking parentCount >=0
+    // also when we unbind reorganize parentState because we could have created holes
     val logLevel: FunLogLevel,
     val label: String,
 ) {
@@ -502,7 +524,7 @@ internal class LifecycleData<P : Any, T : Any>(
         return label
     }
 
-    lateinit var lsCtx: LifecycleContext<P,T>
+    lateinit var lsCtx: LifecycleContext<P, T>
 }
 
 internal typealias LifecycleTree = MutableTree<LifecycleData<*, *>>
@@ -521,7 +543,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
         if (parentState == null) parentState = List(parentCount) { null } as P
     }
 
-    logLifecycleStart(this,hasMultipleParents,prevParent,label,prevSelf, parents)
+    logLifecycleStart(this, hasMultipleParents, prevParent, label, prevSelf, parents)
 
     // Only modify data.parentState later to not mess with the logs
     for ((seedValue, index) in parents) {
@@ -576,7 +598,7 @@ private fun <P : Any, T : Any> logLifecycleStart(
     prevParent: P?,
     label: String,
     prevSelf: T?,
-    parents: List<Pair<P, Int>>
+    parents: List<Pair<P, Int>>,
 ) {
     if (prevParent != null && prevSelf == null) {
         // With a single parent, we expect prevParent and prevSelf to be set both at once.
@@ -598,7 +620,7 @@ private fun <P : Any, T : Any> logLifecycleStart(
                     if (prevParent == null) append("Starting '$label' for the first time")
                     else append("Restarting '$label'")
                 }
-                if(parents.size ==1) append(" with parent = [${parents[0].first}]")
+                if (parents.size == 1) append(" with parent = [${parents[0].first}]")
                 else append(" with parents=${parents.sortedBy { it.second }.map { it.first }}")
                 if (prevSelf != null) {
                     append(", replacing previous self values '$prevSelf'")
@@ -650,7 +672,7 @@ val activeLogLevel = FunLogLevel.Debug
 
 /**
  * Logs a message if the specified [level] is greater than or equal to the [activeLogLevel].
- * 
+ *
  * The [msg] lambda is only evaluated if the message will actually be logged, making this
  * function efficient for expensive message construction.
  */
@@ -662,7 +684,7 @@ inline fun log(level: FunLogLevel, msg: () -> String) {
 
 /**
  * Log levels for the Fun engine, ordered from most verbose to least verbose.
- * 
+ *
  * Each level has a numeric [value] that determines its priority. Higher values
  * indicate higher priority (less verbose) log levels.
  */

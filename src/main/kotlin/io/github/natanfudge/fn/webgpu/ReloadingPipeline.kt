@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.webgpu
 
-import io.github.natanfudge.fn.HOT_RELOAD_SHADERS
+import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.files.readString
 import io.github.natanfudge.fn.util.Lifecycle

@@ -8,9 +8,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import io.github.natanfudge.fn.core.ProcessLifecycle
+import io.github.natanfudge.fn.core.mustRerun
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.webgpu.AutoCloseImpl
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.system.MemoryUtil.NULL
@@ -29,7 +29,6 @@ data class WindowDimensions(
     val width: Int,
     val height: Int,
     val window: GlfwWindow
-//    val handle: WindowHandle,
 )
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
@@ -124,90 +123,99 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
             GL.createCapabilities()
         }
 
-        glfwSetWindowCloseCallback(windowHandle) {
-            callbacks.windowClosePressed()
-            window.open = false
-        }
+
 
         if (glfw.showWindow) {
             glfwShowWindow(windowHandle)
         }
-        glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-            callbacks.windowMove(x, y)
-        }
 
-        glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
-            if (windowWidth != 0 && windowHeight != 0) {
-                window.minimized = false
-
-                // Since this callback doesn't always get recalled on hot reload, we need to make sure we access the latest lifecycle.
-                // This is kind of a hack fix.
-                ProcessLifecycle.restartByLabel(dimensionsLifecycleLabel())
-            } else {
-                window.minimized = true
-            }
-        }
-
-
-
-        glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
-            // We're going to send the clicks to the GUI even if it is not focused, to be able to actually move from opengl focus to Compose focus.
-            callbacks.pointerEvent(
-                position = glfwGetCursorPos(windowHandle),
-                eventType = when (action) {
-                    GLFW_PRESS -> PointerEventType.Press
-                    GLFW_RELEASE -> PointerEventType.Release
-                    else -> PointerEventType.Unknown
-                },
-                nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-            )
-        }
-
-        glfwSetCursorPosCallback(windowHandle) { window, xpos, ypos ->
-            callbacks.pointerEvent(
-                position = Offset(xpos.toFloat(), ypos.toFloat()),
-                eventType = PointerEventType.Move,
-                nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-            )
-        }
-
-        glfwSetScrollCallback(windowHandle) { window, xoffset, yoffset ->
-            callbacks.pointerEvent(
-                eventType = PointerEventType.Scroll,
-                position = glfwGetCursorPos(windowHandle),
-                scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
-                nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
-            )
-
-        }
-
-        glfwSetCursorEnterCallback(windowHandle) { _, entered ->
-            callbacks.pointerEvent(
-                position = glfwGetCursorPos(windowHandle),
-                eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
-                nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-            )
-        }
-
-        glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
-            val event = glfwToComposeEvent(key, action, mods)
-            if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
-            callbacks.keyEvent(event)
-        }
-
-        glfwSetCharCallback(windowHandle) { window, codepoint ->
-            for (char in Character.toChars(codepoint)) {
-                callbacks.keyEvent(typedCharacterToComposeEvent(char))
-            }
-        }
-
-        glfwSetWindowContentScaleCallback(windowHandle) { _, xscale, _ ->
-            callbacks.densityChange(Density(xscale))
-        }
-
-//        callbacks.init(windowHandle)
-//        callbacks.resize(config.initialWindowWidth, config.initialWindowHeight)
         window
+    }
+
+    init {
+        windowLifecycle.bind("GLFW Callbacks ($name)") {
+            val window = it
+            val windowHandle = it.handle
+            glfwSetWindowCloseCallback(windowHandle) {
+                callbacks.windowClosePressed()
+                window.open = false
+            }
+            glfwSetWindowPosCallback(windowHandle) { _, x, y ->
+                callbacks.windowMove(x, y)
+            }
+
+            glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
+                if (windowWidth != 0 && windowHeight != 0) {
+                    window.minimized = false
+
+                    dimensionsLifecycle.restart()
+
+//                    // Since this callback doesn't always get recalled on hot reload, we need to make sure we access the latest lifecycle.
+//                    // This is kind of a hack fix.
+//                    ProcessLifecycle.restartByLabel(dimensionsLifecycleLabel())
+                } else {
+                    window.minimized = true
+                }
+            }
+
+
+
+            glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
+                // We're going to send the clicks to the GUI even if it is not focused, to be able to actually move from opengl focus to Compose focus.
+                callbacks.pointerEvent(
+                    position = glfwGetCursorPos(windowHandle),
+                    eventType = when (action) {
+                        GLFW_PRESS -> PointerEventType.Press
+                        GLFW_RELEASE -> PointerEventType.Release
+                        else -> PointerEventType.Unknown
+                    },
+                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                )
+            }
+
+            glfwSetCursorPosCallback(windowHandle) { window, xpos, ypos ->
+                callbacks.pointerEvent(
+                    position = Offset(xpos.toFloat(), ypos.toFloat()),
+                    eventType = PointerEventType.Move,
+                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                )
+            }
+
+            glfwSetScrollCallback(windowHandle) { window, xoffset, yoffset ->
+                callbacks.pointerEvent(
+                    eventType = PointerEventType.Scroll,
+                    position = glfwGetCursorPos(windowHandle),
+                    scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
+                    nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
+                )
+
+            }
+
+            glfwSetCursorEnterCallback(windowHandle) { _, entered ->
+                callbacks.pointerEvent(
+                    position = glfwGetCursorPos(windowHandle),
+                    eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
+                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                )
+            }
+
+            glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
+                val event = glfwToComposeEvent(key, action, mods)
+                if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
+                callbacks.keyEvent(event)
+            }
+
+            glfwSetCharCallback(windowHandle) { window, codepoint ->
+                for (char in Character.toChars(codepoint)) {
+                    callbacks.keyEvent(typedCharacterToComposeEvent(char))
+                }
+            }
+
+            glfwSetWindowContentScaleCallback(windowHandle) { _, xscale, _ ->
+                callbacks.densityChange(Density(xscale))
+            }
+            Unit
+        }.mustRerun() // Make sure callbacks are not stale
     }
 
 
@@ -222,18 +230,9 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         GlfwFrame(it.window)
     }
 
-    private var callbacks: RepeatingWindowCallbacks = object : RepeatingWindowCallbacks {}
+    private var callbacks: WindowCallbacks = object : WindowCallbacks {}
 
-//    internal val window: GlfwWindow by windowLifecycle
-
-    fun frame() {
-        frameLifecycle.restart()
-
-//            //TODO: we can do away with WindowCallbacks#init, resize, frame soon, getting rid of frame might be hard because we need present() to run AFTER. in that case we can just put it in the code I think. or on the close of the frame on the WEBGPU parent!
-
-    }
-
-    fun setCallbacks(callbacks: RepeatingWindowCallbacks) {
+    fun setCallbacks(callbacks: WindowCallbacks) {
         this.callbacks = callbacks
     }
 
@@ -245,25 +244,29 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 }
 
 
+/**
+ * The [window] needs to be updated whenever it is recreated.
+ */
 class GlfwGameLoop(var window: GlfwWindowConfig) {
 
     var locked = false
 
     var reloadCallback: (() -> Unit)? = null
 
-    //TODO: I think we might be able to refactor this
+    private val currentWindow get() = window.windowLifecycle.assertValue
+
     fun loop() {
-        while (window.windowLifecycle.assertValue.open) {
+        while (currentWindow.open) {
             checkForReloads()
             glfwPollEvents()
             checkForReloads()
-            if (!window.windowLifecycle.assertValue.open) break
-            if (window.windowLifecycle.assertValue.minimized) continue
+            if (!currentWindow.open) break
+            if (currentWindow.minimized) continue
             val time = System.nanoTime()
-            val delta = time - window.windowLifecycle.assertValue.lastFrameTimeNano
-            if (delta >= 1e9 / window.windowLifecycle.assertValue.init.maxFps) {
+            val delta = time - currentWindow.lastFrameTimeNano
+            if (delta >= 1e9 / currentWindow.init.maxFps) {
                 checkForReloads()
-                window.windowLifecycle.assertValue.pollTasks()
+                currentWindow.pollTasks()
                 checkForReloads()
                 window.frameLifecycle.restart()
             }

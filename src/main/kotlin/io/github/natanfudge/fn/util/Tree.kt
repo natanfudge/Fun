@@ -178,11 +178,11 @@ inline fun <T> Tree<T>.visitBottomUpUnique(visitor: (T) -> Unit) {
 /**
  * Visits each node in the tree depth-first, providing its parent in the process. For the root, the [seed] value will be given as the parent.
  */
-fun <T> Tree<T>.visitConnections(seed: T, visitor: (parent: T, child: T) -> Unit) {
-    visitConnectionsRecur(this, seed, visitor)
+fun <T> Tree<T>.visitConnections(visitor: (parent: T?, child: T) -> Unit) {
+    visitConnectionsRecur(this, null, visitor)
 }
 
-private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T, visitor: (parent: T, child: T) -> Unit) {
+private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T?, visitor: (parent: T?, child: T) -> Unit) {
     visitor(parentValue, node.value)
 
     for (child in node.children) {
@@ -190,4 +190,15 @@ private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T, visitor: (p
     }
 }
 
+data class Edge<T>(val parent: T, val child: T)
 
+fun <T> Tree<T>.collectEdges(): List<Edge<T>> = buildList {
+    visitConnections {parent, child ->
+        if(parent != null) {
+            add(Edge(parent ,child))
+        }
+    }
+//    visitEdgePaths(depth) {
+//        add(it)
+//    }
+}

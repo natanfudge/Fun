@@ -8,31 +8,27 @@ import io.github.natanfudge.fn.util.Tree
 import io.github.natanfudge.fn.util.TreePath
 import io.github.natanfudge.fn.util.hasContent
 import io.github.natanfudge.fn.util.visit
+import io.github.natanfudge.fn.util.visitConnections
 import java.util.*
-import kotlin.collections.asReversed
 import kotlin.collections.flatMap
-import kotlin.collections.forEach
 import kotlin.collections.indices
 import kotlin.collections.isNotEmpty
 import kotlin.collections.map
 import kotlin.collections.mapIndexed
-import kotlin.collections.maxOf
-import kotlin.collections.minOf
-import kotlin.collections.zip
 import kotlin.to
 
 
-data class CollectedEdge<T>(val value: T, val path: TreePath, val hasContent: Boolean)
+data class CollectedVertex<T>(val value: T, val path: TreePath, val hasContent: Boolean)
 
 /**
  * Returns all nodes of the tree, by layer, as well as the path to each node.
  */
-fun <T> Tree<T>.collectLayers(): List<List<CollectedEdge<T>>> {
+fun <T> Tree<T>.collectLayers(): List<List<CollectedVertex<T>>> {
     var row = listOf(this to TreePath.Root)
-    val result = mutableListOf<List<CollectedEdge<T>>>()
+    val result = mutableListOf<List<CollectedVertex<T>>>()
     while (row.isNotEmpty()) {
         result.add(row.mapIndexed { i, (node, path) ->
-            CollectedEdge(node.value, path, node.hasContent)
+            CollectedVertex(node.value, path, node.hasContent)
         })
         row = row.flatMap { (layerNode, path) ->
             layerNode.children.mapIndexed { i, child ->
@@ -105,11 +101,13 @@ fun interface TreeEdgeLabeler<N, L> {
     fun labelNodeEdges(node: N): List<L>
 }
 
-fun <T, L> LabeledEdgeTree<T, L>.collectEdges(depth: Int): List<LabeledEdge<T, L>> = buildList {
+fun <T, L> LabeledEdgeTree<T, L>.collectEdgePaths(depth: Int): List<LabeledEdge<T, L>> = buildList {
     visitEdgePaths(depth) {
         add(it)
     }
 }
+
+
 
 //inline fun <T, L> LabeledEdgeTree<T, L>.visitChildrenPaths(
 //    depth: Int,
@@ -159,10 +157,6 @@ inline fun <T, L> LabeledEdgeTree<T, L>.visitEdgePaths(
                 )
                 queue.add(LabeledEdgeTreePathIter(next.tree.copy(tree = node), childPath, next.depth + 1))
             }
-
-//            nextTree.children.zip(labels).mapIndexed { i, (node, label) ->
-//
-//            }
         }
 
     }

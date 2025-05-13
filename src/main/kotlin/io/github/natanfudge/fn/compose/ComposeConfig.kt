@@ -115,14 +115,8 @@ data class ComposeFrameEvent(
     val height: Int,
 )
 
-
-
-
-
 class ComposeConfig(
     host: GlfwWindowConfig,
-//    hostWebGPURenderer: ComposeWebGPURenderer, // Kinda breaking encapsulation here but I don't have a choice because I need the frame
-//// to run AFTER the
     val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
@@ -148,16 +142,7 @@ class ComposeConfig(
         }
     }
 
-//    val window: ComposeGlfwWindow by windowLifecycle
-
-//    val resizeOnHostWindowResize = host.dimensionsLifecycle.bind("Compose Resize Adapt") {
-//        GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, it.width, it.height)
-//    }
-
-    //TODO: I know what happened. It's because of the ordering of unblocking. Both "'Compose Fixed Size Window'" and 'Compose Frame Store' are blocked.
-    // A node is then chosen randomly to be unblocked, when in fact "'Compose Fixed Size Window'" should always be unblocked first.
     val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> = host.dimensionsLifecycle.bind(windowLifecycle,"Compose Fixed Size Window") { dim, window ->
-//        GLFW.glfwMakeContextCurrent(window.handle)
         GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
         window.scene.size = IntSize(dim.width, dim.height)
         println("Invalidating Compose because of size change")
@@ -165,12 +150,7 @@ class ComposeConfig(
         FixedSizeComposeWindow(dim.width, dim.height, window)
     }
 
-//    val dimensions by dimensionsLifecycle
-
     init {
-//        val resize = dimensionsLifecycle.bind("Background Window Resize") {
-//            GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, it.width, it.height)
-//        }
         // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
         // Also we need
         host.frameLifecycle.bind(dimensionsLifecycle,"Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
@@ -239,7 +219,7 @@ class ComposeConfig(
 
 
     @OptIn(InternalComposeUiApi::class)
-    val callbacks = object : RepeatingWindowCallbacks {
+    val callbacks = object : WindowCallbacks {
         override fun pointerEvent(
             eventType: PointerEventType,
             position: Offset,
@@ -257,31 +237,10 @@ class ComposeConfig(
         override fun keyEvent(event: KeyEvent) {
             windowLifecycle.value?.scene?.sendKeyEvent(event)
         }
-
-        override fun resize(width: Int, height: Int) {
-//            if (!windowLifecycle.isInitialized) return
-//
-//
-//            // Resize dummy window to match
-//            GLFW.glfwSetWindowSize(this@ComposeConfig.glfw.handle, width, height)
-        }
-
         override fun densityChange(newDensity: Density) {
             windowLifecycle.value?.scene?.density = newDensity
-//            if (!windowLifecycle.isInitialized) return
-//            window.scene.density = newDensity
         }
     }
-
-
-//    @OptIn(InternalComposeUiApi::class)
-//    fun show(config: WindowConfig) {
-//        glfw.show(config,  loop = false)
-//    }
-
-//    fun restart() {
-//        glfw.restart()
-//    }
 }
 
 
