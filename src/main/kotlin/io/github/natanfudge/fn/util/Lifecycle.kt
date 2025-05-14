@@ -2,8 +2,6 @@
 
 package io.github.natanfudge.fn.util
 
-import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.core.mustRerunLifecycles
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
@@ -57,10 +55,12 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
                 start = start,
                 stop = stop,
                 logLevel = logLevel,
+//                label = if (hotReloadIndex == 0) label else "$label (Reload #$hotReloadIndex)",
                 label = label,
                 parentState = null,
                 parentCount = 0,
                 selfState = null,
+                throwOnFail = false,
                 childrenParentIndices = mutableListOf(),
             )
             val ls = Lifecycle<P, T>(
@@ -72,6 +72,13 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
             data.lsCtx = LifecycleContext(ls)
             return ls
         }
+    }
+
+    fun setThrowOnFail(throwOnFail: Boolean) {
+        tree.visit {
+            it.throwOnFail = throwOnFail
+        }
+//        tree.value.throwOnFail = throwOnFail
     }
 
     /**
@@ -157,6 +164,21 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         end()
         start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
     }
+
+//        /**
+//     * Attempt to restart this lifecycle using its existing data. If it threw, will return the error.
+//     *
+//     * This is equivalent to calling [end] followed by [start] with null seedValue.
+//     */
+//    fun maybeRestart(): Throwable? {
+//        end()
+//        start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
+//    }
+//
+//    fun restart() {
+//        val result = maybeRestart()
+//        if (result != null) throw result
+//    }
 
     // SLOW: technically we can build a single "Restart" action for all the labels which would be faster than restarting the labels one by one.
     fun restartByLabels(labels: Set<String>) {
@@ -488,6 +510,37 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         }
     }
 
+    fun takeSnapshot(): LifecycleSnapshot {
+        verifyUniqueLabels()
+        val stateByLabel = mutableMapOf<String, LifecycleState>()
+        tree.visit {
+            stateByLabel[it.label] = LifecycleState(it.parentState, it.selfState)
+        }
+        return LifecycleSnapshot(stateByLabel)
+    }
+
+    private fun verifyUniqueLabels() {
+        val labels = mutableSetOf<String>()
+        val uniqueNodes = mutableSetOf<LifecycleTree>()
+        tree.visitSubtrees {
+            if (uniqueNodes.add(it)) {
+                if (it.value.label in labels) {
+                    throw IllegalStateException("Duplicate lifecycle label: ${it.value.label}. Keep your labels unique")
+                }
+                labels.add(it.value.label)
+            }
+        }
+    }
+
+    fun restoreFromSnapshot(snapshot: LifecycleSnapshot) {
+        tree.visit {
+            val savedValue = snapshot.stateByLabel[it.label] ?: return@visit
+            it as LifecycleData<Any, Any>
+            it.parentState = savedValue.parent
+            it.selfState = savedValue.self
+        }
+    }
+
     /**
      * Copies over all the state of this lifecycle to [other], assuming [other] is of the exact same structure
      */
@@ -500,11 +553,19 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
     }
 }
 
+internal class LifecycleState(
+    val parent: Any?,
+    val self: Any?,
+)
+
+class LifecycleSnapshot internal constructor(internal val stateByLabel: Map<String, LifecycleState>)
+
 internal class LifecycleData<P : Any, T : Any>(
     val start: LifecycleContext<P, T>.(P) -> T,
     val stop: (T) -> Unit,
     var parentState: P?,
     var selfState: T?,
+    var throwOnFail: Boolean,
     /**
      * Since lifecycles can have multiple parents, we need a way to differentiate between them.
      *
@@ -561,9 +622,12 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
         val result = lsCtx.start(nonNullParentState)
         selfState = result
     } catch (e: Throwable) {
-        //TODO: should think of a better thing to do when it fails, probably prevent children from running.
-        log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
-        e.printStackTrace()
+        if(throwOnFail) throw e
+        else {
+            //TODO: should think of a better thing to do when it fails, probably prevent children from running.
+            log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
+            e.printStackTrace()
+        }
     }
 }
 

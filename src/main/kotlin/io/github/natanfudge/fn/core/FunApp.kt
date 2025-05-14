@@ -36,8 +36,12 @@ fun <T : Lifecycle<*, *>> T.mustRerun(): T {
     return this
 }
 
+/**
+ * How many times the app has been hot-reloaded
+ */
+var hotReloadIndex = 0
 
-interface FunApp {
+interface FunApp: AutoCloseable {
     fun init(): WebGPUWindow
 
     fun run() {
@@ -57,6 +61,7 @@ interface FunApp {
         FunHotReload.reloadEnded.listen {
             // This has has special handling because it needs to run while the gameloop is locked
             loop.reloadCallback = {
+                hotReloadIndex++
                 println("Reloading app")
 
 
@@ -65,7 +70,7 @@ interface FunApp {
                 // Recreate lifecycles tree
                 RootLifecycles.clear()
                 RootLifecycles.add(ProcessLifecycle)
-                val mustRerunCopy = mustRerunLifecycles.toSet()
+                close()
                 val newWindow = init()
                 loop.window = newWindow.window
                 // Copy over old state
@@ -86,6 +91,8 @@ interface FunApp {
     }
 
 }
+
+
 
 
 const val HOT_RELOAD_SHADERS = true

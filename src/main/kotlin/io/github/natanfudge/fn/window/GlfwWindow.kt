@@ -28,13 +28,14 @@ data class GlfwConfig(
 data class WindowDimensions(
     val width: Int,
     val height: Int,
-    val window: GlfwWindow
+    val window: GlfwWindow,
 )
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowConfig) : AutoCloseable {
     override fun toString(): String {
         return "GLFW Window $handle"
     }
+
     private val waitingTasks = mutableListOf<() -> Unit>()
 
     var lastFrameTimeNano = System.nanoTime()
@@ -88,8 +89,6 @@ class GlfwFrame(
         return "Frame delta=$deltaMs, window=$window"
     }
 }
-
-
 
 
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
@@ -230,6 +229,10 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         GlfwFrame(it.window)
     }
 
+    val eventPollLifecycle = Lifecycle.create<Unit, Unit>("GLFW Event poll", FunLogLevel.Verbose) {
+        glfwPollEvents()
+    }
+
     private var callbacks: WindowCallbacks = object : WindowCallbacks {}
 
     fun setCallbacks(callbacks: WindowCallbacks) {
@@ -258,7 +261,8 @@ class GlfwGameLoop(var window: GlfwWindowConfig) {
     fun loop() {
         while (currentWindow.open) {
             checkForReloads()
-            glfwPollEvents()
+            if (!window.eventPollLifecycle.isInitialized) window.eventPollLifecycle.start(Unit)
+            else window.eventPollLifecycle.restart()
             checkForReloads()
             if (!currentWindow.open) break
             if (currentWindow.minimized) continue

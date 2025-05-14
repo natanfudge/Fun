@@ -9,7 +9,10 @@ import ffi.globalMemory
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
-import io.github.natanfudge.fn.window.*
+import io.github.natanfudge.fn.window.GlfwConfig
+import io.github.natanfudge.fn.window.GlfwWindowConfig
+import io.github.natanfudge.fn.window.WindowConfig
+import io.github.natanfudge.fn.window.WindowDimensions
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
 import io.ygdrasil.wgpu.WGPULogLevel_Info
@@ -36,21 +39,27 @@ class WebGPUContext(
     override fun toString(): String {
         return "WebGPU Context #$myIndex"
     }
+
     val myIndex = contextIndex++
     val context = wgpu.getNativeSurface(handle)
     val adapter = wgpu.requestAdapter(context)
         ?.also { context.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
+    var error: WebGPUException? = null
+
     val presentationFormat = context.supportedFormats.first()
     val device = runBlocking {
         adapter.requestDevice(
             DeviceDescriptor(label = myIndex.toString(), onUncapturedError = {
-//                println(it)
                 throw WebGPUException(it)
+//                if (error == null) error = WebGPUException(it)
+//                println(it)
+//                throw WebGPUException(it)
             })
         ).getOrThrow()
     }
+
     /**
      * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
      */
@@ -61,7 +70,7 @@ class WebGPUContext(
     }
 }
 
-class WebGPUException(error: GPUError): Exception("WebGPU Error: $error")
+class WebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 
 data class WebGPUFixedSizeSurface(
     val surface: WebGPUContext,
@@ -72,7 +81,7 @@ data class WebGPUFixedSizeSurface(
 data class WebGPUFrame(
     val ctx: WebGPUContext,
     val dimensions: WindowDimensions,
-    val deltaMs: Double
+    val deltaMs: Double,
 ) : AutoCloseable {
     // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
     // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
@@ -92,6 +101,7 @@ data class WebGPUFrame(
 class WebGPUWindow(config: WindowConfig) {
     companion object {
         const val SurfaceLifecycleLabel = "WebGPU Surface"
+
         init {
             LibraryLoader.load()
             wgpuSetLogLevel(WGPULogLevel_Info)
@@ -105,7 +115,7 @@ class WebGPUWindow(config: WindowConfig) {
         val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
     }
 
-     val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU", config)
+    val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU", config)
 
 
     // Surface needs to initialize before the dimensions
@@ -124,7 +134,7 @@ class WebGPUWindow(config: WindowConfig) {
         WebGPUFixedSizeSurface(surface, dim)
     }
 
-    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle,"WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
+    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle, "WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
         WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
     }
 

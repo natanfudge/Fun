@@ -1,6 +1,10 @@
 package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.PI
+import kotlin.math.PI
 
 typealias Point3f = Vec3f
 
@@ -31,6 +35,56 @@ class Mesh(val indices: TriangleIndexArray, val vertices: PosArray) {
                 20, 21, 22, 20, 22, 23       // bottom
             )
         )
+
+        fun sphere(segments: Int = 16): Mesh {
+            val vertices = mutableListOf<Point3f>()
+            val indices = mutableListOf<Int>()
+            
+            // Generate vertices
+            for (i in 0..segments) {
+                val phi = PI * i / segments
+                val sinPhi = sin(phi)
+                val cosPhi = cos(phi)
+                
+                for (j in 0..segments) {
+                    val theta = 2 * PI * j / segments
+                    val sinTheta = sin(theta)
+                    val cosTheta = cos(theta)
+                    
+                    // Convert spherical coordinates to Cartesian
+                    val x = sinPhi * cosTheta
+                    val y = sinPhi * sinTheta
+                    val z = cosPhi
+                    
+                    vertices.add(Point3f(x.toFloat(), y.toFloat(), z.toFloat()))
+                }
+            }
+            
+            // Generate indices for triangles
+            for (i in 0 until segments) {
+                for (j in 0 until segments) {
+                    val first = i * (segments + 1) + j
+                    val second = first + 1
+                    val third = (i + 1) * (segments + 1) + j
+                    val fourth = third + 1
+                    
+                    // First triangle
+                    indices.add(first)
+                    indices.add(second)
+                    indices.add(third)
+                    
+                    // Second triangle
+                    indices.add(second)
+                    indices.add(fourth)
+                    indices.add(third)
+                }
+            }
+            
+            return Mesh(
+                vertices = PosArray(vertices.flatMap { listOf(it.x, it.y, it.z) }.toFloatArray()),
+                indices = TriangleIndexArray(indices.toIntArray())
+            )
+        }
     }
 
     val triangles get() = vertices.size / 3

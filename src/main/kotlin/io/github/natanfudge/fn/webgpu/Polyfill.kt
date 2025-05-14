@@ -45,12 +45,14 @@ fun GPUDevice.copyExternalImageToTexture(source: ByteArray, texture: GPUTexture,
 }
 
 // Hopefully there will be an api for this in the future
-fun GPUBuffer.mapFrom(buffer: IntArray, offset: GPUSize64 = 0u) {
+fun GPUBuffer.mapFrom(buffer: IntArray, offset: GPUSize64 = 0u): GPUBuffer {
     buffer.writeInto(getMappedRange(offset))
-//    val bufferSize = (buffer.size * Int.SIZE_BYTES).toULong()
-//    wgpuBufferGetMappedRange((this as Buffer).handler, offset, bufferSize)
-//        .asBuffer(bufferSize)
-//        .writeInts(buffer)
+    return this
+}
+
+fun GPUBuffer.mapFrom(buffer: FloatArray, offset: GPUSize64 = 0u): GPUBuffer {
+    buffer.writeInto(getMappedRange(offset))
+    return this
 }
 
 private fun NativeAddress?.asBuffer(size: ULong): MemoryBuffer =

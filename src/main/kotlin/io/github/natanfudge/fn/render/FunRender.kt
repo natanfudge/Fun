@@ -1,27 +1,23 @@
 package io.github.natanfudge.fn.render
 
+import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.util.*
+import io.github.natanfudge.fn.util.FunLogLevel
+import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.PI
-import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 //TODO:
-// 6. Start drawing basic objects:
-//   AA. ModelViewProjection transformation
-//   A. An origin marker
-//   B. XYZ axis arrows
 // 7. Figure out how to draw spheres
-// 8. Draw a sphere for the origin marker and the arrows
 // 9. Implement WASD camera
 // 10. Implement orbital camera
 // 11. Integrate the switch between both cameras
@@ -36,27 +32,44 @@ import kotlin.math.sin
 // 15. Trying making a basic game
 // 16. Integrate the Fun "ECS" system and allow assigning physicality to components, allowing you to click on things and view their state
 
-class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions) : AutoCloseable {
+val msaaSamples = 4u
+
+
+class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable {
+    val extent = Extent3D(dims.width.toUInt(), dims.height.toUInt())
+
     // Create z buffer
-    val depthTexture = device.createTexture(
+    val depthTexture = ctx.device.createTexture(
         TextureDescriptor(
-            size = Extent3D(dims.width.toUInt(), dims.height.toUInt()),
+            size = extent,
             format = GPUTextureFormat.Depth24Plus,
-            usage = setOf(GPUTextureUsage.RenderAttachment)
+            usage = setOf(GPUTextureUsage.RenderAttachment),
+            sampleCount = msaaSamples
         )
     )
     val depthStencilView = depthTexture.createView()
 
-    val viewProjection = Mat4f.perspective(
+    val msaaTexture = ctx.device.createTexture(
+        TextureDescriptor(
+            size = extent,
+            sampleCount = msaaSamples,
+            format = ctx.presentationFormat,
+            usage = setOf(GPUTextureUsage.RenderAttachment)
+        )
+    )
+
+    val msaaTextureView = msaaTexture.createView()
+
+    val projection = Mat4f.perspective(
         fieldOfViewYInRadians = PI.toFloat() / 3,
         aspect = dims.width.toFloat() / dims.height,
         zNear = 0.01f,
         zFar = 100f
-    ).translate(Vec3f(0f,0f,-4f))
+    ).translate(Vec3f(0f, 0f, -4f))
 
 
     override fun close() {
-        closeAll(depthStencilView, depthTexture)
+        closeAll(depthStencilView, depthTexture, msaaTextureView, msaaTexture)
     }
 }
 
@@ -64,21 +77,53 @@ class FunFixedSizeWindow(device: GPUDevice, val dims: WindowDimensions) : AutoCl
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     val cubeMesh = Mesh.UnitCube
-    val verticesBuffer = ctx.device.createBuffer(
+    val cubeVerticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = cubeMesh.vertexCount * Vec3f.SIZE_BYTES, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
             usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
             mappedAtCreation = true
         )
-    )
+    ).also {
+        cubeMesh.vertices.array.writeInto(it.getMappedRange())
+        it.unmap()
+    }
 
-    val indicesBuffer = ctx.device.createBuffer(
+    val cubeIndicesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = cubeMesh.indexCount * Float.SIZE_BYTES.toULong(),
             usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
             mappedAtCreation = true
         )
-    )
+    ).also {
+        it.mapFrom(cubeMesh.indices.array)
+        it.unmap()
+    }
+
+    val sphereMesh = Mesh.sphere()
+
+    val sphereIndicesBuffer = ctx.device.createBuffer(
+        BufferDescriptor(
+            size = sphereMesh.indexCount * Float.SIZE_BYTES.toULong(),
+            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
+            mappedAtCreation = true
+        )
+    ).also {
+        it.mapFrom(sphereMesh.indices.array)
+        it.unmap()
+    }
+
+    val sphereVerticesBuffer = ctx.device.createBuffer(
+        BufferDescriptor(
+            size = sphereMesh.vertexCount * Vec3f.SIZE_BYTES, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
+            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
+            mappedAtCreation = true
+        )
+    ).also {
+        sphereMesh.vertices.array.writeInto(it.getMappedRange())
+        it.unmap()
+    }
+
+
 
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
@@ -87,38 +132,46 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
         )
     )
 
-    init {
-        verticesBuffer.mapFrom(cubeMesh.vertices.array)
-        verticesBuffer.unmap()
+    val maxInstances = 10uL
 
-        indicesBuffer.mapFrom(cubeMesh.indices.array)
-        indicesBuffer.unmap()
-    }
+    val storageBuffer = ctx.device.createBuffer(
+        BufferDescriptor(
+            size = (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES) * maxInstances, // Include space for both model matrix and color
+            usage = setOf(GPUBufferUsage.Storage, GPUBufferUsage.CopyDst)
+        )
+    )
 
     override fun close() {
-        closeAll(verticesBuffer, indicesBuffer, uniformBuffer)
+        closeAll(cubeVerticesBuffer, cubeIndicesBuffer, sphereVerticesBuffer, sphereIndicesBuffer, uniformBuffer, storageBuffer)
     }
 }
 
+var pipelines = 0
+
+
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-    val surfaceLifecycle = this@bindFunLifecycles.surfaceLifecycle.bind("Fun Surface") {
+    val surfaceLifecycle = surfaceLifecycle.bind("Fun Surface") {
         FunSurface(it)
     }
     val funDimLifecycle = dimensionsLifecycle.bind("Fun Dimensions") {
-        FunFixedSizeWindow(it.surface.device, it.dimensions)
+        FunFixedSizeWindow(it.surface, it.dimensions)
     }
+
 
     val cubeLifecycle = createReloadingPipeline(
         "Cube",
         this@bindFunLifecycles.surfaceLifecycle, fsWatcher,
-        vertexShader = ShaderSource.HotFile("cube.vertex"),
-        fragmentShader = ShaderSource.HotFile("cube.fragment")
+        vertexShader = ShaderSource.HotFile("cube"),
+//        fragmentShader = ShaderSource.HotFile("cube.fragment")
     ) { vertex, fragment ->
+        pipelines++
+        println("Creating pipeline $pipelines")
         RenderPipelineDescriptor(
+            label = "Fun Cube Pipeline #$pipelines",
             vertex = VertexState(
                 module = vertex,
-                entryPoint = "main",
+                entryPoint = "vs_main",
                 buffers = listOf(
                     VertexBufferLayout(
                         arrayStride = 4uL * 3uL, // 4floats × 3bytes  (12bytes per vertex)
@@ -130,7 +183,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             ),
             fragment = FragmentState(
                 module = fragment,
-                entryPoint = "main",
+                entryPoint = "fs_main",
                 targets = listOf(ColorTargetState(presentationFormat))
             ),
             primitive = PrimitiveState(
@@ -141,11 +194,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                 format = GPUTextureFormat.Depth24Plus,
                 depthWriteEnabled = true,
                 depthCompare = GPUCompareFunction.Less
-            )
+            ),
+            multisample = MultisampleState(count = msaaSamples)
         )
     }
 
-    val bindGroupLifecycle = cubeLifecycle.bind(surfaceLifecycle,"Fun BindGroup") { pipeline, surface ->
+    val bindGroupLifecycle = cubeLifecycle.bind(surfaceLifecycle, "Fun BindGroup") { pipeline, surface ->
+        println("Using pipeline ${pipeline.pipeline.label}")
         surface.ctx.device.createBindGroup(
             BindGroupDescriptor(
                 layout = pipeline.pipeline.getBindGroupLayout(0u),
@@ -155,33 +210,45 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                         resource = BufferBinding(
                             buffer = surface.uniformBuffer
                         )
+                    ),
+                    BindGroupEntry(
+                        binding = 1u,
+                        resource = BufferBinding(
+                            buffer = surface.storageBuffer
+                        )
                     )
                 )
             )
         )
     }
 
+    if (HOT_RELOAD_SHADERS) {
+        // Running this in-frame is a bad idea since it can trigger a new frame
+        window.eventPollLifecycle.bind("Fun Polling", FunLogLevel.Verbose) {
+            fsWatcher.poll()
+        }
+    }
     frameLifecycle.bind(
-        surfaceLifecycle,funDimLifecycle, bindGroupLifecycle,cubeLifecycle,
+        surfaceLifecycle, funDimLifecycle, bindGroupLifecycle, cubeLifecycle,
         compose.frameLifecycle,
         "Fun Frame", FunLogLevel.Verbose
-    ) { frame, surface, dimensions, bindGroup,cube, composeFrame ->
+    ) { frame, surface, dimensions, bindGroup, cube, composeFrame ->
+//        println("Running fun frame")
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
 
-        if (HOT_RELOAD_SHADERS) {
-            fsWatcher.poll()
-        }
+
         val commandEncoder = ctx.device.createCommandEncoder()
 
         val textureView = frame.windowTexture
         val renderPassDescriptor = RenderPassDescriptor(
             colorAttachments = listOf(
                 RenderPassColorAttachment(
-                    view = textureView,
+                    view = dimensions.msaaTextureView,
+                    resolveTarget = textureView,
                     clearValue = Color(0.0, 0.0, 0.0, 0.0),
                     loadOp = GPULoadOp.Clear,
-                    storeOp = GPUStoreOp.Store
+                    storeOp = GPUStoreOp.Discard
                 ),
             ),
             depthStencilAttachment = RenderPassDepthStencilAttachment(
@@ -189,34 +256,95 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                 depthClearValue = 1.0f,
                 depthLoadOp = GPULoadOp.Clear,
                 depthStoreOp = GPUStoreOp.Store
-            )
+            ),
         )
         val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
+
+        val lookAt = Mat4f.lookAt(
+            eye = Vec3f(5f, 5f, 5f),
+            target = Vec3f(0f, 0f, 0f),
+            up = Vec3f(0f, 0f, 1f)
+        )
+
+        val viewProjection = dimensions.projection * lookAt
+
 //        Mat4f.identity(surface.viewProjection)
 //        surface.viewProjection.rotate(Vec3f(sin(100f), cos(100f), 0f), 1f, surface.viewProjection)
 
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,
             0uL,
-            dimensions.viewProjection.array
+            viewProjection.array
         )
 
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            0uL,
+            Mat4f.translation(Vec3f(-0.5f,-0.5f,-0.5f)).array + Color.White.toFloatArray() // Add white color
+        )
+
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong(),
+            Mat4f.translation(Vec3f(0f,-0.05f,-0.05f))
+                .scale(Vec3f(x = 10f, y = 0.1f, z = 0.1f))
+                .array + Color.Red.toFloatArray()
+        )
+
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 2u,
+            Mat4f.translation(Vec3f(-0.05f,0f,-0.05f))
+                .scale(Vec3f(x = 0.1f, y = 10f, z = 0.1f))
+                .array + Color.Green.toFloatArray()
+        )
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 3u,
+            Mat4f.translation(Vec3f(-0.05f,-0.05f,0f))
+                .scale(Vec3f(x = 0.1f, y = 0.1f, z = 10f))
+                .array + Color.Blue.toFloatArray()
+        )
+
+
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
+//        println("Setting pipeline ${cube.pipeline.label}")
+
+        pass.setVertexBuffer(0u, surface.sphereVerticesBuffer)
+        pass.setIndexBuffer(surface.sphereIndicesBuffer, GPUIndexFormat.Uint32)
+        pass.drawIndexed(surface.sphereMesh.indexCount.toUInt())
+
         pass.setPipeline(cube.pipeline)
         pass.setBindGroup(0u, bindGroup)
-        pass.setVertexBuffer(0u, surface.verticesBuffer)
-        pass.setIndexBuffer(surface.indicesBuffer, GPUIndexFormat.Uint32)
-        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt())
+        pass.setVertexBuffer(0u, surface.cubeVerticesBuffer)
+        pass.setIndexBuffer(surface.cubeIndicesBuffer, GPUIndexFormat.Uint32)
+        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 3u, firstInstance = 1u)
+
+
+
         pass.end()
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
+
+        val err = ctx.error
+        if (err != null) {
+            ctx.error = null
+            throw err
+        }
+
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
+
 
         commandEncoder
     }
 
 }
+
+//private fun Color.getBytes() = byteArrayOf(red.colorByte(), green.colorByte(), blue.colorByte(), alpha.colorByte())
+private fun Color.toFloatArray() = floatArrayOf(red, green, blue, alpha)
+
+private fun Float.colorByte() =(this * 255).roundToInt().toByte()
 
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000

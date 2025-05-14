@@ -12,13 +12,14 @@ import io.github.natanfudge.fn.window.WindowConfig
 
 
 class BaseFunApp: FunApp {
+    private lateinit var fsWatcher: FileSystemWatcher
     override fun init(): WebGPUWindow {
         // We use vsync so don't limit fps
         val config = WindowConfig(maxFps = Int.MAX_VALUE, initialTitle = "Fun", initialWindowWidth = 800, initialWindowHeight = 600)
 
         val window = WebGPUWindow(config)
 
-        val fsWatcher = FileSystemWatcher()
+        fsWatcher = FileSystemWatcher()
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false) { ComposeMainApp() }
         window.window.setCallbacks(compose.callbacks)
@@ -27,6 +28,12 @@ class BaseFunApp: FunApp {
 
         return window
     }
+
+    override fun close() {
+        fsWatcher.close()
+    }
+
+
 }
 
 fun main() {

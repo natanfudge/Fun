@@ -22,6 +22,10 @@ class FileSystemWatcher(
     private val watchService: WatchService = FileSystems.getDefault().newWatchService()
 ) {
 
+    fun close() {
+        watchService.close()
+    }
+
     /** Handle returned from [onFileChanged]; call [cancel] to stop listening. */
     inner class Key internal constructor(private val file: Path, private val cb: () -> Unit) {
         /** Stop receiving events for this specific file-callback pair. */

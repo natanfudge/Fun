@@ -1,8 +1,10 @@
 package io.github.natanfudge.fn.util
 
-fun closeAll(vararg closeable: AutoCloseable) {
-    for (closeable in closeable) {
-        closeable.close()
+fun closeAll(vararg closeables: AutoCloseable) {
+    for (closeable in closeables) {
+        // On reload the values might become null
+        @Suppress("UNNECESSARY_SAFE_CALL")
+        closeable?.close()
     }
 }
 
