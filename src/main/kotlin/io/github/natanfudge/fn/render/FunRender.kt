@@ -1,12 +1,15 @@
 package io.github.natanfudge.fn.render
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.*
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
+import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
+import io.github.natanfudge.fn.window.WindowCallbacks
 import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -17,7 +20,6 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 
 //TODO:
-// 7. Figure out how to draw spheres
 // 9. Implement WASD camera
 // 10. Implement orbital camera
 // 11. Integrate the switch between both cameras
@@ -65,7 +67,7 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
         aspect = dims.width.toFloat() / dims.height,
         zNear = 0.01f,
         zFar = 100f
-    ).translate(Vec3f(0f, 0f, -4f))
+    )
 
 
     override fun close() {
@@ -124,7 +126,6 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 
 
-
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = Mat4f.SIZE_BYTES.toULong(),// 4x4 matrix
@@ -148,11 +149,110 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 var pipelines = 0
 
+class AppState {
+    val camera = Camera()
+    val input = InputManager(this)
+}
+
+class InputManager(val app: AppState) {
+    private val heldKeys = mutableSetOf<Key>()
+    val callbacks: WindowCallbacks = object : WindowCallbacks {
+        override fun keyEvent(event: KeyEvent) {
+            when (event.type) {
+                KeyEventType.KeyDown -> heldKeys.add(event.key)
+                KeyEventType.KeyUp -> heldKeys.remove(event.key)
+            }
+        }
+    }
+
+    fun poll() {
+        heldKeys.forEach { whilePressed(it) }
+    }
+
+    fun whilePressed(key: Key) {
+        val delta = 0.05f
+        when (key) {
+            Key.W -> app.camera.moveForward(delta)
+            Key.S -> app.camera.moveBackward(delta)
+            Key.A -> app.camera.moveLeft(delta)
+            Key.D -> app.camera.moveRight(delta)
+            Key.Spacebar -> app.camera.moveUp(delta)
+            Key.CtrlLeft -> app.camera.moveDown(delta)
+        }
+    }
+}
+
+class Camera {
+    val position = Vec3f(5f, 5f, 5f)
+    val up = Vec3f(0f, 0f, 1f)
+
+    /**
+     * Always normalized
+     */
+    val lookDirection = (Vec3f.zero() - position).normalize()
+
+    val lookAt = Mat4f()
+
+    init {
+        calculateLookAt()
+    }
+
+    //TODO: on app failure after reload, try restarting it
+    private fun calculateLookAt() {
+        Mat4f.lookAt(
+            eye = position,
+            target = position + lookDirection,
+            up = up,
+            dst = lookAt
+        )
+    }
+
+    fun moveForward(delta: Float) {
+        move(lookDirection, delta)
+    }
+
+    fun moveBackward(delta: Float) {
+        moveForward(-delta)
+    }
+
+    fun moveLeft(delta: Float) {
+        move(up.cross(lookDirection), delta)
+    }
+
+    fun moveRight(delta: Float) {
+        moveLeft(-delta)
+    }
+
+    fun moveUp(delta: Float) {
+        position.add(up * delta, position)
+        calculateLookAt()
+    }
+
+    fun moveDown(delta: Float) {
+        moveUp(-delta)
+    }
+
+    private fun move(direction: Vec3f, delta: Float) {
+        val onlyXY = Vec3f(direction.x, direction.y, 0f)
+        onlyXY.normalize(onlyXY)
+        onlyXY.mulScalar(delta, onlyXY)
+        position.add(onlyXY, position)
+        // Don't move 'up' (z) with forward/back movement, Minecraft style
+        calculateLookAt()
+    }
+}
+
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-    val surfaceLifecycle = surfaceLifecycle.bind("Fun Surface") {
-        FunSurface(it)
+    val appLifecycle = ProcessLifecycle.bind("App") {
+
+        AppState()
+    }
+
+    val surfaceLifecycle = surfaceLifecycle.bind(appLifecycle, "Fun Surface") { surface, app ->
+        surface.window.callbacks["Fun"] = app.input.callbacks
+        FunSurface(surface)
     }
     val funDimLifecycle = dimensionsLifecycle.bind("Fun Dimensions") {
         FunFixedSizeWindow(it.surface, it.dimensions)
@@ -222,17 +322,20 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    if (HOT_RELOAD_SHADERS) {
-        // Running this in-frame is a bad idea since it can trigger a new frame
-        window.eventPollLifecycle.bind("Fun Polling", FunLogLevel.Verbose) {
+
+    // Running this in-frame is a bad idea since it can trigger a new frame
+    window.eventPollLifecycle.bind("Fun Polling", FunLogLevel.Verbose) {
+        if (HOT_RELOAD_SHADERS) {
             fsWatcher.poll()
         }
+        appLifecycle.assertValue.input.poll()
     }
+
     frameLifecycle.bind(
         surfaceLifecycle, funDimLifecycle, bindGroupLifecycle, cubeLifecycle,
-        compose.frameLifecycle,
+        compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
-    ) { frame, surface, dimensions, bindGroup, cube, composeFrame ->
+    ) { frame, surface, dimensions, bindGroup, cube, composeFrame, app ->
 //        println("Running fun frame")
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
@@ -260,16 +363,9 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
         val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
 
-        val lookAt = Mat4f.lookAt(
-            eye = Vec3f(5f, 5f, 5f),
-            target = Vec3f(0f, 0f, 0f),
-            up = Vec3f(0f, 0f, 1f)
-        )
+//        val lookAt = appLifecycle.assertValue
 
-        val viewProjection = dimensions.projection * lookAt
-
-//        Mat4f.identity(surface.viewProjection)
-//        surface.viewProjection.rotate(Vec3f(sin(100f), cos(100f), 0f), 1f, surface.viewProjection)
+        val viewProjection = dimensions.projection * app.camera.lookAt
 
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,
@@ -280,13 +376,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             0uL,
-            Mat4f.translation(Vec3f(-0.5f,-0.5f,-0.5f)).array + Color.White.toFloatArray() // Add white color
+            Mat4f.translation(Vec3f(-0.5f, -0.5f, -0.5f)).array + Color.White.toFloatArray() // Add white color
         )
 
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong(),
-            Mat4f.translation(Vec3f(0f,-0.05f,-0.05f))
+            Mat4f.translation(Vec3f(0f, -0.05f, -0.05f))
                 .scale(Vec3f(x = 10f, y = 0.1f, z = 0.1f))
                 .array + Color.Red.toFloatArray()
         )
@@ -294,33 +390,30 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 2u,
-            Mat4f.translation(Vec3f(-0.05f,0f,-0.05f))
+            Mat4f.translation(Vec3f(-0.05f, 0f, -0.05f))
                 .scale(Vec3f(x = 0.1f, y = 10f, z = 0.1f))
                 .array + Color.Green.toFloatArray()
         )
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 3u,
-            Mat4f.translation(Vec3f(-0.05f,-0.05f,0f))
+            Mat4f.translation(Vec3f(-0.05f, -0.05f, 0f))
                 .scale(Vec3f(x = 0.1f, y = 0.1f, z = 10f))
                 .array + Color.Blue.toFloatArray()
         )
 
 
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
-//        println("Setting pipeline ${cube.pipeline.label}")
+        pass.setPipeline(cube.pipeline)
+        pass.setBindGroup(0u, bindGroup)
 
         pass.setVertexBuffer(0u, surface.sphereVerticesBuffer)
         pass.setIndexBuffer(surface.sphereIndicesBuffer, GPUIndexFormat.Uint32)
         pass.drawIndexed(surface.sphereMesh.indexCount.toUInt())
 
-        pass.setPipeline(cube.pipeline)
-        pass.setBindGroup(0u, bindGroup)
         pass.setVertexBuffer(0u, surface.cubeVerticesBuffer)
         pass.setIndexBuffer(surface.cubeIndicesBuffer, GPUIndexFormat.Uint32)
         pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 3u, firstInstance = 1u)
-
-
 
         pass.end()
 
@@ -344,7 +437,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 //private fun Color.getBytes() = byteArrayOf(red.colorByte(), green.colorByte(), blue.colorByte(), alpha.colorByte())
 private fun Color.toFloatArray() = floatArrayOf(red, green, blue, alpha)
 
-private fun Float.colorByte() =(this * 255).roundToInt().toByte()
+private fun Float.colorByte() = (this * 255).roundToInt().toByte()
 
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000

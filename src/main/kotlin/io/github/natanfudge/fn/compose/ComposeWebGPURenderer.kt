@@ -49,24 +49,14 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
         bgWindow.invalid = true
     }
 
-    init {
-        println("Registering listener with dim= ${dimensions.dimensions}")
-    }
-
 
     val listener = bgWindow.frameStream.listen { (bytes, width, height) ->
-        println("Writing compose texture for dimensions ${dimensions.dimensions}")
         dimensions.surface.device.copyExternalImageToTexture(
             source = bytes,
             texture = composeTexture,
             width = width, height = height
         )
     }
-
-
-
-
-
 
 
     override fun toString(): String {
@@ -76,7 +66,6 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
 
 
     override fun close() {
-        println("Closing listener with dim= ${dimensions.dimensions}. I am $myIndex")
         closeAll(listener, composeTexture)
     }
 }
@@ -134,6 +123,7 @@ class ComposeWebGPURenderer(
 //    }
 
     val surfaceLifecycle = hostWindow.surfaceLifecycle.bind("Compose WebGPU Surface") {
+        it.window.callbacks["Compose"] = compose.callbacks
         ComposeWebgpuSurface(it)
     }
 

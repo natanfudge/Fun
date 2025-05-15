@@ -10,6 +10,7 @@ import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
 import io.github.natanfudge.fn.window.GlfwConfig
+import io.github.natanfudge.fn.window.GlfwWindow
 import io.github.natanfudge.fn.window.GlfwWindowConfig
 import io.github.natanfudge.fn.window.WindowConfig
 import io.github.natanfudge.fn.window.WindowDimensions
@@ -34,14 +35,14 @@ import org.rococoa.Rococoa
 private var contextIndex = 0
 
 class WebGPUContext(
-    handle: Long,
+    val window: GlfwWindow
 ) : AutoCloseable {
     override fun toString(): String {
         return "WebGPU Context #$myIndex"
     }
 
     val myIndex = contextIndex++
-    val context = wgpu.getNativeSurface(handle)
+    val context = wgpu.getNativeSurface(window.handle)
     val adapter = wgpu.requestAdapter(context)
         ?.also { context.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
@@ -63,7 +64,7 @@ class WebGPUContext(
     /**
      * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
      */
-    val refreshRate = getRefreshRate(handle)
+    val refreshRate = getRefreshRate(window.handle)
 
     override fun close() {
         closeAll(context, adapter, device)
@@ -120,7 +121,7 @@ class WebGPUWindow(config: WindowConfig) {
 
     // Surface needs to initialize before the dimensions
     val surfaceLifecycle = window.windowLifecycle.bind(SurfaceLifecycleLabel) {
-        WebGPUContext(it.handle)
+        WebGPUContext(it)
     }
 
     // HACK: early = true here is just bandaid I feel like for proper close ordering. If you don't do this the wgpu surface can crash on resize.

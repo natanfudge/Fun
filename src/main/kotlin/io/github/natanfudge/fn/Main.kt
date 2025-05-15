@@ -22,7 +22,8 @@ class BaseFunApp: FunApp {
         fsWatcher = FileSystemWatcher()
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false) { ComposeMainApp() }
-        window.window.setCallbacks(compose.callbacks)
+//        window.window.callbacks.clear()
+
         window.bindFunLifecycles(compose, fsWatcher)
 
 

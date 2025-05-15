@@ -37,6 +37,7 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
     }
 
     private val waitingTasks = mutableListOf<() -> Unit>()
+    val callbacks = mutableMapOf<String, WindowCallbacks>()
 
     var lastFrameTimeNano = System.nanoTime()
 
@@ -132,15 +133,16 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
     }
 
     init {
-        windowLifecycle.bind("GLFW Callbacks ($name)") {
-            val window = it
-            val windowHandle = it.handle
+        windowLifecycle.bind("GLFW Callbacks ($name)") { window ->
+            val windowHandle = window.handle
+            val callbacks = window.callbacks.values
             glfwSetWindowCloseCallback(windowHandle) {
-                callbacks.windowClosePressed()
+                callbacks.forEach { it.windowClosePressed() }
+//                callbacks.windowClosePressed()
                 window.open = false
             }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-                callbacks.windowMove(x, y)
+                callbacks.forEach { it.windowMove(x,y) }
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
@@ -160,58 +162,65 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
 
             glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
-                // We're going to send the clicks to the GUI even if it is not focused, to be able to actually move from opengl focus to Compose focus.
-                callbacks.pointerEvent(
-                    position = glfwGetCursorPos(windowHandle),
-                    eventType = when (action) {
-                        GLFW_PRESS -> PointerEventType.Press
-                        GLFW_RELEASE -> PointerEventType.Release
-                        else -> PointerEventType.Unknown
-                    },
-                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-                )
+                callbacks.forEach {
+                    it.pointerEvent(
+                        position = glfwGetCursorPos(windowHandle),
+                        eventType = when (action) {
+                            GLFW_PRESS -> PointerEventType.Press
+                            GLFW_RELEASE -> PointerEventType.Release
+                            else -> PointerEventType.Unknown
+                        },
+                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                    )
+                }
             }
 
             glfwSetCursorPosCallback(windowHandle) { window, xpos, ypos ->
-                callbacks.pointerEvent(
-                    position = Offset(xpos.toFloat(), ypos.toFloat()),
-                    eventType = PointerEventType.Move,
-                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-                )
+                callbacks.forEach {
+                    it.pointerEvent(
+                        position = Offset(xpos.toFloat(), ypos.toFloat()),
+                        eventType = PointerEventType.Move,
+                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                    )
+                }
             }
 
             glfwSetScrollCallback(windowHandle) { window, xoffset, yoffset ->
-                callbacks.pointerEvent(
-                    eventType = PointerEventType.Scroll,
-                    position = glfwGetCursorPos(windowHandle),
-                    scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
-                    nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
-                )
+                callbacks.forEach {
+                    it.pointerEvent(
+                        eventType = PointerEventType.Scroll,
+                        position = glfwGetCursorPos(windowHandle),
+                        scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
+                        nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
+                    )
+                }
 
             }
 
             glfwSetCursorEnterCallback(windowHandle) { _, entered ->
-                callbacks.pointerEvent(
-                    position = glfwGetCursorPos(windowHandle),
-                    eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
-                    nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-                )
+                callbacks.forEach {
+                    it.pointerEvent(
+                        position = glfwGetCursorPos(windowHandle),
+                        eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
+                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                    )
+                }
             }
 
             glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
                 val event = glfwToComposeEvent(key, action, mods)
                 if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
-                callbacks.keyEvent(event)
+                callbacks.forEach { it.keyEvent(event) }
             }
 
             glfwSetCharCallback(windowHandle) { window, codepoint ->
                 for (char in Character.toChars(codepoint)) {
-                    callbacks.keyEvent(typedCharacterToComposeEvent(char))
+                    callbacks.forEach { it.keyEvent(typedCharacterToComposeEvent(char)) }
                 }
             }
 
             glfwSetWindowContentScaleCallback(windowHandle) { _, xscale, _ ->
-                callbacks.densityChange(Density(xscale))
+                callbacks.forEach { it.densityChange(Density(xscale)) }
             }
             Unit
         }.mustRerun() // Make sure callbacks are not stale
@@ -233,11 +242,13 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         glfwPollEvents()
     }
 
-    private var callbacks: WindowCallbacks = object : WindowCallbacks {}
 
-    fun setCallbacks(callbacks: WindowCallbacks) {
-        this.callbacks = callbacks
-    }
+
+//    private var callbacks: WindowCallbacks = object : WindowCallbacks {}
+
+//    fun setCallbacks(callbacks: WindowCallbacks) {
+//        this.callbacks = callbacks
+//    }
 
 
     fun close() {

@@ -134,7 +134,6 @@ class ComposeConfig(
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 content
             ) {
-                println("Invalidating Compose because of state change")
                 // Invalidate Compose frame on change
                 window!!.invalid = true
             }
@@ -145,7 +144,6 @@ class ComposeConfig(
     val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> = host.dimensionsLifecycle.bind(windowLifecycle,"Compose Fixed Size Window") { dim, window ->
         GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
         window.scene.size = IntSize(dim.width, dim.height)
-        println("Invalidating Compose because of size change")
 
         FixedSizeComposeWindow(dim.width, dim.height, window)
     }
@@ -157,7 +155,6 @@ class ComposeConfig(
             val window = dim.window
             window.dispatcher.poll()
             if (window.invalid) {
-                println("Drawing new Compose frame")
                 GLFW.glfwMakeContextCurrent(window.handle)
                 dim.draw()
                 glfwSwapBuffers(window.handle)

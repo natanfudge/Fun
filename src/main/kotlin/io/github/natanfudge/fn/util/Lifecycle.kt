@@ -474,6 +474,38 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         return ls as Lifecycle<T, CT>
     }
 
+    fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5 : Any, P6 : Any, P7 : Any> bind(
+        secondLifecycle: Lifecycle<*, P2>,
+        thirdLifecycle: Lifecycle<*, P3>,
+        fourthLifecycle: Lifecycle<*, P4>,
+        fifthLifecycle: Lifecycle<*, P5>,
+        sixthLifecycle: Lifecycle<*, P6>,
+        seventhLifecycle: Lifecycle<*, P7>,
+        label: String,
+        logLevel: FunLogLevel = FunLogLevel.Debug,
+        stop: (CT) -> Unit = {},
+        start: AutoClose.(T, P2, P3, P4, P5, P6, P7) -> CT,
+    ): Lifecycle<T, CT> {
+        val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
+            val parentA = parents[0] as T
+            val parentB = parents[1] as P2
+            val parentC = parents[2] as P3
+            val parentD = parents[3] as P4
+            val parentE = parents[4] as P5
+            val parentF = parents[5] as P6
+            val parentG = parents[6] as P7
+            start(parentA, parentB, parentC, parentD, parentE, parentF, parentG)
+        })
+        this.bind(ls)
+        secondLifecycle.bind(ls)
+        thirdLifecycle.bind(ls)
+        fourthLifecycle.bind(ls)
+        fifthLifecycle.bind(ls)
+        sixthLifecycle.bind(ls)
+        seventhLifecycle.bind(ls)
+        return ls as Lifecycle<T, CT>
+    }
+
     /**
      * Indicates whether this lifecycle has been started and initialized with a value.
      */
@@ -601,7 +633,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
 
     if (hasMultipleParents) {
         // Start initializing the parent data this lifecycle needs
-        if (parentState == null) parentState = List(parentCount) { null } as P
+        if (parentState == null) parentState = MutableList(parentCount) { null } as P
     }
 
     logLifecycleStart(this, hasMultipleParents, prevParent, label, prevSelf, parents)
@@ -609,6 +641,8 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     // Only modify data.parentState later to not mess with the logs
     for ((seedValue, index) in parents) {
         if (hasMultipleParents) {
+            // If a reload changed it from 1 parents to 2, update it to be a list
+            if (parentState !is MutableList<*>) parentState = mutableListOf(parentState) as P
             (parentState as MutableList<Any?>)[index] = seedValue
         } else {
             parentState = seedValue
@@ -619,15 +653,17 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     val nonNullParentState = parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
 
     try {
+        //TODO: think of ways to solve number of bindings changing on reload.
+        // I think, in the bind functions, throw a special exception and then catch it in the top-level restart method and reload the entire tree
         val result = lsCtx.start(nonNullParentState)
         selfState = result
-    } catch (e: Throwable) {
-        if(throwOnFail) throw e
-        else {
-            //TODO: should think of a better thing to do when it fails, probably prevent children from running.
-            log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
-            e.printStackTrace()
-        }
+    } catch (e: NoSuchMethodError) {
+//        if (throwOnFail) throw e
+//        else {
+        //TODO: should think of a better thing to do when it fails, probably prevent children from running.
+        log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
+        e.printStackTrace()
+//        }
     }
 }
 
