@@ -82,6 +82,8 @@ class ComposeGlfwWindow(
     }
     var invalid = true
 
+    var focused = true
+
     val scene = PlatformLayersComposeScene(
         coroutineContext = dispatcher,
         density = density,
@@ -123,6 +125,7 @@ class ComposeConfig(
     companion object {
         const val LifecycleLabel = "Compose Window"
     }
+
     private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose", host.config)
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
@@ -130,7 +133,7 @@ class ComposeConfig(
         glDebugGroup(1, groupName = { "Compose Init" }) {
             var window: ComposeGlfwWindow? = null
             window = ComposeGlfwWindow(
-                it.init.initialWindowWidth, it.init.initialWindowHeight,it.handle,
+                it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 content
             ) {
@@ -141,17 +144,18 @@ class ComposeConfig(
         }
     }
 
-    val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> = host.dimensionsLifecycle.bind(windowLifecycle,"Compose Fixed Size Window") { dim, window ->
-        GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
-        window.scene.size = IntSize(dim.width, dim.height)
+    val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> =
+        host.dimensionsLifecycle.bind(windowLifecycle, "Compose Fixed Size Window") { dim, window ->
+            GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
+            window.scene.size = IntSize(dim.width, dim.height)
 
-        FixedSizeComposeWindow(dim.width, dim.height, window)
-    }
+            FixedSizeComposeWindow(dim.width, dim.height, window)
+        }
 
     init {
         // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
         // Also we need
-        host.frameLifecycle.bind(dimensionsLifecycle,"Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
+        host.frameLifecycle.bind(dimensionsLifecycle, "Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
             val window = dim.window
             window.dispatcher.poll()
             if (window.invalid) {
@@ -228,14 +232,24 @@ class ComposeConfig(
             nativeEvent: Any?,
             button: PointerButton?,
         ) {
-            windowLifecycle.value?.scene?.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+            val window = windowLifecycle.value ?: return
+            if (window.focused) {
+                window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+            }
         }
 
         override fun keyEvent(event: KeyEvent) {
-            windowLifecycle.value?.scene?.sendKeyEvent(event)
+            val window = windowLifecycle.value ?: return
+            if (window.focused) {
+                window.scene.sendKeyEvent(event)
+            }
         }
+
         override fun densityChange(newDensity: Density) {
-            windowLifecycle.value?.scene?.density = newDensity
+            val window = windowLifecycle.value ?: return
+            if (window.focused) {
+                window.scene.density = newDensity
+            }
         }
     }
 }

@@ -41,7 +41,7 @@ fun <T : Lifecycle<*, *>> T.mustRerun(): T {
  */
 var hotReloadIndex = 0
 
-interface FunApp: AutoCloseable {
+interface FunApp : AutoCloseable {
     fun init(): WebGPUWindow
 
     fun run() {
@@ -76,8 +76,16 @@ interface FunApp: AutoCloseable {
                 // Copy over old state
                 ProcessLifecycle.copyChildrenStateFrom(children)
 
+                try {
+                    ProcessLifecycle.restartByLabels(mustRerunLifecycles + WebGPUWindow.SurfaceLifecycleLabel)
+                } catch (e: Throwable) {
+                    println("Failed to perform a granular restart, trying to restart the app entirely")
+                    e.printStackTrace()
+//                    ProcessLifecycle.start(Unit)
+                    ProcessLifecycle.restart()
+                }
 //            ProcessLifecycle.restartByLabel(ComposeConfig.LifecycleLabel)
-                ProcessLifecycle.restartByLabels(mustRerunLifecycles + WebGPUWindow.SurfaceLifecycleLabel)
+
 
 //                ProcessLifecycle.tree.visitSubtrees {
 //                    if (it.value.label in mustRerunLifecycles) Lifecycle<Any, Any>(it).restart()
@@ -91,8 +99,6 @@ interface FunApp: AutoCloseable {
     }
 
 }
-
-
 
 
 const val HOT_RELOAD_SHADERS = true

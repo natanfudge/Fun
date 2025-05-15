@@ -1,7 +1,9 @@
 package io.github.natanfudge.fn.render
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.pointer.*
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.ProcessLifecycle
@@ -20,7 +22,11 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 
 //TODO:
-// 9. Implement WASD camera
+//    9. I need a smarter way of connectign components.
+//    // Make all lifecycle instances access a registry, that way instances will always be up to date.
+//    // When they are re-bound, the instances stays the same but the callback is updated.
+//    // Then we can get rid of mustRerun(). (also get rid of RootLifecycles - unrelated)
+//    // This will bring us one step closer to dynamic lifeyccles - for those, when we run bind(), it should run instantly if the parent already, but not during reloads.
 // 10. Implement orbital camera
 // 11. Integrate the switch between both cameras
 // 12. Material rendering system:
@@ -149,24 +155,75 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 var pipelines = 0
 
-class AppState {
+class AppState(dim: () -> WindowDimensions, compose: () -> ComposeWebGPURenderer) {
     val camera = Camera()
-    val input = InputManager(this)
+    val input = InputManager(this, dim, compose)
 }
 
-class InputManager(val app: AppState) {
+class InputManager(val app: AppState, val dim: () -> WindowDimensions, val compose: () -> ComposeWebGPURenderer) {
     private val heldKeys = mutableSetOf<Key>()
+
+    init {
+
+
+    }
+
     val callbacks: WindowCallbacks = object : WindowCallbacks {
         override fun keyEvent(event: KeyEvent) {
             when (event.type) {
                 KeyEventType.KeyDown -> heldKeys.add(event.key)
-                KeyEventType.KeyUp -> heldKeys.remove(event.key)
+                KeyEventType.KeyUp -> {
+                    heldKeys.remove(event.key)
+                    onPress(event.key)
+                }
             }
         }
+
+        override fun pointerEvent(
+            eventType: PointerEventType,
+            position: Offset,
+            scrollDelta: Offset,
+            timeMillis: Long,
+            type: PointerType,
+            buttons: PointerButtons?,
+            keyboardModifiers: PointerKeyboardModifiers?,
+            nativeEvent: Any?,
+            button: PointerButton?,
+        ) {
+            when (eventType) {
+                PointerEventType.Move -> {
+                    val prev = prevMousePos ?: run {
+                        prevMousePos = position
+                        return
+                    }
+                    prevMousePos = position
+
+                    if (!firstPersonTilt) return
+
+                    val tilt = prev - position
+                    val dims = dim()
+                    app.camera.tilt(tilt.x / dims.width * 2, tilt.y / dims.height * 2)
+                }
+            }
+            super.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+        }
     }
+    var prevMousePos: Offset? = null
 
     fun poll() {
         heldKeys.forEach { whilePressed(it) }
+    }
+
+    private val firstPersonTilt get() = dim().window.cursorLocked
+
+    fun onPress(key: Key) {
+        when (key) {
+            Key.Escape -> {
+                val window = dim().window
+                window.cursorLocked = !window.cursorLocked
+                compose().compose.windowLifecycle.value?.focused = !window.cursorLocked
+            }
+        }
     }
 
     fun whilePressed(key: Key) {
@@ -205,6 +262,21 @@ class Camera {
             up = up,
             dst = lookAt
         )
+    }
+
+    fun tilt(x: Float, y: Float) {
+        if (x != 0f) {
+            val target = up.cross(lookDirection)
+            target.normalize(target)
+            lookDirection.lerp(target, x, lookDirection)
+            lookDirection.normalize(lookDirection)
+        }
+        if (y != 0f) {
+            lookDirection.lerp(up, y, lookDirection)
+            lookDirection.normalize(lookDirection)
+        }
+
+        calculateLookAt()
     }
 
     fun moveForward(delta: Float) {
@@ -246,16 +318,27 @@ class Camera {
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
     val appLifecycle = ProcessLifecycle.bind("App") {
-
-        AppState()
+        AppState(dim = { dimensionsLifecycle.assertValue.dimensions }, compose = { compose })
     }
 
-    val surfaceLifecycle = surfaceLifecycle.bind(appLifecycle, "Fun Surface") { surface, app ->
+    surfaceLifecycle.bind(appLifecycle, "Fun callback set") {surface, app ->
         surface.window.callbacks["Fun"] = app.input.callbacks
+    }
+
+    val surfaceLifecycle = surfaceLifecycle.bind("Fun Surface") { surface ->
+        surface.window.cursorLocked = true
+
         FunSurface(surface)
     }
+
+
     val funDimLifecycle = dimensionsLifecycle.bind("Fun Dimensions") {
+
         FunFixedSizeWindow(it.surface, it.dimensions)
+    }
+
+    compose.compose.windowLifecycle.bind("Fun Compose Lock") {
+        it.focused = false
     }
 
 

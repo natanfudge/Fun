@@ -47,6 +47,23 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
     private val taskLock = ReentrantLock()
 
     var minimized = false
+    var cursorLocked = false
+        set(value) {
+            if (field != value) {
+                field = value
+                if (value) {
+                    glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    if (glfwRawMouseMotionSupported()) {
+                        glfwSetInputMode(handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+                    }
+                } else {
+                    glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL)
+                    if (glfwRawMouseMotionSupported()) {
+                        glfwSetInputMode(handle, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+                    }
+                }
+            }
+        }
 
     var open = true
 
@@ -56,6 +73,8 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
             waitingTasks.clear()
         }
     }
+
+//    fun getWindowPos()
 
     /**
      * Submits a callback to run on the main thread.
@@ -142,7 +161,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
                 window.open = false
             }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-                callbacks.forEach { it.windowMove(x,y) }
+                callbacks.forEach { it.windowMove(x, y) }
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
@@ -241,7 +260,6 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
     val eventPollLifecycle = Lifecycle.create<Unit, Unit>("GLFW Event poll", FunLogLevel.Verbose) {
         glfwPollEvents()
     }
-
 
 
 //    private var callbacks: WindowCallbacks = object : WindowCallbacks {}

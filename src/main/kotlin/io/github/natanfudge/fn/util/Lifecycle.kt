@@ -62,6 +62,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
                 selfState = null,
                 throwOnFail = false,
                 childrenParentIndices = mutableListOf(),
+                closed = false
             )
             val ls = Lifecycle<P, T>(
                 MutableTreeImpl(
@@ -598,6 +599,7 @@ internal class LifecycleData<P : Any, T : Any>(
     var parentState: P?,
     var selfState: T?,
     var throwOnFail: Boolean,
+    var closed: Boolean,
     /**
      * Since lifecycles can have multiple parents, we need a way to differentiate between them.
      *
@@ -634,6 +636,9 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     if (hasMultipleParents) {
         // Start initializing the parent data this lifecycle needs
         if (parentState == null) parentState = MutableList(parentCount) { null } as P
+        // Special case that happens if the number of parents changes dynamically - we need to update the size of the list
+        val parent = parentState as List<*>
+        if (parent.size != parentCount) parentState = MutableList(parentCount) { parent.getOrNull(it) } as P
     }
 
     logLifecycleStart(this, hasMultipleParents, prevParent, label, prevSelf, parents)
@@ -656,6 +661,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
         //TODO: think of ways to solve number of bindings changing on reload.
         // I think, in the bind functions, throw a special exception and then catch it in the top-level restart method and reload the entire tree
         val result = lsCtx.start(nonNullParentState)
+        closed = false
         selfState = result
     } catch (e: NoSuchMethodError) {
 //        if (throwOnFail) throw e
@@ -668,6 +674,10 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
 }
 
 private fun LifecycleData<*, *>.endSingle() {
+    if (closed) {
+        log(FunLogLevel.Warn) { "Attempt to close '$label' twice, ignoring" }
+        return
+    }
     val label = label
     val state = selfState
     if (state == null) {
@@ -682,6 +692,7 @@ private fun LifecycleData<*, *>.endSingle() {
             state.close()
         }
         lsCtx.close()
+        closed = true
     }
 }
 

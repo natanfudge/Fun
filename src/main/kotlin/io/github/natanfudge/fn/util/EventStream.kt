@@ -80,7 +80,10 @@ class MutEventStream<T> : EventStream<T> {
      */
     internal fun detach(listener: Listener<T>) {
         println("Removing listener: ${listener.callback}")
-        if(!listeners.remove(listener)) throw UnfunStateException("Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
+        if(!listeners.remove(listener)){
+//            throw UnfunStateException("Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
+            println("Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
+        }
     }
 }
 

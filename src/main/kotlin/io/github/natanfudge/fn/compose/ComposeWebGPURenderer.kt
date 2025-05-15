@@ -106,7 +106,7 @@ class ComposeWebGPURenderer(
     show: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    private val compose = ComposeConfig(hostWindow.window, content, show = show)
+     val compose = ComposeConfig(hostWindow.window, content, show = show)
 
 
 //    val BackgroundWindowLifecycle = ProcessLifecycle.bind("Compose Background Window", early = true) {
