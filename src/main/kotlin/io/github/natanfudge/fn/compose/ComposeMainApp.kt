@@ -20,7 +20,6 @@ import io.github.natanfudge.fn.compose.utils.LabeledTreeLayout
 import io.github.natanfudge.fn.compose.utils.TransformationMatrix2D
 import io.github.natanfudge.fn.compose.utils.rememberFreeformMovementState
 import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.core.RootLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.LifecycleData
 import kotlinx.coroutines.delay
@@ -48,11 +47,7 @@ fun ComposeMainApp() {
                     }
 
                     FreeformMovement(transform = rememberFreeformMovementState(TransformationMatrix2D(scale = 0.2f))) {
-                        Row {
-                            for (root in RootLifecycles) {
-                                LifecycleTreeUi(root)
-                            }
-                        }
+                        LifecycleTreeUi(ProcessLifecycle)
                     }
                 }
             }

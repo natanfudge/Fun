@@ -5,6 +5,7 @@ package io.github.natanfudge.fn.util
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
+import kotlin.time.measureTime
 
 /**
  * Context provided to lifecycle start functions that gives access to the lifecycle being started
@@ -14,6 +15,13 @@ import io.github.natanfudge.fn.webgpu.AutoCloseImpl
  * being started through [thisLifecycle].
  */
 class LifecycleContext<P : Any, T : Any>(val thisLifecycle: Lifecycle<P, T>) : AutoClose by AutoCloseImpl()
+
+//TOdo: CLEAR this when unbinding
+private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*, *>>()
+
+interface StateSource<T : Any> {
+
+}
 
 /**
  * In a vacuum, a [Lifecycle] is just a function that runs to create some data, and another function that runs to clean up that data.
@@ -51,29 +59,46 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
             stop: (T) -> Unit = {},
             start: LifecycleContext<P, T>.(P) -> T,
         ): Lifecycle<P, T> {
-            val data = LifecycleData(
-                start = start,
-                stop = stop,
-                logLevel = logLevel,
+            val ls = lifecycleRegistry.getOrPut(label) {
+                val data = LifecycleData(
+                    start = start,
+                    stop = stop,
+                    logLevel = logLevel,
 //                label = if (hotReloadIndex == 0) label else "$label (Reload #$hotReloadIndex)",
-                label = label,
-                parentState = null,
-                parentCount = 0,
-                selfState = null,
-                throwOnFail = false,
-                childrenParentIndices = mutableListOf(),
-                closed = false
-            )
-            val ls = Lifecycle<P, T>(
-                MutableTreeImpl(
-                    value = data,
-                    children = mutableListOf()
+                    label = label,
+                    parentState = null,
+                    parentCount = 0,
+                    selfState = null,
+                    throwOnFail = false,
+                    childrenParentIndices = mutableListOf(),
+                    closed = false
                 )
-            )
-            data.lsCtx = LifecycleContext(ls)
+                val ls = Lifecycle<P, T>(
+                    MutableTreeImpl(
+                        value = data,
+                        children = mutableListOf()
+                    )
+                )
+                data.lsCtx = LifecycleContext(ls)
+                ls
+            } as Lifecycle<P, T>
+            val data = (ls.tree.value as LifecycleData<P, T>)
+            // Update lambda to capture new variables
+            data.start = start
+            data.stop = stop
+
+            // Allow updating label and log level on reload
+            data.label = label
+            data.logLevel = logLevel
+
+            // Allow changing hierarchies (done later in bind())
+            data.childrenParentIndices.clear()
+            data.parentCount = 0
+            ls.tree.children.clear()
             return ls
         }
     }
+
 
     fun setThrowOnFail(throwOnFail: Boolean) {
         tree.visit {
@@ -112,28 +137,35 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @throws IllegalArgumentException if [parentIndex] is invalid
      */
     fun start(seedValue: P?, parentIndex: Int = 0) {
-        require(parentIndex == 0 || parentIndex < tree.value.parentCount)
+        val time = measureTime {
+            require(parentIndex == 0 || parentIndex < tree.value.parentCount)
 
-        val order = tree.topologicalSort()
-        log(tree.value.logLevel) {
-            "Starting tree of ${tree.value.label} by order: ${order.joinToString("→") { it.child.label }}"
+            val order = tree.topologicalSort()
+            log(tree.value.logLevel) {
+                "Starting tree of ${tree.value.label} by order: ${order.joinToString("→") { it.child.label }}"
+            }
+            for ((parents, child) in order) {
+                child as LifecycleData<Any, Any>
+                val parentValues = parents.map {
+                    val parentValue =
+                        it.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
+                    val indexForChild = it.value.childrenParentIndices[it.childIndex]
+                    parentValue to indexForChild
+                }
+                if (parents.isNotEmpty()) {
+                    // Start non-root nodes
+                    child.startSingle(parentValues)
+                } else {
+                    val rootValues = if (seedValue != null) listOf(seedValue to parentIndex) else listOf()
+                    // Start root
+                    child.startSingle(rootValues)
+                }
+            }
         }
-        for ((parents, child) in order) {
-            child as LifecycleData<Any, Any>
-            val parentValues = parents.map {
-                val parentValue =
-                    it.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
-                val indexForChild = it.value.childrenParentIndices[it.childIndex]
-                parentValue to indexForChild
-            }
-            if (parents.isNotEmpty()) {
-                // Start non-root nodes
-                child.startSingle(parentValues)
-            } else {
-                val rootValues = if (seedValue != null) listOf(seedValue to parentIndex) else listOf()
-                // Start root
-                child.startSingle(rootValues)
-            }
+
+
+        log(tree.value.logLevel) {
+            "Started ${tree.value.label} in $time total"
         }
     }
 
@@ -187,6 +219,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
             if (it.value.label in labels) Lifecycle<Any, Any>(it).restart()
         }
     }
+
 
 //    /**
 //     * Finds and restarts a lifecycle with the specified [label] in the hierarchy.
@@ -594,8 +627,8 @@ internal class LifecycleState(
 class LifecycleSnapshot internal constructor(internal val stateByLabel: Map<String, LifecycleState>)
 
 internal class LifecycleData<P : Any, T : Any>(
-    val start: LifecycleContext<P, T>.(P) -> T,
-    val stop: (T) -> Unit,
+    var start: LifecycleContext<P, T>.(P) -> T,
+    var stop: (T) -> Unit,
     var parentState: P?,
     var selfState: T?,
     var throwOnFail: Boolean,
@@ -612,8 +645,8 @@ internal class LifecycleData<P : Any, T : Any>(
     val childrenParentIndices: MutableList<Int>,
     var parentCount: Int, // TO DO: when we unbind, have an assertion checking parentCount >=0
     // also when we unbind reorganize parentState because we could have created holes
-    val logLevel: FunLogLevel,
-    val label: String,
+    var logLevel: FunLogLevel,
+    var label: String,
 ) {
     override fun toString(): String {
         return label
@@ -637,8 +670,15 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
         // Start initializing the parent data this lifecycle needs
         if (parentState == null) parentState = MutableList(parentCount) { null } as P
         // Special case that happens if the number of parents changes dynamically - we need to update the size of the list
-        val parent = parentState as List<*>
-        if (parent.size != parentCount) parentState = MutableList(parentCount) { parent.getOrNull(it) } as P
+        else if (parentState is List<*>) {
+            val parent = parentState as List<*>
+            if (parent.size != parentCount) parentState = MutableList(parentCount) { parent.getOrNull(it) } as P
+        } else {
+            val oldState = parentState
+            // One parent becomes multiple parents
+            parentState = MutableList(parentCount) { null } as P
+            (parentState as MutableList<Any?>)[0] = oldState
+        }
     }
 
     logLifecycleStart(this, hasMultipleParents, prevParent, label, prevSelf, parents)
@@ -657,20 +697,19 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     // Check for null parent state *before* the try-catch, so the error isn't swallowed.
     val nonNullParentState = parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
 
-    try {
-        //TODO: think of ways to solve number of bindings changing on reload.
-        // I think, in the bind functions, throw a special exception and then catch it in the top-level restart method and reload the entire tree
-        val result = lsCtx.start(nonNullParentState)
-        closed = false
-        selfState = result
-    } catch (e: NoSuchMethodError) {
-//        if (throwOnFail) throw e
-//        else {
-        //TODO: should think of a better thing to do when it fails, probably prevent children from running.
-        log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
-        e.printStackTrace()
-//        }
+    val time = measureTime {
+        try {
+            val result = lsCtx.start(nonNullParentState)
+            closed = false
+            selfState = result
+        } catch (e: NoSuchMethodError) {
+            //TODO: should think of a better thing to do when it fails, probably prevent children from running.
+            log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
+            e.printStackTrace()
+        }
     }
+//    log(logLevel) { "Ran $label in $time" }
+
 }
 
 private fun LifecycleData<*, *>.endSingle() {
@@ -686,8 +725,7 @@ private fun LifecycleData<*, *>.endSingle() {
         log(logLevel) {
             "Closing '$label' with '$state'"
         }
-        stop as (Any?) -> Unit
-        stop(state)
+        (stop as (Any?) -> Unit)(state)
         if (state is AutoCloseable) {
             state.close()
         }

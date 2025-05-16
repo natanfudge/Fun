@@ -13,15 +13,19 @@ import io.github.natanfudge.fn.util.MutEventStream
  */
 object FunHotReload {
 //    val observation: Observable<Unit>
+    /**
+     * The callback will be called on an alternate thread so be wary of that.
+     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeConfig.submitTask]
+     */
     val reloadEnded = MutEventStream<Unit>()
     val reloadStarted = MutEventStream<Unit>()
 
-    /**
-     * The [callback] will be called on an alternate thread so be wary of that.
-     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeConfig.submitTask]
-     */
-    fun observe(callback: (Unit) -> Unit) = reloadEnded.listen(callback)
 
+//    fun observe(callback: (Unit) -> Unit) = reloadEnded.listen(callback)
+
+    /**
+     * Called externally by Hotswap Agent
+     */
     internal fun notifyReload() {
         reloadEnded.emit(Unit)
     }

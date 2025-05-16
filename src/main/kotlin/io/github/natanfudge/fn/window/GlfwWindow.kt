@@ -8,7 +8,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.core.mustRerun
+import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import org.lwjgl.glfw.GLFW.*
@@ -242,7 +242,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
                 callbacks.forEach { it.densityChange(Density(xscale)) }
             }
             Unit
-        }.mustRerun() // Make sure callbacks are not stale
+        }
     }
 
 
@@ -257,8 +257,29 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         GlfwFrame(it.window)
     }
 
+    private val HotReloadSave = ProcessLifecycle.bind("GLFW Reload Save") {
+        HotReloadRestarter()
+    }
+
     val eventPollLifecycle = Lifecycle.create<Unit, Unit>("GLFW Event poll", FunLogLevel.Verbose) {
-        glfwPollEvents()
+        try {
+            glfwPollEvents()
+        } catch (e: Throwable) {
+            val hotReload = HotReloadSave.value
+            if (hotReload?.restarted == true) {
+                println("Crashed in poll after making a hot reload, trying to restart app")
+                e.printStackTrace()
+                hotReload.restarted = false
+                ProcessLifecycle.restart()
+            } else {
+                throw e
+            }
+        }
+
+    }
+
+    init {
+
     }
 
 
@@ -276,10 +297,21 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 }
 
 
+private class HotReloadRestarter : AutoCloseable {
+    var restarted = false
+    val handle = FunHotReload.reloadEnded.listen {
+        restarted = true
+    }
+
+    override fun close() {
+        handle.close()
+    }
+}
+
 /**
  * The [window] needs to be updated whenever it is recreated.
  */
-class GlfwGameLoop(var window: GlfwWindowConfig) {
+class GlfwGameLoop(val window: GlfwWindowConfig) {
 
     var locked = false
 

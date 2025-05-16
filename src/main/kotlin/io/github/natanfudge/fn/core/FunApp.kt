@@ -11,7 +11,6 @@ import org.lwjgl.glfw.GLFWErrorCallback
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 
-val RootLifecycles = mutableListOf<Lifecycle<*, *>>()
 
 val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
     GLFWErrorCallback.createPrint(System.err).set()
@@ -23,18 +22,6 @@ val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
     it
 }
 
-//class ExternalCallback(val callback: () -> Unit, val bo)
-
-val mustRerunLifecycles = mutableSetOf<String>()
-
-/**
- * If called, this lifecycle will always be rerun during hot reload.
- * Use this sparingly - generally you should only use this for re-registering callbacks that might otherwise capture stale objects.
- */
-fun <T : Lifecycle<*, *>> T.mustRerun(): T {
-    mustRerunLifecycles.add(tree.value.label)
-    return this
-}
 
 /**
  * How many times the app has been hot-reloaded
@@ -45,7 +32,6 @@ interface FunApp : AutoCloseable {
     fun init(): WebGPUWindow
 
     fun run() {
-        RootLifecycles.add(ProcessLifecycle)
         val window = init()
         val loop = GlfwGameLoop(window.window)
 
@@ -58,40 +44,26 @@ interface FunApp : AutoCloseable {
             loop.locked = true
         }
 
+
         FunHotReload.reloadEnded.listen {
             // This has has special handling because it needs to run while the gameloop is locked
             loop.reloadCallback = {
                 hotReloadIndex++
                 println("Reloading app")
 
+                ProcessLifecycle.removeChildren()
 
-                // Recreate lifecycles, workaround for https://github.com/JetBrains/JetBrainsRuntime/issues/535
-                val children = ProcessLifecycle.removeChildren()
-                // Recreate lifecycles tree
-                RootLifecycles.clear()
-                RootLifecycles.add(ProcessLifecycle)
                 close()
-                val newWindow = init()
-                loop.window = newWindow.window
-                // Copy over old state
-                ProcessLifecycle.copyChildrenStateFrom(children)
+                init()
 
                 try {
-                    ProcessLifecycle.restartByLabels(mustRerunLifecycles + WebGPUWindow.SurfaceLifecycleLabel)
+                    ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel))
                 } catch (e: Throwable) {
                     println("Failed to perform a granular restart, trying to restart the app entirely")
                     e.printStackTrace()
-//                    ProcessLifecycle.start(Unit)
                     ProcessLifecycle.restart()
                 }
-//            ProcessLifecycle.restartByLabel(ComposeConfig.LifecycleLabel)
-
-
-//                ProcessLifecycle.tree.visitSubtrees {
-//                    if (it.value.label in mustRerunLifecycles) Lifecycle<Any, Any>(it).restart()
-//                }
-
-                println("Reload17")
+                println("Reload19")
 
             }
         }

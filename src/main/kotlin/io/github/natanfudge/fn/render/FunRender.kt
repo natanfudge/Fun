@@ -155,12 +155,12 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
 var pipelines = 0
 
-class AppState(dim: () -> WindowDimensions, compose: () -> ComposeWebGPURenderer) {
+class AppState(window: WebGPUWindow,compose: ComposeWebGPURenderer) {
     val camera = Camera()
-    val input = InputManager(this, dim, compose)
+    val input = InputManager(this, window, compose)
 }
 
-class InputManager(val app: AppState, val dim: () -> WindowDimensions, val compose: () -> ComposeWebGPURenderer) {
+class InputManager(val app: AppState, val window: WebGPUWindow,val compose: ComposeWebGPURenderer) {
     private val heldKeys = mutableSetOf<Key>()
 
     init {
@@ -201,7 +201,7 @@ class InputManager(val app: AppState, val dim: () -> WindowDimensions, val compo
                     if (!firstPersonTilt) return
 
                     val tilt = prev - position
-                    val dims = dim()
+                    val dims = getDim()
                     app.camera.tilt(tilt.x / dims.width * 2, tilt.y / dims.height * 2)
                 }
             }
@@ -213,15 +213,16 @@ class InputManager(val app: AppState, val dim: () -> WindowDimensions, val compo
     fun poll() {
         heldKeys.forEach { whilePressed(it) }
     }
+    private fun getDim() = window.dimensionsLifecycle.assertValue.dimensions
 
-    private val firstPersonTilt get() = dim().window.cursorLocked
+    private val firstPersonTilt get() = getDim().window.cursorLocked
 
     fun onPress(key: Key) {
         when (key) {
             Key.Escape -> {
-                val window = dim().window
+                val window = getDim().window
                 window.cursorLocked = !window.cursorLocked
-                compose().compose.windowLifecycle.value?.focused = !window.cursorLocked
+                compose.compose.windowLifecycle.value?.focused = !window.cursorLocked
             }
         }
     }
@@ -318,7 +319,7 @@ class Camera {
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
     val appLifecycle = ProcessLifecycle.bind("App") {
-        AppState(dim = { dimensionsLifecycle.assertValue.dimensions }, compose = { compose })
+        AppState(this@bindFunLifecycles, compose)
     }
 
     surfaceLifecycle.bind(appLifecycle, "Fun callback set") {surface, app ->
@@ -326,20 +327,20 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     }
 
     val surfaceLifecycle = surfaceLifecycle.bind("Fun Surface") { surface ->
-        surface.window.cursorLocked = true
+//        surface.window.cursorLocked = true
 
         FunSurface(surface)
     }
 
 
     val funDimLifecycle = dimensionsLifecycle.bind("Fun Dimensions") {
-
         FunFixedSizeWindow(it.surface, it.dimensions)
     }
 
     compose.compose.windowLifecycle.bind("Fun Compose Lock") {
-        it.focused = false
+//        it.focused = false
     }
+
 
 
     val cubeLifecycle = createReloadingPipeline(
@@ -414,12 +415,12 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         appLifecycle.assertValue.input.poll()
     }
 
+
     frameLifecycle.bind(
         surfaceLifecycle, funDimLifecycle, bindGroupLifecycle, cubeLifecycle,
         compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
     ) { frame, surface, dimensions, bindGroup, cube, composeFrame, app ->
-//        println("Running fun frame")
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
 
