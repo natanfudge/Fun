@@ -5,6 +5,7 @@ package io.github.natanfudge.fn.window
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import io.github.natanfudge.fn.core.ProcessLifecycle
@@ -189,7 +190,15 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
                             GLFW_RELEASE -> PointerEventType.Release
                             else -> PointerEventType.Unknown
                         },
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle)),
+                        button = when (button) {
+                            GLFW_MOUSE_BUTTON_LEFT -> PointerButton.Primary
+                            GLFW_MOUSE_BUTTON_RIGHT -> PointerButton.Secondary
+                            GLFW_MOUSE_BUTTON_MIDDLE -> PointerButton.Tertiary
+                            GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
+                            GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
+                            else -> PointerButton.Forward // Default to Forward on unknown button
+                        }
                     )
                 }
             }
@@ -257,24 +266,14 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         GlfwFrame(it.window)
     }
 
-    private val HotReloadSave = ProcessLifecycle.bind("GLFW Reload Save") {
+    val HotReloadSave = ProcessLifecycle.bind("GLFW Reload Save") {
         HotReloadRestarter()
     }
 
     val eventPollLifecycle = Lifecycle.create<Unit, Unit>("GLFW Event poll", FunLogLevel.Verbose) {
-        try {
-            glfwPollEvents()
-        } catch (e: Throwable) {
-            val hotReload = HotReloadSave.value
-            if (hotReload?.restarted == true) {
-                println("Crashed in poll after making a hot reload, trying to restart app")
-                e.printStackTrace()
-                hotReload.restarted = false
-                ProcessLifecycle.restart()
-            } else {
-                throw e
-            }
-        }
+
+        glfwPollEvents()
+
 
     }
 
@@ -297,7 +296,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 }
 
 
-private class HotReloadRestarter : AutoCloseable {
+class HotReloadRestarter : AutoCloseable {
     var restarted = false
     val handle = FunHotReload.reloadEnded.listen {
         restarted = true
@@ -323,7 +322,21 @@ class GlfwGameLoop(val window: GlfwWindowConfig) {
         while (currentWindow.open) {
             checkForReloads()
             if (!window.eventPollLifecycle.isInitialized) window.eventPollLifecycle.start(Unit)
-            else window.eventPollLifecycle.restart()
+            else {
+                try {
+                    window.eventPollLifecycle.restart()
+                } catch (e: Throwable) {
+                    val hotReload = window.HotReloadSave.value
+                    if (hotReload?.restarted == true) {
+                        println("Crashed in poll after making a hot reload, trying to restart app")
+                        e.printStackTrace()
+                        hotReload.restarted = false
+                        ProcessLifecycle.restart()
+                    } else {
+                        throw e
+                    }
+                }
+            }
             checkForReloads()
             if (!currentWindow.open) break
             if (currentWindow.minimized) continue

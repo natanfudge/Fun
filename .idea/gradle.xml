@@ -23,33 +23,6 @@
           </set>
         </option>
       </GradleProjectSettings>
-      <GradleProjectSettings>
-        <compositeConfiguration>
-          <compositeBuild compositeDefinitionSource="SCRIPT">
-            <builds>
-              <build path="$PROJECT_DIR$/KotlinCompilerPluginExample/compiler-plugin" name="compiler-plugin">
-                <projects>
-                  <project path="$PROJECT_DIR$/KotlinCompilerPluginExample/compiler-plugin" />
-                </projects>
-              </build>
-              <build path="$PROJECT_DIR$/KotlinCompilerPluginExample/gradle-plugin" name="gradle-plugin">
-                <projects>
-                  <project path="$PROJECT_DIR$/KotlinCompilerPluginExample/gradle-plugin" />
-                </projects>
-              </build>
-            </builds>
-          </compositeBuild>
-        </compositeConfiguration>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/KotlinCompilerPluginExample" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/KotlinCompilerPluginExample" />
-            <option value="$PROJECT_DIR$/KotlinCompilerPluginExample/compiler-plugin" />
-            <option value="$PROJECT_DIR$/KotlinCompilerPluginExample/gradle-plugin" />
-            <option value="$PROJECT_DIR$/KotlinCompilerPluginExample/lib" />
-          </set>
-        </option>
-      </GradleProjectSettings>
     </option>
   </component>
 </project>
