@@ -1,9 +1,6 @@
 package io.github.natanfudge.fn.render
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.*
-import androidx.compose.ui.input.pointer.*
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.ProcessLifecycle
@@ -11,8 +8,8 @@ import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
-import io.github.natanfudge.fn.window.WindowCallbacks
 import io.github.natanfudge.fn.window.WindowDimensions
+import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
@@ -22,8 +19,6 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 
 //TODO:
-// 10. Optimize camera to not allocate
-// 11. Decide whether meshes should be 0-centered or 0-cornered, and fix cube/sphere
 // 12. Material rendering system:
 //      A. Start by having only a mesh
 //      B. Then add texturing
@@ -78,10 +73,10 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 }
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val cubeMesh = Mesh.UnitCube
+    val cubeMesh = Model.UnitCube()
     val cubeVerticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = cubeMesh.vertexCount * Vec3f.SIZE_BYTES, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
+            size = cubeMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
             usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
             mappedAtCreation = true
         )
@@ -89,6 +84,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
         cubeMesh.vertices.array.writeInto(it.getMappedRange())
         it.unmap()
     }
+
 
     val cubeIndicesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
@@ -101,7 +97,8 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
         it.unmap()
     }
 
-    val sphereMesh = Mesh.sphere()
+    val sphereMesh = Model.sphere()
+
 
     val sphereIndicesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
@@ -116,7 +113,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     val sphereVerticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = sphereMesh.vertexCount * Vec3f.SIZE_BYTES, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
+            size = sphereMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
             usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
             mappedAtCreation = true
         )
@@ -128,16 +125,17 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = Mat4f.SIZE_BYTES.toULong(),// 4x4 matrix
+            size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.SIZE_BYTES * 2u).wgpuAlign(),
             usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
         )
     )
 
     val maxInstances = 10uL
+    val instanceStride = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES).wgpuAlign()
 
     val storageBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES) * maxInstances, // Include space for both model matrix and color
+            size = instanceStride * maxInstances, // Include space for both model matrix and color
             usage = setOf(GPUBufferUsage.Storage, GPUBufferUsage.CopyDst)
         )
     )
@@ -147,6 +145,14 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 }
 
+private val alignmentBytes = 16u
+internal fun ULong.wgpuAlign(): ULong {
+    val leftOver = this % alignmentBytes
+    return if (leftOver == 0uL) this else ((this / alignmentBytes) + 1u) * alignmentBytes
+}
+
+internal fun UInt.wgpuAlign(): ULong =toULong().wgpuAlign()
+
 var pipelines = 0
 
 class AppState(window: WebGPUWindow, compose: ComposeWebGPURenderer) {
@@ -154,180 +160,6 @@ class AppState(window: WebGPUWindow, compose: ComposeWebGPURenderer) {
     val input = InputManager(this, window, compose)
 }
 
-enum class InputMode {
-    Orbital,
-    Fly,
-    GUI,
-}
-
-class InputManager(val app: AppState, val window: WebGPUWindow, val compose: ComposeWebGPURenderer) {
-    private val heldKeys = mutableSetOf<Key>()
-    private val heldMouseKeys = mutableSetOf<PointerButton>()
-
-    var focused = true
-
-    var mode = InputMode.GUI
-        set(value) {
-            field = value
-            compose.compose.windowLifecycle.assertValue.focused = value == InputMode.GUI
-            getDim().window.cursorLocked = value == InputMode.Fly
-            if (value == InputMode.Fly) app.camera.orbital = false
-            if (value == InputMode.Orbital) app.camera.orbital = true
-
-//            if (field != value) {
-//                field = value
-//                if(value == InputMode.GUI)
-//            }
-        }
-
-    val callbacks: WindowCallbacks = object : WindowCallbacks {
-        override fun keyEvent(event: KeyEvent) {
-            when (event.type) {
-                KeyEventType.KeyDown -> heldKeys.add(event.key)
-                KeyEventType.KeyUp -> {
-                    heldKeys.remove(event.key)
-                    onPress(event.key)
-                }
-            }
-        }
-
-        override fun pointerEvent(
-            eventType: PointerEventType,
-            position: Offset,
-            scrollDelta: Offset,
-            timeMillis: Long,
-            type: PointerType,
-            buttons: PointerButtons?,
-            keyboardModifiers: PointerKeyboardModifiers?,
-            nativeEvent: Any?,
-            button: PointerButton?,
-        ) {
-            when (eventType) {
-                PointerEventType.Exit -> {
-                    focused = false
-                }
-
-                PointerEventType.Enter -> {
-                    focused = true
-                }
-
-                PointerEventType.Move -> {
-                    focused = true
-                    val prev = prevMousePos ?: run {
-                        prevMousePos = position
-                        return
-                    }
-                    prevMousePos = position
-                    val delta = prev - position
-                    val dims = getDim()
-                    val normalizedDeltaX = delta.x / dims.width
-                    val normalizedDeltaY = delta.y / dims.height
-
-                    when (mode) {
-                        InputMode.Orbital -> {
-                            if (PointerButton.Tertiary in heldMouseKeys) {
-                                if (delta.x != 0f || delta.y != 0f) {
-                                    app.camera.pan(normalizedDeltaX * 20, normalizedDeltaY * 20)
-                                }
-                            }
-                            if (PointerButton.Primary in heldMouseKeys) {
-                                if (normalizedDeltaX != 0f) {
-                                    app.camera.rotateX(normalizedDeltaX * 10)
-                                }
-                                if (normalizedDeltaY != 0f) {
-                                    app.camera.rotateY(normalizedDeltaY * 10)
-                                }
-                            }
-                        }
-
-                        InputMode.Fly -> {
-                            app.camera.tilt(normalizedDeltaX * 2, normalizedDeltaY * 2)
-                        }
-
-                        else -> {}
-                    }
-                }
-
-                PointerEventType.Press -> {
-                    if (button != null && focused) {
-                        heldMouseKeys.add(button)
-                    }
-                }
-
-                PointerEventType.Release -> {
-                    if (button != null && focused) {
-                        heldMouseKeys.remove(button)
-                    }
-                }
-
-                PointerEventType.Scroll -> {
-                    if (focused && mode == InputMode.Orbital) {
-                        val zoom = 1 + scrollDelta.y / 10
-                        app.camera.zoom(zoom)
-                    }
-                }
-
-            }
-            super.pointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
-        }
-    }
-    var prevMousePos: Offset? = null
-
-    fun poll() {
-        heldKeys.forEach { whilePressed(it) }
-    }
-
-    private fun getDim() = window.dimensionsLifecycle.assertValue.dimensions
-
-
-    fun onPress(key: Key) {
-        if (!focused) return
-        when (key) {
-            Key.Escape -> mode = InputMode.GUI
-            Key.O, Key.Grave -> mode = InputMode.Orbital
-            Key.F -> mode = InputMode.Fly
-        }
-    }
-
-    fun whilePressed(key: Key) {
-        if (!focused) return
-        val delta = 0.05f
-        when (key) {
-            Key.W -> app.camera.moveForward(delta)
-            Key.S -> app.camera.moveBackward(delta)
-            Key.A -> app.camera.moveLeft(delta)
-            Key.D -> app.camera.moveRight(delta)
-            Key.Spacebar -> app.camera.moveUp(delta)
-            Key.CtrlLeft -> app.camera.moveDown(delta)
-
-        }
-    }
-}
-
-
-//    fun tilt(x: Float, y: Float) {
-//        if (x != 0f) {
-//            val target = up.cross(lookDirection)
-//            target.normalize(target)
-//            lookDirection.lerp(target, x, lookDirection)
-//            lookDirection.normalize(lookDirection)
-//        }
-//        if (y != 0f) {
-//            lookDirection.lerp(up, y, lookDirection)
-//            lookDirection.normalize(lookDirection)
-//        }
-//
-//        updateMatrix()
-//    }
-
-//    private fun moveAboveGround(direction: Vec3f, delta: Float) {
-//        val onlyXY = Vec3f(direction.x, direction.y, 0f)
-//        onlyXY.normalize(onlyXY)
-//        onlyXY.mulScalar(delta, onlyXY)
-//        position.add(onlyXY, position)
-//        // Don't move 'up' (z) with forward/back movement, Minecraft style
-//        updateMatrix()
-//    }
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
@@ -339,9 +171,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         surface.window.callbacks["Fun"] = app.input.callbacks
     }
 
-    val surfaceLifecycle = surfaceLifecycle.bind("Fun Surface") { surface ->
-//        surface.window.cursorLocked = true
-
+    val funSurface = surfaceLifecycle.bind("Fun Surface") { surface ->
         FunSurface(surface)
     }
 
@@ -350,16 +180,15 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         FunFixedSizeWindow(it.surface, it.dimensions)
     }
 
-    compose.compose.windowLifecycle.bind("Fun Compose Lock") {
-//        it.focused = false
-    }
+//    compose.compose.windowLifecycle.bind("Fun Compose Lock") {
+////        it.focused = false
+//    }
 
 
     val cubeLifecycle = createReloadingPipeline(
         "Cube",
-        this@bindFunLifecycles.surfaceLifecycle, fsWatcher,
+        surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("cube"),
-//        fragmentShader = ShaderSource.HotFile("cube.fragment")
     ) { vertex, fragment ->
         pipelines++
         println("Creating pipeline $pipelines")
@@ -370,9 +199,10 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                 entryPoint = "vs_main",
                 buffers = listOf(
                     VertexBufferLayout(
-                        arrayStride = 4uL * 3uL, // 4floats × 3bytes  (12bytes per vertex)
+                        arrayStride = VertexArrayBuffer.StrideBytes,
                         attributes = listOf(
                             VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 0uL, shaderLocation = 0u), // Position
+                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = Vec3f.SIZE_BYTES.toULong(), shaderLocation = 1u), // Normal
                         )
                     ),
                 )
@@ -395,7 +225,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    val bindGroupLifecycle = cubeLifecycle.bind(surfaceLifecycle, "Fun BindGroup") { pipeline, surface ->
+    val bindGroupLifecycle = cubeLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
         println("Using pipeline ${pipeline.pipeline.label}")
         surface.ctx.device.createBindGroup(
             BindGroupDescriptor(
@@ -429,7 +259,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
 
     frameLifecycle.bind(
-        surfaceLifecycle, funDimLifecycle, bindGroupLifecycle, cubeLifecycle,
+        funSurface, funDimLifecycle, bindGroupLifecycle, cubeLifecycle,
         compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
     ) { frame, surface, dimensions, bindGroup, cube, composeFrame, app ->
@@ -463,47 +293,75 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val viewProjection = dimensions.projection * app.camera.matrix
 
+        val lightPos = Vec3f(4f,-4f,4f)
+
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,
             0uL,
-            viewProjection.array
+            // viewProjection, cameraPos, lightPos
+            viewProjection.array + app.camera.position.toArray() + lightPos.toArray()
         )
+
+        //TODO: that didn't solve it wtf. Clue: the lighting should be uniform across the entire face, but it's actually changing.
+        fun Mat4f.andNormal() = this.array + Mat3f.fromMat4(this).inverse().transpose().array
 
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             0uL,
-            Mat4f.translation(Vec3f(-0.5f, -0.5f, -0.5f)).array + Color.White.toFloatArray() // Add white color
+            Mat4f.translation(Vec3f.zero()).andNormal() + Color.White.toFloatArray() // Add white color
         )
+
+        val instanceStride = surface.instanceStride
+
 
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
-            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong(),
-            Mat4f.translation(Vec3f(0f, -0.05f, -0.05f))
+            instanceStride,
+            Mat4f.translation(Vec3f.zero())
                 .scale(Vec3f(x = 10f, y = 0.1f, z = 0.1f))
-                .array + Color.Red.toFloatArray() // X axis
+                .andNormal() + Color.Red.toFloatArray() // X axis
         )
 
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
-            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 2u,
-            Mat4f.translation(Vec3f(-0.05f, 0f, -0.05f))
+            instanceStride * 2u,
+            Mat4f.translation(Vec3f.zero())
                 .scale(Vec3f(x = 0.1f, y = 10f, z = 0.1f))
-                .array + Color.Green.toFloatArray() // Y Axis
+                .andNormal() + Color.Green.toFloatArray() // Y Axis
         )
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
-            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 3u,
-            Mat4f.translation(Vec3f(-0.05f, -0.05f, 0f))
+            instanceStride * 3u,
+            Mat4f.translation(Vec3f.zero())
                 .scale(Vec3f(x = 0.1f, y = 0.1f, z = 10f))
-                .array + Color.Blue.toFloatArray() // Z axis
+                .andNormal() + Color.Blue.toFloatArray() // Z axis
         )
 
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
-            (Mat4f.SIZE_BYTES + Vec4f.SIZE_BYTES).toULong() * 4u,
-            Mat4f.translation(Vec3f(-5f, -5f, -0.15f))
+            instanceStride * 4u,
+            Mat4f.translation(Vec3f(0f, 0f, -1f))
                 .scale(Vec3f(x = 10f, y = 10f, z = 0.1f))
-                .array + Color.Gray.toFloatArray()
+                .andNormal() + Color.Gray.toFloatArray()
+        )
+
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            instanceStride * 5u,
+            Mat4f.translation(Vec3f(2f,2f,2f)).andNormal() + Color.White.toFloatArray() // Add white color
+        )
+
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            instanceStride * 6u,
+            Mat4f.translation(lightPos).uniformScale(0.2f).andNormal() + Color.White.toFloatArray() // Add white color
+        )
+
+        ctx.device.queue.writeBuffer(
+            surface.storageBuffer,
+            instanceStride * 7u,
+            Mat4f.translation(Vec3f(2f, -2f, 0.5f))
+                .andNormal() + Color.Gray.toFloatArray()
         )
 
 
@@ -514,10 +372,12 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         pass.setVertexBuffer(0u, surface.sphereVerticesBuffer)
         pass.setIndexBuffer(surface.sphereIndicesBuffer, GPUIndexFormat.Uint32)
         pass.drawIndexed(surface.sphereMesh.indexCount.toUInt())
+        pass.drawIndexed(surface.sphereMesh.indexCount.toUInt(), instanceCount = 2u, firstInstance = 5u)
 
         pass.setVertexBuffer(0u, surface.cubeVerticesBuffer)
         pass.setIndexBuffer(surface.cubeIndicesBuffer, GPUIndexFormat.Uint32)
         pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 4u, firstInstance = 1u)
+        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 1u, firstInstance = 7u)
 
         pass.end()
 
