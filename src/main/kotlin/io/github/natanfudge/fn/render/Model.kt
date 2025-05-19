@@ -62,7 +62,7 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
             )
         )
 
-        fun sphere(segments: Int = 16): Model {
+        fun sphere(segments: Int = 64): Model {
             val vertices = mutableListOf<Point3f>()
             val indices = mutableListOf<Int>()
 
@@ -72,7 +72,7 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 val sinPhi = sin(phi)
                 val cosPhi = cos(phi)
 
-                for (j in 0..segments) {
+                for (j in 0 until segments) {
                     val theta = 2 * PI * j / segments
                     val sinTheta = sin(theta)
                     val cosTheta = cos(theta)
@@ -86,23 +86,26 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 }
             }
 
-            // Generate indices for triangles
-            for (i in 0 until segments) {
-                for (j in 0 until segments) {
-                    val first = i * (segments + 1) + j
-                    val second = first + 1
-                    val third = (i + 1) * (segments + 1) + j
-                    val fourth = third + 1
+            val ringStride = segments        // vertices per latitude ring
 
-                    // First triangle
-                    indices.add(first)
-                    indices.add(third)
-                    indices.add(second)
+            for (i in 0 until segments) {    // latitude    (0 .. segments-1)
+                for (j in 0 until segments) { // longitude  (0 .. segments-1)
+                    val nextJ   = (j + 1) % segments   // wrap around at the seam
 
-                    // Second triangle
-                    indices.add(second)
-                    indices.add(third)
-                    indices.add(fourth)
+                    val first   =  i      * ringStride + j
+                    val second  =  i      * ringStride + nextJ
+                    val third   = (i + 1) * ringStride + j
+                    val fourth  = (i + 1) * ringStride + nextJ
+
+                    // first triangle
+                    indices += first
+                    indices += third
+                    indices += second
+
+                    // second triangle
+                    indices += second
+                    indices += third
+                    indices += fourth
                 }
             }
 
@@ -162,7 +165,7 @@ data class TriangleF(
  * Assumes the triangle is in counter-clockwise order, otherwise this vector will incorrectly point inwards instead of outwards.
  */
 private fun inferNormal(a: Point3f, b: Point3f, c: Point3f): Vec3f {
-    return -(b-a).cross(c-a).normalize()
+    return (b-a).cross(c-a).normalize()
 //    val diff1 = b - a
 //    val diff2 = c - a
 //    val cross = diff1.cross(diff2, diff1)

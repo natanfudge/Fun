@@ -18,6 +18,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.PI
 import kotlin.math.roundToInt
 
+// 1. Program a WGSL visual debugger
 //TODO:
 // 12. Material rendering system:
 //      A. Start by having only a mesh
@@ -125,7 +126,9 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.SIZE_BYTES * 2u).wgpuAlign(),
+            size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.SIZE_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL
+                    // Idk why but it wants 1 more
+                    + 1u).wgpuAlign(),
             usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
         )
     )
@@ -299,7 +302,8 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             surface.uniformBuffer,
             0uL,
             // viewProjection, cameraPos, lightPos
-            viewProjection.array + app.camera.position.toArray() + lightPos.toArray()
+            viewProjection.array + app.camera.position.toWgslArray() + lightPos.toWgslArray()
+                    + floatArrayOf(dimensions.dims.width.toFloat(), dimensions.dims.height.toFloat())
         )
 
         //TODO: that didn't solve it wtf. Clue: the lighting should be uniform across the entire face, but it's actually changing.
@@ -360,7 +364,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             instanceStride * 7u,
-            Mat4f.translation(Vec3f(2f, -2f, 0.5f))
+            Mat4f.translation(Vec3f(4f, -4f, 0.5f))
                 .andNormal() + Color.Gray.toFloatArray()
         )
 
