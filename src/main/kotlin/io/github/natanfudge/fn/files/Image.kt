@@ -14,12 +14,13 @@ class Image(
 )
 
 fun readImage(path: Path): Image {
+    val path = path.toNio().toAbsolutePath().toString()
     MemoryStack.stackPush().use { stack ->
         val w = stack.mallocInt(1)
         val h = stack.mallocInt(1)
         val channels = stack.mallocInt(1)
         val buf = stbi_load(
-            path.toString(), w, h, channels,
+            path, w, h, channels,
             // rgba
             4
         )

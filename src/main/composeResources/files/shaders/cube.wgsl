@@ -3,7 +3,7 @@ struct Uniforms {
     cameraPos: vec3f,
     lightPos: vec3f,
     width: f32,
-    height: f32
+    height: f32,
 }
 
 
@@ -12,13 +12,17 @@ struct VertexOutput {
     @builtin(position) pos: vec4f,
     @location(0) color: vec4f,
     @location(1) normal: vec3f,
-    @location(2) worldPos: vec3f
+    @location(2) worldPos: vec3f,
+    @location(3) uv: vec2f,
+    @location(4) index: u32
 }
 
 
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var<storage,read> instances: array<Instance>;
+@group(0) @binding(2) var samp: sampler;
+@group(1) @binding(0) var texture: texture_2d<f32>;
 
 struct Instance {
     model: mat4x4f,
@@ -30,6 +34,7 @@ struct Instance {
 fn vs_main(
   @location(0) position : vec3f,
   @location(1) normal: vec3f,
+  @location(2) uv: vec2f,
   @builtin(instance_index) iid: u32,
 ) -> VertexOutput {
     let instance = instances[iid];
@@ -43,6 +48,8 @@ fn vs_main(
     output.color = instance.color;
     output.normal = worldNormal;
     output.worldPos = worldPos;
+    output.uv = uv;
+    output.index = iid;
     return output;
 }
 
@@ -57,9 +64,7 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
 //        return vec4(1.0, 0.0, 0.0, 1.0);
 //    }
 
-        if is_in_number(vertex.pos.xy, array<u32,10>(u32(vertex.worldPos.x), u32(abs(vertex.worldPos.y)), u32(vertex.worldPos.z), 0,0,0,0,0,0,0), vec2(200, 200), 3.0) {
-            return vec4(1.0, 0.0, 0.0, 1.0);
-        }
+
 
         let N  = normalize(vertex.normal);
         let L  = normalize(uniforms.lightPos - vertex.worldPos);
@@ -79,12 +84,14 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
                     spec * lightRGB;
 
         // Final colour: light * albedo (instance tint already holds alpha)
-        return vec4f(phong * vertex.color.rgb, vertex.color.a);
-//        return vec4f(vertex.pos);
-//        return vec4f(vertex.normal * 0.5 + 0.5, vertex.color.a);
-//        return vec4f(L * 0.5 + 0.5, vertex.color.a);
-//        return vec4f(vertex.worldPos / 10 + 0.5, vertex.color.a);
-//        return vec4f(uniforms.lightPos / 10 + 0.5, vertex.color.a);
+
+        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), vertex.index == 0);
+
+         if is_in_number(vertex.pos.xy, array<u32,10>(u32(baseColor.r * 5), u32(abs(baseColor.g * 5)), u32(baseColor.b * 5), u32(baseColor.a),0,0,0,0,0,0), vec2(200, 200), 3.0) {
+                    return vec4(1.0, 0.0, 0.0, 1.0);
+                }
+
+        return vec4f(phong * baseColor.rgb, baseColor.a);
 }
 
 const font = array(

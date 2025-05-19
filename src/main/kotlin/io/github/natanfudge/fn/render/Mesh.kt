@@ -7,13 +7,19 @@ import kotlin.math.sin
 
 typealias Point3f = Vec3f
 
-class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
+class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
     companion object {
-        private val ConstantVec = Vec3f()
-        fun fromPositions(
+        /**
+         * Automatically infers normals for all vertices.
+         * Note that the "smoothness" of the shading depends on how much the indices are shared between vertices.
+         * If all indices use separate vertices, the shading will be flat.
+         * If vertices share indices, the normal will be average out for that index, making the shading smooth.
+         */
+        fun withNormals(
             indices: TriangleIndexArray,
             positions: List<Point3f>,
-        ): Model {
+            uv: List<UV>
+        ): Mesh {
             // one *distinct* accumulator per vertex
             val normals = MutableList(positions.size) { Vec3f() }
 
@@ -30,14 +36,16 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 normals[i].normalize(normals[i])
             }
 
-
-
-            val vbo = VertexArrayBuffer.of(positions, normals)
-            return Model(indices, vbo)
+            val vbo = VertexArrayBuffer.of(positions, normals, uv)
+            return Mesh(indices, vbo)
         }
 
+
         // There is actually only 24 unique positions, we don't need 36
-        fun UnitCube() = Model.fromPositions(
+        /**
+         * Creates a cube that partially shares vertices, in a way that has the minimum amount of vertices, but allows for correct flat shading.
+         */
+        fun UnitCube() = Mesh.withNormals(
             positions = listOf(
                 // front (Z = 1)
                 Vec3f(-0.5f, -0.5f, 0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(-0.5f, 0.5f, 0.5f),
@@ -52,6 +60,20 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 // bottom (Y = 0)
                 Vec3f(-0.5f, -0.5f, -0.5f), Vec3f(0.5f, -0.5f, -0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(-0.5f, -0.5f, 0.5f)
             ),
+            uv = listOf(
+                // front (Z = 1)
+                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                // back (Z = 0)
+                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                // left (X = 0)
+                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                // right (X = 1)
+                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                // top (Y = 1)
+                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                // bottom (Y = 0)
+                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f)
+            ),
             indices = TriangleIndexArray.of(
                 0, 1, 2, 0, 2, 3,      // front
                 4, 5, 6, 4, 6, 7,      // back
@@ -62,7 +84,11 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
             )
         )
 
-        fun sphere(segments: Int = 64): Model {
+
+        /**
+         * Creates a sphere that shares vertices as much as possible, making shading smooth.
+         */
+        fun sphere(segments: Int = 64): Mesh {
             val vertices = mutableListOf<Point3f>()
             val indices = mutableListOf<Int>()
 
@@ -90,12 +116,12 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
 
             for (i in 0 until segments) {    // latitude    (0 .. segments-1)
                 for (j in 0 until segments) { // longitude  (0 .. segments-1)
-                    val nextJ   = (j + 1) % segments   // wrap around at the seam
+                    val nextJ = (j + 1) % segments   // wrap around at the seam
 
-                    val first   =  i      * ringStride + j
-                    val second  =  i      * ringStride + nextJ
-                    val third   = (i + 1) * ringStride + j
-                    val fourth  = (i + 1) * ringStride + nextJ
+                    val first = i * ringStride + j
+                    val second = i * ringStride + nextJ
+                    val third = (i + 1) * ringStride + j
+                    val fourth = (i + 1) * ringStride + nextJ
 
                     // first triangle
                     indices += first
@@ -109,9 +135,19 @@ class Model(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 }
             }
 
-            return Model.fromPositions(
+            return Mesh.withNormals(
                 positions = vertices,
-                indices = TriangleIndexArray(indices.toIntArray())
+                indices = TriangleIndexArray(indices.toIntArray()),
+                uv = buildList {
+                    for (i in 0..segments) {
+                        val v = i.toFloat() / segments
+
+                        for (j in 0 until segments) {
+                            val u = j.toFloat() / segments
+                            add(UV(u, v))
+                        }
+                    }
+                }
             )
         }
     }
@@ -148,7 +184,7 @@ data class ModelTriangle(val a: Vertex, val b: Vertex, val c: Vertex) {
     }
 }
 
-data class Vertex(val pos: Point3f, val normal: Vec3f) {
+data class Vertex(val pos: Point3f, val normal: Vec3f, val uv: UV) {
     override fun toString(): String {
         return "pos=$pos,norm=$normal"
     }
@@ -165,7 +201,7 @@ data class TriangleF(
  * Assumes the triangle is in counter-clockwise order, otherwise this vector will incorrectly point inwards instead of outwards.
  */
 private fun inferNormal(a: Point3f, b: Point3f, c: Point3f): Vec3f {
-    return (b-a).cross(c-a).normalize()
+    return (b - a).cross(c - a).normalize()
 //    val diff1 = b - a
 //    val diff2 = c - a
 //    val cross = diff1.cross(diff2, diff1)
@@ -173,14 +209,18 @@ private fun inferNormal(a: Point3f, b: Point3f, c: Point3f): Vec3f {
 //    return normalized
 }
 
+
+data class UV(val u: Float, val v: Float)
+
 class VertexArrayBuffer(val array: FloatArray) {
     companion object {
-        const val StrideFloats = 6
+        const val StrideFloats = 8
         val StrideBytes = (StrideFloats * Float.SIZE_BYTES).toULong()
 
         //        fun of(vararg floats: Float) = VertexArrayBuffer(floats)
-        fun of(positions: List<Point3f>, normals: List<Vec3f>): VertexArrayBuffer {
+        fun of(positions: List<Point3f>, normals: List<Vec3f>, uv: List<UV>): VertexArrayBuffer {
             require(normals.size == positions.size)
+            require(uv.size == positions.size)
             val array = FloatArray(positions.size * StrideFloats)
             positions.forEachIndexed { i, pos ->
                 array[i * StrideFloats] = pos.x
@@ -192,6 +232,10 @@ class VertexArrayBuffer(val array: FloatArray) {
                 array[i * StrideFloats + 3] = vec.x
                 array[i * StrideFloats + 4] = vec.y
                 array[i * StrideFloats + 5] = vec.z
+            }
+            uv.forEachIndexed { i, (u, v) ->
+                array[i * StrideFloats + 6] = u
+                array[i * StrideFloats + 7] = v
             }
             return VertexArrayBuffer(array)
         }
@@ -215,7 +259,8 @@ class VertexArrayBuffer(val array: FloatArray) {
         var i = index * StrideFloats
         return Vertex(
             Point3f(array[i++], array[i++], array[i++]),
-            Vec3f(array[i++], array[i++], array[i]),
+            Vec3f(array[i++], array[i++], array[i++]),
+            UV(array[i++], array[i])
         )
     }
 
@@ -235,7 +280,8 @@ class VertexArrayBuffer(val array: FloatArray) {
             iter(
                 Vertex(
                     Point3f(array[i++], array[i++], array[i++]),
-                    Vec3f(array[i++], array[i++], array[i++])
+                    Vec3f(array[i++], array[i++], array[i++]),
+                    UV(array[i++], array[i++])
                 )
             )
         }
@@ -285,6 +331,3 @@ class TriangleIndexArray(val array: IntArray) {
 
 //    inline fun mapTriangles(transform: (a: Int, b: Int, c: Int))
 }
-
-
-

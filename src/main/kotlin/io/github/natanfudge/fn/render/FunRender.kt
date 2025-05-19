@@ -5,6 +5,7 @@ import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
@@ -20,17 +21,13 @@ import kotlin.math.roundToInt
 
 // 1. Program a WGSL visual debugger
 //TODO:
-// 12. Material rendering system:
-//      A. Start by having only a mesh
-//      B. Then add texturing
-//      C. Then add a normal map
-//      D. then add phong lighting
-//      E. then add the other PBR things
+// 12b. Abstraction of entity system
 // 13. Ray casting & selection
 // 13b. Targeted zoom (with ray casting?)
 // 14. Physics
 // 15. Trying making a basic game
 // 16. Integrate the Fun "ECS" system and allow assigning physicality to components, allowing you to click on things and view their state
+// 17. PBR
 
 val msaaSamples = 4u
 
@@ -74,7 +71,7 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 }
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val cubeMesh = Model.UnitCube()
+    val cubeMesh = Mesh.UnitCube()
     val cubeVerticesBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = cubeMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
@@ -98,7 +95,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
         it.unmap()
     }
 
-    val sphereMesh = Model.sphere()
+    val sphereMesh = Mesh.sphere()
 
 
     val sphereIndicesBuffer = ctx.device.createBuffer(
@@ -126,9 +123,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.SIZE_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL
-                    // Idk why but it wants 1 more
-                    + 1u).wgpuAlign(),
+            size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.ALIGN_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL).wgpuAlign(),
             usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
         )
     )
@@ -142,9 +137,39 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
             usage = setOf(GPUBufferUsage.Storage, GPUBufferUsage.CopyDst)
         )
     )
+    val image = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
+
+
+    val kotlinTexture = ctx.device.createTexture(
+        TextureDescriptor(
+            size = Extent3D(image.width.toUInt(), image.height.toUInt(), 1u),
+            // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
+            format = GPUTextureFormat.RGBA8UnormSrgb,
+            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
+        )
+    )
+
+    val kotlinTextureView = kotlinTexture.createView()
+
+
+    init {
+        ctx.device.copyExternalImageToTexture(
+            source = image.bytes,
+            texture = kotlinTexture,
+            width = image.width, height = image.height
+        )
+    }
+
+
+    val sampler = ctx.device.createSampler()
+
 
     override fun close() {
-        closeAll(cubeVerticesBuffer, cubeIndicesBuffer, sphereVerticesBuffer, sphereIndicesBuffer, uniformBuffer, storageBuffer)
+        closeAll(
+            cubeVerticesBuffer, cubeIndicesBuffer, sphereVerticesBuffer,
+            sphereIndicesBuffer, uniformBuffer, storageBuffer, kotlinTexture, sampler,
+            kotlinTextureView
+        )
     }
 }
 
@@ -154,7 +179,7 @@ internal fun ULong.wgpuAlign(): ULong {
     return if (leftOver == 0uL) this else ((this / alignmentBytes) + 1u) * alignmentBytes
 }
 
-internal fun UInt.wgpuAlign(): ULong =toULong().wgpuAlign()
+internal fun UInt.wgpuAlign(): ULong = toULong().wgpuAlign()
 
 var pipelines = 0
 
@@ -205,7 +230,8 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                         arrayStride = VertexArrayBuffer.StrideBytes,
                         attributes = listOf(
                             VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 0uL, shaderLocation = 0u), // Position
-                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = Vec3f.SIZE_BYTES.toULong(), shaderLocation = 1u), // Normal
+                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = Vec3f.ACTUAL_SIZE_BYTES.toULong(), shaderLocation = 1u), // Normal
+                            VertexAttribute(format = GPUVertexFormat.Float32x2, offset = Vec3f.ACTUAL_SIZE_BYTES.toULong() * 2u, shaderLocation = 2u), // uv
                         )
                     ),
                 )
@@ -218,6 +244,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             primitive = PrimitiveState(
                 topology = GPUPrimitiveTopology.TriangleList,
                 cullMode = GPUCullMode.Back
+//                cullMode = GPUCullMode.None
             ),
             depthStencil = DepthStencilState(
                 format = GPUTextureFormat.Depth24Plus,
@@ -228,22 +255,40 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
+    class BindGroups(
+        val main: GPUBindGroup,
+        val material: GPUBindGroup, // Temporary until we have bindless resources. For now we will need to bind this individually for each model
+    )
+
     val bindGroupLifecycle = cubeLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
         println("Using pipeline ${pipeline.pipeline.label}")
-        surface.ctx.device.createBindGroup(
-            BindGroupDescriptor(
-                layout = pipeline.pipeline.getBindGroupLayout(0u),
-                entries = listOf(
-                    BindGroupEntry(
-                        binding = 0u,
-                        resource = BufferBinding(
-                            buffer = surface.uniformBuffer
+        BindGroups(
+            main = surface.ctx.device.createBindGroup(
+                BindGroupDescriptor(
+                    layout = pipeline.pipeline.getBindGroupLayout(0u),
+                    entries = listOf(
+                        BindGroupEntry(
+                            binding = 0u,
+                            resource = BufferBinding(buffer = surface.uniformBuffer)
+                        ),
+                        BindGroupEntry(
+                            binding = 1u,
+                            resource = BufferBinding(buffer = surface.storageBuffer)
+                        ),
+                        BindGroupEntry(
+                            binding = 2u,
+                            resource = surface.sampler
                         )
-                    ),
-                    BindGroupEntry(
-                        binding = 1u,
-                        resource = BufferBinding(
-                            buffer = surface.storageBuffer
+                    )
+                )
+            ),
+            material = surface.ctx.device.createBindGroup(
+                BindGroupDescriptor(
+                    layout = pipeline.pipeline.getBindGroupLayout(1u),
+                    entries = listOf(
+                        BindGroupEntry(
+                            binding = 0u,
+                            resource = surface.kotlinTextureView
                         )
                     )
                 )
@@ -296,13 +341,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val viewProjection = dimensions.projection * app.camera.matrix
 
-        val lightPos = Vec3f(4f,-4f,4f)
+        val lightPos = Vec3f(4f, -4f, 4f)
 
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,
             0uL,
             // viewProjection, cameraPos, lightPos
-            viewProjection.array + app.camera.position.toWgslArray() + lightPos.toWgslArray()
+            viewProjection.array + app.camera.position.toAlignedArray() + lightPos.toAlignedArray()
                     + floatArrayOf(dimensions.dims.width.toFloat(), dimensions.dims.height.toFloat())
         )
 
@@ -352,7 +397,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         ctx.device.queue.writeBuffer(
             surface.storageBuffer,
             instanceStride * 5u,
-            Mat4f.translation(Vec3f(2f,2f,2f)).andNormal() + Color.White.toFloatArray() // Add white color
+            Mat4f.translation(Vec3f(2f, 2f, 2f)).andNormal() + Color.White.toFloatArray() // Add white color
         )
 
         ctx.device.queue.writeBuffer(
@@ -371,7 +416,8 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
         pass.setPipeline(cube.pipeline)
-        pass.setBindGroup(0u, bindGroup)
+        pass.setBindGroup(0u, bindGroup.main)
+        pass.setBindGroup(1u, bindGroup.material) // Will need to be different for each material
 
         pass.setVertexBuffer(0u, surface.sphereVerticesBuffer)
         pass.setIndexBuffer(surface.sphereIndicesBuffer, GPUIndexFormat.Uint32)

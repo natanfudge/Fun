@@ -46,3 +46,4 @@ bin/
 jdks/
 *.log
 compose-renders/
+*.jfr
