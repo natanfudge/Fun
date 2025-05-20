@@ -71,54 +71,60 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 }
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val cubeMesh = Mesh.UnitCube()
-    val cubeVerticesBuffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = cubeMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
-            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
-            mappedAtCreation = true
-        )
-    ).also {
-        cubeMesh.vertices.array.writeInto(it.getMappedRange())
-        it.unmap()
-    }
+//    val cubeMesh = Mesh.UnitCube()
+//    val cube = Model(cubeMesh).bind(ctx)
+
+//    val sphereMesh: Mesh = Mesh.sphere()
+//    val sphere = Model(sphereMesh).bind(ctx)
+
+//    val cubeVerticesBuffer = ctx.device.createBuffer(
+//        BufferDescriptor(
+//            size = cubeMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
+//            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
+//            mappedAtCreation = true
+//        )
+//    ).also {
+//        cubeMesh.vertices.array.writeInto(it.getMappedRange())
+//        it.unmap()
+//    }
+//
+//
+//    val cubeIndicesBuffer = ctx.device.createBuffer(
+//        BufferDescriptor(
+//            size = cubeMesh.indexCount * Float.SIZE_BYTES.toULong(),
+//            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
+//            mappedAtCreation = true
+//        )
+//    ).also {
+//        it.mapFrom(cubeMesh.indices.array)
+//        it.unmap()
+//    }
 
 
-    val cubeIndicesBuffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = cubeMesh.indexCount * Float.SIZE_BYTES.toULong(),
-            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
-            mappedAtCreation = true
-        )
-    ).also {
-        it.mapFrom(cubeMesh.indices.array)
-        it.unmap()
-    }
 
-    val sphereMesh = Mesh.sphere()
-
-
-    val sphereIndicesBuffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = sphereMesh.indexCount * Float.SIZE_BYTES.toULong(),
-            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
-            mappedAtCreation = true
-        )
-    ).also {
-        it.mapFrom(sphereMesh.indices.array)
-        it.unmap()
-    }
-
-    val sphereVerticesBuffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = sphereMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
-            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
-            mappedAtCreation = true
-        )
-    ).also {
-        sphereMesh.vertices.array.writeInto(it.getMappedRange())
-        it.unmap()
-    }
+//    val sphereIndicesBuffer = ctx.device.createBuffer(
+//        BufferDescriptor(
+//            size = sphereMesh.indexCount * Float.SIZE_BYTES.toULong(),
+//            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
+////            mappedAtCreation = true
+//        )
+//    ).also {
+//        ctx.device.queue.writeBuffer(it, 0u, sphereMesh.indices.array)
+////        it.mapFrom(sphereMesh.indices.array)
+////        it.unmap()
+//    }
+//
+//    val sphereVerticesBuffer = ctx.device.createBuffer(
+//        BufferDescriptor(
+//            size = sphereMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
+//            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
+////            mappedAtCreation = true
+//        )
+//    ).also {
+//        ctx.device.queue.writeBuffer(it, 0u, sphereMesh.vertices.array)
+////        sphereMesh.vertices.array.writeInto(it.getMappedRange())
+////        it.unmap()
+//    }
 
 
     val uniformBuffer = ctx.device.createBuffer(
@@ -131,34 +137,34 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     val maxInstances = 10uL
     val instanceStride = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES).wgpuAlign()
 
-    val storageBuffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = instanceStride * maxInstances, // Include space for both model matrix and color
-            usage = setOf(GPUBufferUsage.Storage, GPUBufferUsage.CopyDst)
-        )
-    )
+//    val storageBuffer = ctx.device.createBuffer(
+//        BufferDescriptor(
+//            size = instanceStride * maxInstances, // Include space for both model matrix and color
+//            usage = setOf(GPUBufferUsage.Storage, GPUBufferUsage.CopyDst)
+//        )
+//    )
     val image = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
 
 
-    val kotlinTexture = ctx.device.createTexture(
-        TextureDescriptor(
-            size = Extent3D(image.width.toUInt(), image.height.toUInt(), 1u),
-            // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
-            format = GPUTextureFormat.RGBA8UnormSrgb,
-            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
-        )
-    )
+//    val kotlinTexture = ctx.device.createTexture(
+//        TextureDescriptor(
+//            size = Extent3D(image.width.toUInt(), image.height.toUInt(), 1u),
+//            // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
+//            format = GPUTextureFormat.RGBA8UnormSrgb,
+//            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
+//        )
+//    )
+//
+//    val kotlinTextureView = kotlinTexture.createView()
 
-    val kotlinTextureView = kotlinTexture.createView()
 
-
-    init {
-        ctx.device.copyExternalImageToTexture(
-            source = image.bytes,
-            texture = kotlinTexture,
-            width = image.width, height = image.height
-        )
-    }
+//    init {
+//        ctx.device.copyExternalImageToTexture(
+//            source = image.bytes,
+//            texture = kotlinTexture,
+//            width = image.width, height = image.height
+//        )
+//    }
 
 
     val sampler = ctx.device.createSampler()
@@ -166,9 +172,7 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
     override fun close() {
         closeAll(
-            cubeVerticesBuffer, cubeIndicesBuffer, sphereVerticesBuffer,
-            sphereIndicesBuffer, uniformBuffer, storageBuffer, kotlinTexture, sampler,
-            kotlinTextureView
+            uniformBuffer,  sampler,
         )
     }
 }
@@ -259,41 +263,24 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         val main: GPUBindGroup,
         val material: GPUBindGroup, // Temporary until we have bindless resources. For now we will need to bind this individually for each model
     )
+    val lightPos = Vec3f(4f, -4f, 4f)
 
     val bindGroupLifecycle = cubeLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
-        println("Using pipeline ${pipeline.pipeline.label}")
-        BindGroups(
-            main = surface.ctx.device.createBindGroup(
-                BindGroupDescriptor(
-                    layout = pipeline.pipeline.getBindGroupLayout(0u),
-                    entries = listOf(
-                        BindGroupEntry(
-                            binding = 0u,
-                            resource = BufferBinding(buffer = surface.uniformBuffer)
-                        ),
-                        BindGroupEntry(
-                            binding = 1u,
-                            resource = BufferBinding(buffer = surface.storageBuffer)
-                        ),
-                        BindGroupEntry(
-                            binding = 2u,
-                            resource = surface.sampler
-                        )
-                    )
-                )
-            ),
-            material = surface.ctx.device.createBindGroup(
-                BindGroupDescriptor(
-                    layout = pipeline.pipeline.getBindGroupLayout(1u),
-                    entries = listOf(
-                        BindGroupEntry(
-                            binding = 0u,
-                            resource = surface.kotlinTextureView
-                        )
-                    )
-                )
-            )
-        )
+        WorldRender(surface.ctx, pipeline.pipeline, surface).also {
+            val cubeModel = Model(Mesh.UnitCube())
+            val sphereModel = Model(Mesh.uvSphere())
+            val cube = it.bind(cubeModel)
+            val sphere = it.bind(sphereModel)
+            cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
+            cube.spawn(Mat4f.scaling(x = 0.1f, y =10f, z = 0.1f), Color.Green) // Y Axis
+            cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
+            cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
+
+            sphere.spawn(Mat4f.translation(2f,2f,2f))
+            sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
+
+            cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
+        }
     }
 
 
@@ -341,7 +328,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val viewProjection = dimensions.projection * app.camera.matrix
 
-        val lightPos = Vec3f(4f, -4f, 4f)
 
         ctx.device.queue.writeBuffer(
             surface.uniformBuffer,
@@ -354,82 +340,85 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         //TODO: that didn't solve it wtf. Clue: the lighting should be uniform across the entire face, but it's actually changing.
         fun Mat4f.andNormal() = this.array + Mat3f.fromMat4(this).inverse().transpose().array
 
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            0uL,
-            Mat4f.translation(Vec3f.zero()).andNormal() + Color.White.toFloatArray() // Add white color
-        )
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            0uL,
+//            Mat4f.translation(Vec3f.zero()).andNormal() + Color.White.toFloatArray() // Add white color
+//        )
+//
+//        val instanceStride = surface.instanceStride
+//
+//
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride,
+//            Mat4f.translation(Vec3f.zero())
+//                .scale(Vec3f(x = 10f, y = 0.1f, z = 0.1f))
+//                .andNormal() + Color.Red.toFloatArray() // X axis
+//        )
+//
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride * 2u,
+//            Mat4f.translation(Vec3f.zero())
+//                .scale(Vec3f(x = 0.1f, y = 10f, z = 0.1f))
+//                .andNormal() + Color.Green.toFloatArray() // Y Axis
+//        )
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride * 3u,
+//            Mat4f.translation(Vec3f.zero())
+//                .scale(Vec3f(x = 0.1f, y = 0.1f, z = 10f))
+//                .andNormal() + Color.Blue.toFloatArray() // Z axis
+//        )
+//
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride * 4u,
+//            Mat4f.translation(Vec3f(0f, 0f, -1f))
+//                .scale(Vec3f(x = 10f, y = 10f, z = 0.1f))
+//                .andNormal() + Color.Gray.toFloatArray()
+//        )
+//
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride * 5u,
+//            Mat4f.translation(Vec3f(2f, 2f, 2f)).andNormal() + Color.White.toFloatArray() // Add white color
+//        )
+//
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride * 6u,
+//            Mat4f.translation(lightPos).uniformScale(0.2f).andNormal() + Color.White.toFloatArray() // Add white color
+//        )
+//
+//        ctx.device.queue.writeBuffer(
+//            surface.storageBuffer,
+//            instanceStride * 7u,
+//            Mat4f.translation(Vec3f(4f, -4f, 0.5f))
+//                .andNormal() + Color.Gray.toFloatArray()
+//        )
 
-        val instanceStride = surface.instanceStride
-
-
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride,
-            Mat4f.translation(Vec3f.zero())
-                .scale(Vec3f(x = 10f, y = 0.1f, z = 0.1f))
-                .andNormal() + Color.Red.toFloatArray() // X axis
-        )
-
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride * 2u,
-            Mat4f.translation(Vec3f.zero())
-                .scale(Vec3f(x = 0.1f, y = 10f, z = 0.1f))
-                .andNormal() + Color.Green.toFloatArray() // Y Axis
-        )
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride * 3u,
-            Mat4f.translation(Vec3f.zero())
-                .scale(Vec3f(x = 0.1f, y = 0.1f, z = 10f))
-                .andNormal() + Color.Blue.toFloatArray() // Z axis
-        )
-
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride * 4u,
-            Mat4f.translation(Vec3f(0f, 0f, -1f))
-                .scale(Vec3f(x = 10f, y = 10f, z = 0.1f))
-                .andNormal() + Color.Gray.toFloatArray()
-        )
-
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride * 5u,
-            Mat4f.translation(Vec3f(2f, 2f, 2f)).andNormal() + Color.White.toFloatArray() // Add white color
-        )
-
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride * 6u,
-            Mat4f.translation(lightPos).uniformScale(0.2f).andNormal() + Color.White.toFloatArray() // Add white color
-        )
-
-        ctx.device.queue.writeBuffer(
-            surface.storageBuffer,
-            instanceStride * 7u,
-            Mat4f.translation(Vec3f(4f, -4f, 0.5f))
-                .andNormal() + Color.Gray.toFloatArray()
-        )
 
 
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
-        pass.setPipeline(cube.pipeline)
-        pass.setBindGroup(0u, bindGroup.main)
-        pass.setBindGroup(1u, bindGroup.material) // Will need to be different for each material
+//        pass.setPipeline(cube.pipeline)
+        bindGroup.draw(pass)
 
-        pass.setVertexBuffer(0u, surface.sphereVerticesBuffer)
-        pass.setIndexBuffer(surface.sphereIndicesBuffer, GPUIndexFormat.Uint32)
-        pass.drawIndexed(surface.sphereMesh.indexCount.toUInt())
-        pass.drawIndexed(surface.sphereMesh.indexCount.toUInt(), instanceCount = 2u, firstInstance = 5u)
-
-        pass.setVertexBuffer(0u, surface.cubeVerticesBuffer)
-        pass.setIndexBuffer(surface.cubeIndicesBuffer, GPUIndexFormat.Uint32)
-        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 4u, firstInstance = 1u)
-        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 1u, firstInstance = 7u)
-
-        pass.end()
+//        pass.setBindGroup(0u, bindGroup.main)
+//        pass.setBindGroup(1u, bindGroup.material) // Will need to be different for each material
+//
+//        pass.setVertexBuffer(0u, surface.sphere.vertexBuffer)
+//        pass.setIndexBuffer(surface.sphere.indexBuffer, GPUIndexFormat.Uint32)
+//        pass.drawIndexed(surface.sphereMesh.indexCount)
+//        pass.drawIndexed(surface.sphereMesh.indexCount, instanceCount = 2u, firstInstance = 5u)
+//
+//        pass.setVertexBuffer(0u, surface.cube.vertexBuffer)
+//        pass.setIndexBuffer(surface.cube.indexBuffer, GPUIndexFormat.Uint32)
+//        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 4u, firstInstance = 1u)
+//        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 1u, firstInstance = 7u)
+//
+//        pass.end()
 
         compose.frame(commandEncoder, textureView, composeFrame)
 

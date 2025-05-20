@@ -88,7 +88,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         /**
          * Creates a sphere that shares vertices as much as possible, making shading smooth.
          */
-        fun sphere(segments: Int = 64): Mesh {
+        fun uvSphere(segments: Int = 64): Mesh {
             val vertices = mutableListOf<Point3f>()
             val indices = mutableListOf<Int>()
 
@@ -154,7 +154,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
 
     val triangles get() = vertices.size / VertexArrayBuffer.StrideFloats
     val vertexCount = vertices.size.toULong()
-    val indexCount = indices.size.toULong()
+    val indexCount = indices.size.toUInt()
     val verticesByteSize get() = vertices.byteSize
 
     override fun toString(): String {

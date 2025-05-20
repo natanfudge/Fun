@@ -15,3 +15,11 @@ inline fun <T> Iterable<T>.allIndexed(iter: (Int, T) -> Boolean): Boolean {
     }
     return true
 }
+
+fun concatArrays(array1: FloatArray, array2: FloatArray, array3: FloatArray): FloatArray {
+    val res = FloatArray(array1.size + array2.size + array3.size)
+    array1.copyInto(res)
+    array2.copyInto(res, array1.size)
+    array3.copyInto(res, array1.size + array2.size)
+    return res
+}

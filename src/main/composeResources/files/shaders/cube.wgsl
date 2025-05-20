@@ -20,9 +20,9 @@ struct VertexOutput {
 
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
-@group(0) @binding(1) var<storage,read> instances: array<Instance>;
-@group(0) @binding(2) var samp: sampler;
-@group(1) @binding(0) var texture: texture_2d<f32>;
+@group(0) @binding(1) var samp: sampler;
+@group(1) @binding(0) var<storage,read> instances: array<Instance>;
+@group(1) @binding(1) var texture: texture_2d<f32>;
 
 struct Instance {
     model: mat4x4f,
@@ -42,7 +42,8 @@ fn vs_main(
 
 //    let normalMat   = transpose(inverse(mat3x3f(inst.model)));
     let worldNormal = normalize(instance.normalMat * normal);
-
+//    let worldNormal = normalize((instance.model * vec4f(normal,0)).xyz);
+//
     var output: VertexOutput;
     output.pos = uniforms.viewProjection * vec4f(worldPos, 1);
     output.color = instance.color;
@@ -85,7 +86,9 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
 
         // Final colour: light * albedo (instance tint already holds alpha)
 
-        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), vertex.index == 0);
+//        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), vertex.index == 0);
+        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), vertex.index == 999);;
+//        let baseColor = textureSample(texture, samp, vertex.uv);
 
          if is_in_number(vertex.pos.xy, array<u32,10>(u32(baseColor.r * 5), u32(abs(baseColor.g * 5)), u32(baseColor.b * 5), u32(baseColor.a),0,0,0,0,0,0), vec2(200, 200), 3.0) {
                     return vec4(1.0, 0.0, 0.0, 1.0);
