@@ -16,7 +16,6 @@ struct VertexOutput {
     @location(3) uv: vec2f,
     @location(4) index: u32,
     @location(5) iid: u32
-//    @location(5) textured: f32
 }
 
 

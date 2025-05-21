@@ -219,7 +219,7 @@ data class ModelTriangle(val a: Vertex, val b: Vertex, val c: Vertex) {
 
 data class Vertex(val pos: Point3f, val normal: Vec3f, val uv: UV) {
     override fun toString(): String {
-        return "pos=$pos,norm=$normal"
+        return "pos=$pos,norm=$normal,uv=$uv"
     }
 }
 
@@ -243,7 +243,11 @@ private fun inferNormal(a: Point3f, b: Point3f, c: Point3f): Vec3f {
 }
 
 
-data class UV(val u: Float, val v: Float)
+data class UV(val u: Float, val v: Float) {
+    override fun toString(): String {
+        return "($u,$v)"
+    }
+}
 
 class VertexArrayBuffer(val array: FloatArray) {
     companion object {

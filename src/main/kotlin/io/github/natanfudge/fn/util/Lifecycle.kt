@@ -607,6 +607,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         }
     }
 
+    fun close() {
+
+    }
+
     /**
      * Copies over all the state of this lifecycle to [other], assuming [other] is of the exact same structure
      */

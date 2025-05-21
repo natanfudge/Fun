@@ -16,12 +16,10 @@ import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.PI
 import kotlin.math.roundToInt
-import kotlin.math.tan
 
 // 1. Program a WGSL visual debugger
 //TODO:
@@ -92,102 +90,14 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 }
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-//    val cubeMesh = Mesh.UnitCube()
-//    val cube = Model(cubeMesh).bind(ctx)
-
-//    val sphereMesh: Mesh = Mesh.sphere()
-//    val sphere = Model(sphereMesh).bind(ctx)
-
-//    val cubeVerticesBuffer = ctx.device.createBuffer(
-//        BufferDescriptor(
-//            size = cubeMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
-//            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
-//            mappedAtCreation = true
-//        )
-//    ).also {
-//        cubeMesh.vertices.array.writeInto(it.getMappedRange())
-//        it.unmap()
-//    }
-//
-//
-//    val cubeIndicesBuffer = ctx.device.createBuffer(
-//        BufferDescriptor(
-//            size = cubeMesh.indexCount * Float.SIZE_BYTES.toULong(),
-//            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
-//            mappedAtCreation = true
-//        )
-//    ).also {
-//        it.mapFrom(cubeMesh.indices.array)
-//        it.unmap()
-//    }
-
-
-//    val sphereIndicesBuffer = ctx.device.createBuffer(
-//        BufferDescriptor(
-//            size = sphereMesh.indexCount * Float.SIZE_BYTES.toULong(),
-//            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
-////            mappedAtCreation = true
-//        )
-//    ).also {
-//        ctx.device.queue.writeBuffer(it, 0u, sphereMesh.indices.array)
-////        it.mapFrom(sphereMesh.indices.array)
-////        it.unmap()
-//    }
-//
-//    val sphereVerticesBuffer = ctx.device.createBuffer(
-//        BufferDescriptor(
-//            size = sphereMesh.verticesByteSize, // x,y,z for each vertex, total 3 coords, each coord is a float so 4 bytes
-//            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
-////            mappedAtCreation = true
-//        )
-//    ).also {
-//        ctx.device.queue.writeBuffer(it, 0u, sphereMesh.vertices.array)
-////        sphereMesh.vertices.array.writeInto(it.getMappedRange())
-////        it.unmap()
-//    }
-
-
     val uniformBuffer = ctx.device.createBuffer(
         BufferDescriptor(
             size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.ALIGN_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL).wgpuAlign(),
             usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
         )
     )
-
-    val maxInstances = 10uL
-    val instanceStride = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES).wgpuAlign()
-
-    //    val storageBuffer = ctx.device.createBuffer(
-//        BufferDescriptor(
-//            size = instanceStride * maxInstances, // Include space for both model matrix and color
-//            usage = setOf(GPUBufferUsage.Storage, GPUBufferUsage.CopyDst)
-//        )
-//    )
     val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
     val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k.png"))
-
-
-
-//    val kotlinTexture = ctx.device.createTexture(
-//        TextureDescriptor(
-//            size = Extent3D(image.width.toUInt(), image.height.toUInt(), 1u),
-//            // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
-//            format = GPUTextureFormat.RGBA8UnormSrgb,
-//            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
-//        )
-//    )
-//
-//    val kotlinTextureView = kotlinTexture.createView()
-
-
-//    init {
-//        ctx.device.copyExternalImageToTexture(
-//            source = image.bytes,
-//            texture = kotlinTexture,
-//            width = image.width, height = image.height
-//        )
-//    }
-
 
     val sampler = ctx.device.createSampler()
 
@@ -234,20 +144,16 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         FunFixedSizeWindow(it.surface, it.dimensions)
     }
 
-//    compose.compose.windowLifecycle.bind("Fun Compose Lock") {
-////        it.focused = false
-//    }
 
-
-    val cubeLifecycle = createReloadingPipeline(
-        "Cube",
+    val objectLifecycle = createReloadingPipeline(
+        "Object",
         surfaceLifecycle, fsWatcher,
-        vertexShader = ShaderSource.HotFile("cube"),
+        vertexShader = ShaderSource.HotFile("object"),
     ) { vertex, fragment ->
         pipelines++
         println("Creating pipeline $pipelines")
         RenderPipelineDescriptor(
-            label = "Fun Cube Pipeline #$pipelines",
+            label = "Fun Object Pipeline #$pipelines",
             vertex = VertexState(
                 module = vertex,
                 entryPoint = "vs_main",
@@ -298,35 +204,30 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    class BindGroups(
-        val main: GPUBindGroup,
-        val material: GPUBindGroup, // Temporary until we have bindless resources. For now we will need to bind this individually for each model
-    )
-
     val lightPos = Vec3f(4f, -4f, 4f)
 
-    val bindGroupLifecycle = cubeLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
+    val bindGroupLifecycle = objectLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
         WorldRender(surface.ctx, pipeline.pipeline, surface).also {
             val cubeModel = Model(Mesh.UnitCube())
             val sphereModel = Model(Mesh.uvSphere())
             val cube = it.bind(cubeModel)
             val sphere = it.bind(sphereModel)
-//            cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
-//            cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
-//            cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
-//            cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
+            cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
+            cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
+            cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
+            cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
 
-//            val kotlinSphere = it.bind(sphereModel.copy(material = Material(texture = surface.kotlinImage)))
+            val kotlinSphere = it.bind(sphereModel.copy(material = Material(texture = surface.kotlinImage)))
 
-            val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(surface.wgpu4kImage)))
+//            val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(surface.wgpu4kImage)))
 
-            wgpuCube.spawn()
+//            wgpuCube.spawn()
 
-//            kotlinSphere.spawn()
-//            sphere.spawn(Mat4f.translation(2f, 2f, 2f))
+            kotlinSphere.spawn()
+            sphere.spawn(Mat4f.translation(2f, 2f, 2f))
             sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
 
-//            cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
+            cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
         }
     }
 
@@ -341,7 +242,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
 
     frameLifecycle.bind(
-        funSurface, funDimLifecycle, bindGroupLifecycle, cubeLifecycle,
+        funSurface, funDimLifecycle, bindGroupLifecycle, objectLifecycle,
         compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
     ) { frame, surface, dimensions, bindGroup, cube, composeFrame, app ->
@@ -369,9 +270,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
                 depthStoreOp = GPUStoreOp.Store
             ),
         )
-        val now = (System.currentTimeMillis() % 1000 * 2 * PI.toFloat()) / 1000f
-
-//        val lookAt = appLifecycle.assertValue
 
         val viewProjection = dimensions.projection * app.camera.matrix
 
@@ -383,88 +281,8 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             viewProjection.array + app.camera.position.toAlignedArray() + lightPos.toAlignedArray()
                     + floatArrayOf(dimensions.dims.width.toFloat(), dimensions.dims.height.toFloat())
         )
-
-        //TODO: that didn't solve it wtf. Clue: the lighting should be uniform across the entire face, but it's actually changing.
-        fun Mat4f.andNormal() = this.array + Mat3f.fromMat4(this).inverse().transpose().array
-
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            0uL,
-//            Mat4f.translation(Vec3f.zero()).andNormal() + Color.White.toFloatArray() // Add white color
-//        )
-//
-//        val instanceStride = surface.instanceStride
-//
-//
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride,
-//            Mat4f.translation(Vec3f.zero())
-//                .scale(Vec3f(x = 10f, y = 0.1f, z = 0.1f))
-//                .andNormal() + Color.Red.toFloatArray() // X axis
-//        )
-//
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride * 2u,
-//            Mat4f.translation(Vec3f.zero())
-//                .scale(Vec3f(x = 0.1f, y = 10f, z = 0.1f))
-//                .andNormal() + Color.Green.toFloatArray() // Y Axis
-//        )
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride * 3u,
-//            Mat4f.translation(Vec3f.zero())
-//                .scale(Vec3f(x = 0.1f, y = 0.1f, z = 10f))
-//                .andNormal() + Color.Blue.toFloatArray() // Z axis
-//        )
-//
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride * 4u,
-//            Mat4f.translation(Vec3f(0f, 0f, -1f))
-//                .scale(Vec3f(x = 10f, y = 10f, z = 0.1f))
-//                .andNormal() + Color.Gray.toFloatArray()
-//        )
-//
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride * 5u,
-//            Mat4f.translation(Vec3f(2f, 2f, 2f)).andNormal() + Color.White.toFloatArray() // Add white color
-//        )
-//
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride * 6u,
-//            Mat4f.translation(lightPos).uniformScale(0.2f).andNormal() + Color.White.toFloatArray() // Add white color
-//        )
-//
-//        ctx.device.queue.writeBuffer(
-//            surface.storageBuffer,
-//            instanceStride * 7u,
-//            Mat4f.translation(Vec3f(4f, -4f, 0.5f))
-//                .andNormal() + Color.Gray.toFloatArray()
-//        )
-
-
         val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
-//        pass.setPipeline(cube.pipeline)
         bindGroup.draw(pass)
-
-//        pass.setBindGroup(0u, bindGroup.main)
-//        pass.setBindGroup(1u, bindGroup.material) // Will need to be different for each material
-//
-//        pass.setVertexBuffer(0u, surface.sphere.vertexBuffer)
-//        pass.setIndexBuffer(surface.sphere.indexBuffer, GPUIndexFormat.Uint32)
-//        pass.drawIndexed(surface.sphereMesh.indexCount)
-//        pass.drawIndexed(surface.sphereMesh.indexCount, instanceCount = 2u, firstInstance = 5u)
-//
-//        pass.setVertexBuffer(0u, surface.cube.vertexBuffer)
-//        pass.setIndexBuffer(surface.cube.indexBuffer, GPUIndexFormat.Uint32)
-//        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 4u, firstInstance = 1u)
-//        pass.drawIndexed(surface.cubeMesh.indexCount.toUInt(), instanceCount = 1u, firstInstance = 7u)
-//
-//        pass.end()
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
@@ -483,10 +301,6 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
 }
 
-//private fun Color.getBytes() = byteArrayOf(red.colorByte(), green.colorByte(), blue.colorByte(), alpha.colorByte())
-private fun Color.toFloatArray() = floatArrayOf(red, green, blue, alpha)
-
-private fun Float.colorByte() = (this * 255).roundToInt().toByte()
 
 private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000
