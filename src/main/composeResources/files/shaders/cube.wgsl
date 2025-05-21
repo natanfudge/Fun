@@ -14,7 +14,9 @@ struct VertexOutput {
     @location(1) normal: vec3f,
     @location(2) worldPos: vec3f,
     @location(3) uv: vec2f,
-    @location(4) index: u32
+    @location(4) index: u32,
+    @location(5) iid: u32
+//    @location(5) textured: f32
 }
 
 
@@ -27,7 +29,8 @@ struct VertexOutput {
 struct Instance {
     model: mat4x4f,
     normalMat: mat3x3f,
-    color: vec4f
+    color: vec4f,
+    textured: f32 // This is a bool, but we'll use a float to keep it all floats
 }
 
 @vertex
@@ -51,6 +54,7 @@ fn vs_main(
     output.worldPos = worldPos;
     output.uv = uv;
     output.index = iid;
+    output.iid = iid;
     return output;
 }
 
@@ -86,13 +90,12 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
 
         // Final colour: light * albedo (instance tint already holds alpha)
 
-//        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), vertex.index == 0);
-        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), vertex.index == 999);;
-//        let baseColor = textureSample(texture, samp, vertex.uv);
+        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1);;
 
-         if is_in_number(vertex.pos.xy, array<u32,10>(u32(baseColor.r * 5), u32(abs(baseColor.g * 5)), u32(baseColor.b * 5), u32(baseColor.a),0,0,0,0,0,0), vec2(200, 200), 3.0) {
+         if is_in_number(vertex.pos.xy, array<u32,10>(u32(vertex.iid), u32(abs(baseColor.g * 5)), u32(baseColor.b * 5), u32(baseColor.a),0,0,0,0,0,0), vec2(200, 200), 3.0) {
                     return vec4(1.0, 0.0, 0.0, 1.0);
                 }
+
 
         return vec4f(phong * baseColor.rgb, baseColor.a);
 }

@@ -12,7 +12,7 @@ plugins {
 }
 rootProject.name = "Fun"
 
-val linkMatrix = true
+val linkMatrix = false
 val matrixDir = file("../wgpu4k-matrix")
 if (linkMatrix) {
     includeBuild(matrixDir) {

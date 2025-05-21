@@ -7,6 +7,18 @@ import kotlin.math.sin
 
 typealias Point3f = Vec3f
 
+enum class CubeUv {
+    /**
+     * Repeat the same textured across all sides
+     */
+    Repeat,
+
+    /**
+     * Draw the textures for the sides from a 3x2 grid
+     */
+    Grid3x2
+}
+
 class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
     companion object {
         /**
@@ -18,7 +30,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         fun withNormals(
             indices: TriangleIndexArray,
             positions: List<Point3f>,
-            uv: List<UV>
+            uv: List<UV>,
         ): Mesh {
             // one *distinct* accumulator per vertex
             val normals = MutableList(positions.size) { Vec3f() }
@@ -45,35 +57,56 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         /**
          * Creates a cube that partially shares vertices, in a way that has the minimum amount of vertices, but allows for correct flat shading.
          */
-        fun UnitCube() = Mesh.withNormals(
+        fun UnitCube(uv: CubeUv = CubeUv.Repeat) = Mesh.withNormals(
             positions = listOf(
-                // front (Z = 1)
+                // top (Z = 1)
                 Vec3f(-0.5f, -0.5f, 0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(-0.5f, 0.5f, 0.5f),
-                // back (Z = 0)
+                // bottom (Z = 0)
                 Vec3f(0.5f, -0.5f, -0.5f), Vec3f(-0.5f, -0.5f, -0.5f), Vec3f(-0.5f, 0.5f, -0.5f), Vec3f(0.5f, 0.5f, -0.5f),
                 // left (X = 0)
                 Vec3f(-0.5f, -0.5f, -0.5f), Vec3f(-0.5f, -0.5f, 0.5f), Vec3f(-0.5f, 0.5f, 0.5f), Vec3f(-0.5f, 0.5f, -0.5f),
                 // right (X = 1)
                 Vec3f(0.5f, -0.5f, 0.5f), Vec3f(0.5f, -0.5f, -0.5f), Vec3f(0.5f, 0.5f, -0.5f), Vec3f(0.5f, 0.5f, 0.5f),
-                // top (Y = 1)
+                // front (Y = 1)
                 Vec3f(-0.5f, 0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(0.5f, 0.5f, -0.5f), Vec3f(-0.5f, 0.5f, -0.5f),
-                // bottom (Y = 0)
+                // back (Y = 0)
                 Vec3f(-0.5f, -0.5f, -0.5f), Vec3f(0.5f, -0.5f, -0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(-0.5f, -0.5f, 0.5f)
             ),
-            uv = listOf(
-                // front (Z = 1)
-                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                // back (Z = 0)
-                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                // left (X = 0)
-                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                // right (X = 1)
-                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                // top (Y = 1)
-                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                // bottom (Y = 0)
-                UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f)
-            ),
+            uv = when (uv) {
+                CubeUv.Repeat -> listOf(
+                    // top (Z = 1)
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                    // bottom (Z = 0)
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                    // left (X = 0)
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                    // right (X = 1)
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                    // front (Y = 1)
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                    // back (Y = 0)
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f)
+                )
+
+                CubeUv.Grid3x2 -> listOf(
+
+
+
+
+                    // Top
+                    UV(0f, 0.5f), UV(1f / 3f, 0.5f), UV(1f / 3f, 0f), UV(0f, 0f),
+                    // Bottom
+                    UV(2f / 3f, 1f), UV(1f, 1f), UV(1f, 0.5f), UV(2f / 3f, 0.5f),
+                    // Left
+                    UV(0f, 1f), UV(1f / 3f, 1f), UV(1f / 3f, 0.5f), UV(0f, 0.5f),
+                    // Right
+                    UV(1f / 3f, 1f), UV(2f / 3f, 1f), UV(2f / 3f, 0.5f), UV(1f / 3f, 0.5f),
+                    // Front
+                    UV(1f / 3f, 0.5f), UV(2f / 3f, 0.5f), UV(2f / 3f, 0f), UV(1f / 3f, 0f),
+                    // Back
+                    UV(2f / 3f, 0.5f), UV(1f, 0.5f), UV(1f, 0f), UV(2f / 3f, 0f)
+                )
+            },
             indices = TriangleIndexArray.of(
                 0, 1, 2, 0, 2, 3,      // front
                 4, 5, 6, 4, 6, 7,      // back

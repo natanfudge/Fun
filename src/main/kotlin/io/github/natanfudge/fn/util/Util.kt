@@ -23,3 +23,14 @@ fun concatArrays(array1: FloatArray, array2: FloatArray, array3: FloatArray): Fl
     array3.copyInto(res, array1.size + array2.size)
     return res
 }
+
+
+fun concatArrays(array1: FloatArray, array2: FloatArray, array3: FloatArray, array4: FloatArray): FloatArray {
+    val res = FloatArray(array1.size + array2.size + array3.size + array4.size)
+    array1.copyInto(res)
+    array2.copyInto(res, array1.size)
+    array3.copyInto(res, array1.size + array2.size)
+    array4.copyInto(res, array1.size + array2.size + array3.size)
+    return res
+}
+

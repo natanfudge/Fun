@@ -11,7 +11,8 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
 
-private val instanceBytes = Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES
+// + 4 is for textured: bool
+private val instanceBytes = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES + 4u).wgpuAlign()
 
 /**
  * Stores GPU information about all instances of a [Model].
@@ -33,7 +34,7 @@ class BoundModel(val model: Model, ctx: WebGPUContext, val pipeline: GPURenderPi
             usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
         )
     )
-    val instanceBuffer = GPUManagedMemory(ctx, initialSizeBytes = (instanceBytes * 10u).toULong())
+    val instanceBuffer = GPUManagedMemory(ctx, initialSizeBytes = (instanceBytes * 10u))
 
     val image = model.material.texture
 
@@ -94,11 +95,16 @@ class BoundModel(val model: Model, ctx: WebGPUContext, val pipeline: GPURenderPi
         pass.drawIndexed(model.mesh.indexCount, instanceCount = instances)
     }
 
-    fun spawn(transform: Mat4f, color: Color = Color.White): RenderInstance {
+    fun spawn(transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
+        instances++
+
         val instance = instanceBuffer.alloc(instanceBytes)
 
         val normalMatrix = Mat3f.normalMatrix(transform).array
-        val instanceData = concatArrays(transform.array, normalMatrix, color.toFloatArray())
+        val instanceData = concatArrays(
+            transform.array, normalMatrix, color.toFloatArray(),
+            floatArrayOf(if (image == null) 0f else 1f) // "textured" boolean
+        )
         instanceBuffer.write(instance, instanceData)
 
         return RenderInstance(instance, instanceBuffer)
@@ -118,7 +124,7 @@ value class GPUPointer(
 
 class GPUManagedMemory(val ctx: WebGPUContext, initialSizeBytes: ULong) : AutoCloseable {
     private var nextByte = 0uL
-    fun alloc(bytes: UInt): GPUPointer {
+    fun alloc(bytes: ULong): GPUPointer {
         val address = nextByte
         nextByte += bytes
         return GPUPointer(address)
@@ -173,6 +179,7 @@ class WorldRender(
 
     fun bind(model: Model): BoundModel {
         val bound = BoundModel(model, ctx, pipeline)
+        models.add(bound)
         return bound
     }
 
@@ -198,5 +205,5 @@ class RenderInstance(pointer: GPUPointer, memory: GPUManagedMemory) {
 
 //fun Model.bind(ctx: WebGPUContext) = BoundModel(this, ctx)
 
-class Model(val mesh: Mesh, val material: Material = Material())
+data class Model(val mesh: Mesh, val material: Material = Material())
 class Material(val texture: Image? = null)
