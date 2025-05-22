@@ -8,37 +8,28 @@ import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
+import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
+import io.ygdrasil.webgpu.writeBuffer
 
 // + 4 is for textured: bool
 private val instanceBytes = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES + 4u).wgpuAlign()
 
-//class BoundModel2(val model: Model, val pipelineLifecycle: Lifecycle<*, ReloadingPipeline>, val surfaceLifecycle: Lifecycle<*, FunSurface>) {
-//
-//}
+// TODO:
+// 2. Struct abstraction
+// 3. Dynamicism support
+// 4. Ray casting perhaps
 
 /**
  * Stores GPU information about all instances of a [Model].
  */
-class BoundModel(val model: Model, ctx: WebGPUContext, val pipeline: GPURenderPipeline, val firstIndex: UInt, val baseVertex: Int) : AutoCloseable {
+class BoundModel(
+    val model: Model, ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
+    val world: WorldRender,
+) : AutoCloseable {
     val device = ctx.device
 
-    // SLOW: with i need to combine the buffers, esp with multiDrawIndirect
-//    val vertexBuffer = device.createBuffer(
-//        BufferDescriptor(
-//            size = model.mesh.verticesByteSize,
-//            usage = setOf(GPUBufferUsage.Vertex, GPUBufferUsage.CopyDst),
-//        )
-//    )
-//
-//    val indexBuffer = device.createBuffer(
-//        BufferDescriptor(
-//            size = model.mesh.indexCount * Float.SIZE_BYTES.toULong(),
-//            usage = setOf(GPUBufferUsage.Index, GPUBufferUsage.CopyDst),
-//        )
-//    )
-    val instanceBuffer = ManagedGPUMemory(ctx, initialSizeBytes = (instanceBytes * 10u), GPUBufferUsage.Storage)
 
     val image = model.material.texture
 
@@ -67,117 +58,27 @@ class BoundModel(val model: Model, ctx: WebGPUContext, val pipeline: GPURenderPi
 
     val textureView = texture.createView()
 
-    //TODO: maybe I want to create the bindgroup in a seperate lifecycle to make it so i don't need to recreate all the buffers when reloading shaders.
+    val instanceIds = mutableListOf<Int>()
 
-    val bindGroup = device.createBindGroup(
-        BindGroupDescriptor(
-            layout = pipeline.getBindGroupLayout(1u),
-            entries = listOf(
-                BindGroupEntry(
-                    binding = 0u,
-                    resource = BufferBinding(buffer = instanceBuffer.buffer)
-                ),
-                BindGroupEntry(
-                    binding = 1u,
-                    resource = textureView
-                ),
-            )
-        )
-    )
+//    var instances = 0u
 
-    var instances = 0u
 
-//    init {
-//        device.queue.writeBuffer(vertexBuffer, 0u, model.mesh.vertices.array)
-//        device.queue.writeBuffer(indexBuffer, 0u, model.mesh.indices.array)
-//    }
+    fun spawn(transform: Mat4f = Mat4f.identity(), color: Color = Color.White) = world.spawn(this, transform, color)
 
-//    fun draw(pass: GPURenderPassEncoder) {
-//        pass.setBindGroup(1u, bindGroup)
-//        pass.setVertexBuffer(0u, vertexBuffer)
-//        pass.setIndexBuffer(indexBuffer, GPUIndexFormat.Uint32)
-//        pass.drawIndexed(model.mesh.indexCount, instanceCount = instances)
-//    }
-
-    fun spawn(transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
-        instances++
-
-        val instance = instanceBuffer.alloc(instanceBytes)
-
-        val normalMatrix = Mat3f.normalMatrix(transform).array
-        val instanceData = concatArrays(
-            transform.array, normalMatrix, color.toFloatArray(),
-            floatArrayOf(if (image == null) 0f else 1f) // "textured" boolean
-        )
-        instanceBuffer.write(instance, instanceData)
-
-        return RenderInstance(instance, instanceBuffer)
-    }
 
     override fun close() {
-        closeAll(instanceBuffer, texture, textureView, bindGroup)
+        closeAll(texture, textureView)
     }
 }
 
 private fun Color.toFloatArray() = floatArrayOf(red, green, blue, alpha)
-
-@JvmInline
-value class GPUPointer(
-    val address: ULong,
-)
-
-class ManagedGPUMemory(val ctx: WebGPUContext, initialSizeBytes: ULong, vararg usage: GPUBufferUsage) : AutoCloseable {
-    private var _nextByte = 0uL
-    private var currentMemoryLimit = initialSizeBytes
-    fun alloc(bytes: ULong): GPUPointer {
-        val address = _nextByte
-        if (address + bytes > currentMemoryLimit) {
-            TODO("Dynamic Memory expansion is not implemented yet")
-        }
-        _nextByte += bytes
-        return GPUPointer(address)
-    }
-
-    fun write(pointer: GPUPointer, bytes: FloatArray) {
-        ctx.device.queue.writeBuffer(buffer, pointer.address, bytes)
-    }
-
-    fun write(pointer: GPUPointer, bytes: IntArray) {
-        ctx.device.queue.writeBuffer(buffer, pointer.address, bytes)
-    }
-
-    fun new(data: FloatArray): GPUPointer {
-        val pointer = alloc(data.byteSize())
-        write(pointer, data)
-        return pointer
-    }
-
-    fun new(data: IntArray): GPUPointer {
-        val pointer = alloc(data.byteSize())
-        write(pointer, data)
-        return pointer
-    }
-
-    val buffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = initialSizeBytes,
-            usage = usage.toSet() + setOf(GPUBufferUsage.CopyDst)
-        )
-    )
-
-    override fun close() {
-        buffer.close()
-    }
-}
-
-private fun FloatArray.byteSize() = (size * Float.SIZE_BYTES).toULong()
-private fun IntArray.byteSize() = (size * Int.SIZE_BYTES).toULong()
 
 /**
  * Seperated from [WorldRender] in order to be able to maintain the same [WorldRender] between shader reloads, as the [io.github.natanfudge.fn.render.WorldBindGroups]
  * will be swapped out when that happens.
  */
 class WorldBindGroups(
+    val pipeline: GPURenderPipeline,
     val world: GPUBindGroup,
     val models: List<GPUBindGroup>,
 ) : AutoCloseable {
@@ -189,65 +90,105 @@ class WorldBindGroups(
 
 class WorldRender(
     val ctx: WebGPUContext,
-    //TODO: I don't like this here
-    val pipeline: GPURenderPipeline,
     val surface: FunSurface,
 ) : AutoCloseable {
+    var worldInstances = 0
+    val uniformBuffer = ManagedGPUMemory(
+        ctx,
+        initialSizeBytes = Mat4f.SIZE_BYTES.toULong() + Vec3f.ALIGN_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL,
+        GPUBufferUsage.Uniform
+    )
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, GPUBufferUsage.Index)
+    val instanceBuffer = ManagedGPUMemory(ctx, initialSizeBytes = (instanceBytes * 10u), GPUBufferUsage.Storage)
 
+    /**
+     * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
+     * to its correct location in the instance buffer.
+     */
+    val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, GPUBufferUsage.Storage)
 
-    val bindGroup = ctx.device.createBindGroup(
-        BindGroupDescriptor(
-            layout = pipeline.getBindGroupLayout(0u),
-            entries = listOf(
-                BindGroupEntry(
-                    binding = 0u,
-                    resource = BufferBinding(buffer = surface.uniformBuffer)
-                ),
-                BindGroupEntry(
-                    binding = 1u,
-                    resource = surface.sampler
+    fun createBindGroups(pipeline: GPURenderPipeline): WorldBindGroups  = WorldBindGroups(
+        world = ctx.device.createBindGroup(
+            BindGroupDescriptor(
+                layout = pipeline.getBindGroupLayout(0u),
+                entries = listOf(
+                    BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = uniformBuffer.buffer)),
+                    BindGroupEntry(binding = 1u, resource = surface.sampler),
+                    BindGroupEntry(binding = 2u, resource = BufferBinding(instanceBuffer.buffer)),
+                    BindGroupEntry(binding = 3u, resource = BufferBinding(instanceIndexBuffer.buffer)),
                 )
             )
-        )
+        ),
+        models = models.map {
+            ctx.device.createBindGroup(
+                BindGroupDescriptor(
+                    layout = pipeline.getBindGroupLayout(1u),
+                    entries = listOf(
+                        BindGroupEntry(
+                            binding = 0u,
+                            resource = it.textureView
+                        ),
+                    )
+                )
+            )
+        },
+        pipeline = pipeline
     )
-//    fun createBindGroups(): WorldBindGroups {
-//        return WorldBindGroups(
-//            world = ctx.device.createBindGroup(
-//                BindGroupDescriptor(
-//                    layout = pipeline.getBindGroupLayout(0u),
-//                    entries = listOf(
-//                        BindGroupEntry(
-//                            binding = 0u,
-//                            resource = BufferBinding(buffer = surface.uniformBuffer)
-//                        ),
-//                        BindGroupEntry(
-//                            binding = 1u,
-//                            resource = surface.sampler
-//                        )
-//                    )
-//                )
-//            ),
-//            models = models.map { it.createBindGroup() }
-//        )
-//    }
+
 
     val models = mutableListOf<BoundModel>()
-    fun draw(pass: GPURenderPassEncoder) {
-        pass.setPipeline(pipeline)
-        pass.setBindGroup(0u, bindGroup)
+    val modelBindGroups = mutableListOf<GPUBindGroup>()
+    fun draw(encoder: GPUCommandEncoder, bindGroups: WorldBindGroups, dimensions: FunFixedSizeWindow, frame: GPUTextureView, camera: Camera) {
+        val viewProjection = dimensions.projection * camera.matrix
+
+        val uniform = concatArrays(
+            viewProjection.array, camera.position.toAlignedArray(), lightPos.toAlignedArray(),
+            floatArrayOf(dimensions.dims.width.toFloat(), dimensions.dims.height.toFloat())
+        )
+        uniformBuffer.write(uniform)
+
+
+        val renderPassDescriptor = RenderPassDescriptor(
+            colorAttachments = listOf(
+                RenderPassColorAttachment(
+                    view = dimensions.msaaTextureView,
+                    resolveTarget = frame,
+                    clearValue = Color(0.0, 0.0, 0.0, 0.0),
+                    loadOp = GPULoadOp.Clear,
+                    storeOp = GPUStoreOp.Discard
+                ),
+            ),
+            depthStencilAttachment = RenderPassDepthStencilAttachment(
+                view = dimensions.depthStencilView,
+                depthClearValue = 1.0f,
+                depthLoadOp = GPULoadOp.Clear,
+                depthStoreOp = GPUStoreOp.Store
+            ),
+        )
+
+        val pass = encoder.beginRenderPass(renderPassDescriptor)
+
+        // SLOW: should only run this when the buffer is invalidated
+        rebuildInstanceIndexBuffer()
+        pass.setPipeline(bindGroups.pipeline)
+        pass.setBindGroup(0u, bindGroups.world)
         pass.setVertexBuffer(0u, vertexBuffer.buffer)
         pass.setIndexBuffer(indexBuffer.buffer, GPUIndexFormat.Uint32)
-        for (model in models) {
-            //TODO: 1. bind a "draw index" uniform that will be later replaced with the builtin draw index,
-            // 2. Create an instance indices buffer to point [draw index -> instance index] (chatgpt says to recreate it every frame but i'm not sure about that)
-            // 3. Create a big instance buffer, whenever we add a new instance we add to the buffer and update the instance index buffer or smthn
-            pass.setBindGroup(1u, model.bindGroup)
+
+        var instanceIndex = 0u
+        for ((i, model) in models.withIndex()) {
+            pass.setBindGroup(1u, bindGroups.models[i])
+            val instances = model.instanceIds.size.toUInt()
             pass.drawIndexed(
-                model.model.mesh.indexCount, instanceCount = model.instances, firstIndex = model.firstIndex, baseVertex = model.baseVertex
+                model.model.mesh.indexCount,
+                instanceCount = instances,
+                firstIndex = model.firstIndex,
+                baseVertex = model.baseVertex,
+                firstInstance = instanceIndex
             )
+            instanceIndex += instances
         }
         pass.end()
     }
@@ -256,20 +197,56 @@ class WorldRender(
         val vertexPointer = vertexBuffer.new(model.mesh.vertices.array)
         val indexPointer = indexBuffer.new(model.mesh.indices.array)
         val bound = BoundModel(
-            model, ctx, pipeline,
+            model, ctx,
             // These values are indices, not bytes, so we need to divide by the size of the value
             firstIndex = (indexPointer.address / Int.SIZE_BYTES.toUInt()).toUInt(),
-            baseVertex = (vertexPointer.address / VertexArrayBuffer.StrideBytes).toInt()
+            baseVertex = (vertexPointer.address / VertexArrayBuffer.StrideBytes).toInt(),
+            world = this
         )
         models.add(bound)
         return bound
     }
 
+    fun spawn(model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
+
+        // Match the global index with the instance index
+        model.instanceIds.add(worldInstances)
+        worldInstances++
+
+
+        // SLOW: should reconsider passing normal matrices always
+        val normalMatrix = Mat3f.normalMatrix(transform).array
+        val instanceData = concatArrays(
+            transform.array, normalMatrix, color.toFloatArray(),
+            // SLOW: don't like have arraysOf() for no reason
+            floatArrayOf(if (model.image == null) 0f else 1f) // "textured" boolean
+        )
+
+        val instance = instanceBuffer.new(instanceData)
+
+        return RenderInstance(instance, instanceBuffer)
+    }
+
+    fun rebuildInstanceIndexBuffer() {
+        val indices = IntArray(worldInstances)
+        var globalI = 0
+        for (model in models) {
+            // For each model we have a contiguous block of pointers to the instance index
+            for (instance in model.instanceIds) {
+                indices[globalI++] = instance
+            }
+        }
+        instanceIndexBuffer.write(indices)
+    }
+
     override fun close() {
-        closeAll(vertexBuffer, indexBuffer, bindGroup)
+        closeAll(vertexBuffer, indexBuffer, instanceBuffer, instanceIndexBuffer, uniformBuffer)
+        modelBindGroups.forEach { it.close() }
         models.forEach { it.close() }
     }
 }
+
+
 
 class RenderInstance(pointer: GPUPointer, memory: ManagedGPUMemory) {
     fun despawn() {

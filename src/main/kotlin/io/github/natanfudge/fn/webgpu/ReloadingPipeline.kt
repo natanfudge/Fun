@@ -65,7 +65,12 @@ inline fun createReloadingPipeline(
     val lifecycle = surfaceLifecycle.bind("Reloading Pipeline of $label") {
         // SLOW: this should prob not be blocking like this
         val (vertex, fragment) = runBlocking {
-            loadShader(vertexShader) to loadShader(fragmentShader)
+            if (vertexShader == fragmentShader) {
+                val shader = loadShader(vertexShader)
+                shader to shader
+            } else {
+                loadShader(vertexShader) to loadShader(fragmentShader)
+            }
         }
 
         ReloadingPipeline.build(
@@ -77,7 +82,9 @@ inline fun createReloadingPipeline(
 
     if (HOT_RELOAD_SHADERS) {
         reloadOnChange(vertexShader, fsWatcher, surfaceLifecycle, lifecycle)
-        reloadOnChange(fragmentShader, fsWatcher, surfaceLifecycle, lifecycle)
+        if (fragmentShader != vertexShader) {
+            reloadOnChange(fragmentShader, fsWatcher, surfaceLifecycle, lifecycle)
+        }
     }
 
     return lifecycle
@@ -106,34 +113,6 @@ fun reloadOnChange(
             module.close()
             if (error == null) {
                 pipelineLifecycle.restart()
-//                val snapshot = pipelineLifecycle.takeSnapshot()
-//                try {
-//                    pipelineLifecycle.setThrowOnFail(true)
-////                    surface.device.pushErrorScope(GPUErrorFilter.Validation)
-//                    pipelineLifecycle.start(null)
-//                    pipelineLifecycle.setThrowOnFail(false)
-//
-////                    pipelineLifecycle.restart()
-////                    val error = runBlocking {
-////                        surface.device.popErrorScope().getOrThrow()
-////                    }
-////                    if(error == null) {
-//                        val workingState = pipelineLifecycle.takeSnapshot()
-//                        // We didn't close the old state yet, so we are going to go back to the old state, close it, then return to the new state
-//                        pipelineLifecycle.restoreFromSnapshot(snapshot)
-//                        pipelineLifecycle.end()
-//                        pipelineLifecycle.restoreFromSnapshot(workingState)
-////                    } else {
-////                        println("Failed to reload shader ${shaderSource.path}: $error")
-////                        pipelineLifecycle.end()
-////                        pipelineLifecycle.restoreFromSnapshot(snapshot)
-////                    }
-//                } catch (e: Throwable) {
-////                    println("Failed to reload shader ${shaderSource.path}: $error")
-//                    pipelineLifecycle.end()
-//                    pipelineLifecycle.restoreFromSnapshot(snapshot)
-//                    println("Failed to reload shader ${shaderSource.path}: ${e.stackTraceToString()}")
-//                }
             } else {
                 println("Failed to compile new shader for reload: $error")
             }

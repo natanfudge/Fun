@@ -14,16 +14,26 @@ struct VertexOutput {
     @location(1) normal: vec3f,
     @location(2) worldPos: vec3f,
     @location(3) uv: vec2f,
-    @location(4) index: u32,
-    @location(5) iid: u32
+    @location(4) iid: u32,
 }
+
+
+
+
+
+
+
+
+
+
 
 
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var samp: sampler;
-@group(1) @binding(0) var<storage,read> instances: array<Instance>;
-@group(1) @binding(1) var texture: texture_2d<f32>;
+@group(0) @binding(2) var<storage, read> instances: array<Instance>;
+@group(0) @binding(3) var <storage,read> instance_indices: array<u32>;
+@group(1) @binding(0) var texture: texture_2d<f32>;
 
 struct Instance {
     model: mat4x4f,
@@ -37,23 +47,21 @@ fn vs_main(
   @location(0) position : vec3f,
   @location(1) normal: vec3f,
   @location(2) uv: vec2f,
-  @builtin(instance_index) iid: u32,
+  @builtin(instance_index) iiid: u32,
 ) -> VertexOutput {
-    let instance = instances[iid];
+    let globalInstanceIndex = instance_indices[iiid];
+    let instance = instances[globalInstanceIndex];
     let worldPos = (instance.model * vec4f(position, 1.0)).xyz;
 
-//    let normalMat   = transpose(inverse(mat3x3f(inst.model)));
     let worldNormal = normalize(instance.normalMat * normal);
-//    let worldNormal = normalize((instance.model * vec4f(normal,0)).xyz);
-//
+
     var output: VertexOutput;
     output.pos = uniforms.viewProjection * vec4f(worldPos, 1);
     output.color = instance.color;
     output.normal = worldNormal;
     output.worldPos = worldPos;
     output.uv = uv;
-    output.index = iid;
-    output.iid = iid;
+    output.iid = globalInstanceIndex;
     return output;
 }
 
@@ -89,9 +97,9 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
 
         // Final colour: light * albedo (instance tint already holds alpha)
 
-        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1);;
+        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1);
 
-         if is_in_number(vertex.pos.xy, array<u32,10>(u32(vertex.iid), u32(abs(baseColor.g * 5)), u32(baseColor.b * 5), u32(baseColor.a),0,0,0,0,0,0), vec2(200, 200), 3.0) {
+         if is_in_number(vertex.pos.xy, array<u32,10>(u32(vertex.iid), 0,0,0,0,0,0,0,0,0), vec2(200, 200), 3.0) {
                     return vec4(1.0, 0.0, 0.0, 1.0);
                 }
 

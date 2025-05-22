@@ -13,7 +13,6 @@ import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.webgpu.createReloadingPipeline
 import io.github.natanfudge.fn.window.WindowDimensions
-import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
@@ -69,7 +68,7 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 
 //    val fovY = Math.PI.toFloat() / 3f      // ~60°
 //    val aspect = dims.width.toFloat() / dims.height
-//    val zMatch = 2f                       // depth where sizes should match
+//    val zMatch = 1.5f                       // depth where sizes should match
 //
 //    val halfHeight = (tan(fovY / 2f) * zMatch)
 //    val halfWidth  = halfHeight * aspect
@@ -89,23 +88,40 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
     }
 }
 
+val lightPos = Vec3f(4f, -4f, 4f)
+
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val uniformBuffer = ctx.device.createBuffer(
-        BufferDescriptor(
-            size = (Mat4f.SIZE_BYTES.toULong() + Vec3f.ALIGN_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL).wgpuAlign(),
-            usage = setOf(GPUBufferUsage.Uniform, GPUBufferUsage.CopyDst)
-        )
-    )
+
     val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
-    val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k.png"))
+    val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
 
     val sampler = ctx.device.createSampler()
 
+    val world = WorldRender(ctx, this).also {
+        val cubeModel = Model(Mesh.UnitCube())
+        val sphereModel = Model(Mesh.uvSphere())
+        val cube = it.bind(cubeModel)
+        cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
+        cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
+        cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
+        cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
+        val sphere = it.bind(sphereModel)
+
+        val kotlinSphere = it.bind(sphereModel.copy(material = Material(texture = kotlinImage)))
+
+        val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
+
+        wgpuCube.spawn()
+
+        kotlinSphere.spawn()
+        sphere.spawn(Mat4f.translation(2f, 2f, 2f))
+        sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
+
+        cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
+    }
 
     override fun close() {
-        closeAll(
-            uniformBuffer, sampler,
-        )
+        closeAll(sampler,)
     }
 }
 
@@ -171,23 +187,25 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
             fragment = FragmentState(
                 module = fragment,
                 entryPoint = "fs_main",
-                targets = listOf(ColorTargetState(
-                    format = presentationFormat,
-                    // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
-                    blend = BlendState(
-                        color = BlendComponent(
-                            srcFactor = GPUBlendFactor.SrcAlpha,
-                            dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
-                            operation = GPUBlendOperation.Add
+                targets = listOf(
+                    ColorTargetState(
+                        format = presentationFormat,
+                        // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
+                        blend = BlendState(
+                            color = BlendComponent(
+                                srcFactor = GPUBlendFactor.SrcAlpha,
+                                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                                operation = GPUBlendOperation.Add
+                            ),
+                            alpha = BlendComponent(
+                                srcFactor = GPUBlendFactor.One,
+                                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                                operation = GPUBlendOperation.Add
+                            )
                         ),
-                        alpha = BlendComponent(
-                            srcFactor = GPUBlendFactor.One,
-                            dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
-                            operation = GPUBlendOperation.Add
-                        )
-                    ),
-                    writeMask = setOf(GPUColorWrite.All)
-                ))
+                        writeMask = setOf(GPUColorWrite.All)
+                    )
+                )
             ),
 
             primitive = PrimitiveState(
@@ -204,31 +222,9 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         )
     }
 
-    val lightPos = Vec3f(4f, -4f, 4f)
 
     val bindGroupLifecycle = objectLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
-        WorldRender(surface.ctx, pipeline.pipeline, surface).also {
-            val cubeModel = Model(Mesh.UnitCube())
-            val sphereModel = Model(Mesh.uvSphere())
-            val cube = it.bind(cubeModel)
-            val sphere = it.bind(sphereModel)
-            cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
-            cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
-            cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
-            cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
-
-            val kotlinSphere = it.bind(sphereModel.copy(material = Material(texture = surface.kotlinImage)))
-
-//            val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(surface.wgpu4kImage)))
-
-//            wgpuCube.spawn()
-
-            kotlinSphere.spawn()
-            sphere.spawn(Mat4f.translation(2f, 2f, 2f))
-            sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
-
-            cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
-        }
+        surface.world.createBindGroups(pipeline.pipeline)
     }
 
 
@@ -253,36 +249,12 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         val commandEncoder = ctx.device.createCommandEncoder()
 
         val textureView = frame.windowTexture
-        val renderPassDescriptor = RenderPassDescriptor(
-            colorAttachments = listOf(
-                RenderPassColorAttachment(
-                    view = dimensions.msaaTextureView,
-                    resolveTarget = textureView,
-                    clearValue = Color(0.0, 0.0, 0.0, 0.0),
-                    loadOp = GPULoadOp.Clear,
-                    storeOp = GPUStoreOp.Discard
-                ),
-            ),
-            depthStencilAttachment = RenderPassDepthStencilAttachment(
-                view = dimensions.depthStencilView,
-                depthClearValue = 1.0f,
-                depthLoadOp = GPULoadOp.Clear,
-                depthStoreOp = GPUStoreOp.Store
-            ),
-        )
-
-        val viewProjection = dimensions.projection * app.camera.matrix
 
 
-        ctx.device.queue.writeBuffer(
-            surface.uniformBuffer,
-            0uL,
-            // viewProjection, cameraPos, lightPos
-            viewProjection.array + app.camera.position.toAlignedArray() + lightPos.toAlignedArray()
-                    + floatArrayOf(dimensions.dims.width.toFloat(), dimensions.dims.height.toFloat())
-        )
-        val pass = commandEncoder.beginRenderPass(renderPassDescriptor)
-        bindGroup.draw(pass)
+
+
+
+        surface.world.draw(commandEncoder,bindGroup,dimensions,textureView, app.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
