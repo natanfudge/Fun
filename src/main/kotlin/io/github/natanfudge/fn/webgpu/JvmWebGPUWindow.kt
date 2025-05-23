@@ -9,11 +9,7 @@ import ffi.globalMemory
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
-import io.github.natanfudge.fn.window.GlfwConfig
-import io.github.natanfudge.fn.window.GlfwWindow
-import io.github.natanfudge.fn.window.GlfwWindowConfig
-import io.github.natanfudge.fn.window.WindowConfig
-import io.github.natanfudge.fn.window.WindowDimensions
+import io.github.natanfudge.fn.window.*
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
 import io.ygdrasil.wgpu.WGPULogLevel_Info
@@ -35,7 +31,7 @@ import org.rococoa.Rococoa
 private var contextIndex = 0
 
 class WebGPUContext(
-    val window: GlfwWindow
+    val window: GlfwWindow,
 ) : AutoCloseable {
     override fun toString(): String {
         return "WebGPU Context #$myIndex"
@@ -195,6 +191,7 @@ private fun WGPU.getNativeSurface(window: Long): NativeSurface = when (os) {
         getSurfaceFromMetalLayer(layer.id().toLong().toNativeAddress())
     }
 } ?: error("fail to get surface")
+
 
 
 private fun Long.toPointer(): Pointer = Pointer(this)

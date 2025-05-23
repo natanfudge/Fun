@@ -9,13 +9,10 @@ import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
 
 
 // TODO:
-// 2. Struct abstraction
-// 3. Dynamicism support
 // 4. Ray casting perhaps
 
 /**
@@ -25,9 +22,6 @@ class BoundModel(
     val model: Model, ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
     val world: WorldRender,
 ) : AutoCloseable {
-    val device = ctx.device
-
-
     val image = model.material.texture
 
     val texture = ctx.device.createTexture(
@@ -57,13 +51,20 @@ class BoundModel(
 
     val instanceIds = mutableListOf<Int>()
 
-//    var instances = 0u
-
-
     fun spawn(transform: Mat4f = Mat4f.identity(), color: Color = Color.White) = world.spawn(this, transform, color)
 
 
     override fun close() {
+        //
+//        if(model.instanceIds.isEmpty()) {
+//            world.vertexBuffer.free(
+//                GPUPointer(model.baseVertex.toULong() * VertexArrayBuffer.StrideBytes),
+//                model.model.mesh.verticesByteSize.toUInt()
+//            )
+//            world.indexBuffer.free(
+//                model.firstIndex * Int.SIZE_BYTES.toUInt()
+//            )
+//        }
         closeAll(texture, textureView)
     }
 }
@@ -86,7 +87,7 @@ class WorldBindGroups(
 
 // TODO: 1. Try making the Float into a bool
 // 2. dynamicism
-object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT,Mat3fDT, ColorDT, IntDT)
+object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, IntDT)
 
 class WorldRender(
     val ctx: WebGPUContext,
@@ -101,7 +102,7 @@ class WorldRender(
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, GPUBufferUsage.Index)
-    //TODO: replace instanceBytes with a struct ManagedMemory constructor
+
     val instanceBuffer = GPUInstance.createBuffer(ctx, 10u, GPUBufferUsage.Storage)
 
     /**
@@ -109,8 +110,10 @@ class WorldRender(
      * to its correct location in the instance buffer.
      */
     val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, GPUBufferUsage.Storage)
+    val models = mutableListOf<BoundModel>()
+    val modelBindGroups = mutableListOf<GPUBindGroup>()
 
-    fun createBindGroups(pipeline: GPURenderPipeline): WorldBindGroups  = WorldBindGroups(
+    fun createBindGroups(pipeline: GPURenderPipeline): WorldBindGroups = WorldBindGroups(
         world = ctx.device.createBindGroup(
             BindGroupDescriptor(
                 layout = pipeline.getBindGroupLayout(0u),
@@ -139,8 +142,6 @@ class WorldRender(
     )
 
 
-    val models = mutableListOf<BoundModel>()
-    val modelBindGroups = mutableListOf<GPUBindGroup>()
     fun draw(encoder: GPUCommandEncoder, bindGroups: WorldBindGroups, dimensions: FunFixedSizeWindow, frame: GPUTextureView, camera: Camera) {
         val viewProjection = dimensions.projection * camera.matrix
 
@@ -209,15 +210,16 @@ class WorldRender(
     }
 
     fun spawn(model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
+        val globalId = worldInstances
         // Match the global index with the instance index
-        model.instanceIds.add(worldInstances)
+        model.instanceIds.add(globalId)
         worldInstances++
 
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(transform)
-        val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if(model.image == null) 0 else 1)
+        val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if (model.image == null) 0 else 1)
 
-        return RenderInstance(instance, instanceBuffer)
+        return RenderInstance(instance, globalId, model, this, transform)
     }
 
     fun rebuildInstanceIndexBuffer() {
@@ -240,25 +242,55 @@ class WorldRender(
 }
 
 
+class RenderInstance(
+    @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
+    private val globalId: Int,
+    private val model: BoundModel,
+    @PublishedApi internal val world: WorldRender,
+    transform: Mat4f,
+) {
 
-class RenderInstance(private val pointer: GPUPointer<GPUInstance>,private val memory: ManagedGPUMemory) {
+     val transform = transform.copy()
+
+    var despawned = false
+
+    /**
+     * Removes this instance from the world, cleaning up any held resources.
+     * After despawning, attempting to transform this instance will fail.
+     */
     fun despawn() {
-        TODO("Should consider removing from vbo and ibo when instances reach 0. That will create fragmentation though so best to avoid it for now prob")
+        model.instanceIds.remove(globalId)
+        world.instanceBuffer.free(pointer, GPUInstance.size)
+        despawned = true
     }
 
     fun setTransform(transform: Mat4f) {
-        GPUInstance.setFirst(memory, pointer, transform)
+        check(!despawned) { "Attempt to transform despawned object" }
+        this.transform.set(transform)
+        GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
     }
 
+    /**
+     * Allows mutating the transform in-place, after which the new transform will be used.
+     */
+    inline fun setTransform(transform: (Mat4f) -> Unit) {
+        check(!despawned) { "Attempt to transform despawned object" }
+        transform(this.transform)
+        GPUInstance.setFirst(world.instanceBuffer, pointer, this.transform)
+    }
+
+    /**
+     * Premultiplies the current transformation with [transform], effectively applying [transform] AFTER the current transformation.
+     */
     fun transform(transform: Mat4f) {
-        TODO()
+        check(!despawned) { "Attempt to transform despawned object" }
+        transform.mul(this.transform, this.transform)
+        setTransform(this.transform)
     }
 }
 
-//fun Model.bind(ctx: WebGPUContext) = BoundModel(this, ctx)
 
 data class Model(val mesh: Mesh, val material: Material = Material()/*, val name: String*/)
 class Material(val texture: Image? = null)
 
 
-//class Struct1<T>

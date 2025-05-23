@@ -39,6 +39,12 @@ class ManagedGPUMemory(val ctx: WebGPUContext, initialSizeBytes: ULong, vararg u
         return UntypedGPUPointer(address)
     }
 
+    fun free(pointer: UntypedGPUPointer, size: UInt) {
+        // SLOW: currently a no-op, so a memory leak, i'll do this later.
+    }
+
+
+
     fun write(data: KByteBuffer, address: UntypedGPUPointer = UntypedGPUPointer(0uL)) {
         ctx.device.queue.writeBuffer(buffer, address.address, data.array())
     }
@@ -237,3 +243,4 @@ object IntDT : DataType<Int> {
         return intArrayOf(value)
     }
 }
+

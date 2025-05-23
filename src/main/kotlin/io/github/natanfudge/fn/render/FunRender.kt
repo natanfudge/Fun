@@ -28,9 +28,13 @@ import kotlin.math.roundToInt
 // 12b. Abstraction of entity system
 // 13. Ray casting & selection
 // 13b. Targeted zoom (with ray casting?)
+// 13.5a: App entrypoint that allows for basic GUI interaction with the world
+// 13.5b: State system
+// 13.6: Object selection overlay:
+//    - Show/set state, including transform
+//    - Visual transform system
 // 14. Physics
-// 15. Trying making a basic game
-// 16. Integrate the Fun "ECS" system and allow assigning physicality to components, allowing you to click on things and view their state
+// 15. Trying making a basic game?
 // 17. PBR
 
 val msaaSamples = 4u
@@ -114,11 +118,24 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
         val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
 
-        val instance = wgpuCube.spawn(Mat4f.translation(-2f,2f,2f))
+        val instance = wgpuCube.spawn(Mat4f.translation(-2f, 2f, 2f))
         GlobalScope.launch {
             var i = 0
             while (true) {
-                instance.setTransform(Mat4f.translation(-2f, 2f + (i % 10f) / 3,2f))
+//                instance.transform(Mat4f.translation(0.00f,0.01f,0f))
+                val pivot = instance.transform.getTranslation()
+                instance.setTransform(instance.transform.scaleInPlace(1.01f))
+
+//                instance.transform(
+//                    Mat4f.translation(-pivot)
+//                        .preScale(1.01f)
+//                        .preTranslate(pivot)
+//                )
+
+                if (i == 400) {
+                    instance.despawn()
+                    break
+                }
                 delay(10)
                 i++
             }
@@ -133,9 +150,13 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     }
 
     override fun close() {
-        closeAll(sampler,)
+        closeAll(sampler)
     }
 }
+
+
+
+
 
 private val alignmentBytes = 16u
 internal fun ULong.wgpuAlign(): ULong {
@@ -143,7 +164,6 @@ internal fun ULong.wgpuAlign(): ULong {
     return if (leftOver == 0uL) this else ((this / alignmentBytes) + 1u) * alignmentBytes
 }
 
-internal fun UInt.wgpuAlign(): ULong = toULong().wgpuAlign()
 internal fun UInt.wgpuAlignInt(): UInt = toULong().wgpuAlign().toUInt()
 
 var pipelines = 0
@@ -257,17 +277,11 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
     ) { frame, surface, dimensions, bindGroup, cube, composeFrame, app ->
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
-
-
         val commandEncoder = ctx.device.createCommandEncoder()
 
         val textureView = frame.windowTexture
 
-
-
-
-
-        surface.world.draw(commandEncoder,bindGroup,dimensions,textureView, app.camera)
+        surface.world.draw(commandEncoder, bindGroup, dimensions, textureView, app.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
