@@ -85,8 +85,6 @@ class WorldBindGroups(
     }
 }
 
-// TODO: 1. Try making the Float into a bool
-// 2. dynamicism
 object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, IntDT)
 
 class WorldRender(
@@ -99,6 +97,8 @@ class WorldRender(
         initialSizeBytes = Mat4f.SIZE_BYTES.toULong() + Vec3f.ALIGN_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL,
         GPUBufferUsage.Uniform
     )
+
+    val rayCasting = RayCastingCache<RenderInstance>()
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, GPUBufferUsage.Index)
@@ -172,6 +172,11 @@ class WorldRender(
 
         val pass = encoder.beginRenderPass(renderPassDescriptor)
 
+        //TODO: think of how to do selection glow
+        val rayCast = rayCasting.rayCast(Ray(camera.position, camera.forward))
+
+        println("Casting caught ${rayCast?.globalId}")
+
         // SLOW: should only run this when the buffer is invalidated
         rebuildInstanceIndexBuffer()
         pass.setPipeline(bindGroups.pipeline)
@@ -217,9 +222,12 @@ class WorldRender(
 
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(transform)
-        val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if (model.image == null) 0 else 1)
+        val pointer = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if (model.image == null) 0 else 1)
 
-        return RenderInstance(instance, globalId, model, this, transform)
+        val instance = RenderInstance(pointer, globalId, model, this, transform)
+        rayCasting.add(instance)
+
+        return instance
     }
 
     fun rebuildInstanceIndexBuffer() {
@@ -242,15 +250,19 @@ class WorldRender(
 }
 
 
+
+
 class RenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
-    private val globalId: Int,
+    internal val globalId: Int,
     private val model: BoundModel,
     @PublishedApi internal val world: WorldRender,
     transform: Mat4f,
-) {
+) : Boundable {
+    private var baseAABB = getAxisAlignedBoundingBox(model.model.mesh)
+    override var boundingBox: AABoundingBox = baseAABB.transformed(transform)
 
-     val transform = transform.copy()
+    val transform = transform.copy()
 
     var despawned = false
 
@@ -261,31 +273,40 @@ class RenderInstance(
     fun despawn() {
         model.instanceIds.remove(globalId)
         world.instanceBuffer.free(pointer, GPUInstance.size)
+        world.rayCasting.remove(this)
         despawned = true
     }
 
     fun setTransform(transform: Mat4f) {
-        check(!despawned) { "Attempt to transform despawned object" }
         this.transform.set(transform)
-        GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
+        _updateTransform()
     }
 
     /**
      * Allows mutating the transform in-place, after which the new transform will be used.
      */
     inline fun setTransform(transform: (Mat4f) -> Unit) {
-        check(!despawned) { "Attempt to transform despawned object" }
         transform(this.transform)
+        _updateTransform()
+    }
+
+    @PublishedApi internal fun _updateTransform() {
+        check(!despawned) { "Attempt to transform despawned object" }
         GPUInstance.setFirst(world.instanceBuffer, pointer, this.transform)
+        boundingBox = baseAABB.transformed(transform)
+
+
+        // LATER: might need to do something like this to update ray casting cache, for now the current approach works because there's no real BVH or smthn
+//        world.rayCasting.remove(this)
+//        world.rayCasting.add(this)
     }
 
     /**
      * Premultiplies the current transformation with [transform], effectively applying [transform] AFTER the current transformation.
      */
     fun transform(transform: Mat4f) {
-        check(!despawned) { "Attempt to transform despawned object" }
         transform.mul(this.transform, this.transform)
-        setTransform(this.transform)
+        _updateTransform()
     }
 }
 

@@ -91,8 +91,6 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 CubeUv.Grid3x2 -> listOf(
 
 
-
-
                     // Top
                     UV(0f, 0.5f), UV(1f / 3f, 0.5f), UV(1f / 3f, 0f), UV(0f, 0f),
                     // Bottom
@@ -206,6 +204,20 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 vertices[a], vertices[b], vertices[c]
             )
         }
+    }
+
+    inline fun forEachVertexByOrder(iter: (v: Vertex) -> Unit) {
+        indices.forEach {
+            iter(vertices[it])
+        }
+    }
+
+    inline fun forEachVertex(iter: (v: Vertex) -> Unit) {
+        vertices.forEachVertex(iter)
+    }
+
+    inline fun forEachPos(iter: (pos: Point3f) -> Unit) {
+        vertices.forEachPosition(iter)
     }
 
 }
@@ -323,6 +335,16 @@ class VertexArrayBuffer(val array: FloatArray) {
             )
         }
     }
+
+    inline fun forEachPosition(iter: (p: Point3f) -> Unit) {
+        var i = 0
+        while (i < array.size) {
+            iter(
+                Point3f(array[i++], array[i++], array[i++])
+            )
+            i += 5 // Skip normal and uv
+        }
+    }
 }
 
 data class TriangleIndices(val a: Int, val b: Int, val c: Int) {
@@ -365,6 +387,8 @@ class TriangleIndexArray(val array: IntArray) {
             iter(array[i++], array[i++], array[i++])
         }
     }
+
+    inline fun forEach(iter: (i: Int) -> Unit) = array.forEach(iter)
 
 //    inline fun mapTriangles(transform: (a: Int, b: Int, c: Int))
 }

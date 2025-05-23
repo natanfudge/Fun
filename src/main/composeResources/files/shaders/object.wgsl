@@ -17,18 +17,6 @@ struct VertexOutput {
     @location(4) iid: u32,
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var samp: sampler;
 @group(0) @binding(2) var<storage, read> instances: array<Instance>;
