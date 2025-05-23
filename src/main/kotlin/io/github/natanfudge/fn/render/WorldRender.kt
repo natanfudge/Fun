@@ -11,7 +11,6 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
-import io.ygdrasil.webgpu.writeBuffer
 
 // + 4 is for textured: bool
 private val instanceBytes = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES + 4u).wgpuAlign()
@@ -87,6 +86,10 @@ class WorldBindGroups(
         models.forEach { it.close() }
     }
 }
+
+// TODO: 1. Try making the Float into a bool
+// 2. dynamicism
+object GPUInstance : Struct4<Mat4f, Mat3f, Color, Float>(Mat4fDT,Mat3fDT, ColorDT, FloatDT)
 
 class WorldRender(
     val ctx: WebGPUContext,
@@ -215,14 +218,16 @@ class WorldRender(
 
 
         // SLOW: should reconsider passing normal matrices always
-        val normalMatrix = Mat3f.normalMatrix(transform).array
-        val instanceData = concatArrays(
-            transform.array, normalMatrix, color.toFloatArray(),
-            // SLOW: don't like have arraysOf() for no reason
-            floatArrayOf(if (model.image == null) 0f else 1f) // "textured" boolean
-        )
+        val normalMatrix = Mat3f.normalMatrix(transform)
+//        val instanceData = concatArrays(
+//            transform.array, normalMatrix, color.toFloatArray(),
+//            // SLOW: don't like have arraysOf() for no reason
+//            floatArrayOf(if (model.image == null) 0f else 1f) // "textured" boolean
+//        )
 
-        val instance = instanceBuffer.new(instanceData)
+        val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if (model.image == null) 0f else 1f)
+
+//        val instance = instanceBuffer.new(instanceData)
 
         return RenderInstance(instance, instanceBuffer)
     }
@@ -248,12 +253,13 @@ class WorldRender(
 
 
 
-class RenderInstance(pointer: GPUPointer, memory: ManagedGPUMemory) {
+class RenderInstance(private val pointer: GPUPointer<GPUInstance>,private val memory: ManagedGPUMemory) {
     fun despawn() {
         TODO()
     }
 
     fun setTransform(transform: Mat4f) {
+        memory[pointer] = GPUInstance(transform,TODO(),TODO(),TODO())
         TODO()
     }
 
