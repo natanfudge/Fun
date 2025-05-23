@@ -12,8 +12,6 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.*
 
-// + 4 is for textured: bool
-private val instanceBytes = (Mat4f.SIZE_BYTES + Mat3f.SIZE_BYTES + Vec4f.SIZE_BYTES + 4u).wgpuAlign()
 
 // TODO:
 // 2. Struct abstraction
@@ -70,7 +68,6 @@ class BoundModel(
     }
 }
 
-private fun Color.toFloatArray() = floatArrayOf(red, green, blue, alpha)
 
 /**
  * Seperated from [WorldRender] in order to be able to maintain the same [WorldRender] between shader reloads, as the [io.github.natanfudge.fn.render.WorldBindGroups]
@@ -89,7 +86,7 @@ class WorldBindGroups(
 
 // TODO: 1. Try making the Float into a bool
 // 2. dynamicism
-object GPUInstance : Struct4<Mat4f, Mat3f, Color, Float>(Mat4fDT,Mat3fDT, ColorDT, FloatDT)
+object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT,Mat3fDT, ColorDT, IntDT)
 
 class WorldRender(
     val ctx: WebGPUContext,
@@ -104,7 +101,8 @@ class WorldRender(
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, GPUBufferUsage.Index)
-    val instanceBuffer = ManagedGPUMemory(ctx, initialSizeBytes = (instanceBytes * 10u), GPUBufferUsage.Storage)
+    //TODO: replace instanceBytes with a struct ManagedMemory constructor
+    val instanceBuffer = GPUInstance.createBuffer(ctx, 10u, GPUBufferUsage.Storage)
 
     /**
      * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
@@ -225,7 +223,7 @@ class WorldRender(
 //            floatArrayOf(if (model.image == null) 0f else 1f) // "textured" boolean
 //        )
 
-        val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if (model.image == null) 0f else 1f)
+        val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if(model.image == null) 0 else 1)
 
 //        val instance = instanceBuffer.new(instanceData)
 

@@ -1,5 +1,7 @@
 package io.github.natanfudge.fn.util
 
+import java.nio.ByteBuffer
+
 fun closeAll(vararg closeables: AutoCloseable) {
     for (closeable in closeables) {
         // On reload the values might become null
@@ -33,4 +35,7 @@ fun concatArrays(array1: FloatArray, array2: FloatArray, array3: FloatArray, arr
     array4.copyInto(res, array1.size + array2.size + array3.size)
     return res
 }
+
+
+
 

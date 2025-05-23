@@ -132,6 +132,7 @@ internal fun ULong.wgpuAlign(): ULong {
 }
 
 internal fun UInt.wgpuAlign(): ULong = toULong().wgpuAlign()
+internal fun UInt.wgpuAlignInt(): UInt = toULong().wgpuAlign().toUInt()
 
 var pipelines = 0
 

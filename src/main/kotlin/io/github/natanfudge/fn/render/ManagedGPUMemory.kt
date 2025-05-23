@@ -20,7 +20,10 @@ typealias UntypedGPUPointer = GPUPointer<Any?>
 @JvmInline
 value class GPUPointer<out T>(
     val address: ULong,
-)
+) {
+    operator fun plus(offset: ULong) = GPUPointer<T>(address + offset)
+    operator fun plus(offset: UInt) = GPUPointer<T>(address + offset)
+}
 
 //TODO: for some usages, we don't need to recreate a render group so just changing the buffer pointer would be fine - for those usages enable auto-resizing.
 // for other usages, we could just set a decent limit and throw when we try to resize, saying "We are waiting for bindless/mutable bind groups to enable doing this simply and performantly"
@@ -40,13 +43,14 @@ class ManagedGPUMemory(val ctx: WebGPUContext, initialSizeBytes: ULong, vararg u
         ctx.device.queue.writeBuffer(buffer, address.address, data.array())
     }
 
+
     operator fun <T : GPUStructDescriptor> set(address: GPUPointer<T>, data: GPUStruct<T>) {
         write(data.buffer, address)
     }
 
-
-    fun new(data: KByteBuffer, size: ULong): UntypedGPUPointer {
-        val pointer = alloc(size)
+    //TODO: remove a lot of functions here
+    fun new(data: Any): UntypedGPUPointer {
+        val pointer = alloc(data.arrayByteSize().toULong())
         write(data, pointer)
         return pointer
     }
@@ -57,6 +61,17 @@ class ManagedGPUMemory(val ctx: WebGPUContext, initialSizeBytes: ULong, vararg u
 
     fun write(bytes: IntArray, pointer: UntypedGPUPointer = UntypedGPUPointer(0uL)) {
         ctx.device.queue.writeBuffer(buffer, pointer.address, bytes)
+    }
+
+    fun write(bytes: ByteArray, pointer: UntypedGPUPointer = UntypedGPUPointer(0uL)) {
+        ctx.device.queue.writeBuffer(buffer, pointer.address, bytes)
+    }
+
+    fun write(array: Any, pointer: UntypedGPUPointer) = when (array) {
+        is FloatArray -> write(array, pointer)
+        is IntArray -> write(array, pointer)
+        is ByteArray -> write(array, pointer)
+        else -> error("Unsupported datatype: $array")
     }
 
 
@@ -90,7 +105,7 @@ private fun FloatArray.byteSize() = (size * Float.SIZE_BYTES).toULong()
 private fun IntArray.byteSize() = (size * Int.SIZE_BYTES).toULong()
 
 class GPUStruct<T : GPUStructDescriptor>(
-    internal val buffer: ByteBuffer,
+    internal val buffer: ByteArray,
     internal val descriptor: T,
 )
 
@@ -100,6 +115,66 @@ interface GPUStructDescriptor {
     val size: UInt
 }
 
+
+abstract class Struct4<T1, T2, T3, T4, S : Struct4<T1, T2, T3, T4, S>>(
+    val t1: DataType<T1>,
+    val t2: DataType<T2>,
+    val t3: DataType<T3>,
+    val t4: DataType<T4>,
+) : GPUStructDescriptor {
+
+    val t2Start = t1.alignSize
+    val t3Start = t2Start + t2.alignSize
+    val t4Start = t3Start + t3.alignSize
+    override val size = (t4Start + t4.alignSize).wgpuAlignInt()
+
+    private fun toArray(a: T1, b: T2, c: T3, d: T4) = concatDifferentArrays(
+        size, t1.toArray(a), t2.toArray(b), t3.toArray(c), t4.toArray(d)
+    )
+
+    operator fun invoke(a: T1, b: T2, c: T3, d: T4): GPUStruct<S> {
+        return GPUStruct(
+            toArray(a,b,c,d),
+            this
+        ) as GPUStruct<S>
+    }
+
+    fun new(mem: ManagedGPUMemory, a: T1, b: T2, c: T3, d: T4): GPUPointer<S> {
+        return mem.new(toArray(a,b,c,d)) as GPUPointer<S>
+    }
+
+    fun setFirst(mem: ManagedGPUMemory, pointer: GPUPointer<S>, a: T1) {
+        mem.write(t1.toArray(a), pointer)
+    }
+
+    fun setSecond(mem: ManagedGPUMemory, pointer: GPUPointer<S>, b: T2) {
+        mem.write(t2.toArray(b), pointer + t2Start)
+    }
+
+    fun setThird(mem: ManagedGPUMemory, pointer: GPUPointer<S>, c: T3) {
+        mem.write(t3.toArray(c), pointer + t3Start)
+    }
+
+    fun setFourth(mem: ManagedGPUMemory, pointer: GPUPointer<S>, d: T4) {
+        mem.write(t4.toArray(d), pointer + t4Start)
+    }
+
+    fun createBuffer(ctx: WebGPUContext, initialSize: UInt, vararg usage: GPUBufferUsage): ManagedGPUMemory {
+        return ManagedGPUMemory(ctx, initialSizeBytes = (initialSize * size.toULong()), *usage)
+    }
+
+}
+
+fun concatDifferentArrays(resArraySize: UInt, vararg arrays: Any): ByteArray {
+    val buffer = createMemoryBuffer(resArraySize)
+    var offset = 0
+    for (array in arrays) {
+        buffer.putArray(offset, array)
+        offset += array.arrayByteSize()
+    }
+    return buffer.array()
+}
+
 private fun createMemoryBuffer(size: UInt): KByteBuffer {
     val array = ByteArray(size.toInt())
     // GPU uses little endian apparently
@@ -107,126 +182,59 @@ private fun createMemoryBuffer(size: UInt): KByteBuffer {
     return buffer
 }
 
+private fun ByteBuffer.putArray(offset: Int, array: Any) = when (array) {
+    is IntArray -> asIntBuffer().put(offset / 4, array)
+    is ByteArray -> put(offset, array)
+    is FloatArray -> asFloatBuffer().put(offset / 4, array)
+    else -> error("Unsupported array type $this")
+}
 
-abstract class Struct4<T1, T2, T3, T4>(
-    val t1: DataType<T1>,
-    val t2: DataType<T2>,
-    val t3: DataType<T3>,
-    val t4: DataType<T4>,
-) : GPUStructDescriptor {
-
-//    typealias Self = Struct4<T1,T2,T3,T4>
-
-    val t2Start = t1.alignSize
-    val t3Start = t2Start + t2.alignSize
-    val t4Start = t3Start + t3.alignSize
-    override val size = t4Start + t4.alignSize
-
-    private fun write(a: T1, b: T2, c: T3, d: T4, buffer: KByteBuffer) {
-        t1.write(a, buffer, 0u)
-        t2.write(b, buffer, t2Start)
-        t3.write(c, buffer, t3Start)
-        t4.write(d, buffer, t4Start)
-    }
-
-    // This is technically duck typing
-    operator fun invoke(a: T1, b: T2, c: T3, d: T4): GPUStruct<Struct4<T1, T2, T3, T4>> {
-        // GPU uses little endian apparently
-        val buffer = createMemoryBuffer(size)
-        write(a, b, c, d, buffer)
-        return GPUStruct(
-            buffer,
-            this
-        )
-    }
-
-    fun new(mem: ManagedGPUMemory, a: T1, b: T2, c: T3, d: T4): GPUPointer<Struct4<T1, T2, T3, T4>> {
-        val buffer = createMemoryBuffer(size)
-        write(a, b, c, d, buffer)
-        return mem.new(buffer, size.wgpuAlign()) as GPUPointer<Struct4<T1, T2, T3, T4>>
-    }
-
-    fun setFirst(mem: ManagedGPUMemory, pointer: GPUPointer<Struct4<T1, T2, T3, T4>>, a: T1) {
-        TODO()
-    }
-
-    fun setSecond(mem: ManagedGPUMemory, pointer: GPUPointer<Struct4<T1, T2, T3, T4>>, b: T2) {
-        TODO()
-    }
-
-    fun setThird(mem: ManagedGPUMemory, pointer: GPUPointer<Struct4<T1, T2, T3, T4>>, c: T3) {
-        TODO()
-    }
-
-    fun setFourth(mem: ManagedGPUMemory, pointer: GPUPointer<Struct4<T1, T2, T3, T4>>, d: T4) {
-        TODO()
-    }
-
+private fun Any.arrayByteSize() = when (this) {
+    is IntArray -> size * 4
+    is ByteArray -> size
+    is FloatArray -> size * 4
+    else -> error("Unsupported array type $this")
 }
 
 interface DataType<T> {
     val alignSize: UInt
-    fun write(value: T, buffer: KByteBuffer, offset: UInt)
+    fun toArray(value: T): Any
 }
+
 
 object Mat4fDT : DataType<Mat4f> {
     override val alignSize: UInt = Mat4f.SIZE_BYTES
-
-    override fun write(value: Mat4f, buffer: KByteBuffer, offset: UInt) {
-        buffer.asFloatBuffer().put(offset.toInt() / Float.SIZE_BYTES, value.array)
-    }
+    override fun toArray(value: Mat4f): Any = value.array
 }
 
 object Mat3fDT : DataType<Mat3f> {
     override val alignSize: UInt = Mat3f.SIZE_BYTES
-
-    override fun write(value: Mat3f, buffer: KByteBuffer, offset: UInt) {
-        buffer.asFloatBuffer().put(offset.toInt() / Float.SIZE_BYTES, value.array)
-    }
-
+    override fun toArray(value: Mat3f): Any = value.array
 }
 
 object FloatDT : DataType<Float> {
     override val alignSize: UInt = Float.SIZE_BYTES.toUInt()
-
-    override fun write(value: Float, buffer: KByteBuffer, offset: UInt) {
-        buffer.putFloat(offset.toInt(), value)
-    }
+    override fun toArray(value: Float): Any = floatArrayOf(value)
 }
 
 object Vec3fDT : DataType<Vec3f> {
     override val alignSize: UInt = Vec3f.ALIGN_BYTES
-    override fun write(value: Vec3f, buffer: KByteBuffer, offset: UInt) {
-        buffer.putFloat(offset.toInt(), value.x)
-        buffer.putFloat(offset.toInt() + 4, value.y)
-        buffer.putFloat(offset.toInt() + 8, value.z)
-    }
+    override fun toArray(value: Vec3f): Any = value.toAlignedArray()
 }
 
 object Vec4fDT : DataType<Vec4f> {
     override val alignSize: UInt = Vec4f.SIZE_BYTES
-    override fun write(value: Vec4f, buffer: KByteBuffer, offset: UInt) {
-        buffer.putFloat(offset.toInt(), value.x)
-        buffer.putFloat(offset.toInt() + 4, value.y)
-        buffer.putFloat(offset.toInt() + 8, value.z)
-        buffer.putFloat(offset.toInt() + 12, value.w)
-    }
+    override fun toArray(value: Vec4f): Any = value.toArray()
 }
 
 object ColorDT : DataType<Color> {
     override val alignSize: UInt = Vec4f.SIZE_BYTES
-    override fun write(value: Color, buffer: KByteBuffer, offset: UInt) {
-        buffer.putFloat(offset.toInt(), value.red)
-        buffer.putFloat(offset.toInt() + 4, value.green)
-        buffer.putFloat(offset.toInt() + 8, value.blue)
-        buffer.putFloat(offset.toInt() + 12, value.alpha)
-    }
+    override fun toArray(value: Color): Any = floatArrayOf(value.red, value.green, value.blue, value.alpha)
 }
 
-
-//struct Instance {
-//    model: mat4x4f,
-//    normalMat: mat3x3f,
-//    color: vec4f,
-//    textured: f32 // This is a bool, but we'll use a float to keep it all floats
-//}
+object IntDT : DataType<Int> {
+    override val alignSize: UInt = Int.SIZE_BYTES.toUInt()
+    override fun toArray(value: Int): Any {
+        return intArrayOf(value)
+    }
+}

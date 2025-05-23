@@ -39,7 +39,7 @@ struct Instance {
     model: mat4x4f,
     normalMat: mat3x3f,
     color: vec4f,
-    textured: f32 // This is a bool, but we'll use a float to keep it all floats
+    textured: u32
 }
 
 @vertex
@@ -95,9 +95,10 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
                     +
                     spec * lightRGB;
 
+
         // Final colour: light * albedo (instance tint already holds alpha)
 
-        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1);
+        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
 
          if is_in_number(vertex.pos.xy, array<u32,10>(u32(vertex.iid), 0,0,0,0,0,0,0,0,0), vec2(200, 200), 3.0) {
                     return vec4(1.0, 0.0, 0.0, 1.0);
