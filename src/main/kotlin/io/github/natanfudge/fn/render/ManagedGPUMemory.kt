@@ -75,7 +75,6 @@ class ManagedGPUMemory(val ctx: WebGPUContext, initialSizeBytes: ULong, vararg u
     }
 
 
-    //TODO: first step is go KByteBuffer on the API here, to simplify it, and the struct abstraction gives it the correct KByteBuffer
     fun new(data: FloatArray): UntypedGPUPointer {
         val pointer = alloc(data.byteSize().wgpuAlign())
         write(data, pointer)

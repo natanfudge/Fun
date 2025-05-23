@@ -209,23 +209,13 @@ class WorldRender(
     }
 
     fun spawn(model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
-
         // Match the global index with the instance index
         model.instanceIds.add(worldInstances)
         worldInstances++
 
-
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(transform)
-//        val instanceData = concatArrays(
-//            transform.array, normalMatrix, color.toFloatArray(),
-//            // SLOW: don't like have arraysOf() for no reason
-//            floatArrayOf(if (model.image == null) 0f else 1f) // "textured" boolean
-//        )
-
         val instance = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if(model.image == null) 0 else 1)
-
-//        val instance = instanceBuffer.new(instanceData)
 
         return RenderInstance(instance, instanceBuffer)
     }
@@ -253,12 +243,11 @@ class WorldRender(
 
 class RenderInstance(private val pointer: GPUPointer<GPUInstance>,private val memory: ManagedGPUMemory) {
     fun despawn() {
-        TODO()
+        TODO("Should consider removing from vbo and ibo when instances reach 0. That will create fragmentation though so best to avoid it for now prob")
     }
 
     fun setTransform(transform: Mat4f) {
-        memory[pointer] = GPUInstance(transform,TODO(),TODO(),TODO())
-        TODO()
+        GPUInstance.setFirst(memory, pointer, transform)
     }
 
     fun transform(transform: Mat4f) {

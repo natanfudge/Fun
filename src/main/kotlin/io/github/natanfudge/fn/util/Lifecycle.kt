@@ -19,9 +19,6 @@ class LifecycleContext<P : Any, T : Any>(val thisLifecycle: Lifecycle<P, T>) : A
 //TOdo: CLEAR this when unbinding
 private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*, *>>()
 
-interface StateSource<T : Any> {
-
-}
 
 /**
  * In a vacuum, a [Lifecycle] is just a function that runs to create some data, and another function that runs to clean up that data.
@@ -69,7 +66,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
                     parentState = null,
                     parentCount = 0,
                     selfState = null,
-                    throwOnFail = false,
+//                    throwOnFail = false,
                     childrenParentIndices = mutableListOf(),
                     closed = false
                 )
@@ -100,12 +97,12 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
     }
 
 
-    fun setThrowOnFail(throwOnFail: Boolean) {
-        tree.visit {
-            it.throwOnFail = throwOnFail
-        }
-//        tree.value.throwOnFail = throwOnFail
-    }
+//    fun setThrowOnFail(throwOnFail: Boolean) {
+//        tree.visit {
+//            it.throwOnFail = throwOnFail
+//        }
+////        tree.value.throwOnFail = throwOnFail
+//    }
 
     /**
      * Removes all children from this lifecycle and returns them as a list.
@@ -198,55 +195,11 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
     }
 
-//        /**
-//     * Attempt to restart this lifecycle using its existing data. If it threw, will return the error.
-//     *
-//     * This is equivalent to calling [end] followed by [start] with null seedValue.
-//     */
-//    fun maybeRestart(): Throwable? {
-//        end()
-//        start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
-//    }
-//
-//    fun restart() {
-//        val result = maybeRestart()
-//        if (result != null) throw result
-//    }
-
     // SLOW: technically we can build a single "Restart" action for all the labels which would be faster than restarting the labels one by one.
     fun restartByLabels(labels: Set<String>) {
         tree.visitSubtrees {
             if (it.value.label in labels) Lifecycle<Any, Any>(it).restart()
         }
-    }
-
-
-//    /**
-//     * Finds and restarts a lifecycle with the specified [label] in the hierarchy.
-//     *
-//     * This method searches the entire lifecycle tree for a lifecycle with the given label
-//     * and restarts it if found. If no matching lifecycle is found, a message is printed.
-//     */
-//    fun restartByLabel(label: String) {
-//        tree.visitSubtrees {
-//            if (it.value.label == label) {
-//                Lifecycle<Any, Any>(it).restart()
-//                return
-//            }
-//        }
-//        println("Did not find any lifecycle with the label '$label' to restart")
-//    }
-
-    /**
-     * Finds a lifecycle with the specified [label] in the hierarchy.
-     */
-    fun getByLabel(label: String): Lifecycle<*, *> {
-        tree.visitSubtrees {
-            if (it.value.label == label) {
-                return Lifecycle<Any, Any>(it)
-            }
-        }
-        throw IllegalArgumentException("No such label $label in the lifecycle hierarchy")
     }
 
     /**
@@ -635,7 +588,7 @@ internal class LifecycleData<P : Any, T : Any>(
     var stop: (T) -> Unit,
     var parentState: P?,
     var selfState: T?,
-    var throwOnFail: Boolean,
+//    var throwOnFail: Boolean,
     var closed: Boolean,
     /**
      * Since lifecycles can have multiple parents, we need a way to differentiate between them.

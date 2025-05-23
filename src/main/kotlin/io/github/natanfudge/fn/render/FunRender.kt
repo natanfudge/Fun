@@ -16,6 +16,9 @@ import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -111,7 +114,16 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 
         val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
 
-        wgpuCube.spawn()
+        val instance = wgpuCube.spawn(Mat4f.translation(-2f,2f,2f))
+        GlobalScope.launch {
+            var i = 0
+            while (true) {
+                instance.setTransform(Mat4f.translation(-2f, 2f + (i % 10f) / 3,2f))
+                delay(10)
+                i++
+            }
+        }
+
 
         kotlinSphere.spawn()
         sphere.spawn(Mat4f.translation(2f, 2f, 2f))

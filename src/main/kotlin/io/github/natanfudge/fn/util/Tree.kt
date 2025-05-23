@@ -27,7 +27,14 @@ data class TreeEdge<T>(
     val child: T
 )
 
-
+private fun <T>dfs(node: Tree<T>, allNodes: MutableSet<Tree<T>>, parents: MutableMap<Tree<T>,MutableList<NodeParent<T>>>) {
+    if (!allNodes.add(node)) return            // already seen
+    node.children.forEachIndexed { idx, child ->
+        parents.getOrPut(child) { mutableListOf() }
+            .add(NodeParent(node.value, idx))
+        dfs(child, allNodes, parents)                             // recurse once per child
+    }
+}
 
 /** Returns each reachable node exactly once in parent-before-child order. */
 fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
@@ -35,15 +42,8 @@ fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
     val allNodes = mutableSetOf<Tree<T>>()
     val parents  = mutableMapOf<Tree<T>, MutableList<NodeParent<T>>>()
 
-    fun dfs(node: Tree<T>) {
-        if (!allNodes.add(node)) return            // already seen
-        node.children.forEachIndexed { idx, child ->
-            parents.getOrPut(child) { mutableListOf() }
-                .add(NodeParent(node.value, idx))
-            dfs(child)                             // recurse once per child
-        }
-    }
-    dfs(this)                                     // start from the receiver
+
+    dfs(this, allNodes, parents)                                     // start from the receiver
 
     /* STEP 2 – in-degree table from the parents map */
     val inDeg = mutableMapOf<Tree<T>, Int>().withDefault { 0 }
