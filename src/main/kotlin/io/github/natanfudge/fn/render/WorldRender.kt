@@ -12,9 +12,9 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 
 
-// TODO:
-// 4. Ray casting perhaps
 
+ //TODO: 1. Screen-space picking
+// 2.
 /**
  * Stores GPU information about all instances of a [Model].
  */
@@ -87,29 +87,30 @@ class WorldBindGroups(
 
 object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, IntDT)
 
+object WorldUniform: Struct6<Mat4f, Vec3f, Vec3f, UInt, UInt, UInt, WorldUniform>(
+    Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT, UIntDT
+)
+
 class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
 ) : AutoCloseable {
     var worldInstances = 0
-    val uniformBuffer = ManagedGPUMemory(
-        ctx,
-        initialSizeBytes = Mat4f.SIZE_BYTES.toULong() + Vec3f.ALIGN_BYTES * 2u + Float.SIZE_BYTES.toULong() * 2uL,
-        GPUBufferUsage.Uniform
-    )
+    val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false,GPUBufferUsage.Uniform)
 
     val rayCasting = RayCastingCache<RenderInstance>()
+    var selectedObjectId: Int = -1
 
-    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, GPUBufferUsage.Vertex)
-    val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, GPUBufferUsage.Index)
+    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true,GPUBufferUsage.Vertex)
+    val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
 
-    val instanceBuffer = GPUInstance.createBuffer(ctx, 10u, GPUBufferUsage.Storage)
+    val instanceBuffer = GPUInstance.createBuffer(ctx, 10u, expandable = false, GPUBufferUsage.Storage)
 
     /**
      * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
      * to its correct location in the instance buffer.
      */
-    val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, GPUBufferUsage.Storage)
+    val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, expandable = false, GPUBufferUsage.Storage)
     val models = mutableListOf<BoundModel>()
     val modelBindGroups = mutableListOf<GPUBindGroup>()
 
@@ -145,11 +146,19 @@ class WorldRender(
     fun draw(encoder: GPUCommandEncoder, bindGroups: WorldBindGroups, dimensions: FunFixedSizeWindow, frame: GPUTextureView, camera: Camera) {
         val viewProjection = dimensions.projection * camera.matrix
 
-        val uniform = concatArrays(
-            viewProjection.array, camera.position.toAlignedArray(), lightPos.toAlignedArray(),
-            floatArrayOf(dimensions.dims.width.toFloat(), dimensions.dims.height.toFloat())
+        // Update selected object based on ray casting
+        val rayCast = rayCasting.rayCast(Ray(camera.position, camera.forward))
+        selectedObjectId = rayCast?.globalId ?: -1
+
+        val selectedObjectId = rayCast?.globalId?.toUInt() ?: 9999u
+        val uniform = WorldUniform(
+            viewProjection, camera.position, lightPos,
+            dimensions.dims.width.toUInt(), dimensions.dims.height.toUInt(),
+            selectedObjectId
         )
-        uniformBuffer.write(uniform)
+
+        
+        uniformBuffer[GPUPointer(0u)] = uniform
 
 
         val renderPassDescriptor = RenderPassDescriptor(
@@ -171,11 +180,6 @@ class WorldRender(
         )
 
         val pass = encoder.beginRenderPass(renderPassDescriptor)
-
-        //TODO: think of how to do selection glow
-        val rayCast = rayCasting.rayCast(Ray(camera.position, camera.forward))
-
-        println("Casting caught ${rayCast?.globalId}")
 
         // SLOW: should only run this when the buffer is invalidated
         rebuildInstanceIndexBuffer()

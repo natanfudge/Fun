@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.util
 
 import java.nio.ByteBuffer
+import androidx.compose.foundation.layout.size
 
 fun closeAll(vararg closeables: AutoCloseable) {
     for (closeable in closeables) {
@@ -35,6 +36,16 @@ fun concatArrays(array1: FloatArray, array2: FloatArray, array3: FloatArray, arr
     array4.copyInto(res, array1.size + array2.size + array3.size)
     return res
 }
+fun concatArrays(vararg arrays: FloatArray): FloatArray {
+    val res = FloatArray(arrays.sumOf { it.size })
+    var offset = 0
+    for(array in arrays) {
+        array.copyInto(res, offset)
+        offset += array.size
+    }
+    return res
+}
+
 
 
 

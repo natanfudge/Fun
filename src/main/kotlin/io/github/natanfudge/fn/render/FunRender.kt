@@ -25,8 +25,6 @@ import kotlin.math.roundToInt
 
 // 1. Program a WGSL visual debugger
 //TODO:
-// 12b. Abstraction of entity system
-// 13. Ray casting & selection
 // 13b. Targeted zoom (with ray casting?)
 // 13.5a: App entrypoint that allows for basic GUI interaction with the world
 // 13.5b: State system
@@ -36,6 +34,14 @@ import kotlin.math.roundToInt
 // 14. Physics
 // 15. Trying making a basic game?
 // 17. PBR
+// 20. Backlog stuff i don't really care about atm:
+// A. Deallocating GPU memory and free lists
+// B. Find-grained picking with per-triangle ray intersection checks
+// C. Various optimizations
+// D. Blender-like selection outline  https://www.reddit.com/r/howdidtheycodeit/comments/1bdzr16/how_did_they_code_the_selection_outline_in_blender/?utm_source=chatgpt.com
+// E. automatic GPU buffer expansion for expandable = true buffers
+// F. MDI the render calls: waiting for MDI itself and bindless resources for binding the textures
+// G. Expandable bound buffers - waiting for mutable bind groups
 
 val msaaSamples = 4u
 

@@ -2,8 +2,9 @@ struct Uniforms {
     viewProjection: mat4x4f,
     cameraPos: vec3f,
     lightPos: vec3f,
-    width: f32,
-    height: f32,
+    width: u32,
+    height: u32,
+    selectedObject: u32
 }
 
 
@@ -60,40 +61,43 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     var dims = vec2(uniforms.width, uniforms.height);
     var view_coords = get_view_coords(vertex.pos.xy, dims);
 
-//    if is_in_number(vertex.pos.xy, array<u32,10>(u32(uniforms.lightPos.x), u32(abs(uniforms.lightPos.y)), u32(uniforms.lightPos.z), 0,0,0,0,0,0,0), vec2(200, 200), 3.0) {
-//        return vec4(1.0, 0.0, 0.0, 1.0);
-//    }
+    let N  = normalize(vertex.normal);
+    let L  = normalize(uniforms.lightPos - vertex.worldPos);
+    let V  = normalize(uniforms.cameraPos - vertex.worldPos);
+    let R  = reflect(-L, N);
+
+    // Phong terms
+    let ambient   = 0.1;
+    let diff      = max(dot(N, L), 0.0);
+    let specPower = 32.0;                  // shininess
+    let spec      = pow(max(dot(R, V), 0.0), specPower);
+
+    let lightRGB  = vec3f(1,1,1);
+    let phong = ambient +
+                diff * lightRGB
+                +
+                spec * lightRGB;
+
+    // Final colour: light * albedo (instance tint already holds alpha)
+    let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
+    let litColor = vec4f(phong * baseColor.rgb, baseColor.a);
+
+    let finalColor = select(litColor, mix(litColor, vec4(1.0), 0.5), vertex.iid == uniforms.selectedObject);
+
+let digits = number_to_digits(f32(uniforms.selectedObject));
+if is_in_number(
+    vertex.pos.xy,
+    digits,
+    vec2(200,200),
+    3.0
+) {
+    return vec4f(1.0,0.0,0.0,1.0);
+}
 
 
 
-        let N  = normalize(vertex.normal);
-        let L  = normalize(uniforms.lightPos - vertex.worldPos);
-        let V  = normalize(uniforms.cameraPos - vertex.worldPos);
-        let R  = reflect(-L, N);
 
-        // Phong terms
-        let ambient   = 0.1;
-        let diff      = max(dot(N, L), 0.0);
-        let specPower = 32.0;                  // shininess
-        let spec      = pow(max(dot(R, V), 0.0), specPower);
-
-        let lightRGB  = vec3f(1,1,1);
-        let phong = ambient +
-                    diff * lightRGB
-                    +
-                    spec * lightRGB;
-
-
-        // Final colour: light * albedo (instance tint already holds alpha)
-
-        let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
-
-         if is_in_number(vertex.pos.xy, array<u32,10>(u32(vertex.iid), 0,0,0,0,0,0,0,0,0), vec2(200, 200), 3.0) {
-                    return vec4(1.0, 0.0, 0.0, 1.0);
-                }
-
-
-        return vec4f(phong * baseColor.rgb, baseColor.a);
+    return finalColor;
 }
 
 const font = array(
@@ -161,6 +165,6 @@ fn get_sd_circle(pos: vec2<f32>, r: f32) -> f32 {
     return length(pos) - r;
 }
 
-fn get_view_coords(coords: vec2<f32>, screen_dims: vec2<f32>) -> vec2<f32>{
-    return ((coords / screen_dims) * 2) - 1;
+fn get_view_coords(coords: vec2<f32>, screen_dims: vec2<u32>) -> vec2<f32>{
+    return ((coords / vec2f(screen_dims)) * 2) - 1;
 }
