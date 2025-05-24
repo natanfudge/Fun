@@ -214,14 +214,12 @@ class RayCastingCache<T: Boundable> {
 object Selection {
 
     /**
-     * Returns the ray that is represented by the cursor pointing at a specific point in the screen [cursorCoords] with size [screenSize], while standing
-     * at the [position], looking at [target] where [up] is up, assuming all objects are transformed by the [viewMatrix] and [projectionMatrix].
+     * Returns the ray that is pointed by the cursor in the orbital view, in world space.
      */
-    private fun orbitalSelectionRay(
+     fun orbitalSelectionRay(
         cursorCoords: Offset, // e.g. (mouseX, mouseY)
         screenSize: IntSize,   // e.g. (width, height)
-        projectionMatrix: Mat4f,
-        viewMatrix: Mat4f,
+        viewProjectionMatrix: Mat4f,
     ): Ray {
 
         // 1) Convert cursor from [0..width]x[0..height] to Normalized Device Coordinates [-1..+1].
@@ -234,20 +232,19 @@ object Selection {
         val farNdc = Vec4f(xNdc, yNdc, +1f, 1f)
 
         // 3) Invert (Projection * View) matrix to go from NDC back to World space.
-        val invProjView = projectionMatrix.mul(viewMatrix).invert()
+        val invProjView = viewProjectionMatrix.invert()
 
         // 4) Transform NDC points into World space.
         val nearWorld = invProjView * nearNdc
         val farWorld = invProjView * farNdc
 
-        // 5) Perspective divide (x/w, y/w, z/w).
-        nearWorld.div(nearNdc.w, nearWorld)
-        farWorld.div(farNdc.w, nearWorld)
+        // 5) Perspective divide (x/w, y/w, z/w) - FIXED: Use nearWorld.w and farWorld.w
+        val nearWorldDivided = Vec3f(nearWorld.x / nearWorld.w, nearWorld.y / nearWorld.w, nearWorld.z / nearWorld.w)
+        val farWorldDivided = Vec3f(farWorld.x / farWorld.w, farWorld.y / farWorld.w, farWorld.z / farWorld.w)
 
         // 6) Extract world-space start/end as Vector3f
-        val start = Vec3f(nearNdc.x, nearNdc.y, nearNdc.z)
-        val end = Vec3f(farNdc.x, farNdc.y, farNdc.z)
-
+        val start = nearWorldDivided
+        val end = farWorldDivided
         return Ray(start, end - start)
     }
 }

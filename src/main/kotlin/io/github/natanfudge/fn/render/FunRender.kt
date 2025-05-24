@@ -25,7 +25,6 @@ import kotlin.math.roundToInt
 
 // 1. Program a WGSL visual debugger
 //TODO:
-// 13b. Targeted zoom (with ray casting?)
 // 13.5a: App entrypoint that allows for basic GUI interaction with the world
 // 13.5b: State system
 // 13.6: Object selection overlay:
@@ -42,6 +41,7 @@ import kotlin.math.roundToInt
 // E. automatic GPU buffer expansion for expandable = true buffers
 // F. MDI the render calls: waiting for MDI itself and bindless resources for binding the textures
 // G. Expandable bound buffers - waiting for mutable bind groups
+// H. Zoom based on ray casting on where the cursor is pointing at - make the focal point be the center of the ray-casted object.
 
 val msaaSamples = 4u
 
@@ -287,7 +287,7 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val textureView = frame.windowTexture
 
-        surface.world.draw(commandEncoder, bindGroup, dimensions, textureView, app.camera)
+        surface.world.draw(commandEncoder, bindGroup, dimensions, textureView, app.camera, cursorPosition = surface.ctx.window.cursorPos)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 

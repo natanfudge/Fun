@@ -1,9 +1,10 @@
 package io.github.natanfudge.fn.render
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.files.Image
 import io.github.natanfudge.fn.util.closeAll
-import io.github.natanfudge.fn.util.concatArrays
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
@@ -12,8 +13,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 
 
-
- //TODO: 1. Screen-space picking
+//TODO: 1. Screen-space picking
 // 2.
 /**
  * Stores GPU information about all instances of a [Model].
@@ -87,7 +87,7 @@ class WorldBindGroups(
 
 object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, IntDT)
 
-object WorldUniform: Struct6<Mat4f, Vec3f, Vec3f, UInt, UInt, UInt, WorldUniform>(
+object WorldUniform : Struct6<Mat4f, Vec3f, Vec3f, UInt, UInt, UInt, WorldUniform>(
     Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT, UIntDT
 )
 
@@ -96,12 +96,12 @@ class WorldRender(
     val surface: FunSurface,
 ) : AutoCloseable {
     var worldInstances = 0
-    val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false,GPUBufferUsage.Uniform)
+    val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
 
     val rayCasting = RayCastingCache<RenderInstance>()
     var selectedObjectId: Int = -1
 
-    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true,GPUBufferUsage.Vertex)
+    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
 
     val instanceBuffer = GPUInstance.createBuffer(ctx, 10u, expandable = false, GPUBufferUsage.Storage)
@@ -142,12 +142,35 @@ class WorldRender(
         pipeline = pipeline
     )
 
+    /**
+     * Returns where the use is pointing at in world space
+     */
+    private fun getCursorRay(camera: Camera, cursorPosition: Offset?, viewProjection: Mat4f, dimensions: FunFixedSizeWindow): Ray {
+        if (cursorPosition != null) {
+            val ray = Selection.orbitalSelectionRay(
+                cursorPosition,
+                IntSize(dimensions.dims.width, dimensions.dims.height),
+                viewProjection
+            )
+            return ray
+        } else {
+            return Ray(camera.position, camera.forward)
+        }
+    }
 
-    fun draw(encoder: GPUCommandEncoder, bindGroups: WorldBindGroups, dimensions: FunFixedSizeWindow, frame: GPUTextureView, camera: Camera) {
+
+    fun draw(
+        encoder: GPUCommandEncoder,
+        bindGroups: WorldBindGroups,
+        dimensions: FunFixedSizeWindow,
+        frame: GPUTextureView,
+        camera: Camera,
+        cursorPosition: Offset?,
+    ) {
         val viewProjection = dimensions.projection * camera.matrix
 
         // Update selected object based on ray casting
-        val rayCast = rayCasting.rayCast(Ray(camera.position, camera.forward))
+        val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
         selectedObjectId = rayCast?.globalId ?: -1
 
         val selectedObjectId = rayCast?.globalId?.toUInt() ?: 9999u
@@ -157,7 +180,7 @@ class WorldRender(
             selectedObjectId
         )
 
-        
+
         uniformBuffer[GPUPointer(0u)] = uniform
 
 
@@ -254,8 +277,6 @@ class WorldRender(
 }
 
 
-
-
 class RenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
     internal val globalId: Int,
@@ -294,7 +315,8 @@ class RenderInstance(
         _updateTransform()
     }
 
-    @PublishedApi internal fun _updateTransform() {
+    @PublishedApi
+    internal fun _updateTransform() {
         check(!despawned) { "Attempt to transform despawned object" }
         GPUInstance.setFirst(world.instanceBuffer, pointer, this.transform)
         boundingBox = baseAABB.transformed(transform)
