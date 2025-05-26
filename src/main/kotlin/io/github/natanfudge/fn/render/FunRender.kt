@@ -2,16 +2,19 @@ package io.github.natanfudge.fn.render
 
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
+import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
-import io.github.natanfudge.fn.core.ProcessLifecycle
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.util.FunLogLevel
+import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.ShaderSource
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.webgpu.createReloadingPipeline
+import io.github.natanfudge.fn.window.WindowCallbacks
 import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -24,24 +27,6 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 
 // 1. Program a WGSL visual debugger
-//TODO:
-// 13.5a: App entrypoint that allows for basic GUI interaction with the world
-// 13.5b: State system
-// 13.6: Object selection overlay:
-//    - Show/set state, including transform
-//    - Visual transform system
-// 14. Physics
-// 15. Trying making a basic game?
-// 17. PBR
-// 20. Backlog stuff i don't really care about atm:
-// A. Deallocating GPU memory and free lists
-// B. Find-grained picking with per-triangle ray intersection checks
-// C. Various optimizations
-// D. Blender-like selection outline  https://www.reddit.com/r/howdidtheycodeit/comments/1bdzr16/how_did_they_code_the_selection_outline_in_blender/?utm_source=chatgpt.com
-// E. automatic GPU buffer expansion for expandable = true buffers
-// F. MDI the render calls: waiting for MDI itself and bindless resources for binding the textures
-// G. Expandable bound buffers - waiting for mutable bind groups
-// H. Zoom based on ray casting on where the cursor is pointing at - make the focal point be the center of the ray-casted object.
 
 val msaaSamples = 4u
 
@@ -104,7 +89,6 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 val lightPos = Vec3f(4f, -4f, 4f)
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-
     val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
     val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
 
@@ -161,9 +145,6 @@ class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
 }
 
 
-
-
-
 private val alignmentBytes = 16u
 internal fun ULong.wgpuAlign(): ULong {
     val leftOver = this % alignmentBytes
@@ -174,29 +155,32 @@ internal fun UInt.wgpuAlignInt(): UInt = toULong().wgpuAlign().toUInt()
 
 var pipelines = 0
 
-class AppState(window: WebGPUWindow, compose: ComposeWebGPURenderer) {
-    val camera = Camera()
-    val input = InputManager(this, window, compose)
+//class AppState(window: WebGPUWindow, compose: ComposeWebGPURenderer) {
+//    val camera = DefaultCamera()
+//    val input = InputManager(this, window, compose)
+//}
+
+class FunInputAdapter(private val app: FunApp) : WindowCallbacks {
+    override fun onInput(input: InputEvent) {
+        app.handleInput(input)
+    }
+
 }
 
-
 @OptIn(ExperimentalAtomicApi::class)
-fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: FileSystemWatcher) {
-    val appLifecycle = ProcessLifecycle.bind("App") {
-        AppState(this@bindFunLifecycles, compose)
-    }
+fun WebGPUWindow.bindFunLifecycles(
+    compose: ComposeWebGPURenderer,
+    fsWatcher: FileSystemWatcher,
+    appLifecycle: Lifecycle<*, FunApp>,
+    funSurface: Lifecycle<*, FunSurface>,
+    funDimLifecycle: Lifecycle<*, FunFixedSizeWindow>,
+) {
+//    val appLifecycle = ProcessLifecycle.bind("App") {
+//        AppState(this@bindFunLifecycles, compose)
+//    }
 
     surfaceLifecycle.bind(appLifecycle, "Fun callback set") { surface, app ->
-        surface.window.callbacks["Fun"] = app.input.callbacks
-    }
-
-    val funSurface = surfaceLifecycle.bind("Fun Surface") { surface ->
-        FunSurface(surface)
-    }
-
-
-    val funDimLifecycle = dimensionsLifecycle.bind("Fun Dimensions") {
-        FunFixedSizeWindow(it.surface, it.dimensions)
+        surface.window.callbacks["Fun"] = FunInputAdapter(app)
     }
 
 
@@ -266,13 +250,16 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         surface.world.createBindGroups(pipeline.pipeline)
     }
 
+    var prevPhysicsTime = System.nanoTime()
 
     // Running this in-frame is a bad idea since it can trigger a new frame
-    window.eventPollLifecycle.bind("Fun Polling", FunLogLevel.Verbose) {
+    window.eventPollLifecycle.bind(appLifecycle, "Fun Polling", FunLogLevel.Verbose) { _, app ->
         if (HOT_RELOAD_SHADERS) {
             fsWatcher.poll()
         }
-        appLifecycle.assertValue.input.poll()
+        val physicsDelta = System.nanoTime() - prevPhysicsTime
+        app.physics(physicsDelta / 1e6f)
+//        app.preFrame()
     }
 
 
@@ -287,7 +274,9 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
 
         val textureView = frame.windowTexture
 
-        surface.world.draw(commandEncoder, bindGroup, dimensions, textureView, app.camera, cursorPosition = surface.ctx.window.cursorPos)
+        //TODo: need to think how to enable user-driven drawing
+
+        surface.world.draw(commandEncoder, bindGroup, dimensions, textureView, cursorPosition = surface.ctx.window.cursorPos,camera = app.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
@@ -304,6 +293,13 @@ fun WebGPUWindow.bindFunLifecycles(compose: ComposeWebGPURenderer, fsWatcher: Fi
         commandEncoder
     }
 
+}
+
+
+interface Camera {
+    val viewMatrix: Mat4f
+    val position: Vec3f
+    val forward: Vec3f
 }
 
 

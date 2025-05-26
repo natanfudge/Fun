@@ -103,10 +103,9 @@ private class ComposeTextureContext(val device: GPUDevice, val texture: GPUTextu
 class ComposeWebGPURenderer(
     hostWindow: WebGPUWindow,
     fsWatcher: FileSystemWatcher,
-    show: Boolean = false,
-    content: @Composable () -> Unit,
+    show: Boolean = false
 ) {
-     val compose = ComposeConfig(hostWindow.window, content, show = show)
+     val compose = ComposeConfig(hostWindow.window,  show = show)
 
 
 //    val BackgroundWindowLifecycle = ProcessLifecycle.bind("Compose Background Window", early = true) {

@@ -7,6 +7,7 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.kotlin.dsl.register
 import org.jetbrains.compose.reload.ComposeHotRun
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -111,7 +112,7 @@ kotlin {
         languageSettings.enableLanguageFeature("ExplicitBackingFields")
     }
     compilerOptions {
-        freeCompilerArgs.add("-Xcontext-parameters", )
+        freeCompilerArgs.addAll("-Xcontext-parameters", "-Xwhen-guards")
     }
 }
 
@@ -220,3 +221,4 @@ internal enum class Color(ansiCode: Int) {
         return ansiString
     }
 }
+

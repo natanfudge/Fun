@@ -5,7 +5,7 @@ package io.github.natanfudge.fn.util
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
-import kotlin.time.measureTime
+import kotlin.time.TimeSource
 
 /**
  * Context provided to lifecycle start functions that gives access to the lifecycle being started
@@ -134,35 +134,36 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @throws IllegalArgumentException if [parentIndex] is invalid
      */
     fun start(seedValue: P?, parentIndex: Int = 0) {
-        val time = measureTime {
-            require(parentIndex == 0 || parentIndex < tree.value.parentCount)
+        val startTime = TimeSource.Monotonic.markNow()
+//        val time = measureTime {
+        require(parentIndex == 0 || parentIndex < tree.value.parentCount)
 
-            val order = tree.topologicalSort()
-            log(tree.value.logLevel) {
-                "Starting tree of ${tree.value.label} by order: ${order.joinToString("→") { it.child.label }}"
+        val order = tree.topologicalSort()
+        log(tree.value.logLevel) {
+            "Starting tree of ${tree.value.label} by order: ${order.joinToString("→") { it.child.label }}"
+        }
+        for ((parents, child) in order) {
+            child as LifecycleData<Any, Any>
+            val parentValues = parents.map {
+                val parentValue =
+                    it.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
+                val indexForChild = it.value.childrenParentIndices[it.childIndex]
+                parentValue to indexForChild
             }
-            for ((parents, child) in order) {
-                child as LifecycleData<Any, Any>
-                val parentValues = parents.map {
-                    val parentValue =
-                        it.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
-                    val indexForChild = it.value.childrenParentIndices[it.childIndex]
-                    parentValue to indexForChild
-                }
-                if (parents.isNotEmpty()) {
-                    // Start non-root nodes
-                    child.startSingle(parentValues)
-                } else {
-                    val rootValues = if (seedValue != null) listOf(seedValue to parentIndex) else listOf()
-                    // Start root
-                    child.startSingle(rootValues)
-                }
+            if (parents.isNotEmpty()) {
+                // Start non-root nodes
+                child.startSingle(parentValues)
+            } else {
+                val rootValues = if (seedValue != null) listOf(seedValue to parentIndex) else listOf()
+                // Start root
+                child.startSingle(rootValues)
             }
         }
+//        }
 
 
         log(tree.value.logLevel) {
-            "Started ${tree.value.label} in $time total"
+            "Started ${tree.value.label} in ${startTime.elapsedNow()} total"
         }
     }
 
@@ -294,6 +295,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         early2: Boolean = false,
         start: (T, P2) -> CT,
     ): Lifecycle<T, CT> {
+
+//         val parentA = parents[0] as? T ?: error("Lifecycle $label was ran with its ${secondLifecycle.label} lifecycle but not its ${this@Lifecycle.label} lifecycle")
+//            val parentB = parents[1] as? P2 ?:error("Lifecycle $label was ran with its ${this@Lifecycle.label} lifecycle but not its ${secondLifecycle.label} lifecycle")
+//
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -654,17 +659,20 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
     // Check for null parent state *before* the try-catch, so the error isn't swallowed.
     val nonNullParentState = parentState ?: error("startSingle should not have been run with a null seedValue when there is no preexisting parent state")
 
-    val time = measureTime {
-        try {
-            val result = lsCtx.start(nonNullParentState)
-            closed = false
-            selfState = result
-        } catch (e: NoSuchMethodError) {
-            //TODO: should think of a better thing to do when it fails, probably prevent children from running.
-            log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
-            e.printStackTrace()
-        }
+//    val time = measureTime {
+    // Don't run if we don't have all the values yet
+    if (nonNullParentState is List<*> && nonNullParentState.any { it == null }) return
+
+    try {
+        val result = lsCtx.start(nonNullParentState)
+        closed = false
+        selfState = result
+    } catch (e: NoSuchMethodError) {
+        //TODO: should think of a better thing to do when it fails, probably prevent children from running.
+        log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
+        e.printStackTrace()
     }
+//    }
 //    log(logLevel) { "Ran $label in $time" }
 
 }

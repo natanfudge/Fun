@@ -3,6 +3,11 @@ package io.github.natanfudge.fn.render
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
+enum class CameraMode {
+    Orbital,
+    Fly,
+    Off,
+}
 /**
  * A 3D camera that handles positioning, orientation, and movement in a 3D space.
  * 
@@ -17,12 +22,12 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
  * - Zooming (moving closer to or further from a focal point)
  * - Rotation around axes
  */
-class Camera {
+class DefaultCamera: Camera {
     /**
      * The current position of the camera in 3D space.
      * Initially positioned at (5, 5, 5).
      */
-     val position = Vec3f(5f, 5f, 5f)
+     override val position = Vec3f(5f, 5f, 5f)
 
     /**
      * The up vector defining the camera's orientation.
@@ -35,7 +40,7 @@ class Camera {
      * Always normalized to unit length.
      * Initially points from the starting position toward the origin.
      */
-    val forward = (Vec3f.zero() - position).normalize()
+    override val forward = (Vec3f.zero() - position).normalize()
 
     /**
      * The right vector, perpendicular to both [up] and [forward].
@@ -43,6 +48,11 @@ class Camera {
      * Forms the X axis of the camera's local coordinate system.
      */
     val right = up.cross(forward)
+
+
+    // doesn't really belong here
+    var mode: CameraMode = CameraMode.Off
+
 
     /**
      * Updates the [right] vector to maintain orthogonality with [up] and [forward].
@@ -64,7 +74,7 @@ class Camera {
      * This matrix transforms points from world space to camera space.
      * Used in rendering pipelines, typically combined with a projection matrix.
      */
-    val matrix = Mat4f.identity()
+    override val viewMatrix = Mat4f.identity()
 
     init {
         calculateMatrix()
@@ -228,7 +238,7 @@ class Camera {
     private val tempVec = Vec3f()
 
     /**
-     * Updates the view [matrix] based on the current camera position and orientation.
+     * Updates the view [viewMatrix] based on the current camera position and orientation.
      * Uses the lookAt function to create a view matrix that transforms points from
      * world space to camera space.
      */
@@ -237,7 +247,7 @@ class Camera {
             eye = position,
             target = position + forward,
             up = up,
-            dst = matrix
+            dst = viewMatrix
         )
     }
 

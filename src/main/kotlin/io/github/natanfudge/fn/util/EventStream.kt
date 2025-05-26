@@ -10,6 +10,9 @@ import java.util.function.Consumer
  * @sample io.github.natanfudge.fn.test.example.util.ObservableExamples.observableExample
  */
 interface EventStream<T> {
+    companion object {
+        fun <T>create() = MutEventStream<T>()
+    }
     /**
      * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [MutEventStream]).
      * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks

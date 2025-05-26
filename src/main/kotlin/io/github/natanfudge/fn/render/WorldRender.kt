@@ -95,6 +95,9 @@ class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
 ) : AutoCloseable {
+
+//    var camera : Camera? = null
+
     var worldInstances = 0
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
 
@@ -167,7 +170,7 @@ class WorldRender(
         camera: Camera,
         cursorPosition: Offset?,
     ) {
-        val viewProjection = dimensions.projection * camera.matrix
+        val viewProjection = dimensions.projection * camera.viewMatrix
 
         // Update selected object based on ray casting
         val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))

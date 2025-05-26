@@ -5,13 +5,11 @@ package io.github.natanfudge.fn.compose
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.InternalComposeUiApi
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asComposeCanvas
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
@@ -64,7 +62,7 @@ class ComposeGlfwWindow(
     initialHeight: Int,
     val handle: WindowHandle,
     private val density: Density,
-    private val composeContent: @Composable () -> Unit,
+//    private val composeContent: @Composable () -> Unit,
     private val onInvalidate: () -> Unit,
 ) : AutoCloseable {
 
@@ -91,10 +89,14 @@ class ComposeGlfwWindow(
         size = IntSize(initialWidth, initialHeight)
     )
 
-    init {
-        scene.setContent {
-            composeContent()
-        }
+//    init {
+//        scene.setContent {
+//            composeContent()
+//        }
+//    }
+
+    fun setContent(content: @Composable () -> Unit) {
+        scene.setContent(content)
     }
 
     override fun close() {
@@ -119,7 +121,7 @@ data class ComposeFrameEvent(
 
 class ComposeConfig(
     host: GlfwWindowConfig,
-    val content: @Composable () -> Unit = { Text("Hello!") },
+//    val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
 ) {
     companion object {
@@ -135,7 +137,6 @@ class ComposeConfig(
             window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
-                content
             ) {
                 // Invalidate Compose frame on change
                 window!!.invalid = true
@@ -143,6 +144,10 @@ class ComposeConfig(
             window
         }
     }
+
+//    fun ComposeGlfwWindow.setContent(content: @Composable () -> Unit = { Text("Hello!") }) {
+//
+//    }
 
     val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> =
         host.dimensionsLifecycle.bind(windowLifecycle, "Compose Fixed Size Window") { dim, window ->
@@ -221,29 +226,44 @@ class ComposeConfig(
 
     @OptIn(InternalComposeUiApi::class)
     val callbacks = object : WindowCallbacks {
-        override fun pointerEvent(
-            eventType: PointerEventType,
-            position: Offset,
-            scrollDelta: Offset,
-            timeMillis: Long,
-            type: PointerType,
-            buttons: PointerButtons?,
-            keyboardModifiers: PointerKeyboardModifiers?,
-            nativeEvent: Any?,
-            button: PointerButton?,
-        ) {
+        override fun onInput(input: InputEvent) {
             val window = windowLifecycle.value ?: return
             if (window.focused) {
-                window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
-            }
-        }
+                when (input) {
+                    is InputEvent.KeyEvent -> window.scene.sendKeyEvent(input.event)
+                    is InputEvent.PointerEvent -> {
+                        with(input) {
+                            window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+                        }
+                    }
 
-        override fun keyEvent(event: KeyEvent) {
-            val window = windowLifecycle.value ?: return
-            if (window.focused) {
-                window.scene.sendKeyEvent(event)
+                    else -> {}
+                }
             }
         }
+//        override fun pointerEvent(
+//            eventType: PointerEventType,
+//            position: Offset,
+//            scrollDelta: Offset,
+//            timeMillis: Long,
+//            type: PointerType,
+//            buttons: PointerButtons?,
+//            keyboardModifiers: PointerKeyboardModifiers?,
+//            nativeEvent: Any?,
+//            button: PointerButton?,
+//        ) {
+//            val window = windowLifecycle.value ?: return
+//            if (window.focused) {
+//                window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+//            }
+//        }
+//
+//        override fun keyEvent(event: KeyEvent) {
+//            val window = windowLifecycle.value ?: return
+//            if (window.focused) {
+//                window.scene.sendKeyEvent(event)
+//            }
+//        }
 
         override fun densityChange(newDensity: Density) {
             val window = windowLifecycle.value ?: return

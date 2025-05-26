@@ -8,6 +8,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.util.FunLogLevel
@@ -122,8 +124,6 @@ class GlfwFrame(
 class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: WindowConfig) {
     fun submitTask(task: () -> Unit) = windowLifecycle.value?.submitTask(task)
 
-    private fun dimensionsLifecycleLabel() = "GLFW Dimensions ($name)"
-
     val windowLifecycle: Lifecycle<Unit, GlfwWindow> = ProcessLifecycle.bind("GLFW $name Window") {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (glfw.disableApi) {
@@ -163,12 +163,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
             val windowHandle = window.handle
             val callbacks = window.callbacks.values
             glfwSetWindowCloseCallback(windowHandle) {
-                callbacks.forEach { it.windowClosePressed() }
+                callbacks.forEach { it.onInput(InputEvent.WindowClosePressed) }
 //                callbacks.windowClosePressed()
                 window.open = false
             }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-                callbacks.forEach { it.windowMove(x, y) }
+                callbacks.forEach { it.onInput(InputEvent.WindowMove(IntOffset(x, y))) }
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
@@ -189,22 +189,24 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
             glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
                 callbacks.forEach {
-                    it.pointerEvent(
-                        position = glfwGetCursorPos(windowHandle),
-                        eventType = when (action) {
-                            GLFW_PRESS -> PointerEventType.Press
-                            GLFW_RELEASE -> PointerEventType.Release
-                            else -> PointerEventType.Unknown
-                        },
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle)),
-                        button = when (button) {
-                            GLFW_MOUSE_BUTTON_LEFT -> PointerButton.Primary
-                            GLFW_MOUSE_BUTTON_RIGHT -> PointerButton.Secondary
-                            GLFW_MOUSE_BUTTON_MIDDLE -> PointerButton.Tertiary
-                            GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
-                            GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
-                            else -> PointerButton.Forward // Default to Forward on unknown button
-                        }
+                    it.onInput(
+                        InputEvent.PointerEvent(
+                            position = glfwGetCursorPos(windowHandle),
+                            eventType = when (action) {
+                                GLFW_PRESS -> PointerEventType.Press
+                                GLFW_RELEASE -> PointerEventType.Release
+                                else -> PointerEventType.Unknown
+                            },
+                            nativeEvent = AwtMouseEvent(getAwtMods(windowHandle)),
+                            button = when (button) {
+                                GLFW_MOUSE_BUTTON_LEFT -> PointerButton.Primary
+                                GLFW_MOUSE_BUTTON_RIGHT -> PointerButton.Secondary
+                                GLFW_MOUSE_BUTTON_MIDDLE -> PointerButton.Tertiary
+                                GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
+                                GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
+                                else -> PointerButton.Forward // Default to Forward on unknown button
+                            }
+                        )
                     )
                 }
             }
@@ -213,21 +215,26 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
                 callbacks.forEach {
                     val position = Offset(xpos.toFloat(), ypos.toFloat())
                     if (windowLifecycle.value?.cursorLocked == false) windowLifecycle.value?.cursorPos = position
-                    it.pointerEvent(
-                        position = position,
-                        eventType = PointerEventType.Move,
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                    it.onInput(
+                        InputEvent.PointerEvent(
+                            position = position,
+                            eventType = PointerEventType.Move,
+                            nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+
+                        )
                     )
                 }
             }
 
             glfwSetScrollCallback(windowHandle) { window, xoffset, yoffset ->
                 callbacks.forEach {
-                    it.pointerEvent(
-                        eventType = PointerEventType.Scroll,
-                        position = glfwGetCursorPos(windowHandle),
-                        scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
-                        nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
+                    it.onInput(
+                        InputEvent.PointerEvent(
+                            eventType = PointerEventType.Scroll,
+                            position = glfwGetCursorPos(windowHandle),
+                            scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
+                            nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
+                        )
                     )
                 }
 
@@ -235,10 +242,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
             glfwSetCursorEnterCallback(windowHandle) { _, entered ->
                 callbacks.forEach {
-                    it.pointerEvent(
-                        position = glfwGetCursorPos(windowHandle),
-                        eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                    it.onInput(
+                        InputEvent.PointerEvent(
+                            position = glfwGetCursorPos(windowHandle),
+                            eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
+                            nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
+                        )
                     )
                 }
             }
@@ -246,12 +255,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
             glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
                 val event = glfwToComposeEvent(key, action, mods)
                 if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
-                callbacks.forEach { it.keyEvent(event) }
+                callbacks.forEach { it.onInput(InputEvent.KeyEvent(event)) }
             }
 
             glfwSetCharCallback(windowHandle) { window, codepoint ->
                 for (char in Character.toChars(codepoint)) {
-                    callbacks.forEach { it.keyEvent(typedCharacterToComposeEvent(char)) }
+                    callbacks.forEach { it.onInput(InputEvent.KeyEvent(typedCharacterToComposeEvent(char))) }
                 }
             }
 
@@ -278,23 +287,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
         HotReloadRestarter()
     }
 
-    val eventPollLifecycle = Lifecycle.create<Unit, Unit>("GLFW Event poll", FunLogLevel.Verbose) {
+    val eventPollLifecycle = ProcessLifecycle.bind("GLFW Event poll", FunLogLevel.Verbose) {
 
         glfwPollEvents()
 
 
     }
-
-    init {
-
-    }
-
-
-//    private var callbacks: WindowCallbacks = object : WindowCallbacks {}
-
-//    fun setCallbacks(callbacks: WindowCallbacks) {
-//        this.callbacks = callbacks
-//    }
 
 
     fun close() {
