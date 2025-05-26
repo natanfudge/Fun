@@ -13,6 +13,7 @@ import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.render.Camera
 import io.github.natanfudge.fn.render.FunFixedSizeWindow
 import io.github.natanfudge.fn.render.FunSurface
+import io.github.natanfudge.fn.render.WorldRender
 import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
@@ -126,6 +127,11 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 
 
 interface FunApp : AutoCloseable {
+
+    fun renderInit(world: WorldRender) {
+
+    }
+
     @Composable
     fun gui() {
 
@@ -164,7 +170,10 @@ class FunContext(private val surface: Lifecycle<*, FunSurface>, private val dims
     fun setGUIFocused(focused: Boolean) {
         compose.compose.windowLifecycle.assertValue.focused = focused
     }
+
+
 }
+
 
 typealias FunAppInit<T> = FunAppBuilder.() -> ((context: FunContext) -> T)
 

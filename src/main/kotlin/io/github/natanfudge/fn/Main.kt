@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -12,9 +13,20 @@ import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.render.CameraMode
+import io.github.natanfudge.fn.render.CubeUv
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.InputManager
+import io.github.natanfudge.fn.render.Material
+import io.github.natanfudge.fn.render.Mesh
+import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.WorldRender
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
+import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 //TODO:
 // 13.6: Object selection overlay:
@@ -112,6 +124,7 @@ private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
     context.setCursorLocked(mode == CameraMode.Fly)
 }
 
+val lightPos = Vec3f(4f, -4f, 4f)
 
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
@@ -119,6 +132,48 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     init {
         camera.bind(inputManager, context)
+    }
+
+    //TODO: passing WorldRender here is wrong  I think, it will make it hard to access it outside of renderInit which is not the intention
+    // Should just add spawn() and bind() to FunContext
+    override fun renderInit(world: WorldRender) {
+        val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
+        val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
+
+        val cubeModel = Model(Mesh.UnitCube())
+        val sphereModel = Model(Mesh.uvSphere())
+        val cube = world.bind(cubeModel)
+        cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
+        cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
+        cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
+        cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
+        val sphere = world.bind(sphereModel)
+
+        val kotlinSphere = world.bind(sphereModel.copy(material = Material(texture = kotlinImage)))
+
+        val wgpuCube = world.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
+
+        val instance = wgpuCube.spawn(Mat4f.translation(-2f, 2f, 2f))
+        GlobalScope.launch {
+            var i = 0
+            while (true) {
+                instance.setTransform(instance.transform.scaleInPlace(1.01f))
+
+                if (i == 400) {
+                    instance.despawn()
+                    break
+                }
+                delay(10)
+                i++
+            }
+        }
+
+
+        kotlinSphere.spawn()
+        sphere.spawn(Mat4f.translation(2f, 2f, 2f))
+        sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
+
+        cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
     }
 
     override fun physics(delta: Float) {

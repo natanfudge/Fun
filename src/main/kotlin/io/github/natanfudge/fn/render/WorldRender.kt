@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.files.Image
+import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
@@ -70,20 +71,20 @@ class BoundModel(
 }
 
 
-/**
- * Seperated from [WorldRender] in order to be able to maintain the same [WorldRender] between shader reloads, as the [io.github.natanfudge.fn.render.WorldBindGroups]
- * will be swapped out when that happens.
- */
-class WorldBindGroups(
-    val pipeline: GPURenderPipeline,
-    val world: GPUBindGroup,
-    val models: List<GPUBindGroup>,
-) : AutoCloseable {
-    override fun close() {
-        world.close()
-        models.forEach { it.close() }
-    }
-}
+///**
+// * Seperated from [WorldRender] in order to be able to maintain the same [WorldRender] between shader reloads, as the [io.github.natanfudge.fn.render.WorldBindGroups]
+// * will be swapped out when that happens.
+// */
+//class WorldBindGroups(
+//    val pipeline: GPURenderPipeline,
+//    val world: GPUBindGroup,
+//    val models: List<GPUBindGroup>,
+//) : AutoCloseable {
+//    override fun close() {
+//        world.close()
+//        models.forEach { it.close() }
+//    }
+//}
 
 object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, IntDT)
 
@@ -115,35 +116,77 @@ class WorldRender(
      */
     val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, expandable = false, GPUBufferUsage.Storage)
     val models = mutableListOf<BoundModel>()
+
+    //    var bindGroup =
     val modelBindGroups = mutableListOf<GPUBindGroup>()
 
-    fun createBindGroups(pipeline: GPURenderPipeline): WorldBindGroups = WorldBindGroups(
-        world = ctx.device.createBindGroup(
-            BindGroupDescriptor(
-                layout = pipeline.getBindGroupLayout(0u),
-                entries = listOf(
-                    BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = uniformBuffer.buffer)),
-                    BindGroupEntry(binding = 1u, resource = surface.sampler),
-                    BindGroupEntry(binding = 2u, resource = BufferBinding(instanceBuffer.buffer)),
-                    BindGroupEntry(binding = 3u, resource = BufferBinding(instanceIndexBuffer.buffer)),
-                )
+
+    fun createBindGroup(pipeline: GPURenderPipeline) = ctx.device.createBindGroup(
+        BindGroupDescriptor(
+            layout = pipeline.getBindGroupLayout(0u),
+            entries = listOf(
+                BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = uniformBuffer.buffer)),
+                BindGroupEntry(binding = 1u, resource = surface.sampler),
+                BindGroupEntry(binding = 2u, resource = BufferBinding(instanceBuffer.buffer)),
+                BindGroupEntry(binding = 3u, resource = BufferBinding(instanceIndexBuffer.buffer)),
             )
-        ),
-        models = models.map {
-            ctx.device.createBindGroup(
-                BindGroupDescriptor(
-                    layout = pipeline.getBindGroupLayout(1u),
-                    entries = listOf(
-                        BindGroupEntry(
-                            binding = 0u,
-                            resource = it.textureView
-                        ),
-                    )
-                )
-            )
-        },
-        pipeline = pipeline
+        )
     )
+
+    private var pipeline: GPURenderPipeline? = null
+
+    /**
+     * Called whenever the pipeline changes to update the model bind groups
+     */
+    fun onPipelineChanged(pipeline: GPURenderPipeline) {
+        this.pipeline = pipeline
+        modelBindGroups.clear()
+        modelBindGroups.addAll(
+            models.map {
+                createModelBindGroup(pipeline, it)
+            }
+        )
+    }
+
+    private fun createModelBindGroup(pipeline: GPURenderPipeline, model: BoundModel) = ctx.device.createBindGroup(
+        BindGroupDescriptor(
+            layout = pipeline.getBindGroupLayout(1u),
+            entries = listOf(
+                BindGroupEntry(
+                    binding = 0u,
+                    resource = model.textureView
+                ),
+            )
+        )
+    )
+
+//    fun createBindGroups(pipeline: GPURenderPipeline): WorldBindGroups = WorldBindGroups(
+//        world = ctx.device.createBindGroup(
+//            BindGroupDescriptor(
+//                layout = pipeline.getBindGroupLayout(0u),
+//                entries = listOf(
+//                    BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = uniformBuffer.buffer)),
+//                    BindGroupEntry(binding = 1u, resource = surface.sampler),
+//                    BindGroupEntry(binding = 2u, resource = BufferBinding(instanceBuffer.buffer)),
+//                    BindGroupEntry(binding = 3u, resource = BufferBinding(instanceIndexBuffer.buffer)),
+//                )
+//            )
+//        ),
+//        models = models.map {
+//            ctx.device.createBindGroup(
+//                BindGroupDescriptor(
+//                    layout = pipeline.getBindGroupLayout(1u),
+//                    entries = listOf(
+//                        BindGroupEntry(
+//                            binding = 0u,
+//                            resource = it.textureView
+//                        ),
+//                    )
+//                )
+//            )
+//        },
+//        pipeline = pipeline
+//    )
 
     /**
      * Returns where the use is pointing at in world space
@@ -164,12 +207,16 @@ class WorldRender(
 
     fun draw(
         encoder: GPUCommandEncoder,
-        bindGroups: WorldBindGroups,
+        worldBindGroup: GPUBindGroup,
+        pipeline: GPURenderPipeline,
+//        bindGroups: WorldBindGroups,
         dimensions: FunFixedSizeWindow,
         frame: GPUTextureView,
         camera: Camera,
         cursorPosition: Offset?,
     ) {
+        // If the bindgroups are not ready yet, don't do anything
+//        if (models.size != modelBindGroups.size) return
         val viewProjection = dimensions.projection * camera.viewMatrix
 
         // Update selected object based on ray casting
@@ -209,14 +256,14 @@ class WorldRender(
 
         // SLOW: should only run this when the buffer is invalidated
         rebuildInstanceIndexBuffer()
-        pass.setPipeline(bindGroups.pipeline)
-        pass.setBindGroup(0u, bindGroups.world)
+        pass.setPipeline(pipeline)
+        pass.setBindGroup(0u, worldBindGroup)
         pass.setVertexBuffer(0u, vertexBuffer.buffer)
         pass.setIndexBuffer(indexBuffer.buffer, GPUIndexFormat.Uint32)
 
         var instanceIndex = 0u
         for ((i, model) in models.withIndex()) {
-            pass.setBindGroup(1u, bindGroups.models[i])
+            pass.setBindGroup(1u, modelBindGroups[i])
             val instances = model.instanceIds.size.toUInt()
             pass.drawIndexed(
                 model.model.mesh.indexCount,
@@ -240,6 +287,10 @@ class WorldRender(
             baseVertex = (vertexPointer.address / VertexArrayBuffer.StrideBytes).toInt(),
             world = this
         )
+        if (pipeline != null) {
+            // If pipeline is null, the modelBindGroups will be built once it is not null
+            modelBindGroups.add(createModelBindGroup(pipeline!!, bound))
+        }
         models.add(bound)
         return bound
     }
@@ -260,7 +311,7 @@ class WorldRender(
         return instance
     }
 
-    fun rebuildInstanceIndexBuffer() {
+    private fun rebuildInstanceIndexBuffer() {
         val indices = IntArray(worldInstances)
         var globalI = 0
         for (model in models) {

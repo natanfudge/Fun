@@ -1,12 +1,10 @@
 package io.github.natanfudge.fn.render
 
-import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.closeAll
@@ -19,9 +17,6 @@ import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -86,58 +81,11 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
     }
 }
 
-val lightPos = Vec3f(4f, -4f, 4f)
 
-class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
-    val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
-
+class FunSurface(val ctx: WebGPUContext,) : AutoCloseable {
     val sampler = ctx.device.createSampler()
 
-    val world = WorldRender(ctx, this).also {
-        val cubeModel = Model(Mesh.UnitCube())
-        val sphereModel = Model(Mesh.uvSphere())
-        val cube = it.bind(cubeModel)
-        cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
-        cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
-        cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
-        cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
-        val sphere = it.bind(sphereModel)
-
-        val kotlinSphere = it.bind(sphereModel.copy(material = Material(texture = kotlinImage)))
-
-        val wgpuCube = it.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
-
-        val instance = wgpuCube.spawn(Mat4f.translation(-2f, 2f, 2f))
-        GlobalScope.launch {
-            var i = 0
-            while (true) {
-//                instance.transform(Mat4f.translation(0.00f,0.01f,0f))
-                val pivot = instance.transform.getTranslation()
-                instance.setTransform(instance.transform.scaleInPlace(1.01f))
-
-//                instance.transform(
-//                    Mat4f.translation(-pivot)
-//                        .preScale(1.01f)
-//                        .preTranslate(pivot)
-//                )
-
-                if (i == 400) {
-                    instance.despawn()
-                    break
-                }
-                delay(10)
-                i++
-            }
-        }
-
-
-        kotlinSphere.spawn()
-        sphere.spawn(Mat4f.translation(2f, 2f, 2f))
-        sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
-
-        cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
-    }
+    val world = WorldRender(ctx,this)
 
     override fun close() {
         closeAll(sampler)
@@ -164,8 +112,12 @@ class FunInputAdapter(private val app: FunApp) : WindowCallbacks {
     override fun onInput(input: InputEvent) {
         app.handleInput(input)
     }
-
 }
+
+data class AppSurfaceBinding(
+    val app: FunApp,
+    val surface: FunSurface
+)
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(
@@ -179,9 +131,12 @@ fun WebGPUWindow.bindFunLifecycles(
 //        AppState(this@bindFunLifecycles, compose)
 //    }
 
-    surfaceLifecycle.bind(appLifecycle, "Fun callback set") { surface, app ->
-        surface.window.callbacks["Fun"] = FunInputAdapter(app)
+    val appSurface = funSurface.bind(appLifecycle, "App<->Surface Binding") { surface, app ->
+        surface.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
+        app.renderInit(surface.world)
+        AppSurfaceBinding(app,surface)
     }
+
 
 
     val objectLifecycle = createReloadingPipeline(
@@ -246,8 +201,10 @@ fun WebGPUWindow.bindFunLifecycles(
     }
 
 
+    // We need bindgroups to be created after
     val bindGroupLifecycle = objectLifecycle.bind(funSurface, "Fun BindGroup") { pipeline, surface ->
-        surface.world.createBindGroups(pipeline.pipeline)
+        surface.world.onPipelineChanged(pipeline.pipeline)
+        surface.world.createBindGroup(pipeline.pipeline)
     }
 
     var prevPhysicsTime = System.nanoTime()
@@ -258,6 +215,7 @@ fun WebGPUWindow.bindFunLifecycles(
             fsWatcher.poll()
         }
         val physicsDelta = System.nanoTime() - prevPhysicsTime
+        prevPhysicsTime = System.nanoTime()
         app.physics(physicsDelta / 1e6f)
 //        app.preFrame()
     }
@@ -267,7 +225,7 @@ fun WebGPUWindow.bindFunLifecycles(
         funSurface, funDimLifecycle, bindGroupLifecycle, objectLifecycle,
         compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
-    ) { frame, surface, dimensions, bindGroup, cube, composeFrame, app ->
+    ) { frame, surface, dimensions, bindGroup, shaders, composeFrame, app ->
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
         val commandEncoder = ctx.device.createCommandEncoder()
@@ -276,7 +234,7 @@ fun WebGPUWindow.bindFunLifecycles(
 
         //TODo: need to think how to enable user-driven drawing
 
-        surface.world.draw(commandEncoder, bindGroup, dimensions, textureView, cursorPosition = surface.ctx.window.cursorPos,camera = app.camera)
+        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, cursorPosition = surface.ctx.window.cursorPos,camera = app.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 

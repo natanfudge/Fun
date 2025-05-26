@@ -9,6 +9,7 @@ struct Uniforms {
 
 
 
+
 struct VertexOutput {
     @builtin(position) pos: vec4f,
     @location(0) color: vec4f,
