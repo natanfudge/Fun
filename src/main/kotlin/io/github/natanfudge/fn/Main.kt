@@ -1,6 +1,17 @@
 package io.github.natanfudge.fn
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -8,20 +19,14 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
-import io.github.natanfudge.fn.compose.ComposeMainApp
+import androidx.compose.ui.unit.dp
+import io.github.natanfudge.fn.compose.LifecycleTree
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
-import io.github.natanfudge.fn.render.CameraMode
-import io.github.natanfudge.fn.render.CubeUv
-import io.github.natanfudge.fn.render.DefaultCamera
-import io.github.natanfudge.fn.render.InputManager
-import io.github.natanfudge.fn.render.Material
-import io.github.natanfudge.fn.render.Mesh
-import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.WorldRender
+import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.coroutines.GlobalScope
@@ -182,7 +187,17 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     @Composable
     override fun gui() {
-        ComposeMainApp()
+        MaterialTheme(darkColorScheme()) {
+            Row(Modifier.fillMaxSize().background(Color.Transparent), horizontalArrangement = Arrangement.SpaceBetween) {
+                LifecycleTree(Modifier.size(500.dp))
+                Surface {
+                    Column {
+                        Text("Stat 1")
+                        Text("Stat 2")
+                    }
+                }
+            }
+        }
     }
 
     override fun handleInput(input: InputEvent) {

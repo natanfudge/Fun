@@ -105,6 +105,8 @@ class WorldRender(
     val rayCasting = RayCastingCache<RenderInstance>()
     var selectedObjectId: Int = -1
 
+    var selectedObject: RenderInstance? = null
+
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
 
@@ -221,6 +223,7 @@ class WorldRender(
 
         // Update selected object based on ray casting
         val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
+        selectedObject = rayCast
         selectedObjectId = rayCast?.globalId ?: -1
 
         val selectedObjectId = rayCast?.globalId?.toUInt() ?: 9999u

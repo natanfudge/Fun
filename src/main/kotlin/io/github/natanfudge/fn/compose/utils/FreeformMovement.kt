@@ -45,7 +45,7 @@ fun FreeformMovement( transform: FreeformMovementState = rememberFreeformMovemen
     CompositionLocalProvider(LocalFreeformMovementState provides transform) {
         //SLOW: replace Box with Layout
         Box(
-            modifier.fillMaxSize()
+            modifier/*.fillMaxSize()*/
                 .onPointerChangeEvent(PointerEventType.Press) {
                     // Start panning
                     prevMousePos = it.position
