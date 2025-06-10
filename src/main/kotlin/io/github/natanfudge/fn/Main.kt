@@ -1,15 +1,8 @@
 package io.github.natanfudge.fn
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,12 +14,8 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.compose.LifecycleTree
-import io.github.natanfudge.fn.core.FunApp
-import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readImage
-import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
@@ -133,47 +122,40 @@ private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
 
 val lightPos = Vec3f(4f, -4f, 4f)
 
-var id = 0
-class TestObject(context: FunContext, model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White)
-    : PhysicalFun((id++).toString(), context, model, transform, color) {
+
+
+class TestObject(app: FunPlayground, model: Model, transform: Mat4f = Mat4f.identity(), color: Color = Color.White) :
+    PhysicalFun((app.id++).toString(), app.context, model, transform, color) {
 
 }
 
-//todo: 1. Fix close button not working
-// 2. A. Remove renderInit and allow using the WorldRender from the FunApp init.
-//   B. Then, make rendering depend on app state, so new surface -> new app state. We
-// need to do this because we want to make the clientside initialization happen as a part
-// of the state initializations. Users generally don't modify the render surface so they don't really care about app state resetting upon changing the render state.
-// C. Then we need to fix PhysicalFun.
-// 3.
+//todo:
+// 2.5 Simplified reset buttons
+// 3. Object selection ui
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
 
+    var id = 0
+
     init {
         camera.bind(inputManager, context)
-    }
 
-    //TODO: passing WorldRender here is wrong  I think, it will make it hard to access it outside of renderInit which is not the intention
-    // Should just add spawn() and bind() to FunContext
-    override fun renderInit(world: WorldRender) {
         val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
 
-        val cubeModel = Model(Mesh.UnitCube())
-        val sphereModel = Model(Mesh.uvSphere())
-        val cube = world.bind(cubeModel)
-        TestObject(context, cube, Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
-        TestObject(context, cube, Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
-        TestObject(context, cube, Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
-        TestObject(context, cube, Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
-        val sphere = world.bind(sphereModel)
+        val cube = Model(Mesh.UnitCube(), "Cube")
+        val sphere = Model(Mesh.uvSphere(), "Sphere")
+        PhysicalFun(id = "foo", context, cube, Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
+        TestObject(this, cube, Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
+        TestObject(this, cube, Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
+        TestObject(this, cube, Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
 
-        val kotlinSphere = world.bind(sphereModel.copy(material = Material(texture = kotlinImage)))
+        val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
 
-        val wgpuCube = world.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
+        val wgpuCube = Model(Mesh.UnitCube(CubeUv.Grid3x2), "wgpucube", Material(wgpu4kImage))
 
-        val instance =  TestObject(context, wgpuCube,Mat4f.translation(-2f, 2f, 2f))
+        val instance = TestObject(this, wgpuCube, Mat4f.translation(-2f, 2f, 2f))
         GlobalScope.launch {
             var i = 0
             while (true) {
@@ -189,14 +171,14 @@ class FunPlayground(val context: FunContext) : FunApp {
         }
 
 
-        TestObject(context, kotlinSphere)
+        TestObject(this, kotlinSphere)
 
-//        kotlinSphere.spawn()
-        TestObject(context, sphere,Mat4f.translation(2f, 2f, 2f))
-                TestObject(context, sphere,Mat4f.translation(lightPos).scale(0.2f))
+        TestObject(this, sphere, Mat4f.translation(2f, 2f, 2f))
+        TestObject(this, sphere, Mat4f.translation(lightPos).scale(0.2f))
 
-        TestObject(context, cube,Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
+        TestObject(this, cube, Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
     }
+
 
     override fun physics(delta: Float) {
         inputManager.poll()
@@ -206,7 +188,17 @@ class FunPlayground(val context: FunContext) : FunApp {
     override fun gui() {
         MaterialTheme(darkColorScheme()) {
             Row(Modifier.fillMaxSize().background(Color.Transparent), horizontalArrangement = Arrangement.SpaceBetween) {
-                LifecycleTree(Modifier.size(500.dp))
+                Surface {
+                    Column {
+                        Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
+                            Text("Restart Render (+App)")
+                        }
+                        Button(onClick = { ProcessLifecycle.restartByLabels(setOf("App")) }) {
+                            Text("Restart App")
+                        }
+                    }
+                }
+//                LifecycleTree(Modifier.size(500.dp))
                 Surface {
                     Column {
                         Text("Stat 1")

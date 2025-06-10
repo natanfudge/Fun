@@ -3,6 +3,8 @@ package io.github.natanfudge.fn.compose
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,7 +31,7 @@ fun LifecycleTreeUi(lifecycle: Lifecycle<*, *>) {
         OutlinedButton(onClick = {
             println("Restarting lifecycle ${node.label}")
             ProcessLifecycle.restartByLabels(setOf(node.label))
-        }, shape = CircleShape) {
+        }, shape = CircleShape, colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.background)) {
             Text(node.toString(), Modifier.width(100.dp), textAlign = TextAlign.Center)
         }
     }, horizontalArrangement = Arrangement.SpaceEvenly, verticalArrangement = Arrangement.spacedBy(50.dp), lineColor = Color.White)
