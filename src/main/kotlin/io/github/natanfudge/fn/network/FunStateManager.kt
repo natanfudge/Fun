@@ -84,6 +84,9 @@ interface StateSyncPolicy {
 }
 
 interface FunStateContext {
+    companion object {
+        val IsolatedClient = FunClient.Isolated
+    }
     fun sendStateChange(
         change: StateChange
     )
@@ -141,6 +144,13 @@ class FunServer(
 }
 
 class FunClient(internal val comm: FunCommunication) : FunStateContext {
+    companion object {
+        val Isolated = FunClient(object : FunCommunication {
+            override fun send(message: NetworkValue) {
+
+            }
+        })
+    }
     override fun sendStateChange(
         change: StateChange,
     ) {

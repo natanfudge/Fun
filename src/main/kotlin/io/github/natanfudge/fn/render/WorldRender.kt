@@ -3,9 +3,9 @@ package io.github.natanfudge.fn.render
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.Physical
 import io.github.natanfudge.fn.files.Image
 import io.github.natanfudge.fn.lightPos
+import io.github.natanfudge.fn.physics.Physical
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
@@ -53,7 +53,7 @@ class BoundModel(
 
     val instanceIds = mutableListOf<Int>()
 
-    fun spawn(transform: Mat4f = Mat4f.identity(), color: Color = Color.White) = world.spawn(this, transform, color)
+    fun spawn(value: Physical, color: Color = Color.White) = world.spawn(this, value, color)
 
 
     override fun close() {
@@ -106,7 +106,7 @@ class WorldRender(
     val rayCasting = RayCastingCache<RenderInstance>()
     var selectedObjectId: Int = -1
 
-    var selectedObject: RenderInstance? = null
+    var selectedObject: Physical? = null
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
@@ -224,7 +224,7 @@ class WorldRender(
 
         // Update selected object based on ray casting
         val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
-        selectedObject = rayCast
+        selectedObject = rayCast?.value
         selectedObjectId = rayCast?.globalId ?: -1
 
         val selectedObjectId = rayCast?.globalId?.toUInt() ?: 9999u
@@ -299,7 +299,7 @@ class WorldRender(
         return bound
     }
 
-    fun <T: Physical>spawn(model: BoundModel,value: T, color: Color = Color.White): RenderInstance<T> {
+    fun spawn(model: BoundModel, value: Physical, color: Color = Color.White): RenderInstance {
         val globalId = worldInstances
         // Match the global index with the instance index
         model.instanceIds.add(globalId)
@@ -309,7 +309,7 @@ class WorldRender(
         val normalMatrix = Mat3f.normalMatrix(value.transform)
         val pointer = GPUInstance.new(instanceBuffer, value.transform, normalMatrix, color, if (model.image == null) 0 else 1)
 
-        val instance = RenderInstance(pointer, globalId, value,model, this)
+        val instance = RenderInstance(pointer, globalId, model, this, value)
         rayCasting.add(instance)
 
         return instance
@@ -335,18 +335,18 @@ class WorldRender(
 }
 
 
-class RenderInstance<T: Physical>(
+class RenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
     internal val globalId: Int,
-    val value: T,
+//    val value: T,
     private val model: BoundModel,
     @PublishedApi internal val world: WorldRender,
-    transform: Mat4f,
+    val value: Physical
 ) : Boundable {
-    private var baseAABB = getAxisAlignedBoundingBox(model.model.mesh)
-    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform)
+    //    private var baseAABB =value.baseAABB
+    override val boundingBox: AxisAlignedBoundingBox get() = value.boundingBox
 
-    val transform = transform.copy()
+//    val transform = transform.copy()
 
     var despawned = false
 
@@ -362,37 +362,37 @@ class RenderInstance<T: Physical>(
     }
 
     fun setTransform(transform: Mat4f) {
-        this.transform.set(transform)
-        _updateTransform()
-    }
-
-    /**
-     * Allows mutating the transform in-place, after which the new transform will be used.
-     */
-    inline fun setTransform(transform: (Mat4f) -> Unit) {
-        transform(this.transform)
-        _updateTransform()
-    }
-
-    @PublishedApi
-    internal fun _updateTransform() {
+//        this.transform.set(transform)
         check(!despawned) { "Attempt to transform despawned object" }
-        GPUInstance.setFirst(world.instanceBuffer, pointer, this.transform)
-        boundingBox = baseAABB.transformed(transform)
-
-
-        // LATER: might need to do something like this to update ray casting cache, for now the current approach works because there's no real BVH or smthn
-//        world.rayCasting.remove(this)
-//        world.rayCasting.add(this)
+        GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
+//        boundingBox = baseAABB.transformed(transform)
     }
 
-    /**
-     * Premultiplies the current transformation with [transform], effectively applying [transform] AFTER the current transformation.
-     */
-    fun transform(transform: Mat4f) {
-        transform.mul(this.transform, this.transform)
-        _updateTransform()
-    }
+//    /**
+//     * Allows mutating the transform in-place, after which the new transform will be used.
+//     */
+//    inline fun setTransform(transform: (Mat4f) -> Unit) {
+//        transform(this.transform)
+//        _updateTransform()
+//    }
+//
+//    @PublishedApi
+//    internal fun _updateTransform() {
+//
+//
+//
+//        // LATER: might need to do something like this to update ray casting cache, for now the current approach works because there's no real BVH or smthn
+////        world.rayCasting.remove(this)
+////        world.rayCasting.add(this)
+//    }
+//
+//    /**
+//     * Premultiplies the current transformation with [transform], effectively applying [transform] AFTER the current transformation.
+//     */
+//    fun transform(transform: Mat4f) {
+//        transform.mul(this.transform, this.transform)
+//        _updateTransform()
+//    }
 }
 
 

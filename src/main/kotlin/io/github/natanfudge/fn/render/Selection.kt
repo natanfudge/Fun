@@ -6,6 +6,7 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec2f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
+import kotlinx.serialization.Serializable
 import kotlin.math.max
 import kotlin.math.min
 
@@ -16,7 +17,7 @@ data class Ray(
 ) {
 //    val direction = (end - start)
 }
-
+@Serializable
 data class AxisAlignedBoundingBox(
     val minX: Float,
     val minY: Float,

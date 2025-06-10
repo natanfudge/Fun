@@ -47,3 +47,4 @@ jdks/
 *.log
 compose-renders/
 *.jfr
+gradle.properties

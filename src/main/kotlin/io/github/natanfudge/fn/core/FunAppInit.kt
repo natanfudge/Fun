@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
+import io.github.natanfudge.fn.network.FunStateContext
+import io.github.natanfudge.fn.physics.Physical
 import io.github.natanfudge.fn.render.BoundModel
 import io.github.natanfudge.fn.render.Camera
 import io.github.natanfudge.fn.render.FunFixedSizeWindow
@@ -101,6 +103,7 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
             FunFixedSizeWindow(it.surface, it.dimensions)
         }
 
+        // TODO: next thing is going to get appLifecycle to be bound to funSurface so we should be able to remove at least 2 hack levels.
         // This a hack to get the FunApp to run after all the other things. A better solution is pending.
         val hack1 = ProcessLifecycle.bind("hack1") {}
         val hack2 = hack1.bind("hack2"){}
@@ -111,7 +114,7 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
         val appLifecycle: Lifecycle<*, FunApp> = hack3.bind("App") {
-            initFunc(FunContext(funSurface, funDimLifecycle, compose))
+            initFunc(FunContext(funSurface, funDimLifecycle, compose, FunStateContext.IsolatedClient))
         }
         compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, app ->
             comp.setContent {
@@ -174,7 +177,7 @@ abstract class RenderBoundPhysical(val render: WorldRender, )
 //}
 
 
-class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer) {
+class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer, private val stateContext: FunStateContext): FunStateContext by stateContext {
     private val dims by dims
     private val surface by surface
 
@@ -183,7 +186,7 @@ class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSiz
     val windowWidth get() = dims.dims.width
     val windowHeight get() = dims.dims.height
 
-    val selectedObject: Physical get() = world.selectedObject
+    val selectedObject: Physical? get() = world.selectedObject
 
     fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
@@ -193,9 +196,9 @@ class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSiz
         compose.compose.windowLifecycle.assertValue.focused = focused
     }
 
-    fun spawn(model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
-        return world.spawn(model, transform, color)
-    }
+//    fun spawn(model: BoundModel, value: Physical, color: Color = Color.White): RenderInstance {
+//        return world.spawn(model, value, color)
+//    }
 
     fun bind(model: Model): BoundModel {
         return world.bind(model)

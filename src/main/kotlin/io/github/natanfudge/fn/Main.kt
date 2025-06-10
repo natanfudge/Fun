@@ -26,6 +26,8 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
+import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -131,6 +133,19 @@ private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
 
 val lightPos = Vec3f(4f, -4f, 4f)
 
+var id = 0
+class TestObject(context: FunContext, model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White)
+    : PhysicalFun((id++).toString(), context, model, transform, color) {
+
+}
+
+//todo: 1. Fix close button not working
+// 2. A. Remove renderInit and allow using the WorldRender from the FunApp init.
+//   B. Then, make rendering depend on app state, so new surface -> new app state. We
+// need to do this because we want to make the clientside initialization happen as a part
+// of the state initializations. Users generally don't modify the render surface so they don't really care about app state resetting upon changing the render state.
+// C. Then we need to fix PhysicalFun.
+// 3.
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -148,21 +163,21 @@ class FunPlayground(val context: FunContext) : FunApp {
         val cubeModel = Model(Mesh.UnitCube())
         val sphereModel = Model(Mesh.uvSphere())
         val cube = world.bind(cubeModel)
-        cube.spawn(Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
-        cube.spawn(Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
-        cube.spawn(Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
-        cube.spawn(Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
+        TestObject(context, cube, Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
+        TestObject(context, cube, Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
+        TestObject(context, cube, Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
+        TestObject(context, cube, Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
         val sphere = world.bind(sphereModel)
 
         val kotlinSphere = world.bind(sphereModel.copy(material = Material(texture = kotlinImage)))
 
         val wgpuCube = world.bind(Model(Mesh.UnitCube(CubeUv.Grid3x2), Material(wgpu4kImage)))
 
-        val instance = wgpuCube.spawn(Mat4f.translation(-2f, 2f, 2f))
+        val instance =  TestObject(context, wgpuCube,Mat4f.translation(-2f, 2f, 2f))
         GlobalScope.launch {
             var i = 0
             while (true) {
-                instance.setTransform(instance.transform.scaleInPlace(1.01f))
+                instance.transform = instance.transform.scaleInPlace(1.01f)
 
                 if (i == 400) {
                     instance.despawn()
@@ -174,11 +189,13 @@ class FunPlayground(val context: FunContext) : FunApp {
         }
 
 
-        kotlinSphere.spawn()
-        sphere.spawn(Mat4f.translation(2f, 2f, 2f))
-        sphere.spawn(Mat4f.translation(lightPos).scale(0.2f))
+        TestObject(context, kotlinSphere)
 
-        cube.spawn(Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
+//        kotlinSphere.spawn()
+        TestObject(context, sphere,Mat4f.translation(2f, 2f, 2f))
+                TestObject(context, sphere,Mat4f.translation(lightPos).scale(0.2f))
+
+        TestObject(context, cube,Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
     }
 
     override fun physics(delta: Float) {
