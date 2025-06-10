@@ -3,12 +3,10 @@ package io.github.natanfudge.fn.test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunContext
-import io.github.natanfudge.fn.network.FunStateManager
+import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funList
 import kotlinx.serialization.serializer
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
@@ -193,7 +191,7 @@ class FunListTest {
  */
 class GameInventory(
     id: String,
-    client: FunContext
+    client: FunStateContext
 ) : Fun(id, client) {
     // List of items in the inventory
     val items = funList<String>("items", serializer(), mutableListOf())
@@ -204,7 +202,7 @@ class GameInventory(
  */
 class GameInventoryWithInitialItems(
     id: String,
-    client: FunContext
+    client: FunStateContext
 ) : Fun(id, client) {
     // List of initial items in the inventory
     val initialItems = funList("initialItems", "Sword", "Shield", "Potion")

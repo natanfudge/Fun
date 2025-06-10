@@ -1,12 +1,10 @@
 package io.github.natanfudge.fn.test
 
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunContext
-import io.github.natanfudge.fn.network.FunStateManager
+import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funSet
 import kotlinx.serialization.serializer
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -153,7 +151,7 @@ class FunSetTest {
  */
 class ItemCollection(
     id: String,
-    client: FunContext
+    client: FunStateContext
 ) : Fun(id, client) {
     // Set of items in the collection
     val items = funSet<String>("items", serializer(), mutableSetOf())
@@ -164,7 +162,7 @@ class ItemCollection(
  */
 class ItemCollectionWithInitialItems(
     id: String,
-    client: FunContext
+    client: FunStateContext
 ) : Fun(id, client) {
     // Set of initial items in the collection
     val initialItems = funSet("initialItems", "Sword", "Shield", "Potion")

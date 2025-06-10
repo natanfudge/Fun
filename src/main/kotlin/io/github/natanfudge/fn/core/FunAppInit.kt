@@ -4,21 +4,26 @@ package io.github.natanfudge.fn.core
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
+import io.github.natanfudge.fn.render.BoundModel
 import io.github.natanfudge.fn.render.Camera
 import io.github.natanfudge.fn.render.FunFixedSizeWindow
 import io.github.natanfudge.fn.render.FunSurface
+import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.RenderInstance
 import io.github.natanfudge.fn.render.WorldRender
 import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
+import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -159,16 +164,41 @@ interface FunApp : AutoCloseable {
 }
 
 
-class FunContext(private val surface: Lifecycle<*, FunSurface>, private val dims: Lifecycle<*, FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer) {
-    val windowWidth get() = dims.assertValue.dims.width
-    val windowHeight get() = dims.assertValue.dims.height
+
+abstract class RenderBoundPhysical(val render: WorldRender, )
+
+//abstract class BasePhysical(override var transform: Mat4f, private var baseAABB: Mat4f): Physical {
+//    override var baseAABB: Mat4f
+//        get() = TODO("Not yet implemented")
+//        set(value) {}
+//}
+
+
+class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer) {
+    private val dims by dims
+    private val surface by surface
+
+    private val world get() = surface.world
+
+    val windowWidth get() = dims.dims.width
+    val windowHeight get() = dims.dims.height
+
+    val selectedObject: Physical get() = world.selectedObject
 
     fun setCursorLocked(locked: Boolean) {
-        surface.assertValue.ctx.window.cursorLocked = locked
+        surface.ctx.window.cursorLocked = locked
     }
 
     fun setGUIFocused(focused: Boolean) {
         compose.compose.windowLifecycle.assertValue.focused = focused
+    }
+
+    fun spawn(model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
+        return world.spawn(model, transform, color)
+    }
+
+    fun bind(model: Model): BoundModel {
+        return world.bind(model)
     }
 
 

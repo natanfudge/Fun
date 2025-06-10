@@ -83,7 +83,7 @@ interface StateSyncPolicy {
     }
 }
 
-interface FunContext {
+interface FunStateContext {
     fun sendStateChange(
         change: StateChange
     )
@@ -106,7 +106,7 @@ data class SerializableValue<T>(
 
 
 // LOWPRIO: policy should not have a default
-fun FunContext.sendStateChange(key: StateKey, value: StateChangeValue, policy: StateSyncPolicy = StateSyncPolicy.KnownToAll) {
+fun FunStateContext.sendStateChange(key: StateKey, value: StateChangeValue, policy: StateSyncPolicy = StateSyncPolicy.KnownToAll) {
     sendStateChange(StateChange(key, value, policy))
 }
 
@@ -118,7 +118,7 @@ class FunServer(
     private val synchronousUpdates: Boolean,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
     private val sendFunc: suspend (List<StateChange>) -> Unit,
-) : FunContext {
+) : FunStateContext {
     override val stateManager: FunStateManager = FunStateManager()
     override fun sendStateChange(
         change: StateChange,
@@ -140,7 +140,7 @@ class FunServer(
     }
 }
 
-class FunClient(internal val comm: FunCommunication) : FunContext {
+class FunClient(internal val comm: FunCommunication) : FunStateContext {
     override fun sendStateChange(
         change: StateChange,
     ) {

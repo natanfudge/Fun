@@ -1,11 +1,9 @@
 package io.github.natanfudge.fn.test.example.network.state
 
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunContext
-import io.github.natanfudge.fn.network.FunStateManager
+import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funList
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -14,7 +12,7 @@ class StateFunListExamples {
     @Test
     fun funListExample() {
         // Create a class that extends Fun and has a synchronized list
-        class ChatRoom(id: String, client: FunContext) : Fun(id, client) {
+        class ChatRoom(id: String, client: FunStateContext) : Fun(id, client) {
             val messages = funList<String>("messages", "Welcome to the chat!")
         }
 

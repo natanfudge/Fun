@@ -1,11 +1,9 @@
 package io.github.natanfudge.fn.test.example.network.state
 
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunContext
-import io.github.natanfudge.fn.network.FunStateManager
+import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funSet
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -20,7 +18,7 @@ class StateFunSetExamples {
     @Test
     fun funSetExample() {
         // Create a class that extends Fun and has a synchronized set
-        class Room(id: String, client: FunContext) : Fun(id, client) {
+        class Room(id: String, client: FunStateContext) : Fun(id, client) {
             val activeUsers = funSet<String>("activeUsers", "Admin")
         }
 

@@ -16,10 +16,12 @@ abstract class Fun(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-    val id: String,
-    val context: FunContext,
+    val id: FunId,
+    val context: FunStateContext,
 ) {
     init {
         context.stateManager.register(this, MapStateHolder())
     }
 }
+
+typealias FunId = String

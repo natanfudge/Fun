@@ -2,10 +2,9 @@ package io.github.natanfudge.fn.test.example.network.state
 
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunContext
+import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.LocalMultiplayer
 import io.github.natanfudge.fn.network.state.funValue
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import kotlin.test.assertEquals
@@ -14,7 +13,7 @@ class StateFunValueExamples {
     @Test
     fun funValueExample() {
         // Create a class that extends Fun and has a synchronized property using funValue
-        class Player(id: String, client: FunContext) : Fun(id, client) {
+        class Player(id: String, client: FunStateContext) : Fun(id, client) {
             var health by funValue(100)
             var name by funValue("Player")
         }
@@ -51,7 +50,7 @@ class StateFunValueExamples {
     @Test
     fun testNewApproach() {
         // Create a class that extends Fun and has a synchronized property using funValue
-        class Player(id: String, client: FunContext) : Fun(id, client) {
+        class Player(id: String, client: FunStateContext) : Fun(id, client) {
             var mana by funValue(100)
             var hp by funValue(50)
         }

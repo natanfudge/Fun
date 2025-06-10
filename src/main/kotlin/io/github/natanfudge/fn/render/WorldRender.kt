@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.render
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.core.Physical
 import io.github.natanfudge.fn.files.Image
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.util.closeAll
@@ -298,17 +299,17 @@ class WorldRender(
         return bound
     }
 
-    fun spawn(model: BoundModel, transform: Mat4f = Mat4f.identity(), color: Color = Color.White): RenderInstance {
+    fun <T: Physical>spawn(model: BoundModel,value: T, color: Color = Color.White): RenderInstance<T> {
         val globalId = worldInstances
         // Match the global index with the instance index
         model.instanceIds.add(globalId)
         worldInstances++
 
         // SLOW: should reconsider passing normal matrices always
-        val normalMatrix = Mat3f.normalMatrix(transform)
-        val pointer = GPUInstance.new(instanceBuffer, transform, normalMatrix, color, if (model.image == null) 0 else 1)
+        val normalMatrix = Mat3f.normalMatrix(value.transform)
+        val pointer = GPUInstance.new(instanceBuffer, value.transform, normalMatrix, color, if (model.image == null) 0 else 1)
 
-        val instance = RenderInstance(pointer, globalId, model, this, transform)
+        val instance = RenderInstance(pointer, globalId, value,model, this)
         rayCasting.add(instance)
 
         return instance
@@ -334,15 +335,16 @@ class WorldRender(
 }
 
 
-class RenderInstance(
+class RenderInstance<T: Physical>(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
     internal val globalId: Int,
+    val value: T,
     private val model: BoundModel,
     @PublishedApi internal val world: WorldRender,
     transform: Mat4f,
 ) : Boundable {
     private var baseAABB = getAxisAlignedBoundingBox(model.model.mesh)
-    override var boundingBox: AABoundingBox = baseAABB.transformed(transform)
+    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform)
 
     val transform = transform.copy()
 

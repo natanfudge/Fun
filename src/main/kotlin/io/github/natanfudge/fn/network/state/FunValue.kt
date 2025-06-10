@@ -18,7 +18,7 @@ import kotlin.reflect.KProperty
  * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
  * @see Fun
  */
-inline fun <reified T> funValue(value: T): FunValue<T> = FunValue(value, serializer())
+inline fun <reified T> funValue(value: T, noinline onSetValue: (T) -> Unit = {}): FunValue<T> = FunValue(value, serializer(), onSetValue)
 
 /**
  * A property delegate that synchronizes its value across all clients in a multiplayer environment.
@@ -29,7 +29,7 @@ inline fun <reified T> funValue(value: T): FunValue<T> = FunValue(value, seriali
  * @see funValue
  * @see Fun
  */
-class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) : KoinComponent,
+class FunValue<T>(private var value: T, private val serializer: KSerializer<T>, private val onSetValue: (T) -> Unit) : KoinComponent,
     ReadWriteProperty<Fun, T>, FunState {
     private var registered: Boolean = false
 
@@ -42,7 +42,6 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
     override fun applyChange(change: StateChangeValue) {
         require(change is StateChangeValue.SetProperty)
         this.value = change.value.decode(serializer)
-        val x = 2
     }
 
     /**
@@ -75,6 +74,7 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>) 
      * On first access, the property is registered with the client.
      */
     override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
+        onSetValue(value)
         if (!registered) {
             registered = true
             thisRef.context.stateManager.registerState(

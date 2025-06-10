@@ -17,7 +17,7 @@ data class Ray(
 //    val direction = (end - start)
 }
 
-data class AABoundingBox(
+data class AxisAlignedBoundingBox(
     val minX: Float,
     val minY: Float,
     val minZ: Float,
@@ -25,7 +25,14 @@ data class AABoundingBox(
     val maxY: Float,
     val maxZ: Float,
 ) {
-    fun transformed(mat: Mat4f): AABoundingBox {
+    companion object {
+        val UnitAABB = AxisAlignedBoundingBox(
+            -0.5f,-0.5f,-0.5f,
+            0.5f,0.5f,0.5f,
+        )
+    }
+
+    fun transformed(mat: Mat4f): AxisAlignedBoundingBox {
         // helper to track the new extrema
         var nxMin = Float.POSITIVE_INFINITY
         var nyMin = Float.POSITIVE_INFINITY
@@ -67,14 +74,14 @@ data class AABoundingBox(
             }
         }
 
-        return AABoundingBox(
+        return AxisAlignedBoundingBox(
             minX = nxMin, minY = nyMin, minZ = nzMin,
             maxX = nxMax, maxY = nyMax, maxZ = nzMax
         )
     }
 }
 
-fun getAxisAlignedBoundingBox(mesh: Mesh): AABoundingBox {
+fun getAxisAlignedBoundingBox(mesh: Mesh): AxisAlignedBoundingBox {
     require(mesh.indices.size != 0)
     var minX = Float.MAX_VALUE
     var minY = Float.MAX_VALUE
@@ -91,11 +98,11 @@ fun getAxisAlignedBoundingBox(mesh: Mesh): AABoundingBox {
         maxY = max(maxY, it.y)
         maxZ = max(maxZ, it.z)
     }
-    return AABoundingBox(minX, minY, minZ, maxX, maxY, maxZ)
+    return AxisAlignedBoundingBox(minX, minY, minZ, maxX, maxY, maxZ)
 }
 
 interface Boundable {
-    val boundingBox: AABoundingBox
+    val boundingBox: AxisAlignedBoundingBox
 }
 
 //class RCObject<T: Boundable>(
@@ -154,7 +161,7 @@ class RayCastingCache<T: Boundable> {
      *      *              <i>t</i> in the ray equation <i>p(t) = origin + t * dir</i> of the near and far point of intersection
      *      *              iff the ray intersects the axis-aligned box
      */
-    private fun intersectRayAab(origin: Vec3f, dir: Vec3f, aabb: AABoundingBox, result: Vec2f): Boolean {
+    private fun intersectRayAab(origin: Vec3f, dir: Vec3f, aabb: AxisAlignedBoundingBox, result: Vec2f): Boolean {
         val minX = aabb.minX
         val maxX = aabb.maxX
         val minY = aabb.minY

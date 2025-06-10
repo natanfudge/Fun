@@ -5,6 +5,8 @@ package io.github.natanfudge.fn.util
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.webgpu.AutoClose
 import io.github.natanfudge.fn.webgpu.AutoCloseImpl
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
 import kotlin.time.TimeSource
 
 /**
@@ -18,6 +20,27 @@ class LifecycleContext<P : Any, T : Any>(val thisLifecycle: Lifecycle<P, T>) : A
 
 //TOdo: CLEAR this when unbinding
 private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*, *>>()
+
+interface ValueHolder<T>: ReadOnlyProperty<Any?,T> {
+    /**
+     * Returns the current value of this, throwing an error if it hasn't been initialized.
+     *
+     * Use this property when you're certain the lifecycle has been started. If you're not sure,
+     * use [value] which returns null for uninitialized lifecycles.
+     *
+     * @throws IllegalStateException if the lifecycle hasn't been initialized
+     */
+    val assertValue: T
+
+    /**
+     * Returns the current value of this, or null if it hasn't been initialized.
+     */
+    val value: T?
+
+    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return assertValue
+    }
+}
 
 
 /**
@@ -36,7 +59,7 @@ private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*, *>>()
  * [P] is the type of the parent(s) of this lifecycle, and [T] is the type of the root of this lifecycle.
  * Note that we don't do `Lifecycle<P,T> = MutableTree<P,T>` because that would signify everything is `<P,T>` all the way down, which is not true.
  */
-class Lifecycle<P : Any, T : Any> private constructor(internal val tree: LifecycleTree) {
+class Lifecycle<P : Any, T : Any> private constructor(internal val tree: LifecycleTree): ValueHolder<T> {
     companion object {
         /**
          * Creates a new lifecycle with the specified start and stop functions.
@@ -511,12 +534,12 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      *
      * @throws IllegalStateException if the lifecycle hasn't been initialized
      */
-    val assertValue: T get() = tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
+    override val assertValue: T get() = tree.value.selfState as T? ?: error("Attempt to get state of '${tree.value.label}' before it was initialized")
 
     /**
      * Returns the current value of this lifecycle, or null if the lifecycle hasn't been initialized.
      */
-    val value: T? get() = tree.value.selfState as T?
+    override val value: T? get() = tree.value.selfState as T?
 
     /**
      * Copies the state of [lifecycles] into the children lifecycles of `this`.
