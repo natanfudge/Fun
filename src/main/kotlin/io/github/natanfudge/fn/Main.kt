@@ -139,13 +139,16 @@ class TestObject(context: FunContext, model: BoundModel, transform: Mat4f = Mat4
 
 }
 
-//todo: 1. Fix close button not working
+//todo:
+// 1. fix Exception in thread "DefaultDispatcher-worker-3 @coroutine#913" io.github.natanfudge.fn.error.UnallowedFunException: This state was declared to be synchronized, so it should only be updated in a ServerLike context.
+// 1.5 more intuitive reset buttons
 // 2. A. Remove renderInit and allow using the WorldRender from the FunApp init.
 //   B. Then, make rendering depend on app state, so new surface -> new app state. We
 // need to do this because we want to make the clientside initialization happen as a part
 // of the state initializations. Users generally don't modify the render surface so they don't really care about app state resetting upon changing the render state.
 // C. Then we need to fix PhysicalFun.
-// 3.
+// 3.See if can get the normal hot reload agent + reload stuff going together with runHot
+// 4. Test if resetting app state doesn't blow up everything. 
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()

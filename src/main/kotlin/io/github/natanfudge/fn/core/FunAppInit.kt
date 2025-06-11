@@ -30,6 +30,7 @@ import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.system.exitProcess
 
 
 val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
@@ -86,6 +87,7 @@ private fun run(app: BaseFunApp<*>) {
         }
     }
     loop.loop()
+    exitProcess(0)
 }
 
 private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
