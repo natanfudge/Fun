@@ -191,6 +191,9 @@ class FunList<T> @PublishedApi internal constructor(
         }
     }
 
+    override val value: Any?
+        get() = _items
+
     override val size: Int
         get() = _items.size
 

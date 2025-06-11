@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.network
 
+import androidx.compose.runtime.mutableStateMapOf
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.network.state.*
@@ -210,7 +211,9 @@ class FunStateManager(
 //    val name: String = "FunStateManager",
 ) {
 
-    internal val stateHolders = mutableMapOf<String, MapStateHolder>()
+    internal val stateHolders = mutableStateMapOf<FunId, MapStateHolder>()
+
+    fun getState(id: FunId): FunStateHolder? = stateHolders[id]
 
     /**
      * Receives a state update from another client and applies it to the appropriate state holder.
@@ -219,7 +222,6 @@ class FunStateManager(
 
 
 
-    // SLOW: I should note there is no concept of "destroying" objects in our engine, when that happens we need to both destroy the gpu state and the statemanager state.
     /**
      * Registers a Fun component with this client, allowing it to send and receive state updates.
      */
@@ -230,9 +232,9 @@ class FunStateManager(
         stateHolders[fn.id] = state
     }
 
-//    internal fun unregister(fn: Fun) {
-//        stateHolders.remove(fn.id)
-//    }
+    internal fun unregister(fn: Fun) {
+        stateHolders.remove(fn.id)
+    }
 
     /**
      * Sets the value of [state] to the pending value if it exists.

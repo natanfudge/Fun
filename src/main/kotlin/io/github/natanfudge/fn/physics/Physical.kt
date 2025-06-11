@@ -6,7 +6,6 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
-import io.github.natanfudge.fn.render.BoundModel
 import io.github.natanfudge.fn.render.Boundable
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.getAxisAlignedBoundingBox
@@ -43,7 +42,9 @@ open class PhysicalFun(
     }
     val renderInstance = context.getOrBindModel(model).getOrSpawn(id, this, color)
 
-    fun despawn() {
+
+    override fun close() {
+        super.close()
         renderInstance.despawn()
     }
 }

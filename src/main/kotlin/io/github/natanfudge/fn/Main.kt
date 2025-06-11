@@ -12,10 +12,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.unit.dp
-import io.github.natanfudge.fn.compose.LifecycleTree
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readImage
+import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
@@ -130,7 +129,6 @@ class TestObject(app: FunPlayground, model: Model, transform: Mat4f = Mat4f.iden
 }
 
 //todo:
-// 2.5 Simplified reset buttons
 // 3. Object selection ui
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
@@ -162,7 +160,7 @@ class FunPlayground(val context: FunContext) : FunApp {
                 instance.transform = instance.transform.scaleInPlace(1.01f)
 
                 if (i == 400) {
-                    instance.despawn()
+                    instance.close()
                     break
                 }
                 delay(10)
@@ -201,8 +199,17 @@ class FunPlayground(val context: FunContext) : FunApp {
 //                LifecycleTree(Modifier.size(500.dp))
                 Surface {
                     Column {
-                        Text("Stat 1")
-                        Text("Stat 2")
+                        val selected = context.selectedObject
+                        if(selected is Fun) {
+                            val values = context.stateManager.getState(selected.id)
+                            if(values != null) {
+                                for((key, value) in values.getCurrentState()) {
+                                    Text("$key: $value")
+                                }
+                            }
+
+                        }
+
                     }
                 }
             }

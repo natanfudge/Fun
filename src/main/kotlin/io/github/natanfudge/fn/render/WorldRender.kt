@@ -1,5 +1,8 @@
 package io.github.natanfudge.fn.render
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
@@ -115,7 +118,7 @@ class WorldRender(
     val rayCasting = RayCastingCache<RenderInstance>()
     var selectedObjectId: Int = -1
 
-    var selectedObject: Physical? = null
+    var selectedObject: Physical? by mutableStateOf(null)
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)

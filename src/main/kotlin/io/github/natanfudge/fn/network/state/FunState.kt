@@ -90,6 +90,10 @@ internal class MapStateHolder : FunStateHolder {
         }
     }
 
+    override fun getCurrentState(): Map<String, Any?> {
+        return map.mapValues { it.value.value }
+    }
+
 
     /**
      * Registers a state property with this holder.
@@ -132,6 +136,8 @@ interface FunStateHolder {
      * [change] The state change to apply
      */
     fun applyChange(key: String, change: StateChangeValue)
+
+    fun getCurrentState(): Map<String, Any?>
 }
 
 
@@ -189,6 +195,8 @@ sealed interface FunState {
      */
     @InternalFunApi
     fun applyChange(change: StateChangeValue)
+
+    val value: Any?
 }
 
 

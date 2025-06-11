@@ -164,7 +164,8 @@ abstract class RenderBoundPhysical(val render: WorldRender, )
 //}
 
 
-class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer, private val stateContext: FunStateContext): FunStateContext by stateContext {
+class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
+                 private val stateContext: FunStateContext): FunStateContext by stateContext {
     private val dims by dims
 //    private val surface by surface
 
