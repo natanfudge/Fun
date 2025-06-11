@@ -18,9 +18,13 @@ abstract class Fun(
      */
     val id: FunId,
     val context: FunStateContext,
-) {
+): AutoCloseable {
     init {
         context.stateManager.register(this, MapStateHolder())
+    }
+
+    override fun close() {
+        context.stateManager.unregister(this)
     }
 }
 

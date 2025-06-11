@@ -133,7 +133,7 @@ fun WebGPUWindow.bindFunLifecycles(
 
     val appSurface = funSurface.bind(appLifecycle, "App<->Surface Binding") { surface, app ->
         surface.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
-        app.renderInit(surface.world)
+//        app.renderInit(surface.world)
         AppSurfaceBinding(app,surface)
     }
 

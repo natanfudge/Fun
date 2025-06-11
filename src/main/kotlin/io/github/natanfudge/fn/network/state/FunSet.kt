@@ -66,6 +66,9 @@ class FunSet<T> @PublishedApi internal constructor(
     private val owner: Fun,
     private val serializer: KSerializer<T>,
 ) : MutableSet<T>, FunState {
+
+    override val value: Any?
+        get() = _items
     
     private val key = StateKey(owner.id, name)
 

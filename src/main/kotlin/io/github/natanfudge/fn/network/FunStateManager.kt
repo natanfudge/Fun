@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.network
 
+import androidx.compose.runtime.mutableStateMapOf
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.error.UnfunStateException
 import io.github.natanfudge.fn.network.state.*
@@ -85,7 +86,7 @@ interface StateSyncPolicy {
 
 interface FunStateContext {
     companion object {
-        val IsolatedClient = FunClient.Isolated
+        fun isolatedClient() = FunClient.isolated()
     }
     fun sendStateChange(
         change: StateChange
@@ -145,7 +146,7 @@ class FunServer(
 
 class FunClient(internal val comm: FunCommunication) : FunStateContext {
     companion object {
-        val Isolated = FunClient(object : FunCommunication {
+        fun isolated() = FunClient(object : FunCommunication {
             override fun send(message: NetworkValue) {
 
             }
@@ -154,7 +155,8 @@ class FunClient(internal val comm: FunCommunication) : FunStateContext {
     override fun sendStateChange(
         change: StateChange,
     ) {
-        throw UnallowedFunException("This state was declared to be synchronized, so it should only be updated in a ServerLike context.")
+        // SUS: clients should not be sending state changes
+//        throw UnallowedFunException("This state was declared to be synchronized, so it should only be updated in a ServerLike context.")
     }
 
     //LOWPRIO: I'm not sure how to strcture the client/server interacctions. I need to see a game in action with the engine first to see how things will go.
@@ -209,7 +211,9 @@ class FunStateManager(
 //    val name: String = "FunStateManager",
 ) {
 
-    internal val stateHolders = mutableMapOf<String, MapStateHolder>()
+    internal val stateHolders = mutableStateMapOf<FunId, MapStateHolder>()
+
+    fun getState(id: FunId): FunStateHolder? = stateHolders[id]
 
     /**
      * Receives a state update from another client and applies it to the appropriate state holder.
@@ -226,6 +230,10 @@ class FunStateManager(
             throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give Fun components unique IDs. ")
         }
         stateHolders[fn.id] = state
+    }
+
+    internal fun unregister(fn: Fun) {
+        stateHolders.remove(fn.id)
     }
 
     /**

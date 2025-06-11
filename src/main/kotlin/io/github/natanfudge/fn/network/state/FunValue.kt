@@ -29,9 +29,12 @@ inline fun <reified T> funValue(value: T, noinline onSetValue: (T) -> Unit = {})
  * @see funValue
  * @see Fun
  */
-class FunValue<T>(private var value: T, private val serializer: KSerializer<T>, private val onSetValue: (T) -> Unit) : KoinComponent,
+class FunValue<T>(private var _value: T, private val serializer: KSerializer<T>, private val onSetValue: (T) -> Unit) : KoinComponent,
     ReadWriteProperty<Fun, T>, FunState {
     private var registered: Boolean = false
+
+    override val value: Any?
+        get() = _value
 
 
     override fun toString(): String {
@@ -41,7 +44,7 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>, 
     @InternalFunApi
     override fun applyChange(change: StateChangeValue) {
         require(change is StateChangeValue.SetProperty)
-        this.value = change.value.decode(serializer)
+        this._value = change.value.decode(serializer)
     }
 
     /**
@@ -65,7 +68,7 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>, 
             )
         }
 
-        return value
+        return _value
     }
 
     /**
@@ -89,6 +92,6 @@ class FunValue<T>(private var value: T, private val serializer: KSerializer<T>, 
             StateChangeValue.SetProperty(value.toNetwork(serializer)),
         )
 
-        this.value = value
+        this._value = value
     }
 }

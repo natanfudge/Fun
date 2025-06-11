@@ -4,7 +4,6 @@ package io.github.natanfudge.fn.core
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
@@ -17,7 +16,6 @@ import io.github.natanfudge.fn.render.Camera
 import io.github.natanfudge.fn.render.FunFixedSizeWindow
 import io.github.natanfudge.fn.render.FunSurface
 import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.RenderInstance
 import io.github.natanfudge.fn.render.WorldRender
 import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
@@ -25,7 +23,6 @@ import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
-import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -62,6 +59,7 @@ private fun run(app: BaseFunApp<*>) {
 
         loop.locked = true
     }
+
 
 
     FunHotReload.reloadEnded.listen {
@@ -105,18 +103,11 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
             FunFixedSizeWindow(it.surface, it.dimensions)
         }
 
-        // TODO: next thing is going to get appLifecycle to be bound to funSurface so we should be able to remove at least 2 hack levels.
-        // This a hack to get the FunApp to run after all the other things. A better solution is pending.
-        val hack1 = ProcessLifecycle.bind("hack1") {}
-        val hack2 = hack1.bind("hack2"){}
-        val hack3 = hack2.bind("hack3"){}
-
-
         fsWatcher = FileSystemWatcher()
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
-        val appLifecycle: Lifecycle<*, FunApp> = hack3.bind("App") {
-            initFunc(FunContext(funSurface, funDimLifecycle, compose, FunStateContext.IsolatedClient))
+        val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind("App") {
+            initFunc(FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient()))
         }
         compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, app ->
             comp.setContent {
@@ -137,10 +128,6 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 
 
 interface FunApp : AutoCloseable {
-
-    fun renderInit(world: WorldRender) {
-
-    }
 
     @Composable
     fun gui() {
@@ -179,9 +166,10 @@ abstract class RenderBoundPhysical(val render: WorldRender, )
 //}
 
 
-class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer, private val stateContext: FunStateContext): FunStateContext by stateContext {
+class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
+                 private val stateContext: FunStateContext): FunStateContext by stateContext {
     private val dims by dims
-    private val surface by surface
+//    private val surface by surface
 
     private val world get() = surface.world
 
@@ -202,9 +190,17 @@ class FunContext(surface: ValueHolder<FunSurface>, dims: ValueHolder<FunFixedSiz
 //        return world.spawn(model, value, color)
 //    }
 
-    fun bind(model: Model): BoundModel {
-        return world.bind(model)
-    }
+//    fun bind(model: Model): BoundModel {
+//        return world.bind(model)
+//    }
+
+    /**
+     * Used to access the BoundModel, only creating it when needing
+     */
+    fun getOrBindModel(model: Model): BoundModel  = world.getOrBindModel(model)
+
+//    fun getOrSpawnInstance()
+
 
 
 }

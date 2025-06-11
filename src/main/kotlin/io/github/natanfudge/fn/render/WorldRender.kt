@@ -1,10 +1,14 @@
 package io.github.natanfudge.fn.render
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.files.Image
 import io.github.natanfudge.fn.lightPos
+import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.physics.Physical
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
@@ -15,8 +19,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 
 
-//TODO: 1. Screen-space picking
-// 2.
+
 /**
  * Stores GPU information about all instances of a [Model].
  */
@@ -51,9 +54,18 @@ class BoundModel(
 
     val textureView = texture.createView()
 
-    val instanceIds = mutableListOf<Int>()
+    val instances = mutableMapOf<FunId, RenderInstance>()
 
-    fun spawn(value: Physical, color: Color = Color.White) = world.spawn(this, value, color)
+//    val instanceIds = mutableListOf<Int>()
+
+//    private fun spawn(value: Physical, color: Color = Color.White): RenderInstance =
+
+
+    fun getOrSpawn(id: FunId, value: Physical, color: Color = Color.White): RenderInstance {
+        return instances.computeIfAbsent(id) {
+            world.spawn(id, this, value, color)
+        }
+    }
 
 
     override fun close() {
@@ -106,7 +118,7 @@ class WorldRender(
     val rayCasting = RayCastingCache<RenderInstance>()
     var selectedObjectId: Int = -1
 
-    var selectedObject: Physical? = null
+    var selectedObject: Physical? by mutableStateOf(null)
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
@@ -118,7 +130,9 @@ class WorldRender(
      * to its correct location in the instance buffer.
      */
     val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, expandable = false, GPUBufferUsage.Storage)
-    val models = mutableListOf<BoundModel>()
+
+    //    val models = mutableListOf<BoundModel>()
+    val models = mutableMapOf<ModelId, BoundModel>()
 
     //    var bindGroup =
     val modelBindGroups = mutableListOf<GPUBindGroup>()
@@ -146,7 +160,7 @@ class WorldRender(
         modelBindGroups.clear()
         modelBindGroups.addAll(
             models.map {
-                createModelBindGroup(pipeline, it)
+                createModelBindGroup(pipeline, it.value)
             }
         )
     }
@@ -225,9 +239,9 @@ class WorldRender(
         // Update selected object based on ray casting
         val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
         selectedObject = rayCast?.value
-        selectedObjectId = rayCast?.globalId ?: -1
+        selectedObjectId = rayCast?.renderId ?: -1
 
-        val selectedObjectId = rayCast?.globalId?.toUInt() ?: 9999u
+        val selectedObjectId = rayCast?.renderId?.toUInt() ?: 9999u
         val uniform = WorldUniform(
             viewProjection, camera.position, lightPos,
             dimensions.dims.width.toUInt(), dimensions.dims.height.toUInt(),
@@ -266,9 +280,9 @@ class WorldRender(
         pass.setIndexBuffer(indexBuffer.buffer, GPUIndexFormat.Uint32)
 
         var instanceIndex = 0u
-        for ((i, model) in models.withIndex()) {
+        for ((i, model) in models.values.withIndex()) {
             pass.setBindGroup(1u, modelBindGroups[i])
-            val instances = model.instanceIds.size.toUInt()
+            val instances = model.instances.size.toUInt()
             pass.drawIndexed(
                 model.model.mesh.indexCount,
                 instanceCount = instances,
@@ -281,7 +295,12 @@ class WorldRender(
         pass.end()
     }
 
-    fun bind(model: Model): BoundModel {
+    fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
+
+    /**
+     * Note: [models] is updated by [getOrBindModel]
+     */
+    private fun bind(model: Model): BoundModel {
         val vertexPointer = vertexBuffer.new(model.mesh.vertices.array)
         val indexPointer = indexBuffer.new(model.mesh.indices.array)
         val bound = BoundModel(
@@ -295,21 +314,25 @@ class WorldRender(
             // If pipeline is null, the modelBindGroups will be built once it is not null
             modelBindGroups.add(createModelBindGroup(pipeline!!, bound))
         }
-        models.add(bound)
+//        models[model.id] = bound
         return bound
     }
 
-    fun spawn(model: BoundModel, value: Physical, color: Color = Color.White): RenderInstance {
+    /**
+     * Note: `model.instances` is updated by [BoundModel.getOrSpawn]
+     */
+    fun spawn(id: FunId, model: BoundModel, value: Physical, color: Color = Color.White): RenderInstance {
         val globalId = worldInstances
         // Match the global index with the instance index
-        model.instanceIds.add(globalId)
+//        model.instanceIds.add(globalId)
         worldInstances++
 
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(value.transform)
         val pointer = GPUInstance.new(instanceBuffer, value.transform, normalMatrix, color, if (model.image == null) 0 else 1)
 
-        val instance = RenderInstance(pointer, globalId, model, this, value)
+        val instance = RenderInstance(pointer, globalId, id, model, this, value)
+//        model.instances[id] = instance
         rayCasting.add(instance)
 
         return instance
@@ -320,8 +343,8 @@ class WorldRender(
         var globalI = 0
         for (model in models) {
             // For each model we have a contiguous block of pointers to the instance index
-            for (instance in model.instanceIds) {
-                indices[globalI++] = instance
+            for (instance in model.value.instances) {
+                indices[globalI++] = instance.value.renderId
             }
         }
         instanceIndexBuffer.write(indices)
@@ -330,18 +353,19 @@ class WorldRender(
     override fun close() {
         closeAll(vertexBuffer, indexBuffer, instanceBuffer, instanceIndexBuffer, uniformBuffer)
         modelBindGroups.forEach { it.close() }
-        models.forEach { it.close() }
+        models.forEach { it.value.close() }
     }
 }
 
 
 class RenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
-    internal val globalId: Int,
+    internal val renderId: Int,
+    val funId: FunId,
 //    val value: T,
     private val model: BoundModel,
     @PublishedApi internal val world: WorldRender,
-    val value: Physical
+    val value: Physical,
 ) : Boundable {
     //    private var baseAABB =value.baseAABB
     override val boundingBox: AxisAlignedBoundingBox get() = value.boundingBox
@@ -355,7 +379,7 @@ class RenderInstance(
      * After despawning, attempting to transform this instance will fail.
      */
     fun despawn() {
-        model.instanceIds.remove(globalId)
+        model.instances.remove(funId)
         world.instanceBuffer.free(pointer, GPUInstance.size)
         world.rayCasting.remove(this)
         despawned = true
@@ -396,7 +420,10 @@ class RenderInstance(
 }
 
 
-data class Model(val mesh: Mesh, val material: Material = Material()/*, val name: String*/)
+data class Model(val mesh: Mesh, val id: ModelId, val material: Material = Material())
+
+typealias ModelId = String
+
 class Material(val texture: Image? = null)
 
 
