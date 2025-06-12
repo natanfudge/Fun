@@ -14,6 +14,7 @@ import io.github.natanfudge.fn.compose.utils.FloatField
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.util.withValue
+import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 interface ValueEditor<T> {
@@ -49,6 +50,13 @@ val Vec3fEditor = VectorEditor(
     toMap = {mapOf("x" to it.x, "y" to it.y, "z" to it.z)},
     fromMap = { Vec3f(it.getValue("x"), it.getValue("y"), it.getValue("z"))},
     default = Vec3f.zero()
+)
+
+val QuatfEditor = VectorEditor(
+    toMap = {mapOf("x" to it.x, "y" to it.y, "z" to it.z, "w" to it.w)},
+    fromMap = { Quatf(it.getValue("x"), it.getValue("y"), it.getValue("z"), it.getValue("w"))},
+    ranges = mapOf("x" to -1f..1f, "y" to -1f..1f, "z" to -1f..1f, "w" to -1f..1f),
+    default = Quatf.identity()
 )
 
 //data class VectorComponent(val value: Float, val range: ClosedFloatingPointRange<Float>?)

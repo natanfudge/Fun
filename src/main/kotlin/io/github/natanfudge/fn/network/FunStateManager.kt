@@ -240,7 +240,7 @@ class FunStateManager(
      * Sets the value of [state] to the pending value if it exists.
      * A pending value will get DELETED once it is retrieved!
      */
-    internal fun <T> setPendingValue(holderKey: String, propertyKey: String, state: FunValue<T>) {
+    internal fun <T> setToPendingValue(holderKey: String, propertyKey: String, state: FunValue<T>) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to attempting getting the pending value of its sub-state '$propertyKey'!"
         )

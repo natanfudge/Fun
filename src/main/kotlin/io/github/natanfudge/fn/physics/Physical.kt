@@ -10,9 +10,11 @@ import io.github.natanfudge.fn.render.Boundable
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.getAxisAlignedBoundingBox
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
+import io.github.natanfudge.wgpu4k.matrix.Quatf
+import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 interface Physical : Boundable {
-    var transform: Mat4f
+    val transform: Mat4f
     var baseAABB: AxisAlignedBoundingBox
 
     override val boundingBox: AxisAlignedBoundingBox
@@ -28,18 +30,41 @@ open class PhysicalFun(
     context: FunContext,
     //SUS: overreaching boundary here - Physical is common and BoundModel is client. Need to abstract this somehow.
     model: Model,
-    transform: Mat4f = Mat4f.identity(),
+    translate: Vec3f = Vec3f.zero(),
+    rotate: Quatf = Quatf.identity(),
+    scale: Vec3f = Vec3f(1f, 1f, 1f),
+//    transform: Mat4f = Mat4f.identity(),
     color: Color = Color.White,
     baseAABB: AxisAlignedBoundingBox = getAxisAlignedBoundingBox(model.mesh)
 ) : Physical, Fun(id, context) {
     override var baseAABB: AxisAlignedBoundingBox by funValue(baseAABB)
 
+    var translate: Vec3f by funValue(translate) {
+        updateMatrix()
+    }
+    var rotate: Quatf by funValue(rotate) {
+        updateMatrix()
+    }
+    var scale: Vec3f by funValue(scale) {
+        updateMatrix()
+    }
+
+    private fun updateMatrix() {
+        val matrix = buildMatrix()
+        this._transform = matrix
+        renderInstance.setTransform(matrix)
+    }
+
+    private fun buildMatrix(): Mat4f {
+        return Mat4f.translateRotateScale(translate, rotate, scale)
+    }
+
+    private var _transform = buildMatrix()
+
     /**
      * This value should be reassigned if you want Fun to react to changes in it.
      */
-    override var transform: Mat4f by funValue(transform) {
-        renderInstance.setTransform(it)
-    }
+    override val transform: Mat4f get() = _transform
     val renderInstance = context.getOrBindModel(model).getOrSpawn(id, this, color)
 
 

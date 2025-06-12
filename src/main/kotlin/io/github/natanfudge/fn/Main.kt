@@ -26,7 +26,7 @@ import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
-import io.github.natanfudge.wgpu4k.matrix.Mat4f
+import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -141,15 +141,19 @@ private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
 val lightPos = Vec3f(4f, -4f, 4f)
 
 
-class TestObject(app: FunPlayground, model: Model, transform: Mat4f = Mat4f.identity(), color: Color = Color.White) :
-    PhysicalFun((app.id++).toString(), app.context, model, transform, color) {
+class TestObject(
+    app: FunPlayground, model: Model,
+    translate: Vec3f = Vec3f.zero(),
+    rotate: Quatf = Quatf.identity(),
+    scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
+) :
+    PhysicalFun((app.id++).toString(), app.context, model, translate, rotate, scale, color) {
 
 }
 
 //todo:
-// 0. Change matrix state to translate/rotate/scale state
-// 0.5 Add some nice editors to those vecs
-// 1. Make changes to the GUI actually effect the real state
+// 0. Window resize is not being instant anymore...
+// 1. Allow orbiting while accessing GUI
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -164,20 +168,20 @@ class FunPlayground(val context: FunContext) : FunApp {
 
         val cube = Model(Mesh.UnitCube(), "Cube")
         val sphere = Model(Mesh.uvSphere(), "Sphere")
-        PhysicalFun(id = "foo", context, cube, Mat4f.scaling(x = 10f, y = 0.1f, z = 0.1f), Color.Red) // X axis
-        TestObject(this, cube, Mat4f.scaling(x = 0.1f, y = 10f, z = 0.1f), Color.Green) // Y Axis
-        TestObject(this, cube, Mat4f.scaling(x = 0.1f, y = 0.1f, z = 10f), Color.Blue) // Z Axis
-        TestObject(this, cube, Mat4f.translation(0f, 0f, -1f).scale(x = 10f, y = 10f, z = 0.1f), Color.Gray)
+        PhysicalFun(id = "foo", context, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
+        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
+        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
+        TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
 
         val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
 
         val wgpuCube = Model(Mesh.UnitCube(CubeUv.Grid3x2), "wgpucube", Material(wgpu4kImage))
 
-        val instance = TestObject(this, wgpuCube, Mat4f.translation(-2f, 2f, 2f))
+        val instance = TestObject(this, wgpuCube, translate = Vec3f(-2f, 2f, 2f))
         GlobalScope.launch {
             var i = 0
             while (true) {
-                instance.transform = instance.transform.scaleInPlace(1.01f)
+                instance.scale = instance.scale * 1.01f
 
                 if (i == 400) {
                     instance.close()
@@ -191,10 +195,10 @@ class FunPlayground(val context: FunContext) : FunApp {
 
         TestObject(this, kotlinSphere)
 
-        TestObject(this, sphere, Mat4f.translation(2f, 2f, 2f))
-        TestObject(this, sphere, Mat4f.translation(lightPos).scale(0.2f))
+        TestObject(this, sphere, translate = Vec3f(2f, 2f, 2f))
+        TestObject(this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f))
 
-        TestObject(this, cube, Mat4f.translation(4f, -4f, 0.5f), Color.Gray)
+        TestObject(this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
     }
 
 
@@ -285,7 +289,6 @@ class FunPlayground(val context: FunContext) : FunApp {
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
             if (!acceptMouseEvents) {
-                println("Skipping input")
                 return
             }
             if (input.eventType == PointerEventType.Release) {
