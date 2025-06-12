@@ -76,7 +76,7 @@ fun UntypedVectorEditor(ranges: Map<String, ClosedFloatingPointRange<Float>?>, s
             val range = ranges[key]
             FloatField(label = { Text(key) }, state = mutableState(value) {
                 state.value = state.value.withValue(key, it)
-            }, range = range, modifier = Modifier.width(100.dp))
+            }, range = range, modifier = Modifier.width(70.dp))
         }
     }
 }

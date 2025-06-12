@@ -52,7 +52,7 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
     /**
      * If cursor is not locked, will return the position of the cursor.
      */
-    var cursorPos: Offset? = null
+//    var cursorPos: Offset? = null
 
     var minimized = false
     var cursorLocked = false
@@ -64,7 +64,7 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
                     if (glfwRawMouseMotionSupported()) {
                         glfwSetInputMode(handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
                     }
-                    cursorPos = null
+//                    cursorPos = null
                 } else {
                     glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL)
                     if (glfwRawMouseMotionSupported()) {
@@ -214,7 +214,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
             glfwSetCursorPosCallback(windowHandle) { window, xpos, ypos ->
                 callbacks.forEach {
                     val position = Offset(xpos.toFloat(), ypos.toFloat())
-                    if (windowLifecycle.value?.cursorLocked == false) windowLifecycle.value?.cursorPos = position
+//                    if (windowLifecycle.value?.cursorLocked == false) windowLifecycle.value?.cursorPos = position
                     it.onInput(
                         InputEvent.PointerEvent(
                             position = position,

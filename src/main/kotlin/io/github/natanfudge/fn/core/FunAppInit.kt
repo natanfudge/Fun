@@ -11,13 +11,7 @@ import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.physics.Physical
-import io.github.natanfudge.fn.render.BoundModel
-import io.github.natanfudge.fn.render.Camera
-import io.github.natanfudge.fn.render.FunFixedSizeWindow
-import io.github.natanfudge.fn.render.FunSurface
-import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.WorldRender
-import io.github.natanfudge.fn.render.bindFunLifecycles
+import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
@@ -126,7 +120,6 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 }
 
 
-
 interface FunApp : AutoCloseable {
 
     @Composable
@@ -156,8 +149,7 @@ interface FunApp : AutoCloseable {
 }
 
 
-
-abstract class RenderBoundPhysical(val render: WorldRender, )
+abstract class RenderBoundPhysical(val render: WorldRender)
 
 //abstract class BasePhysical(override var transform: Mat4f, private var baseAABB: Mat4f): Physical {
 //    override var baseAABB: Mat4f
@@ -166,12 +158,14 @@ abstract class RenderBoundPhysical(val render: WorldRender, )
 //}
 
 
-class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
-                 private val stateContext: FunStateContext): FunStateContext by stateContext {
+class FunContext(
+    private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
+    private val stateContext: FunStateContext,
+) : FunStateContext by stateContext {
     private val dims by dims
 //    private val surface by surface
 
-    private val world get() = surface.world
+    val world = surface.world
 
     val windowWidth get() = dims.dims.width
     val windowHeight get() = dims.dims.height
@@ -180,6 +174,7 @@ class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSize
 
     fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
+        if (locked) world.cursorPosition = null
     }
 
     fun setGUIFocused(focused: Boolean) {
@@ -197,10 +192,9 @@ class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSize
     /**
      * Used to access the BoundModel, only creating it when needing
      */
-    fun getOrBindModel(model: Model): BoundModel  = world.getOrBindModel(model)
+    fun getOrBindModel(model: Model): BoundModel = world.getOrBindModel(model)
 
 //    fun getOrSpawnInstance()
-
 
 
 }
@@ -218,7 +212,6 @@ class FunAppBuilder {
 fun <T : FunApp> startTheFun(init: FunAppInit<T>) {
     run(BaseFunApp(init))
 }
-
 
 
 sealed interface InputEvent {

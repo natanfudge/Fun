@@ -11,6 +11,7 @@ import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.util.EventStream
 
 
+
 class InputManager {
     val heldKeys = mutableSetOf<Key>()
     val heldMouseButtons = mutableSetOf<PointerButton>()
@@ -33,7 +34,6 @@ class InputManager {
             heldKeys.forEach { keyHeld.emit(it) }
         }
     }
-
     fun handle(input: InputEvent) {
         when (input) {
             is InputEvent.KeyEvent -> {

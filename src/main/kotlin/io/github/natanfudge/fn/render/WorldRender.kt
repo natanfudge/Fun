@@ -221,6 +221,8 @@ class WorldRender(
         }
     }
 
+    var cursorPosition: Offset? = null
+
 
     fun draw(
         encoder: GPUCommandEncoder,
@@ -230,7 +232,7 @@ class WorldRender(
         dimensions: FunFixedSizeWindow,
         frame: GPUTextureView,
         camera: Camera,
-        cursorPosition: Offset?,
+//        cursorPosition: Offset?,
     ) {
         // If the bindgroups are not ready yet, don't do anything
 //        if (models.size != modelBindGroups.size) return

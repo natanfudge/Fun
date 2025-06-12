@@ -74,10 +74,14 @@ fun DefaultCamera.bind(inputManager: InputManager, context: FunContext) {
                         rotateY(normalizedDeltaY * 10)
                     }
                 }
+
+
             }
 
             CameraMode.Fly -> {
                 tilt(normalizedDeltaX * 2, normalizedDeltaY * 2)
+
+
             }
 
             else -> {}
@@ -100,10 +104,16 @@ fun DefaultCamera.bind(inputManager: InputManager, context: FunContext) {
 
 private fun DefaultCamera.handleInput(inputManager: InputManager, input: InputEvent, context: FunContext) {
     when (input) {
-        is InputEvent.PointerEvent if input.eventType == PointerEventType.Scroll
-                && inputManager.focused && mode == CameraMode.Orbital -> {
-            val zoom = 1 + input.scrollDelta.y / 10
-            zoom(zoom)
+        is InputEvent.PointerEvent -> {
+            if (input.eventType == PointerEventType.Scroll
+                && inputManager.focused && mode == CameraMode.Orbital
+            ) {
+                val zoom = 1 + input.scrollDelta.y / 10
+                zoom(zoom)
+            }
+            if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
+                context.world.cursorPosition = input.position
+            }
         }
 
         is InputEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {
@@ -137,18 +147,9 @@ class TestObject(app: FunPlayground, model: Model, transform: Mat4f = Mat4f.iden
 }
 
 //todo:
-// 1. Bring back panels
-// - When UI mode is activated, do not pass any clicks to the app. Instead have something like this
-// ComposeClickArea { Panel() Panel() Panel()   }
-// (look at how i did it with SemiViz)
-// Note that we will keep passing input events to the app, because we want hovering to keep working.
-// It's only click events that are problematic because when you click on a compose panel it should not
-// interpret it as an actual click.
-// And only pass clicks to framework if it occurs outside of the panels.
-// - Then I need to change the app api. It should be ComposePanelPlacer but not sure if I want it to be @Composable. I think @Composable is needed for it to be dynamic.
-// Or maybe not. Need to test. Best is without @Composable I think.
-// 2. Figure out how we can get the cursor to switch correctly when hovering. Need to see what it does with swing.
-// Need to track PlatformContext.Empty assignment and replace it with ours.
+// 0. Change matrix state to translate/rotate/scale state
+// 0.5 Add some nice editors to those vecs
+// 1. Make changes to the GUI actually effect the real state
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -157,8 +158,6 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     init {
         camera.bind(inputManager, context)
-
-//        val x = JLabel().cursor =
 
         val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
@@ -256,16 +255,23 @@ class FunPlayground(val context: FunContext) : FunApp {
         Box(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize().focusable().onPointerEvent(PointerEventType.Press) {
                 // Allow clicking outside of the GUI
-                acceptClickEvents = true
+                acceptMouseEvents = true
                 // The clickable thing is just for it to draw focus
-            }.clickableWithNoIndication { })
+            }.clickableWithNoIndication { }.onPointerEvent(PointerEventType.Enter) {
+                acceptMouseEvents = true
+            }
+            )
+
             panels(ComposePanelPlacerWithBoxScope(this) { modifier, panel ->
                 Box(
                     modifier
                         .onPointerEvent(PointerEventType.Press, pass = PointerEventPass.Initial) {
                             // Block clicks
-                            acceptClickEvents = false
-                        }) {
+                            acceptMouseEvents = false
+                        }.onPointerEvent(PointerEventType.Enter) {
+                            acceptMouseEvents = false
+                        }
+                ) {
                     panel()
                 }
             })
@@ -274,11 +280,14 @@ class FunPlayground(val context: FunContext) : FunApp {
     }
 
 
-    var acceptClickEvents = true
+    var acceptMouseEvents = true
 
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
-            if (!acceptClickEvents) return
+            if (!acceptMouseEvents) {
+                println("Skipping input")
+                return
+            }
             if (input.eventType == PointerEventType.Release) {
                 selectedObject = context.hoveredObject as Fun?
             }

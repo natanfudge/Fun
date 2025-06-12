@@ -2,10 +2,12 @@
 
 package io.github.natanfudge.fn.compose
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.graphics.asComposeCanvas
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.platform.PlatformContext
+import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -18,6 +20,11 @@ import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
 import org.lwjgl.glfw.GLFW
+import org.lwjgl.glfw.GLFW.GLFW_CROSSHAIR_CURSOR
+import org.lwjgl.glfw.GLFW.GLFW_HAND_CURSOR
+import org.lwjgl.glfw.GLFW.GLFW_IBEAM_CURSOR
+import org.lwjgl.glfw.GLFW.glfwCreateStandardCursor
+import org.lwjgl.glfw.GLFW.glfwDestroyCursor
 import org.lwjgl.glfw.GLFW.glfwGetWindowContentScale
 import org.lwjgl.glfw.GLFW.glfwSwapBuffers
 import org.lwjgl.opengl.GL11.*
@@ -56,11 +63,59 @@ class FixedSizeComposeWindow(
     }
 }
 
+class GlfwComposeSceneContext(handle: () -> WindowHandle) : ComposeSceneContext, AutoCloseable {
+    override val platformContext = GlfwComposePlatformContext(handle)
+
+    override fun close() {
+        platformContext.close()
+    }
+}
+
+class GlfwComposePlatformContext(
+    private val handle: () -> WindowHandle
+) : PlatformContext by PlatformContext.Empty, AutoCloseable {
+
+    /** Cache of `glfwCreateStandardCursor` results so we don’t create the same cursor twice. */
+    private val stdCursorCache = mutableMapOf<Int, Long>()
+
+    override fun setPointerIcon(pointerIcon: PointerIcon) {
+        // Pick (or build) the native cursor to install
+        val cursor: Long = when (pointerIcon) {
+            PointerIcon.Default -> 0L                             // Arrow
+            PointerIcon.Text    -> std(GLFW_IBEAM_CURSOR)           // I-beam
+            PointerIcon.Crosshair -> std(GLFW_CROSSHAIR_CURSOR)     // Crosshair
+            PointerIcon.Hand    -> std(GLFW_HAND_CURSOR)            // Hand
+            /* ---------- Anything else: just arrow ---------- */
+            else -> 0L
+        }
+
+
+        GLFW.glfwSetCursor(handle(), cursor)
+    }
+
+    /* -------------------------------------------------- */
+    /* Helper utilities                                   */
+    /* -------------------------------------------------- */
+
+    /** Lazily create -– and cache –- one of GLFW’s built-in cursors. */
+    private fun std(shape: Int): Long = stdCursorCache.getOrPut(shape) { glfwCreateStandardCursor(shape) }
+
+
+    /** Must be called once when you close the window. */
+    override fun close() {
+        stdCursorCache.values.forEach(::glfwDestroyCursor)
+        stdCursorCache.clear()
+    }
+}
+
 @OptIn(InternalComposeUiApi::class)
 class ComposeGlfwWindow(
     initialWidth: Int,
     initialHeight: Int,
+    // Background window used for OpenGL rendering
     val handle: WindowHandle,
+    // Main window that displays WebGPU output
+    val hostHandle: () -> WindowHandle,
     private val density: Density,
 //    private val composeContent: @Composable () -> Unit,
     private val onInvalidate: () -> Unit,
@@ -82,11 +137,14 @@ class ComposeGlfwWindow(
 
     var focused = true
 
+    val glfwContext = GlfwComposeSceneContext(hostHandle)
+
     val scene = PlatformLayersComposeScene(
         coroutineContext = dispatcher,
         density = density,
         invalidate = frameDispatcher::scheduleFrame,
-        size = IntSize(initialWidth, initialHeight)
+        size = IntSize(initialWidth, initialHeight),
+        composeSceneContext = glfwContext
     )
 
 //    init {
@@ -100,6 +158,7 @@ class ComposeGlfwWindow(
     }
 
     override fun close() {
+        glfwContext.close()
         scene.close()
     }
 }
@@ -136,7 +195,7 @@ class ComposeConfig(
             var window: ComposeGlfwWindow? = null
             window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
-                density = Density(glfwGetWindowContentScale(it.handle)),
+                density = Density(glfwGetWindowContentScale(it.handle)), hostHandle = { host.windowLifecycle.assertValue.handle }
             ) {
                 // Invalidate Compose frame on change
                 window!!.invalid = true

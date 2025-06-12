@@ -232,9 +232,9 @@ fun WebGPUWindow.bindFunLifecycles(
 
         val textureView = frame.windowTexture
 
-        //TODo: need to think how to enable user-driven drawing
+        //TO Do: need to think how to enable user-driven drawing
 
-        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, cursorPosition = surface.ctx.window.cursorPos,camera = app.camera)
+        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, camera = app.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 
