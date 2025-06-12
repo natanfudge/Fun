@@ -2,6 +2,10 @@
 
 package io.github.natanfudge.fn.network.state
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.ui.Modifier
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
@@ -90,8 +94,8 @@ internal class MapStateHolder : FunStateHolder {
         }
     }
 
-    override fun getCurrentState(): Map<String, Any?> {
-        return map.mapValues { it.value.value }
+    override fun getCurrentState(): Map<String, FunState> {
+        return map
     }
 
 
@@ -137,7 +141,7 @@ interface FunStateHolder {
      */
     fun applyChange(key: String, change: StateChangeValue)
 
-    fun getCurrentState(): Map<String, Any?>
+    fun getCurrentState(): Map<String, FunState>
 }
 
 
@@ -197,6 +201,8 @@ sealed interface FunState {
     fun applyChange(change: StateChangeValue)
 
     val value: Any?
+
+    val editor: ValueEditor<Any?> get() = ValueEditor.Missing
 }
 
 
