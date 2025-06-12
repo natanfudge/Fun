@@ -200,7 +200,7 @@ sealed interface FunState {
     @InternalFunApi
     fun applyChange(change: StateChangeValue)
 
-    val value: Any?
+    var value: Any?
 
     val editor: ValueEditor<Any?> get() = ValueEditor.Missing
 }

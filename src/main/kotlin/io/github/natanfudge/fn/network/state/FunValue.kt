@@ -1,13 +1,21 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package io.github.natanfudge.fn.network.state
 
+import io.github.natanfudge.fn.compose.funedit.AABBEditor
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.sendStateChange
+import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.serializer
 import org.koin.core.component.KoinComponent
 import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
+import kotlin.reflect.typeOf
+
 
 /**
  * Creates a property delegate that automatically synchronizes its value across all clients.
@@ -18,7 +26,13 @@ import kotlin.reflect.KProperty
  * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
  * @see Fun
  */
-inline fun <reified T> funValue(value: T, noinline onSetValue: (T) -> Unit = {}): FunValue<T> = FunValue(value, serializer(), onSetValue)
+inline fun <reified T> funValue(value: T, editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>), noinline onSetValue: (T) -> Unit = {}): FunValue<T>
+= FunValue(value, serializer(), onSetValue, editor)
+
+@PublishedApi internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (kClass) {
+    AxisAlignedBoundingBox::class -> AABBEditor
+    else -> ValueEditor.Missing
+} as ValueEditor<T>
 
 /**
  * A property delegate that synchronizes its value across all clients in a multiplayer environment.
@@ -29,12 +43,16 @@ inline fun <reified T> funValue(value: T, noinline onSetValue: (T) -> Unit = {})
  * @see funValue
  * @see Fun
  */
-class FunValue<T>(private var _value: T, private val serializer: KSerializer<T>, private val onSetValue: (T) -> Unit) : KoinComponent,
+class FunValue<T>(private var _value: T, private val serializer: KSerializer<T>, private val onSetValue: (T) -> Unit, editor: ValueEditor<T>) : KoinComponent,
     ReadWriteProperty<Fun, T>, FunState {
     private var registered: Boolean = false
 
-    override val value: Any?
+    override val editor: ValueEditor<Any?> = editor as ValueEditor<Any?>
+    override var value: Any?
         get() = _value
+        set(value){
+            _value = value as T
+        }
 
 
     override fun toString(): String {

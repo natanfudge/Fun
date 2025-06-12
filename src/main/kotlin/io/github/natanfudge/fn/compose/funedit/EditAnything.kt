@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.compose.utils.FloatField
 import io.github.natanfudge.fn.compose.utils.mutableState
+import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.util.withValue
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
@@ -32,6 +33,17 @@ interface ValueRenderer<in T> {
     @Composable
     fun Render(value: T, modifier: Modifier = Modifier)
 }
+
+val AABBEditor = VectorEditor(
+    toMap = {mapOf("minX" to it.minX, "minY" to it.minY, "minZ" to it.minZ, "maxX" to it.maxX, "maxY" to it.maxY, "maxZ" to it.maxZ)},
+    fromMap = {
+        AxisAlignedBoundingBox(
+            it.getValue("minX"), it.getValue("minY"), it.getValue("minZ"),
+            it.getValue("maxX"), it.getValue("maxY"), it.getValue("maxZ")
+        )
+    },
+    default = AxisAlignedBoundingBox.UnitAABB
+)
 
 val Vec3fEditor = VectorEditor(
     toMap = {mapOf("x" to it.x, "y" to it.y, "z" to it.z)},

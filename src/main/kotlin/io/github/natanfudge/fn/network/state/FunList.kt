@@ -191,8 +191,12 @@ class FunList<T> @PublishedApi internal constructor(
         }
     }
 
-    override val value: Any?
+    override var value: Any?
         get() = _items
+        set(value) {
+            _items.clear()
+            _items.addAll(value as Collection<T>)
+        }
 
     override val size: Int
         get() = _items.size

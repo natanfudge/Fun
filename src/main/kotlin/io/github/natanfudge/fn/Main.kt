@@ -1,9 +1,15 @@
 package io.github.natanfudge.fn
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -12,6 +18,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
+import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.network.Fun
@@ -22,6 +29,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import javax.swing.JLabel
 
 //TODO:
 // 13.6: Object selection overlay:
@@ -122,14 +130,24 @@ private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
 val lightPos = Vec3f(4f, -4f, 4f)
 
 
-
 class TestObject(app: FunPlayground, model: Model, transform: Mat4f = Mat4f.identity(), color: Color = Color.White) :
     PhysicalFun((app.id++).toString(), app.context, model, transform, color) {
 
 }
 
 //todo:
-// 3. Object selection ui
+// 1. Bring back panels
+// - When UI mode is activated, do not pass any clicks to the app. Instead have something like this
+// ComposeClickArea { Panel() Panel() Panel()   }
+// (look at how i did it with SemiViz)
+// Note that we will keep passing input events to the app, because we want hovering to keep working.
+// It's only click events that are problematic because when you click on a compose panel it should not
+// interpret it as an actual click.
+// And only pass clicks to framework if it occurs outside of the panels.
+// - Then I need to change the app api. It should be ComposePanelPlacer but not sure if I want it to be @Composable. I think @Composable is needed for it to be dynamic.
+// Or maybe not. Need to test. Best is without @Composable I think.
+// 2. Figure out how we can get the cursor to switch correctly when hovering. Need to see what it does with swing.
+// Need to track PlatformContext.Empty assignment and replace it with ours.
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -138,6 +156,8 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     init {
         camera.bind(inputManager, context)
+
+//        val x = JLabel().cursor =
 
         val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
@@ -199,12 +219,17 @@ class FunPlayground(val context: FunContext) : FunApp {
 //                LifecycleTree(Modifier.size(500.dp))
                 Surface {
                     Column {
-                        val selected = context.selectedObject
-                        if(selected is Fun) {
+                        val selected = selectedObject
+                        if (selected is Fun) {
                             val values = context.stateManager.getState(selected.id)
-                            if(values != null) {
-                                for((key, value) in values.getCurrentState()) {
-                                    Text("$key: $value")
+                            if (values != null) {
+                                for ((key, value) in values.getCurrentState()) {
+                                    Row {
+                                        Text(key)
+                                        value.editor.EditorUi(
+                                            mutableState(value.value) { value.value = it }
+                                        )
+                                    }
                                 }
                             }
 
@@ -216,7 +241,12 @@ class FunPlayground(val context: FunContext) : FunApp {
         }
     }
 
+    var selectedObject: Fun? by mutableStateOf(null)
+
     override fun handleInput(input: InputEvent) {
+        if (input is InputEvent.PointerEvent && input.eventType == PointerEventType.Release) {
+            selectedObject = context.hoveredObject as Fun?
+        }
         inputManager.handle(input)
         camera.handleInput(inputManager, input, context)
     }

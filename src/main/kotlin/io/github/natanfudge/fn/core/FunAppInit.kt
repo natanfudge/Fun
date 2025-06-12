@@ -176,7 +176,7 @@ class FunContext(private val surface: FunSurface, dims: ValueHolder<FunFixedSize
     val windowWidth get() = dims.dims.width
     val windowHeight get() = dims.dims.height
 
-    val selectedObject: Physical? get() = world.selectedObject
+    val hoveredObject: Physical? get() = world.selectedObject
 
     fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
