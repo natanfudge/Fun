@@ -57,8 +57,8 @@ graalvmNative {
 }
 
 tasks.withType<ComposeHotRun>().configureEach {
-//    mainClass.set("io.github.natanfudge.fn.MainKt")
-    mainClass.set("io.github.natanfudge.fn.compose.utils.FloatFieldKt")
+    mainClass.set("io.github.natanfudge.fn.MainKt")
+//    mainClass.set("io.github.natanfudge.fn.compose.utils.FloatFieldKt")
 
 }
 

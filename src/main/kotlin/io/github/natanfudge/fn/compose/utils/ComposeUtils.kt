@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.compose.utils
 
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
@@ -24,6 +25,7 @@ data class Holder<T>(var value: T) : ReadWriteProperty<Any?, T> {
     }
 }
 
+fun Modifier.clickableWithNoIndication(callback: () -> Unit) = clickable(indication = null, interactionSource = null, onClick = callback)
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.onPointerChangeEvent(

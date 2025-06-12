@@ -1,15 +1,14 @@
 package io.github.natanfudge.fn
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -17,7 +16,10 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readImage
@@ -29,7 +31,6 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import javax.swing.JLabel
 
 //TODO:
 // 13.6: Object selection overlay:
@@ -205,36 +206,39 @@ class FunPlayground(val context: FunContext) : FunApp {
     @Composable
     override fun gui() {
         MaterialTheme(darkColorScheme()) {
-            Row(Modifier.fillMaxSize().background(Color.Transparent), horizontalArrangement = Arrangement.SpaceBetween) {
-                Surface {
-                    Column {
-                        Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
-                            Text("Restart Render (+App)")
-                        }
-                        Button(onClick = { ProcessLifecycle.restartByLabels(setOf("App")) }) {
-                            Text("Restart App")
+            PanelSupport {
+                Panel(Modifier.align(Alignment.CenterStart)) {
+                    Surface {
+                        Column {
+                            Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
+                                Text("Restart Render (+App)")
+                            }
+                            Button(onClick = { ProcessLifecycle.restartByLabels(setOf("App")) }) {
+                                Text("Restart App")
+                            }
                         }
                     }
                 }
-//                LifecycleTree(Modifier.size(500.dp))
-                Surface {
-                    Column {
-                        val selected = selectedObject
-                        if (selected is Fun) {
-                            val values = context.stateManager.getState(selected.id)
-                            if (values != null) {
-                                for ((key, value) in values.getCurrentState()) {
-                                    Row {
-                                        Text(key)
-                                        value.editor.EditorUi(
-                                            mutableState(value.value) { value.value = it }
-                                        )
+                Panel(Modifier.align(Alignment.CenterEnd)) {
+                    Surface {
+                        Column {
+                            val selected = selectedObject
+                            if (selected is Fun) {
+                                val values = context.stateManager.getState(selected.id)
+                                if (values != null) {
+                                    for ((key, value) in values.getCurrentState()) {
+                                        Row {
+                                            Text(key)
+                                            value.editor.EditorUi(
+                                                mutableState(value.value) { value.value = it }
+                                            )
+                                        }
                                     }
                                 }
+
                             }
 
                         }
-
                     }
                 }
             }
@@ -243,22 +247,72 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     var selectedObject: Fun? by mutableStateOf(null)
 
+    /**
+     * Allows placing "Panels", which block clicks from reaching the game when they are clicked.
+     */
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Composable
+    fun PanelSupport(panels: @Composable ComposePanelPlacer.() -> Unit) {
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().focusable().onPointerEvent(PointerEventType.Press) {
+                // Allow clicking outside of the GUI
+                acceptClickEvents = true
+                // The clickable thing is just for it to draw focus
+            }.clickableWithNoIndication { })
+            panels(ComposePanelPlacerWithBoxScope(this) { modifier, panel ->
+                Box(
+                    modifier
+                        .onPointerEvent(PointerEventType.Press, pass = PointerEventPass.Initial) {
+                            // Block clicks
+                            acceptClickEvents = false
+                        }) {
+                    panel()
+                }
+            })
+
+        }
+    }
+
+
+    var acceptClickEvents = true
+
     override fun handleInput(input: InputEvent) {
-        if (input is InputEvent.PointerEvent && input.eventType == PointerEventType.Release) {
-            selectedObject = context.hoveredObject as Fun?
+        if (input is InputEvent.PointerEvent) {
+            if (!acceptClickEvents) return
+            if (input.eventType == PointerEventType.Release) {
+                selectedObject = context.hoveredObject as Fun?
+            }
         }
         inputManager.handle(input)
         camera.handleInput(inputManager, input, context)
-    }
-}
 
+    }
+
+    /**
+     * We want to detect which areas belong to the 2D GUI, so every panel placement goes through this interface.
+     */
+    interface ComposePanelPlacer : BoxScope {
+        @Composable
+        fun Panel(modifier: Modifier, panel: @Composable BoxScope.() -> Unit)
+    }
+
+    class ComposePanelPlacerWithBoxScope(
+        scope: BoxScope, private val placer: @Composable (modifier: Modifier, panel: @Composable (BoxScope.() -> Unit)) -> Unit,
+    ) : ComposePanelPlacer, BoxScope by scope {
+        @Composable
+        override fun Panel(
+            modifier: Modifier,
+            panel: @Composable (BoxScope.() -> Unit),
+        ) {
+            placer(modifier, panel)
+        }
+
+    }
+
+}
 
 fun main() {
     startTheFun {
         { FunPlayground(it) }
     }
 }
-
-
-
-
