@@ -89,7 +89,7 @@ data class WebGPUFrame(
 //    val ctx: WebGPUContext =
 
     override fun close() {
-        ctx.context.present()
+
         windowTexture.close()
         underlyingWindowFrame.texture.close()
     }

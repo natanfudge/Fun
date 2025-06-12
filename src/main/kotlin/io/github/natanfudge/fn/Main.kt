@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -19,10 +20,13 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readImage
+import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
@@ -33,13 +37,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 //TODO:
-// 13.6: Object selection overlay:
-//    - Show/set state, including transform
-//    - Visual transform system
 // 14. Basic Physics
-// 14.5b: State system
-// 14.6 State-based physics (basic)
 // 15. Trying making a basic game?
+// 13.   Visual transform system
 // 16. Better physics
 // 17. PBR
 // 18. Hotkeys
@@ -134,7 +134,7 @@ private fun DefaultCamera.handleInput(inputManager: InputManager, input: InputEv
 private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
     this.mode = mode
 
-    context.setGUIFocused(mode == CameraMode.Off)
+    context.setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
     context.setCursorLocked(mode == CameraMode.Fly)
 }
 
@@ -152,8 +152,11 @@ class TestObject(
 }
 
 //todo:
-// 0. Window resize is not being instant anymore...
-// 1. Allow orbiting while accessing GUI
+// 1. Don't select when dragging
+// 2. Add setColor support
+// 2.5 Improve color support in the shader to multiply texture color with tint color.
+// 3. Make hovering work with setColor instead of hardcoded shader code
+// 4. Add selection color with the same mechanism
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -214,27 +217,45 @@ class FunPlayground(val context: FunContext) : FunApp {
                     Surface {
                         Column {
                             Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
-                                Text("Restart Render (+App)")
+                                Text("Restart Surface Lifecycle")
                             }
-                            Button(onClick = { ProcessLifecycle.restartByLabels(setOf("App")) }) {
-                                Text("Restart App")
+
+                            Button(onClick = {
+                                ProcessLifecycle.restartByLabels(setOf("App"))
+                            }) {
+                                Text("Restart App Lifecycle")
+                            }
+                            Button(onClick = {
+                                ProcessLifecycle.restartByLabels(setOf("App Compose binding"))
+                            }) {
+                                Text("Reapply Compose App")
+                            }
+
+                            Button(onClick = {
+                                FunHotReload.reloadStarted.emit(Unit)
+                                FunHotReload.reloadEnded.emit(Unit)
+                            }) {
+                                Text("Emulate Hot Reload")
                             }
                         }
                     }
                 }
-                Panel(Modifier.align(Alignment.CenterEnd)) {
-                    Surface {
-                        Column {
+                Panel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
+                        Column(Modifier.padding(5.dp).width(IntrinsicSize.Max), horizontalAlignment = Alignment.CenterHorizontally) {
                             val selected = selectedObject
                             if (selected is Fun) {
                                 val values = context.stateManager.getState(selected.id)
                                 if (values != null) {
+                                    Text(selected.id,  color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
                                     for ((key, value) in values.getCurrentState()) {
-                                        Row {
-                                            Text(key)
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                            Box(Modifier.weight(1f))
                                             value.editor.EditorUi(
                                                 mutableState(value.value) { value.value = it }
                                             )
+                                            Box(Modifier.weight(1f))
                                         }
                                     }
                                 }
@@ -286,13 +307,22 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     var acceptMouseEvents = true
 
+    private var mouseDownPos: Offset? = null
+
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
             if (!acceptMouseEvents) {
                 return
             }
+            if (input.eventType == PointerEventType.Press) {
+                mouseDownPos = input.position
+            }
             if (input.eventType == PointerEventType.Release) {
-                selectedObject = context.hoveredObject as Fun?
+                val mouseDownPos = mouseDownPos ?: return
+                // Don't reassign selected object if we dragged around too much
+                if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
+                    selectedObject = context.hoveredObject as Fun?
+                }
             }
         }
         inputManager.handle(input)

@@ -202,7 +202,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
     fun end() {
         val sort = tree.topologicalSort().asReversed()
         log(tree.value.logLevel) {
-            "Ending tree of ${tree.value.label} by order: ${sort.joinToString("→") { it.child.label }}"
+            "Ending tree of ${tree.value.label} by order: ${sort.joinToString("->") { it.child.label }}"
         }
         sort.forEach {
             it.child.endSingle()

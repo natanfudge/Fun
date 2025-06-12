@@ -2,13 +2,18 @@
 
 package io.github.natanfudge.fn.compose.funedit
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.compose.utils.FloatField
 import io.github.natanfudge.fn.compose.utils.mutableState
@@ -88,60 +93,4 @@ fun UntypedVectorEditor(ranges: Map<String, ClosedFloatingPointRange<Float>?>, s
         }
     }
 }
-
-
-//object Text
-//
-//object ToStringRenderer : ValueRenderer<Any?> {
-//    @Composable
-//    override fun Render(value: Any?, modifier: Modifier) {
-//        Text(value.toString(), modifier)
-//    }
-//}
-//
-//
-//class GlobalEditConfig(
-//    val editors: Map<KClass<*>, ValueEditor<*>>,
-//    val renderers: Map<KClass<*>, ValueRenderer<*>>,
-//)
-
-
-//data class FieldEditConfig<T>(
-//    val kClass: KClass<T & Any>,
-//    val possibleValues: List<T>?,
-//    val label: String?
-//)
-
-//
-//@Composable
-//fun <T> EditAnything(
-//
-//    globalConfig: GlobalEditConfig,
-//    editConfig: FieldEditConfig<T>,
-//    value: T, onSetValue: (T) -> Unit,
-//    modifier: Modifier = Modifier,
-//) {
-//    val kClass = editConfig.kClass
-//    val possibleValues = editConfig.possibleValues
-//    val label = editConfig.label
-//    if (possibleValues != null) {
-//        val renderer = globalConfig.renderers[kClass] ?: ToStringRenderer
-//        renderer as ValueRenderer<T>
-//        val label = if (label == null) null else (@Composable {
-//            Text(label)
-//        });
-//        SimpleDropdownMenu(
-//            mutableState(value, onSetValue), possibleValues, text = { renderer.Render(value) },
-//            label = label, modifier
-//        )
-//    } else {
-//        val specificEditor = globalConfig.editors[kClass]
-//        if (specificEditor != null) {
-//            (specificEditor as ValueEditor<T>).Edit(value, onSetValue, editConfig, modifier)
-//        } else {
-//            Text("No ValueEditor specified for the type '$kClass'. This is a bug in the program. The current value is $value.", modifier)
-//        }
-//    }
-//
-//}
 

@@ -247,7 +247,7 @@ fun WebGPUWindow.bindFunLifecycles(
 
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
 
-
+        ctx.context.present()
         commandEncoder
     }
 

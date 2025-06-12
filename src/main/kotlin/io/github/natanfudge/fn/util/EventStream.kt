@@ -62,7 +62,7 @@ class MutEventStream<T> : EventStream<T> {
     /** @see EventStream */
     override fun listen(onEvent: Consumer<T>): Listener<T> {
         val listener = Listener(onEvent, this)
-        println("Adding listener: $onEvent")
+//        println("Adding listener: $onEvent")
         listeners.add(listener)
         return listener
     }
