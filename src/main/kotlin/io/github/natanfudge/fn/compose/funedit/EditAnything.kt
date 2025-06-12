@@ -4,33 +4,25 @@ package io.github.natanfudge.fn.compose.funedit
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import io.github.natanfudge.fn.compose.utils.FloatField
+import io.github.natanfudge.fn.compose.utils.mutableState
+import io.github.natanfudge.fn.util.withValue
+import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 interface ValueEditor<T> {
     @Composable
-    fun EditorUi(value: T, onSetValue: (T) -> Unit, modifier: Modifier = Modifier)
+    fun EditorUi(state: MutableState<T>, modifier: Modifier = Modifier)
 
     object Missing : ValueEditor<Any?> {
         @Composable
-        override fun EditorUi(value: Any?, onSetValue: (Any?) -> Unit, modifier: Modifier) {
-            Text("No ValueEditor specified. This is a bug in the program. The current value is $value.", modifier)
+        override fun EditorUi(state: MutableState<Any?>, modifier: Modifier) {
+            Text("No ValueEditor specified. This is a bug in the program. The current value is ${state.value}.", modifier)
         }
 
     }
@@ -41,16 +33,39 @@ interface ValueRenderer<in T> {
     fun Render(value: T, modifier: Modifier = Modifier)
 }
 
-class VectorEditor<T>(val toMap: (T) -> Map<String, Float>, val fromMap: (Map<String, Float>) -> T, val default: T) : ValueEditor<T> {
-    @Composable
-    override fun EditorUi(value: T, onSetValue: (T) -> Unit, modifier: Modifier) {
+val Vec3fEditor = VectorEditor(
+    toMap = {mapOf("x" to it.x, "y" to it.y, "z" to it.z)},
+    fromMap = { Vec3f(it.getValue("x"), it.getValue("y"), it.getValue("z"))},
+    default = Vec3f.zero()
+)
 
+//data class VectorComponent(val value: Float, val range: ClosedFloatingPointRange<Float>?)
+
+class VectorEditor<T>(
+    val toMap: (T) -> Map<String, Float>,
+    val fromMap: (Map<String, Float>) -> T,
+    val default: T,
+    val ranges: Map<String, ClosedFloatingPointRange<Float>> = mapOf(),
+) : ValueEditor<T> {
+    @Composable
+    override fun EditorUi(state: MutableState<T>, modifier: Modifier) {
+        UntypedVectorEditor(
+            ranges,
+            mutableState(toMap(state.value)) { state.value = fromMap(it) },
+            modifier
+        )
     }
 }
 
-@Composable fun NamedNumbersEditor(value: MutableState<Map<String, Float>>) {
-    Row {
-
+@Composable
+fun UntypedVectorEditor(ranges: Map<String, ClosedFloatingPointRange<Float>?>, state: MutableState<Map<String, Float>>, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        for ((key, value) in state.value) {
+            val range = ranges[key]
+            FloatField(label = { Text(key) }, state = mutableState(value) {
+                state.value = state.value.withValue(key, it)
+            }, range = range, modifier = Modifier.width(100.dp))
+        }
     }
 }
 
