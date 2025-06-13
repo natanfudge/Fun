@@ -101,7 +101,9 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
         val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind("App") {
-            initFunc(FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient()))
+            val app = initFunc(FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient()))
+            it.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
+            app
         }
         compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, app ->
             comp.setContent {

@@ -49,6 +49,12 @@ open class PhysicalFun(
         updateMatrix()
     }
 
+    var color: Color by funValue(color) {
+        renderInstance.setColor(it)
+    }
+
+    var hasDespawned = false
+
     private fun updateMatrix() {
         val matrix = buildMatrix()
         this._transform = matrix
@@ -69,6 +75,7 @@ open class PhysicalFun(
 
 
     override fun close() {
+        hasDespawned = true
         super.close()
         renderInstance.despawn()
     }

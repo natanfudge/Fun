@@ -151,12 +151,7 @@ class TestObject(
 
 }
 
-//todo:
-// 1. Don't select when dragging
-// 2. Add setColor support
-// 2.5 Improve color support in the shader to multiply texture color with tint color.
-// 3. Make hovering work with setColor instead of hardcoded shader code
-// 4. Add selection color with the same mechanism
+// TODO: 1. Hook into CHR to refresh the app?
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -174,7 +169,8 @@ class FunPlayground(val context: FunContext) : FunApp {
         PhysicalFun(id = "foo", context, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
         TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
         TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
-        TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
+        val floor = TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
+//        floor.color = Color.Blue
 
         val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
 
@@ -201,7 +197,7 @@ class FunPlayground(val context: FunContext) : FunApp {
         TestObject(this, sphere, translate = Vec3f(2f, 2f, 2f))
         TestObject(this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f))
 
-        TestObject(this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
+        val obj = TestObject(this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
     }
 
 
@@ -247,7 +243,7 @@ class FunPlayground(val context: FunContext) : FunApp {
                             if (selected is Fun) {
                                 val values = context.stateManager.getState(selected.id)
                                 if (values != null) {
-                                    Text(selected.id,  color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
+                                    Text(selected.id, color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
                                     for ((key, value) in values.getCurrentState()) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                                             Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -309,11 +305,30 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     private var mouseDownPos: Offset? = null
 
+    private var hoveredObject: PhysicalFun? = null
+    private var hoveredObjectOldColor: Color? = null
+
+
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
             if (!acceptMouseEvents) {
                 return
             }
+            //TODO: refactor to be seperate function
+            // 2. Add selection color
+            if (hoveredObject != context.hoveredObject) {
+                if (hoveredObject?.hasDespawned != true) {
+                    // Restore the old color
+                    hoveredObject?.color = hoveredObjectOldColor ?: Color.White
+                }
+
+                val newHovered = (context.hoveredObject as? PhysicalFun)
+                hoveredObject = newHovered
+                hoveredObjectOldColor = newHovered?.color
+                // TODO: refine to be something better than just yellow, maybe add tint in the shader
+                newHovered?.color = Color.Yellow
+            }
+
             if (input.eventType == PointerEventType.Press) {
                 mouseDownPos = input.position
             }

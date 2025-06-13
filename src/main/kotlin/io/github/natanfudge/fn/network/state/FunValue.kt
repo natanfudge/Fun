@@ -5,12 +5,14 @@ package io.github.natanfudge.fn.network.state
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.AABBEditor
 import io.github.natanfudge.fn.compose.funedit.QuatfEditor
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.compose.funedit.Vec3fEditor
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
+import io.github.natanfudge.fn.network.getSerializerExtended
 import io.github.natanfudge.fn.network.sendStateChange
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -37,7 +39,9 @@ inline fun <reified T> funValue(
     value: T,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
     noinline onSetValue: (T) -> Unit = {},
-): FunValue<T> = FunValue(value, serializer(), onSetValue, editor)
+): FunValue<T> = FunValue(value, getSerializerExtended<T>(), onSetValue, editor)
+
+
 
 @PublishedApi
 internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (kClass) {

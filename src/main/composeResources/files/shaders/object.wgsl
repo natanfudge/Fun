@@ -59,6 +59,9 @@ fn vs_main(
 
 @fragment
 fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
+//    if (vertex.color.r != -14241) {
+//        return vertex.color;
+//    }
     var dims = vec2(uniforms.width, uniforms.height);
     var view_coords = get_view_coords(vertex.pos.xy, dims);
 
@@ -83,7 +86,7 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
     let litColor = vec4f(phong * baseColor.rgb, baseColor.a);
 
-    let finalColor = select(litColor, mix(litColor, vec4(1.0), 0.5), vertex.iid == uniforms.selectedObject);
+    let finalColor = litColor * vertex.color;  /*select(litColor, mix(litColor, vec4(1.0), 0.5), vertex.iid == uniforms.selectedObject);*/
 
 let digits = number_to_digits(f32(uniforms.selectedObject));
 if is_in_number(

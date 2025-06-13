@@ -163,7 +163,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
         val order = tree.topologicalSort()
         log(tree.value.logLevel) {
-            "Starting tree of ${tree.value.label} by order: ${order.joinToString("→") { it.child.label }}"
+            "Starting tree of ${tree.value.label} by order: ${order.joinToString("->") { it.child.label }}"
         }
         for ((parents, child) in order) {
             child as LifecycleData<Any, Any>

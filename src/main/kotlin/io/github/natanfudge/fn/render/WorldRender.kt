@@ -38,7 +38,8 @@ class BoundModel(
             ) else Extent3D(1u, 1u),
             // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
             format = GPUTextureFormat.RGBA8UnormSrgb,
-            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst)
+            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst),
+            label = "Model Texture"
         )
     )
 
@@ -244,6 +245,7 @@ class WorldRender(
         selectedObjectId = rayCast?.renderId ?: -1
 
         val selectedObjectId = rayCast?.renderId?.toUInt() ?: 9999u
+        //TODO: stop passing the selected object
         val uniform = WorldUniform(
             viewProjection, camera.position, lightPos,
             dimensions.dims.width.toUInt(), dimensions.dims.height.toUInt(),
@@ -388,10 +390,13 @@ class RenderInstance(
     }
 
     fun setTransform(transform: Mat4f) {
-//        this.transform.set(transform)
         check(!despawned) { "Attempt to transform despawned object" }
         GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
-//        boundingBox = baseAABB.transformed(transform)
+    }
+
+    fun setColor(color: Color) {
+        check(!despawned) { "Attempt to transform despawned object" }
+        GPUInstance.setThird(world.instanceBuffer, pointer, color)
     }
 
 //    /**

@@ -35,7 +35,8 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
             size = extent,
             format = GPUTextureFormat.Depth24Plus,
             usage = setOf(GPUTextureUsage.RenderAttachment),
-            sampleCount = msaaSamples
+            sampleCount = msaaSamples,
+            label = "Depth Texture"
         )
     )
     val depthStencilView = depthTexture.createView()
@@ -45,7 +46,8 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
             size = extent,
             sampleCount = msaaSamples,
             format = ctx.presentationFormat,
-            usage = setOf(GPUTextureUsage.RenderAttachment)
+            usage = setOf(GPUTextureUsage.RenderAttachment),
+            label = "MSAA Texture"
         )
     )
 
@@ -82,10 +84,10 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 }
 
 
-class FunSurface(val ctx: WebGPUContext,) : AutoCloseable {
+class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     val sampler = ctx.device.createSampler()
 
-    val world = WorldRender(ctx,this)
+    val world = WorldRender(ctx, this)
 
     override fun close() {
         closeAll(sampler)
@@ -114,10 +116,10 @@ class FunInputAdapter(private val app: FunApp) : WindowCallbacks {
     }
 }
 
-data class AppSurfaceBinding(
-    val app: FunApp,
-    val surface: FunSurface
-)
+//data class AppSurfaceBinding(
+//    val app: FunApp,
+//    val surface: FunSurface
+//)
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(
@@ -131,12 +133,11 @@ fun WebGPUWindow.bindFunLifecycles(
 //        AppState(this@bindFunLifecycles, compose)
 //    }
 
-    val appSurface = funSurface.bind(appLifecycle, "App<->Surface Binding") { surface, app ->
-        surface.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
-//        app.renderInit(surface.world)
-        AppSurfaceBinding(app,surface)
-    }
-
+//    val appSurface = funSurface.bind(appLifecycle, "App<->Surface Binding") { surface, app ->
+//        surface.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
+////        app.renderInit(surface.world)
+//        AppSurfaceBinding(app,surface)
+//    }
 
 
     val objectLifecycle = createReloadingPipeline(
@@ -226,6 +227,9 @@ fun WebGPUWindow.bindFunLifecycles(
         compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
     ) { frame, surface, dimensions, bindGroup, shaders, composeFrame, app ->
+        if (!frame.isReady) return@bind
+        frame.isReady = false // Avoid drawing using the same parent frame twice
+
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
         val commandEncoder = ctx.device.createCommandEncoder()
@@ -248,6 +252,7 @@ fun WebGPUWindow.bindFunLifecycles(
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
 
         ctx.context.present()
+
         commandEncoder
     }
 
