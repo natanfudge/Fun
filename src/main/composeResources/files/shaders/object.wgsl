@@ -12,11 +12,12 @@ struct Uniforms {
 
 struct VertexOutput {
     @builtin(position) pos: vec4f,
-    @location(0) color: vec4f,
+    @location(0) tintColor: vec4f,
     @location(1) normal: vec3f,
     @location(2) worldPos: vec3f,
     @location(3) uv: vec2f,
     @location(4) iid: u32,
+    @location(5) tintStrength: f32
 }
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
@@ -28,7 +29,8 @@ struct VertexOutput {
 struct Instance {
     model: mat4x4f,
     normalMat: mat3x3f,
-    color: vec4f,
+    tintColor: vec4f,
+    tintStrength: f32,
     textured: u32
 }
 
@@ -47,7 +49,8 @@ fn vs_main(
 
     var output: VertexOutput;
     output.pos = uniforms.viewProjection * vec4f(worldPos, 1);
-    output.color = instance.color;
+    output.tintColor = instance.tintColor;
+    output.tintStrength = instance.tintStrength;
     output.normal = worldNormal;
     output.worldPos = worldPos;
     output.uv = uv;
@@ -82,11 +85,12 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
                 +
                 spec * lightRGB;
 
-    // Final colour: light * albedo (instance tint already holds alpha)
-    let baseColor = select(vertex.color, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
+    // Final colour: light * albedo (only use texture if it exists, otherwise just use the tint color)
+    let baseColor = select(vertex.tintColor, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
     let litColor = vec4f(phong * baseColor.rgb, baseColor.a);
 
-    let finalColor = litColor * vertex.color;  /*select(litColor, mix(litColor, vec4(1.0), 0.5), vertex.iid == uniforms.selectedObject);*/
+    // Tint texture (if no texture is used this is a no-op)
+    let finalColor = mix(litColor, vertex.tintColor,vertex.tintStrength);
 
 let digits = number_to_digits(f32(uniforms.selectedObject));
 if is_in_number(

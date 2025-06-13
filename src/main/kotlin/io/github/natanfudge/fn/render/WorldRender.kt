@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.files.Image
 import io.github.natanfudge.fn.lightPos
+import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.physics.Physical
 import io.github.natanfudge.fn.util.closeAll
@@ -17,7 +18,7 @@ import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
-
+import kotlinx.serialization.Serializable
 
 
 /**
@@ -62,9 +63,9 @@ class BoundModel(
 //    private fun spawn(value: Physical, color: Color = Color.White): RenderInstance =
 
 
-    fun getOrSpawn(id: FunId, value: Physical, color: Color = Color.White): RenderInstance {
+    fun getOrSpawn(id: FunId, value: Physical, tint: Tint): RenderInstance {
         return instances.computeIfAbsent(id) {
-            world.spawn(id, this, value, color)
+            world.spawn(id, this, value, tint)
         }
     }
 
@@ -100,7 +101,7 @@ class BoundModel(
 //    }
 //}
 
-object GPUInstance : Struct4<Mat4f, Mat3f, Color, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, IntDT)
+object GPUInstance : Struct5<Mat4f, Mat3f, Color, Float, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT)
 
 object WorldUniform : Struct6<Mat4f, Vec3f, Vec3f, UInt, UInt, UInt, WorldUniform>(
     Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT, UIntDT
@@ -325,7 +326,7 @@ class WorldRender(
     /**
      * Note: `model.instances` is updated by [BoundModel.getOrSpawn]
      */
-    fun spawn(id: FunId, model: BoundModel, value: Physical, color: Color = Color.White): RenderInstance {
+    fun spawn(id: FunId, model: BoundModel, value: Physical, tint: Tint): RenderInstance {
         val globalId = worldInstances
         // Match the global index with the instance index
 //        model.instanceIds.add(globalId)
@@ -333,7 +334,9 @@ class WorldRender(
 
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(value.transform)
-        val pointer = GPUInstance.new(instanceBuffer, value.transform, normalMatrix, color, if (model.image == null) 0 else 1)
+        val pointer = GPUInstance.new(
+            instanceBuffer, value.transform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
+        )
 
         val instance = RenderInstance(pointer, globalId, id, model, this, value)
 //        model.instances[id] = instance
@@ -360,6 +363,8 @@ class WorldRender(
         models.forEach { it.value.close() }
     }
 }
+@Serializable
+data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, val strength: Float = 0.5f)
 
 
 class RenderInstance(
@@ -389,14 +394,23 @@ class RenderInstance(
         despawned = true
     }
 
+    private fun checkDespawned() {
+        if (despawned) throw IllegalStateException("Attempt to transform despawned object")
+    }
+
     fun setTransform(transform: Mat4f) {
-        check(!despawned) { "Attempt to transform despawned object" }
+        checkDespawned()
         GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
     }
 
-    fun setColor(color: Color) {
-        check(!despawned) { "Attempt to transform despawned object" }
+    fun setTintColor(color: Color) {
+        checkDespawned()
         GPUInstance.setThird(world.instanceBuffer, pointer, color)
+    }
+
+    fun setTintStrength(strength: Float) {
+        checkDespawned()
+        GPUInstance.setFourth(world.instanceBuffer, pointer, strength)
     }
 
 //    /**

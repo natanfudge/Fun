@@ -68,7 +68,7 @@ private fun run(app: BaseFunApp<*>) {
             app.init()
 
             try {
-                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel))
+                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel, ComposeWebGPURenderer.SurfaceLifecycleName))
             } catch (e: Throwable) {
                 println("Failed to perform a granular restart, trying to restart the app entirely")
                 e.printStackTrace()

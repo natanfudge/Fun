@@ -12,6 +12,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -32,9 +33,6 @@ import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 //TODO:
 // 14. Basic Physics
@@ -147,11 +145,12 @@ class TestObject(
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
 ) :
-    PhysicalFun((app.id++).toString(), app.context, model, translate, rotate, scale, color) {
+    PhysicalFun((app.id++).toString(), app.context, model, translate, rotate, scale, Tint(color, 0f)) {
 
 }
 
-// TODO: 1. Hook into CHR to refresh the app?
+// TODO: Physics. It should work in a GUI-less environment where we simulate ticks.
+// I think change Physical to RenderedPhysical, and have Physical be just bounding box, translation and rotation. Physics doesn't care about scale.
 class FunPlayground(val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
@@ -166,7 +165,7 @@ class FunPlayground(val context: FunContext) : FunApp {
 
         val cube = Model(Mesh.UnitCube(), "Cube")
         val sphere = Model(Mesh.uvSphere(), "Sphere")
-        PhysicalFun(id = "foo", context, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
+        PhysicalFun(id = "foo", context, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), tint = Tint(Color.Red)) // X axis
         TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
         TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
         val floor = TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
@@ -177,19 +176,19 @@ class FunPlayground(val context: FunContext) : FunApp {
         val wgpuCube = Model(Mesh.UnitCube(CubeUv.Grid3x2), "wgpucube", Material(wgpu4kImage))
 
         val instance = TestObject(this, wgpuCube, translate = Vec3f(-2f, 2f, 2f))
-        GlobalScope.launch {
-            var i = 0
-            while (true) {
-                instance.scale = instance.scale * 1.01f
-
-                if (i == 400) {
-                    instance.close()
-                    break
-                }
-                delay(10)
-                i++
-            }
-        }
+//        GlobalScope.launch {
+//            var i = 0
+//            while (true) {
+//                instance.scale = instance.scale * 1.01f
+//
+//                if (i == 400) {
+//                    instance.close()
+//                    break
+//                }
+//                delay(10)
+//                i++
+//            }
+//        }
 
 
         TestObject(this, kotlinSphere)
@@ -265,7 +264,6 @@ class FunPlayground(val context: FunContext) : FunApp {
         }
     }
 
-    var selectedObject: Fun? by mutableStateOf(null)
 
     /**
      * Allows placing "Panels", which block clicks from reaching the game when they are clicked.
@@ -306,7 +304,9 @@ class FunPlayground(val context: FunContext) : FunApp {
     private var mouseDownPos: Offset? = null
 
     private var hoveredObject: PhysicalFun? = null
-    private var hoveredObjectOldColor: Color? = null
+    private var hoveredObjectOldTint: Tint? = null
+    var selectedObject: PhysicalFun? by mutableStateOf(null)
+    private var selectedObjectOldTint: Tint? = null
 
 
     override fun handleInput(input: InputEvent) {
@@ -314,35 +314,61 @@ class FunPlayground(val context: FunContext) : FunApp {
             if (!acceptMouseEvents) {
                 return
             }
-            //TODO: refactor to be seperate function
-            // 2. Add selection color
-            if (hoveredObject != context.hoveredObject) {
-                if (hoveredObject?.hasDespawned != true) {
-                    // Restore the old color
-                    hoveredObject?.color = hoveredObjectOldColor ?: Color.White
-                }
 
-                val newHovered = (context.hoveredObject as? PhysicalFun)
-                hoveredObject = newHovered
-                hoveredObjectOldColor = newHovered?.color
-                // TODO: refine to be something better than just yellow, maybe add tint in the shader
-                newHovered?.color = Color.Yellow
-            }
+            colorHoveredObject()
 
             if (input.eventType == PointerEventType.Press) {
                 mouseDownPos = input.position
             }
-            if (input.eventType == PointerEventType.Release) {
-                val mouseDownPos = mouseDownPos ?: return
-                // Don't reassign selected object if we dragged around too much
-                if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                    selectedObject = context.hoveredObject as Fun?
-                }
-            }
+            captureSelectedObject(input)
         }
         inputManager.handle(input)
         camera.handleInput(inputManager, input, context)
 
+    }
+
+    private fun captureSelectedObject(input: InputEvent.PointerEvent) {
+        if (input.eventType == PointerEventType.Release) {
+            val mouseDownPos = mouseDownPos ?: return
+            // Don't reassign selected object if we dragged around too much
+            if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
+                val selected = context.hoveredObject as PhysicalFun?
+                if (selectedObject != selected) {
+                    // Restore the old color
+                    selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
+                    selectedObject = selected
+                    // Save color to restore later
+                    selectedObjectOldTint = hoveredObjectOldTint
+                    if(selected != null && hoveredObjectOldTint != null) {
+                        selected.tint =  Tint(lerp(
+                            hoveredObjectOldTint!!.color,
+                            Color.White.copy(alpha = 0.5f),
+                            0.8f
+                        ) , strength = 0.8f)
+                    }
+                }
+
+            }
+        }
+    }
+
+    private fun colorHoveredObject() {
+        if (hoveredObject != context.hoveredObject) {
+            // Restore the old color
+            if (hoveredObject != selectedObject) {
+                hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
+            }
+
+            val newHovered = (context.hoveredObject as? PhysicalFun)
+            hoveredObject = newHovered
+            // Save color to restore later
+            hoveredObjectOldTint = newHovered?.tint
+            if (newHovered != selectedObject) {
+                newHovered?.tint = Tint(
+                    lerp(hoveredObjectOldTint!!.color,Color.White.copy(alpha = 0.5f), 0.2f)
+                    , strength = 0.2f)
+            }
+        }
     }
 
     /**
@@ -367,6 +393,7 @@ class FunPlayground(val context: FunContext) : FunApp {
     }
 
 }
+
 
 fun main() {
     startTheFun {

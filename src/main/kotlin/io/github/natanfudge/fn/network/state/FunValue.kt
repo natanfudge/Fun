@@ -7,7 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.AABBEditor
+import io.github.natanfudge.fn.compose.funedit.ColorEditor
 import io.github.natanfudge.fn.compose.funedit.QuatfEditor
+import io.github.natanfudge.fn.compose.funedit.TintEditor
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.compose.funedit.Vec3fEditor
 import io.github.natanfudge.fn.network.Fun
@@ -15,6 +17,7 @@ import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.getSerializerExtended
 import io.github.natanfudge.fn.network.sendStateChange
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
+import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.serialization.KSerializer
@@ -38,7 +41,7 @@ import kotlin.reflect.typeOf
 inline fun <reified T> funValue(
     value: T,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
-    noinline onSetValue: (T) -> Unit = {},
+    noinline onSetValue: (old: T, new: T) -> Unit = {o, n ->},
 ): FunValue<T> = FunValue(value, getSerializerExtended<T>(), onSetValue, editor)
 
 
@@ -48,6 +51,8 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
     AxisAlignedBoundingBox::class -> AABBEditor
     Vec3f::class -> Vec3fEditor
     Quatf::class -> QuatfEditor
+    Color::class -> ColorEditor
+    Tint::class -> TintEditor
     else -> ValueEditor.Missing
 } as ValueEditor<T>
 
@@ -60,7 +65,7 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
  * @see funValue
  * @see Fun
  */
-class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val onSetValue: (T) -> Unit, editor: ValueEditor<T>) : KoinComponent,
+class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val onSetValue: (old: T, new: T) -> Unit, editor: ValueEditor<T>) : KoinComponent,
     ReadWriteProperty<Fun, T>, FunState {
 
     private var _value by mutableStateOf(value)
@@ -139,8 +144,9 @@ class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val 
             )
         }
 
+        val old = this._value
         this._value = value
-        onSetValue(value)
+        onSetValue(old, value)
     }
 
 }

@@ -5,10 +5,7 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
-import io.github.natanfudge.fn.render.Boundable
-import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.getAxisAlignedBoundingBox
+import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -24,7 +21,6 @@ interface Physical : Boundable {
 }
 
 
-
 open class PhysicalFun(
     id: FunId,
     context: FunContext,
@@ -33,32 +29,46 @@ open class PhysicalFun(
     translate: Vec3f = Vec3f.zero(),
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f),
+//    color: Color,
+    tint: Tint = Tint(Color.White, 0f),
 //    transform: Mat4f = Mat4f.identity(),
-    color: Color = Color.White,
-    baseAABB: AxisAlignedBoundingBox = getAxisAlignedBoundingBox(model.mesh)
+//    tintColor: Color = Color.White,
+//    tintStrength: Float = 0f,
+    baseAABB: AxisAlignedBoundingBox = getAxisAlignedBoundingBox(model.mesh),
 ) : Physical, Fun(id, context) {
     override var baseAABB: AxisAlignedBoundingBox by funValue(baseAABB)
 
-    var translate: Vec3f by funValue(translate) {
+    var translate: Vec3f by funValue(translate) { old, new ->
         updateMatrix()
     }
-    var rotate: Quatf by funValue(rotate) {
+    var rotate: Quatf by funValue(rotate) { old, new ->
         updateMatrix()
     }
-    var scale: Vec3f by funValue(scale) {
+    var scale: Vec3f by funValue(scale) { old, new ->
         updateMatrix()
     }
 
-    var color: Color by funValue(color) {
-        renderInstance.setColor(it)
+    var tint: Tint by funValue(tint) { old, new ->
+        if (!despawned) {
+            if (old != new) {
+                renderInstance.setTintColor(new.color)
+                renderInstance.setTintStrength(new.strength)
+            }
+        }
     }
 
-    var hasDespawned = false
+//    var tintStrength: Float by funValue(tintStrength) {
+//        renderInstance.setTintStrength(it)
+//    }
+
+    var despawned = false
 
     private fun updateMatrix() {
-        val matrix = buildMatrix()
-        this._transform = matrix
-        renderInstance.setTransform(matrix)
+        if (!despawned) {
+            val matrix = buildMatrix()
+            this._transform = matrix
+            renderInstance.setTransform(matrix)
+        }
     }
 
     private fun buildMatrix(): Mat4f {
@@ -71,11 +81,11 @@ open class PhysicalFun(
      * This value should be reassigned if you want Fun to react to changes in it.
      */
     override val transform: Mat4f get() = _transform
-    val renderInstance = context.getOrBindModel(model).getOrSpawn(id, this, color)
+    val renderInstance = context.getOrBindModel(model).getOrSpawn(id, this, tint)
 
 
     override fun close() {
-        hasDespawned = true
+        despawned = true
         super.close()
         renderInstance.despawn()
     }

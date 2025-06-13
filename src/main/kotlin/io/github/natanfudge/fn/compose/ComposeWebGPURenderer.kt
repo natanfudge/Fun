@@ -76,28 +76,28 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
 
 
 
-private var texCtxIndex = 0
+//private var texCtxIndex = 0
 
-private class ComposeTextureContext(val device: GPUDevice, val texture: GPUTexture,val textureDim: WindowDimensions): Consumer<ComposeFrameEvent> {
-    val index = texCtxIndex++
-
-    init {
-        println("Creating ComposeTextureContext #$index")
-    }
-
-    override fun accept(t: ComposeFrameEvent) {
-        println("Writing compose texture for dimensions ${t.width}x${t.height}, with textureDim = $textureDim. I am #$index")
-        device.copyExternalImageToTexture(
-            source = t.bytes,
-            texture = texture,
-            width = t.width, height = t.height
-        )
-    }
-
-    override fun toString(): String {
-        return "ComposeTextureContext #$index"
-    }
-}
+//private class ComposeTextureContext(val device: GPUDevice, val texture: GPUTexture,val textureDim: WindowDimensions): Consumer<ComposeFrameEvent> {
+//    val index = texCtxIndex++
+//
+//    init {
+//        println("Creating ComposeTextureContext #$index")
+//    }
+//
+//    override fun accept(t: ComposeFrameEvent) {
+//        println("Writing compose texture for dimensions ${t.width}x${t.height}, with textureDim = $textureDim. I am #$index")
+//        device.copyExternalImageToTexture(
+//            source = t.bytes,
+//            texture = texture,
+//            width = t.width, height = t.height
+//        )
+//    }
+//
+//    override fun toString(): String {
+//        return "ComposeTextureContext #$index"
+//    }
+//}
 
 
 class ComposeWebGPURenderer(
@@ -121,7 +121,11 @@ class ComposeWebGPURenderer(
 //        compose.show(config)
 //    }
 
-    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind("Compose WebGPU Surface") {
+    companion object {
+        const val SurfaceLifecycleName = "Compose WebGPU Surface"
+    }
+
+    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind(SurfaceLifecycleName) {
         it.window.callbacks["Compose"] = compose.callbacks
         ComposeWebgpuSurface(it)
     }
