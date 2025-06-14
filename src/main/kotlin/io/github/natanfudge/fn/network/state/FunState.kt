@@ -75,26 +75,25 @@ internal class MapStateHolder : FunStateHolder {
     // because he did not try getting/setting the value yet.
     // This is mostly because of the limitation that we only get the key information from
     // ReadWriteProperty#getValue / setValue, and only at that point we can start registering the state holders.
-    private val pendingValues = mutableMapOf<String, StateChangeValue.SetProperty>()
+//    private val pendingValues = mutableMapOf<String, StateChangeValue.SetProperty>()
 
-    private val map = mutableMapOf<String, FunState>()
+    private val map = mutableMapOf<String, FunState<*>>()
 
     /**
      * Updates the value of a property identified by [key].
-     * If the property hasn't been registered yet, the value is stored as pending.
      */
     override fun applyChange(key: String, change: StateChangeValue) {
-        if (key in map) {
+//        if (key in map) {
             val state = map.getValue(key)
             state.applyChange(change)
-        } else {
-            check(change is StateChangeValue.SetProperty) { "The list with the key $key was unexpectedly not registered prior to having a change applied to it" }
-            // Not registered yet, wait for it to be registered to grant it the value
-            pendingValues[key] = change
-        }
+//        } else {
+//            check(change is StateChangeValue.SetProperty) { "The list with the key $key was unexpectedly not registered prior to having a change applied to it" }
+//             Not registered yet, wait for it to be registered to grant it the value
+//            pendingValues[key] = change
+//        }
     }
 
-    override fun getCurrentState(): Map<String, FunState> {
+    override fun getCurrentState(): Map<String, FunState<*>> {
         return map
     }
 
@@ -102,19 +101,19 @@ internal class MapStateHolder : FunStateHolder {
     /**
      * Registers a state property with this holder.
      */
-    fun registerState(key: String, value: FunState) {
+    fun registerState(key: String, value: FunState<*>) {
         map[key] = value
     }
 
-    /**
-     * Sets a pending value to a state property if one exists.
-     */
-    fun <T> setPendingValue(key: String, state: FunValue<T>) {
-        if (key !in pendingValues) return
-        val networkValue = pendingValues.getValue(key)
-        state.applyChange(networkValue)
-        pendingValues.remove(key)
-    }
+//    /**
+//     * Sets a pending value to a state property if one exists.
+//     */
+//    fun <T> setPendingValue(key: String, state: FunValue<T>) {
+//        if (key !in pendingValues) return
+//        val networkValue = pendingValues.getValue(key)
+//        state.applyChange(networkValue)
+//        pendingValues.remove(key)
+//    }
 }
 
 
@@ -141,7 +140,7 @@ interface FunStateHolder {
      */
     fun applyChange(key: String, change: StateChangeValue)
 
-    fun getCurrentState(): Map<String, FunState>
+    fun getCurrentState(): Map<String, FunState<*>>
 }
 
 
@@ -190,7 +189,7 @@ interface FunStateHolder {
  * @see FunMap
  * @see FunSet
  */
-sealed interface FunState {
+sealed interface FunState<T> {
     /**
      * Applies a state change received from the network to this object.
      * 
@@ -200,9 +199,9 @@ sealed interface FunState {
     @InternalFunApi
     fun applyChange(change: StateChangeValue)
 
-    var value: Any?
+    var value: T
 
-    val editor: ValueEditor<Any?> get() = ValueEditor.Missing
+    val editor: ValueEditor<T> get() = ValueEditor.Missing as ValueEditor<T>
 }
 
 

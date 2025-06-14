@@ -29,6 +29,7 @@ import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -204,6 +205,7 @@ class FunPlayground(val context: FunContext) : FunApp {
         inputManager.poll()
     }
 
+    @Suppress("UNCHECKED_CAST")
     @Composable
     override fun gui() {
         MaterialTheme(darkColorScheme()) {
@@ -244,6 +246,7 @@ class FunPlayground(val context: FunContext) : FunApp {
                                 if (values != null) {
                                     Text(selected.id, color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
                                     for ((key, value) in values.getCurrentState()) {
+                                        value as FunState<Any?>
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                                             Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                             Box(Modifier.weight(1f))
@@ -335,12 +338,12 @@ class FunPlayground(val context: FunContext) : FunApp {
                 val selected = context.world.hoveredObject as PhysicalFun?
                 if (selectedObject != selected) {
                     // Restore the old color
-                    selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
+                    selectedObject?.tint?.value = selectedObjectOldTint ?: Tint(Color.White)
                     selectedObject = selected
                     // Save color to restore later
                     selectedObjectOldTint = hoveredObjectOldTint
                     if(selected != null && hoveredObjectOldTint != null) {
-                        selected.tint =  Tint(lerp(
+                        selected.tint.value =  Tint(lerp(
                             hoveredObjectOldTint!!.color,
                             Color.White.copy(alpha = 0.5f),
                             0.8f
@@ -356,15 +359,15 @@ class FunPlayground(val context: FunContext) : FunApp {
         if (hoveredObject != context.world.hoveredObject) {
             // Restore the old color
             if (hoveredObject != selectedObject) {
-                hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
+                hoveredObject?.tint?.value = hoveredObjectOldTint ?: Tint(Color.White)
             }
 
             val newHovered = (context.world.hoveredObject as? PhysicalFun)
             hoveredObject = newHovered
             // Save color to restore later
-            hoveredObjectOldTint = newHovered?.tint
+            hoveredObjectOldTint = newHovered?.tint?.value
             if (newHovered != selectedObject) {
-                newHovered?.tint = Tint(
+                newHovered?.tint?.value = Tint(
                     lerp(hoveredObjectOldTint!!.color,Color.White.copy(alpha = 0.5f), 0.2f)
                     , strength = 0.2f)
             }

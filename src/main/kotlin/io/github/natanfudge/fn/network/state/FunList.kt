@@ -69,7 +69,7 @@ class FunList<T> @PublishedApi internal constructor(
     private val name: String,
     private val owner: Fun,
     private val serializer: KSerializer<T>,
-) : MutableList<T>, FunState {
+) : MutableList<T>, FunState<List<T>> {
     
     private val key = StateKey(owner.id, name)
 
@@ -191,11 +191,11 @@ class FunList<T> @PublishedApi internal constructor(
         }
     }
 
-    override var value: Any?
+    override var value: List<T>
         get() = _items
         set(value) {
             _items.clear()
-            _items.addAll(value as Collection<T>)
+            _items.addAll(value)
         }
 
     override val size: Int

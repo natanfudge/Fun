@@ -75,14 +75,14 @@ class FunMap<K, V> @PublishedApi internal constructor(
     private val owner: Fun,
     private val keySerializer: KSerializer<K>,
     private val valueSerializer: KSerializer<V>,
-) : MutableMap<K, V> , FunState {
+) : MutableMap<K, V> , FunState<Map<K,V>> {
 
 
-    override var value: Any?
+    override var value: Map<K,V>
         get() = _items
         set(value) {
             _items.clear()
-            _items.putAll(value as Map<K,V>)
+            _items.putAll(value)
         }
     
     private val key = StateKey(owner.id, name)

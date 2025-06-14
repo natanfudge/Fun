@@ -6,23 +6,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.compose.funedit.AABBEditor
-import io.github.natanfudge.fn.compose.funedit.ColorEditor
-import io.github.natanfudge.fn.compose.funedit.QuatfEditor
-import io.github.natanfudge.fn.compose.funedit.TintEditor
-import io.github.natanfudge.fn.compose.funedit.ValueEditor
-import io.github.natanfudge.fn.compose.funedit.Vec3fEditor
-import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.StateKey
-import io.github.natanfudge.fn.network.getSerializerExtended
-import io.github.natanfudge.fn.network.sendStateChange
+import io.github.natanfudge.fn.compose.funedit.*
+import io.github.natanfudge.fn.network.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
+import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.serializer
-import org.koin.core.component.KoinComponent
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -40,10 +31,11 @@ import kotlin.reflect.typeOf
  */
 inline fun <reified T> funValue(
     value: T,
+    id: FunId = TODO("Automatic funValue id inference is not supported yet"),
+    owner: Fun = TODO("Automatic funValue owner inference is not supported yet"),
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
-    noinline onSetValue: (old: T, new: T) -> Unit = {o, n ->},
-): FunValue<T> = FunValue(value, getSerializerExtended<T>(), onSetValue, editor)
-
+//    noinline onSetValue: (old: T, new: T) -> Unit = { o, n -> },
+): FunValue<T> = FunValue(value, getSerializerExtended<T>(), id, owner, editor)
 
 
 @PublishedApi
@@ -65,21 +57,43 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
  * @see funValue
  * @see Fun
  */
-class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val onSetValue: (old: T, new: T) -> Unit, editor: ValueEditor<T>) : KoinComponent,
-    ReadWriteProperty<Fun, T>, FunState {
+class FunValue<T>(
+    value: T, private val serializer: KSerializer<T>, private val id: FunId, private val owner: Fun,
+    override val editor: ValueEditor<T>,
+) : ReadWriteProperty<Fun, T>, FunState<T> {
 
     private var _value by mutableStateOf(value)
-    private var registered: Boolean = false
+//    private var registered: Boolean = false
 
-    override val editor: ValueEditor<Any?> = editor as ValueEditor<Any?>
-    override var value: Any?
+    /**
+     * Changes are emitted BEFORE the field changes, so you can use both the old value by accessing the field, and the new value by using the
+     * passed value in listen {}.
+     */
+    val change: EventStream<T>
+        field = EventStream.create<T>()
+
+    init {
+        owner.context.stateManager.registerState(
+            holderKey = owner.id,
+            propertyKey = id,
+            state = this as FunValue<Any?>
+        )
+    }
+
+    override var value: T
         get() = _value
         set(value) {
-            _setValue(value as T)
+            owner.context.sendStateChange(
+                StateKey(owner.id, id),
+                StateChangeValue.SetProperty(value.toNetwork(serializer)),
+            )
+
+            change.emit(value)
+            _value = value
         }
 
-    private var thisRef: Fun? = null
-    private var property: KProperty<*>? = null
+//    private var thisRef: Fun? = null
+//    private var property: KProperty<*>? = null
 
 
     override fun toString(): String {
@@ -92,25 +106,21 @@ class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val 
         this._value = change.value.decode(serializer)
     }
 
-    private fun capturePropertyValues(thisRef: Fun, property: KProperty<*>) {
-        if (!registered) {
-            this.thisRef = thisRef
-            this.property = property
-            registered = true
-            thisRef.context.stateManager.registerState(
-                holderKey = thisRef.id,
-                propertyKey = property.name,
-                state = this as FunValue<Any?>
-            )
-
-            // It's possible some new data came through before we managed to captured the values, so we apply it now.
-            thisRef.context.stateManager.setToPendingValue(
-                holderKey = thisRef.id,
-                propertyKey = property.name,
-                state = this as FunValue<Any?>
-            )
-        }
-    }
+//    private fun capturePropertyValues(thisRef: Fun, property: KProperty<*>) {
+//        if (!registered) {
+//            this.thisRef = thisRef
+//            this.property = property
+//            registered = true
+//
+//
+//            // It's possible some new data came through before we managed to captured the values, so we apply it now.
+//            thisRef.context.stateManager.setToPendingValue(
+//                holderKey = thisRef.id,
+//                propertyKey = property.name,
+//                state = this as FunValue<Any?>
+//            )
+//        }
+//    }
 
     /**
      * Gets the current value of the property.
@@ -119,7 +129,7 @@ class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val 
      * updates are applied.
      */
     override fun getValue(thisRef: Fun, property: KProperty<*>): T {
-        capturePropertyValues(thisRef, property)
+//        capturePropertyValues(thisRef, property)
         return _value
     }
 
@@ -129,24 +139,16 @@ class FunValue<T>(value: T, private val serializer: KSerializer<T>, private val 
      * On first access, the property is registered with the client.
      */
     override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
-        capturePropertyValues(thisRef, property)
-        _setValue(value)
+        this.value = value
+//        capturePropertyValues(thisRef, property)
+//        _setValue(value)
     }
 
-    private fun _setValue(value: T) {
-        val thisRef = thisRef
-        val property = property
-        if (thisRef != null && property != null) {
-            // Important to do this first so that if it throws then it won't update the value
-            thisRef.context.sendStateChange(
-                StateKey(thisRef.id, property.name),
-                StateChangeValue.SetProperty(value.toNetwork(serializer)),
-            )
-        }
-
-        val old = this._value
-        this._value = value
-        onSetValue(old, value)
-    }
+//    private fun _setValue(value: T) {
+////        val thisRef = thisRef
+//            // Important to do this first so that if it throws then it won't update the value
+//
+//        this._value = value
+//    }
 
 }

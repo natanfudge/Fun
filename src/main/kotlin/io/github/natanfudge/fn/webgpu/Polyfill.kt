@@ -46,6 +46,7 @@ fun GPUDevice.copyExternalImageToTexture(source: ByteArray, texture: GPUTexture,
 
 // Hopefully there will be an api for this in the future
 fun GPUBuffer.mapFrom(buffer: IntArray, offset: GPUSize64 = 0u): GPUBuffer {
+//    IntArray(123).
     buffer.writeInto(getMappedRange(offset))
     return this
 }

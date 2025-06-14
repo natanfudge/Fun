@@ -236,21 +236,21 @@ class FunStateManager(
         stateHolders.remove(fn.id)
     }
 
-    /**
-     * Sets the value of [state] to the pending value if it exists.
-     * A pending value will get DELETED once it is retrieved!
-     */
-    internal fun <T> setToPendingValue(holderKey: String, propertyKey: String, state: FunValue<T>) {
-        val holder = stateHolders[holderKey] ?: throw UnfunStateException(
-            "State holder '$holderKey' was not registered prior to attempting getting the pending value of its sub-state '$propertyKey'!"
-        )
-        holder.setPendingValue(propertyKey, state)
-    }
+//    /**
+//     * Sets the value of [state] to the pending value if it exists.
+//     * A pending value will get DELETED once it is retrieved!
+//     */
+//    internal fun <T> setToPendingValue(holderKey: String, propertyKey: String, state: FunValue<T>) {
+//        val holder = stateHolders[holderKey] ?: throw UnfunStateException(
+//            "State holder '$holderKey' was not registered prior to attempting getting the pending value of its sub-state '$propertyKey'!"
+//        )
+//        holder.setPendingValue(propertyKey, state)
+//    }
 
     /**
      * Registers a state property with its parent state holder.
      */
-    internal fun registerState(holderKey: String, propertyKey: String, state: FunState) {
+    internal fun registerState(holderKey: String, propertyKey: String, state: FunState<*>) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to registering its sub-state '$propertyKey'!"
         )
