@@ -6,11 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.FunStateContext
-import io.github.natanfudge.fn.physics.Physical
+import io.github.natanfudge.fn.physics.Renderable
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.ValueHolder
@@ -101,7 +102,7 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
         val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind("App") {
-            val app = initFunc(FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient()))
+            val app = initFunc(VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient()))
             it.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
             app
         }
@@ -159,46 +160,46 @@ abstract class RenderBoundPhysical(val render: WorldRender)
 //        set(value) {}
 //}
 
+interface FunContext : FunStateContext {
+    val world: FunWorldRender
+    val windowDimensions: IntSize
+    fun setCursorLocked(locked: Boolean)
+    fun setGUIFocused(focused: Boolean)
+}
 
-class FunContext(
-    private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
-    private val stateContext: FunStateContext,
-) : FunStateContext by stateContext {
-    private val dims by dims
-//    private val surface by surface
-
-    val world = surface.world
-
-    val windowWidth get() = dims.dims.width
-    val windowHeight get() = dims.dims.height
-
-    val hoveredObject: Physical? get() = world.selectedObject
-
-    fun setCursorLocked(locked: Boolean) {
-        surface.ctx.window.cursorLocked = locked
-        if (locked) world.cursorPosition = null
-    }
-
-    fun setGUIFocused(focused: Boolean) {
-        compose.compose.windowLifecycle.assertValue.focused = focused
-    }
-
-//    fun spawn(model: BoundModel, value: Physical, color: Color = Color.White): RenderInstance {
-//        return world.spawn(model, value, color)
-//    }
-
-//    fun bind(model: Model): BoundModel {
-//        return world.bind(model)
-//    }
+interface FunWorldRender {
+    /**
+     * Used for ray casting, as the renderer is involved in it
+     */
+    fun setCursorPosition(position: Offset?)
+    val hoveredObject: Renderable?
 
     /**
      * Used to access the BoundModel, only creating it when needing
      */
-    fun getOrBindModel(model: Model): BoundModel = world.getOrBindModel(model)
+    fun getOrBindModel(model: Model): BoundModel
+}
 
-//    fun getOrSpawnInstance()
+class VisibleFunContext(
+    private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
+    private val stateContext: FunStateContext,
+) : FunContext, FunStateContext by stateContext {
+    private val dims by dims
+
+    override val windowDimensions: IntSize
+        get() = IntSize(dims.dims.width, dims.dims.height)
+
+    override val world = surface.world
 
 
+    override fun setCursorLocked(locked: Boolean) {
+        surface.ctx.window.cursorLocked = locked
+        if (locked) world._cursorPosition = null
+    }
+
+    override fun setGUIFocused(focused: Boolean) {
+        compose.compose.windowLifecycle.assertValue.focused = focused
+    }
 }
 
 
@@ -211,6 +212,12 @@ class FunAppBuilder {
     }
 }
 
+/**
+ * Start a Fun app.
+ * This accepts a lambda for configuring the app (` FunAppBuilder.() -> `), which returns a lambda that creates the app (`((context: FunContext) -> T)`).
+ * The reason [init] does not simply return a FunApp, is because the outer lambda is called whenever the window is created, and the inner lambda
+ * is called whenever the app is created, allowing for more granular hot reloading.
+ */
 fun <T : FunApp> startTheFun(init: FunAppInit<T>) {
     run(BaseFunApp(init))
 }

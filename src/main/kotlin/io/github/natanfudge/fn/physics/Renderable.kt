@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.physics
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Velocity
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
@@ -10,7 +11,7 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-interface Physical : Boundable {
+interface Renderable : Boundable {
     val transform: Mat4f
     var baseAABB: AxisAlignedBoundingBox
 
@@ -26,24 +27,32 @@ open class PhysicalFun(
     context: FunContext,
     //SUS: overreaching boundary here - Physical is common and BoundModel is client. Need to abstract this somehow.
     model: Model,
-    translate: Vec3f = Vec3f.zero(),
-    rotate: Quatf = Quatf.identity(),
+    position: Vec3f = Vec3f.zero(),
+    orientation: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f),
-//    color: Color,
     tint: Tint = Tint(Color.White, 0f),
-//    transform: Mat4f = Mat4f.identity(),
-//    tintColor: Color = Color.White,
-//    tintStrength: Float = 0f,
     baseAABB: AxisAlignedBoundingBox = getAxisAlignedBoundingBox(model.mesh),
-) : Physical, Fun(id, context) {
+    affectedByGravity: Boolean = true,
+    velocity: Vec3f = Vec3f.zero(),
+    acceleration: Vec3f = Vec3f.zero(),
+) : Renderable, Fun(id, context), Kinematic {
     override var baseAABB: AxisAlignedBoundingBox by funValue(baseAABB)
 
-    var translate: Vec3f by funValue(translate) { old, new ->
+    override var position: Vec3f by funValue(position) { old, new ->
         updateMatrix()
     }
-    var rotate: Quatf by funValue(rotate) { old, new ->
+    var orientation: Quatf by funValue(orientation) { old, new ->
         updateMatrix()
     }
+
+    override var velocity: Vec3f by funValue(velocity)
+    override var acceleration: Vec3f by funValue(acceleration)
+    override var affectedByGravity: Boolean by funValue(affectedByGravity)
+
+    override val boundingBox: AxisAlignedBoundingBox
+        get() = super<Renderable>.boundingBox
+
+
     var scale: Vec3f by funValue(scale) { old, new ->
         updateMatrix()
     }
@@ -57,10 +66,6 @@ open class PhysicalFun(
         }
     }
 
-//    var tintStrength: Float by funValue(tintStrength) {
-//        renderInstance.setTintStrength(it)
-//    }
-
     var despawned = false
 
     private fun updateMatrix() {
@@ -72,7 +77,7 @@ open class PhysicalFun(
     }
 
     private fun buildMatrix(): Mat4f {
-        return Mat4f.translateRotateScale(translate, rotate, scale)
+        return Mat4f.translateRotateScale(this@PhysicalFun.position, this@PhysicalFun.orientation, scale)
     }
 
     private var _transform = buildMatrix()
@@ -81,7 +86,7 @@ open class PhysicalFun(
      * This value should be reassigned if you want Fun to react to changes in it.
      */
     override val transform: Mat4f get() = _transform
-    val renderInstance = context.getOrBindModel(model).getOrSpawn(id, this, tint)
+    val renderInstance = context.world.getOrBindModel(model).getOrSpawn(id, this, tint)
 
 
     override fun close() {

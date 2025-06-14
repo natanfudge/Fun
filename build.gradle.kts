@@ -107,7 +107,7 @@ dependencies {
 
 kotlin {
     jvmToolchain {
-        this.languageVersion = JavaLanguageVersion.of(21)
+        this.languageVersion = JavaLanguageVersion.of(22)
 //        vendor = JvmVendorSpec.JETBRAINS
     }
     sourceSets.all {

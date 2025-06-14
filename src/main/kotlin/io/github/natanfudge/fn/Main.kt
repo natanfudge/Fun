@@ -54,8 +54,8 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 fun DefaultCamera.bind(inputManager: InputManager, context: FunContext) {
     inputManager.mouseMoved.listen { delta ->
-        val normalizedDeltaX = delta.x / context.windowWidth
-        val normalizedDeltaY = delta.y / context.windowHeight
+        val normalizedDeltaX = delta.x / context.windowDimensions.width
+        val normalizedDeltaY = delta.y / context.windowDimensions.height
 
         when (mode) {
             CameraMode.Orbital -> {
@@ -110,7 +110,7 @@ private fun DefaultCamera.handleInput(inputManager: InputManager, input: InputEv
                 zoom(zoom)
             }
             if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
-                context.world.cursorPosition = input.position
+                context.world.setCursorPosition(input.position)
             }
         }
 
@@ -332,7 +332,7 @@ class FunPlayground(val context: FunContext) : FunApp {
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.hoveredObject as PhysicalFun?
+                val selected = context.world.hoveredObject as PhysicalFun?
                 if (selectedObject != selected) {
                     // Restore the old color
                     selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
@@ -353,13 +353,13 @@ class FunPlayground(val context: FunContext) : FunApp {
     }
 
     private fun colorHoveredObject() {
-        if (hoveredObject != context.hoveredObject) {
+        if (hoveredObject != context.world.hoveredObject) {
             // Restore the old color
             if (hoveredObject != selectedObject) {
                 hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
             }
 
-            val newHovered = (context.hoveredObject as? PhysicalFun)
+            val newHovered = (context.world.hoveredObject as? PhysicalFun)
             hoveredObject = newHovered
             // Save color to restore later
             hoveredObjectOldTint = newHovered?.tint

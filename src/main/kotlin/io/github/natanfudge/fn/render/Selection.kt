@@ -31,6 +31,17 @@ data class AxisAlignedBoundingBox(
             -0.5f,-0.5f,-0.5f,
             0.5f,0.5f,0.5f,
         )
+
+        fun cube(center: Vec3f, height: Float): AxisAlignedBoundingBox {
+            return AxisAlignedBoundingBox(
+                center.x - height / 2f,
+                center.y - height / 2f,
+                center.z - height / 2f,
+                center.x + height / 2f,
+                center.y + height / 2f,
+                center.z + height / 2f,
+            )
+        }
     }
 
     fun transformed(mat: Mat4f): AxisAlignedBoundingBox {

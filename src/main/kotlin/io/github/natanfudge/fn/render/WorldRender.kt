@@ -6,11 +6,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.core.FunWorldRender
 import io.github.natanfudge.fn.files.Image
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.physics.Physical
+import io.github.natanfudge.fn.physics.Renderable
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
@@ -21,13 +22,17 @@ import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
 
 
+interface BoundModel {
+    fun getOrSpawn(id: FunId, value: Renderable, tint: Tint): RenderInstance
+}
+
 /**
  * Stores GPU information about all instances of a [Model].
  */
-class BoundModel(
+class VisibleBoundModel(
     val model: Model, ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
     val world: WorldRender,
-) : AutoCloseable {
+) : AutoCloseable, BoundModel {
     val image = model.material.texture
 
     val texture = ctx.device.createTexture(
@@ -56,14 +61,14 @@ class BoundModel(
 
     val textureView = texture.createView()
 
-    val instances = mutableMapOf<FunId, RenderInstance>()
+    val instances = mutableMapOf<FunId, VisibleRenderInstance>()
 
 //    val instanceIds = mutableListOf<Int>()
 
 //    private fun spawn(value: Physical, color: Color = Color.White): RenderInstance =
 
 
-    fun getOrSpawn(id: FunId, value: Physical, tint: Tint): RenderInstance {
+    override fun getOrSpawn(id: FunId, value: Renderable, tint: Tint): VisibleRenderInstance {
         return instances.computeIfAbsent(id) {
             world.spawn(id, this, value, tint)
         }
@@ -110,17 +115,17 @@ object WorldUniform : Struct6<Mat4f, Vec3f, Vec3f, UInt, UInt, UInt, WorldUnifor
 class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
-) : AutoCloseable {
+) : FunWorldRender, AutoCloseable {
 
 //    var camera : Camera? = null
 
     var worldInstances = 0
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
 
-    val rayCasting = RayCastingCache<RenderInstance>()
+    val rayCasting = RayCastingCache<VisibleRenderInstance>()
     var selectedObjectId: Int = -1
 
-    var selectedObject: Physical? by mutableStateOf(null)
+    override var hoveredObject: Renderable? by mutableStateOf(null)
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
@@ -134,7 +139,7 @@ class WorldRender(
     val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, expandable = false, GPUBufferUsage.Storage)
 
     //    val models = mutableListOf<BoundModel>()
-    val models = mutableMapOf<ModelId, BoundModel>()
+    val models = mutableMapOf<ModelId, VisibleBoundModel>()
 
     //    var bindGroup =
     val modelBindGroups = mutableListOf<GPUBindGroup>()
@@ -167,7 +172,7 @@ class WorldRender(
         )
     }
 
-    private fun createModelBindGroup(pipeline: GPURenderPipeline, model: BoundModel) = ctx.device.createBindGroup(
+    private fun createModelBindGroup(pipeline: GPURenderPipeline, model: VisibleBoundModel) = ctx.device.createBindGroup(
         BindGroupDescriptor(
             layout = pipeline.getBindGroupLayout(1u),
             entries = listOf(
@@ -223,7 +228,11 @@ class WorldRender(
         }
     }
 
-    var cursorPosition: Offset? = null
+    var _cursorPosition: Offset? = null
+
+    override fun setCursorPosition(position: Offset?) {
+        this._cursorPosition = position
+    }
 
 
     fun draw(
@@ -241,8 +250,8 @@ class WorldRender(
         val viewProjection = dimensions.projection * camera.viewMatrix
 
         // Update selected object based on ray casting
-        val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
-        selectedObject = rayCast?.value
+        val rayCast = rayCasting.rayCast(getCursorRay(camera, _cursorPosition, viewProjection, dimensions))
+        hoveredObject = rayCast?.value
         selectedObjectId = rayCast?.renderId ?: -1
 
         val selectedObjectId = rayCast?.renderId?.toUInt() ?: 9999u
@@ -300,15 +309,15 @@ class WorldRender(
         pass.end()
     }
 
-    fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
+    override fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
 
     /**
      * Note: [models] is updated by [getOrBindModel]
      */
-    private fun bind(model: Model): BoundModel {
+    private fun bind(model: Model): VisibleBoundModel {
         val vertexPointer = vertexBuffer.new(model.mesh.vertices.array)
         val indexPointer = indexBuffer.new(model.mesh.indices.array)
-        val bound = BoundModel(
+        val bound = VisibleBoundModel(
             model, ctx,
             // These values are indices, not bytes, so we need to divide by the size of the value
             firstIndex = (indexPointer.address / Int.SIZE_BYTES.toUInt()).toUInt(),
@@ -324,9 +333,9 @@ class WorldRender(
     }
 
     /**
-     * Note: `model.instances` is updated by [BoundModel.getOrSpawn]
+     * Note: `model.instances` is updated by [VisibleBoundModel.getOrSpawn]
      */
-    fun spawn(id: FunId, model: BoundModel, value: Physical, tint: Tint): RenderInstance {
+    fun spawn(id: FunId, model: VisibleBoundModel, value: Renderable, tint: Tint): VisibleRenderInstance {
         val globalId = worldInstances
         // Match the global index with the instance index
 //        model.instanceIds.add(globalId)
@@ -338,7 +347,7 @@ class WorldRender(
             instanceBuffer, value.transform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
         )
 
-        val instance = RenderInstance(pointer, globalId, id, model, this, value)
+        val instance = VisibleRenderInstance(pointer, globalId, id, model, this, value)
 //        model.instances[id] = instance
         rayCasting.add(instance)
 
@@ -367,15 +376,26 @@ class WorldRender(
 data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, val strength: Float = 0.5f)
 
 
-class RenderInstance(
+interface RenderInstance {
+
+    fun setTransform(transform: Mat4f)
+
+    fun setTintColor(color: Color)
+
+    fun setTintStrength(strength: Float)
+
+    fun despawn()
+}
+
+class VisibleRenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
     internal val renderId: Int,
     val funId: FunId,
 //    val value: T,
-    private val model: BoundModel,
+    private val model: VisibleBoundModel,
     @PublishedApi internal val world: WorldRender,
-    val value: Physical,
-) : Boundable {
+    val value: Renderable,
+) : Boundable, RenderInstance {
     //    private var baseAABB =value.baseAABB
     override val boundingBox: AxisAlignedBoundingBox get() = value.boundingBox
 
@@ -387,7 +407,7 @@ class RenderInstance(
      * Removes this instance from the world, cleaning up any held resources.
      * After despawning, attempting to transform this instance will fail.
      */
-    fun despawn() {
+    override fun despawn() {
         model.instances.remove(funId)
         world.instanceBuffer.free(pointer, GPUInstance.size)
         world.rayCasting.remove(this)
@@ -398,46 +418,20 @@ class RenderInstance(
         if (despawned) throw IllegalStateException("Attempt to transform despawned object")
     }
 
-    fun setTransform(transform: Mat4f) {
+    override fun setTransform(transform: Mat4f) {
         checkDespawned()
         GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
     }
 
-    fun setTintColor(color: Color) {
+    override fun setTintColor(color: Color) {
         checkDespawned()
         GPUInstance.setThird(world.instanceBuffer, pointer, color)
     }
 
-    fun setTintStrength(strength: Float) {
+    override fun setTintStrength(strength: Float) {
         checkDespawned()
         GPUInstance.setFourth(world.instanceBuffer, pointer, strength)
     }
-
-//    /**
-//     * Allows mutating the transform in-place, after which the new transform will be used.
-//     */
-//    inline fun setTransform(transform: (Mat4f) -> Unit) {
-//        transform(this.transform)
-//        _updateTransform()
-//    }
-//
-//    @PublishedApi
-//    internal fun _updateTransform() {
-//
-//
-//
-//        // LATER: might need to do something like this to update ray casting cache, for now the current approach works because there's no real BVH or smthn
-////        world.rayCasting.remove(this)
-////        world.rayCasting.add(this)
-//    }
-//
-//    /**
-//     * Premultiplies the current transformation with [transform], effectively applying [transform] AFTER the current transformation.
-//     */
-//    fun transform(transform: Mat4f) {
-//        transform.mul(this.transform, this.transform)
-//        _updateTransform()
-//    }
 }
 
 
