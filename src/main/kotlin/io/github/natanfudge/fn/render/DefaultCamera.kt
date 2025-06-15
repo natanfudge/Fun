@@ -80,6 +80,25 @@ class DefaultCamera: Camera {
         calculateMatrix()
     }
 
+    /**
+     * Will place [focalPoint] at the center of the camera's view, standing at distance [distance] from it.
+     */
+    fun focus(focalPoint: Vec3f, distance: Float) {
+        // Remember the focal point we are orbiting/zooming around
+        this.focalPoint.set(focalPoint)
+
+        // 1. Make the forward vector point at the focal point
+        focalPoint.sub(position, forward)   // forward ← focal-point − position
+        forward.normalize(forward)
+
+        // 2. Move the camera so it sits `distance` units behind the focal point
+        forward.mulScalar(-distance, tempVec)   // step back along −forward
+        focalPoint.add(tempVec, position)       // position ← focal-point − forward*distance
+
+        // 3. Keep the basis orthonormal and update the view matrix
+        updateRight()
+        calculateMatrix()
+    }
 
     /**
      * Tilts the camera by adjusting its [forward] direction.

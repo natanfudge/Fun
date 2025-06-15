@@ -7,7 +7,7 @@ power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = 
 
 [versions]
 # TODO: it seems like updating to 2.2.0-Beta2 causes a regression in hot reloading, if we reload and then resize, the JVM itself crashes.
-kotlin = "2.2.0-RC"
+kotlin = "2.2.0-RC2"
 compose = "1.7.3"
 lwjgl = "3.3.6"
 serializationJson = "1.8.0"

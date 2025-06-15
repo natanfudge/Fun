@@ -31,6 +31,7 @@ import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.physics.PhysicalFun
+import io.github.natanfudge.fn.physics.PhysicsSystem
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -146,15 +147,25 @@ class TestObject(
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
 ) :
-    PhysicalFun((app.id++).toString(), app.context, model, translate, rotate, scale, Tint(color, 0f)) {
+    PhysicalFun((app.id++).toString(), app.context, physics = app.physics.system,model, translate, rotate, scale, Tint(color, 0f)) {
 
+}
+
+class PhysicsMod {
+    val system = PhysicsSystem()
+    fun physics(delta: Float) {
+        system.tick(delta / 1000f)
+    }
 }
 
 // TODO: Physics. It should work in a GUI-less environment where we simulate ticks.
 // I think change Physical to RenderedPhysical, and have Physical be just bounding box, translation and rotation. Physics doesn't care about scale.
-class FunPlayground(val context: FunContext) : FunApp {
+
+// TODO: I think we can add the Mod system now, I have a pretty good understanding of how to use it.
+class FunPlayground(override val context: FunContext) : FunApp {
     override val camera = DefaultCamera()
     val inputManager = InputManager()
+    val physics = PhysicsMod()
 
     var id = 0
 
@@ -166,7 +177,7 @@ class FunPlayground(val context: FunContext) : FunApp {
 
         val cube = Model(Mesh.UnitCube(), "Cube")
         val sphere = Model(Mesh.uvSphere(), "Sphere")
-        PhysicalFun(id = "foo", context, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), tint = Tint(Color.Red)) // X axis
+        PhysicalFun(id = "foo", context, physics.system,cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), tint = Tint(Color.Red)) // X axis
         TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
         TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
         val floor = TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
@@ -203,6 +214,7 @@ class FunPlayground(val context: FunContext) : FunApp {
 
     override fun physics(delta: Float) {
         inputManager.poll()
+        physics.physics(delta)
     }
 
     @Suppress("UNCHECKED_CAST")

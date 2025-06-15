@@ -31,8 +31,8 @@ import kotlin.reflect.typeOf
  */
 inline fun <reified T> funValue(
     value: T,
-    id: FunId = TODO("Automatic funValue id inference is not supported yet"),
-    owner: Fun = TODO("Automatic funValue owner inference is not supported yet"),
+    id: FunId = error("Automatic funValue id inference is not supported yet"),
+    owner: Fun = error("Automatic funValue owner inference is not supported yet"),
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
 //    noinline onSetValue: (old: T, new: T) -> Unit = { o, n -> },
 ): FunValue<T> = FunValue(value, getSerializerExtended<T>(), id, owner, editor)
@@ -65,12 +65,14 @@ class FunValue<T>(
     private var _value by mutableStateOf(value)
 //    private var registered: Boolean = false
 
+    private val _change = EventStream.create<T>()
+
     /**
      * Changes are emitted BEFORE the field changes, so you can use both the old value by accessing the field, and the new value by using the
      * passed value in listen {}.
      */
-    val change: EventStream<T>
-        field = EventStream.create<T>()
+    val change: EventStream<T> =_change
+//        field = EventStream.create<T>()
 
     init {
         owner.context.stateManager.registerState(
@@ -88,7 +90,7 @@ class FunValue<T>(
                 StateChangeValue.SetProperty(value.toNetwork(serializer)),
             )
 
-            change.emit(value)
+            _change.emit(value)
             _value = value
         }
 

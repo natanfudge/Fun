@@ -121,6 +121,8 @@ class FunInputAdapter(private val app: FunApp) : WindowCallbacks {
 //    val surface: FunSurface
 //)
 
+//internal fun
+
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(
     compose: ComposeWebGPURenderer,
@@ -208,16 +210,15 @@ fun WebGPUWindow.bindFunLifecycles(
         surface.world.createBindGroup(pipeline.pipeline)
     }
 
-    var prevPhysicsTime = System.nanoTime()
 
     // Running this in-frame is a bad idea since it can trigger a new frame
     window.eventPollLifecycle.bind(appLifecycle, "Fun Polling", FunLogLevel.Verbose) { _, app ->
         if (HOT_RELOAD_SHADERS) {
             fsWatcher.poll()
         }
-        val physicsDelta = System.nanoTime() - prevPhysicsTime
-        prevPhysicsTime = System.nanoTime()
-        app.physics(physicsDelta / 1e6f)
+        app.context.time._poll()
+
+
 //        app.preFrame()
     }
 

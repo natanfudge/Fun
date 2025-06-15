@@ -21,6 +21,7 @@ import io.github.natanfudge.fn.window.WindowConfig
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
+import java.time.Duration
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.system.exitProcess
 
@@ -42,7 +43,7 @@ val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
 var hotReloadIndex = 0
 
 
-private fun run(app: BaseFunApp<*>) {
+private fun run(app: FunAppInitializer<*>) {
     val window = app.init()
     val loop = GlfwGameLoop(window.window)
 
@@ -83,7 +84,42 @@ private fun run(app: BaseFunApp<*>) {
     exitProcess(0)
 }
 
-private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
+class RealTime : FunTime {
+    internal lateinit var app: FunApp
+    override fun advance(time: Duration) {
+        app.physics(time.toMillis().toFloat())
+    }
+
+    var stopped = false
+
+    override fun stop() {
+        stopped = true
+    }
+
+    override fun resume() {
+        stopped = false
+        prevPhysicsTime = System.nanoTime()
+    }
+
+    private var prevPhysicsTime = 0L
+
+    override fun _poll() {
+        if (stopped) return
+
+        if (prevPhysicsTime == 0L) {
+            prevPhysicsTime = System.nanoTime()
+            app.physics(0f)
+        } else {
+            val physicsDelta = System.nanoTime() - prevPhysicsTime
+            prevPhysicsTime = System.nanoTime()
+
+            app.physics(physicsDelta / 1e6f)
+        }
+    }
+
+}
+
+private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
     private lateinit var fsWatcher: FileSystemWatcher
     fun init(): WebGPUWindow {
         val builder = FunAppBuilder()
@@ -102,7 +138,9 @@ private class BaseFunApp<T : FunApp>(private val app: FunAppInit<T>) {
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
         val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind("App") {
-            val app = initFunc(VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient()))
+            val time = RealTime()
+            val app = initFunc(VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient(), time))
+            time.app = app
             it.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
             app
         }
@@ -144,7 +182,9 @@ interface FunApp : AutoCloseable {
 
     }
 
+    //SUS: pretty arbitrary API, doesn't account for multiple camera angles, it should just be some method on WorldRender
     val camera: Camera
+    val context: FunContext
 
     override fun close() {
 
@@ -165,6 +205,22 @@ interface FunContext : FunStateContext {
     val windowDimensions: IntSize
     fun setCursorLocked(locked: Boolean)
     fun setGUIFocused(focused: Boolean)
+
+//    val physics: PhysicsSystem
+
+    val time: FunTime
+}
+
+interface FunTime {
+    fun advance(time: Duration)
+    fun stop()
+
+    fun resume()
+
+    /**
+     * Should not be called by users.
+     */
+    fun _poll()
 }
 
 interface FunWorldRender {
@@ -182,8 +238,11 @@ interface FunWorldRender {
 
 class VisibleFunContext(
     private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
-    private val stateContext: FunStateContext,
+    private val stateContext: FunStateContext, override val time: FunTime,
 ) : FunContext, FunStateContext by stateContext {
+
+//    override val physics: PhysicsSystem = PhysicsSystem()
+
     private val dims by dims
 
     override val windowDimensions: IntSize
@@ -194,7 +253,6 @@ class VisibleFunContext(
 
     override fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
-        if (locked) world._cursorPosition = null
     }
 
     override fun setGUIFocused(focused: Boolean) {
@@ -219,7 +277,7 @@ class FunAppBuilder {
  * is called whenever the app is created, allowing for more granular hot reloading.
  */
 fun <T : FunApp> startTheFun(init: FunAppInit<T>) {
-    run(BaseFunApp(init))
+    run(FunAppInitializer(init))
 }
 
 
