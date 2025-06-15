@@ -31,8 +31,8 @@ import kotlin.reflect.typeOf
  */
 inline fun <reified T> funValue(
     value: T,
-    id: FunId = error("Automatic funValue id inference is not supported yet"),
-    owner: Fun = error("Automatic funValue owner inference is not supported yet"),
+    id: FunId ,
+    owner: Fun ,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
 //    noinline onSetValue: (old: T, new: T) -> Unit = { o, n -> },
 ): FunValue<T> = FunValue(value, getSerializerExtended<T>(), id, owner, editor)

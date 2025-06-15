@@ -100,6 +100,13 @@ class DefaultCamera: Camera {
         calculateMatrix()
     }
 
+    /** TODO: this needs more parameters, and also we need to consider the fact things have volume. That might be very annoying because it means going inside the model.
+     * Positions the camera in such a way that all [positions] are visible, with a minimum of [paddingPx] pixels from the edge of the window.
+     */
+    fun viewAll(positions: List<Vec3f>, paddingPx: Float) {
+        TODO()
+    }
+
     /**
      * Tilts the camera by adjusting its [forward] direction.
      * 

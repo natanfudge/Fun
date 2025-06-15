@@ -21,9 +21,10 @@ import io.github.natanfudge.fn.window.WindowConfig
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
-import java.time.Duration
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.system.exitProcess
+import kotlin.time.Duration
+import kotlin.time.TimeSource
 
 
 val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
@@ -87,7 +88,7 @@ private fun run(app: FunAppInitializer<*>) {
 class RealTime : FunTime {
     internal lateinit var app: FunApp
     override fun advance(time: Duration) {
-        app.physics(time.toMillis().toFloat())
+        app.physics(time)
     }
 
     var stopped = false
@@ -98,23 +99,23 @@ class RealTime : FunTime {
 
     override fun resume() {
         stopped = false
-        prevPhysicsTime = System.nanoTime()
+        prevPhysicsTime = TimeSource.Monotonic.markNow()
     }
 
-    private var prevPhysicsTime = 0L
+    private var prevPhysicsTime = TimeSource.Monotonic.markNow()
 
     override fun _poll() {
         if (stopped) return
 
-        if (prevPhysicsTime == 0L) {
-            prevPhysicsTime = System.nanoTime()
-            app.physics(0f)
-        } else {
-            val physicsDelta = System.nanoTime() - prevPhysicsTime
-            prevPhysicsTime = System.nanoTime()
+//        if (prevPhysicsTime == 0L) {
+//            prevPhysicsTime = System.nanoTime()
+//            app.physics(Duration.ZERO)
+//        } else {
+            val physicsDelta = prevPhysicsTime.elapsedNow()
+            prevPhysicsTime = TimeSource.Monotonic.markNow()
 
-            app.physics(physicsDelta / 1e6f)
-        }
+            app.physics(physicsDelta)
+//        }
     }
 
 }
@@ -178,7 +179,7 @@ interface FunApp : AutoCloseable {
 
     }
 
-    fun physics(delta: Float) {
+    fun physics(delta: kotlin.time.Duration) {
 
     }
 

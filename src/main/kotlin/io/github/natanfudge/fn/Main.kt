@@ -35,6 +35,7 @@ import io.github.natanfudge.fn.physics.PhysicsSystem
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.time.Duration
 
 //TODO:
 // 14. Basic Physics
@@ -147,14 +148,21 @@ class TestObject(
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
 ) :
-    PhysicalFun((app.id++).toString(), app.context, physics = app.physics.system,model, translate, rotate, scale, Tint(color, 0f)) {
+    PhysicalFun((app.id++).toString(), app.context, physics = app.physics.system,model){
+
+    init {
+        this.position = translate
+        this.rotation = rotate
+        this.scale = scale
+        this.tint = Tint(color, 0f)
+    }
 
 }
 
 class PhysicsMod {
     val system = PhysicsSystem()
-    fun physics(delta: Float) {
-        system.tick(delta / 1000f)
+    fun physics(delta: Duration) {
+        system.tick(delta)
     }
 }
 
@@ -177,10 +185,20 @@ class FunPlayground(override val context: FunContext) : FunApp {
 
         val cube = Model(Mesh.UnitCube(), "Cube")
         val sphere = Model(Mesh.uvSphere(), "Sphere")
-        PhysicalFun(id = "foo", context, physics.system,cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), tint = Tint(Color.Red)) // X axis
-        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
-        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
-        val floor = TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
+        PhysicalFun(id = "foo", context, physics.system,cube).apply {
+            scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f)
+            tint = Tint(Color.Red)
+            affectedByGravity = false
+        } // X axis
+        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green).apply {
+            affectedByGravity = false
+        } // Y Axis
+        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue).apply {
+            affectedByGravity = false
+        } // Z Axis
+        val floor = TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray).apply {
+            affectedByGravity = false
+        }
 //        floor.color = Color.Blue
 
         val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
@@ -206,13 +224,15 @@ class FunPlayground(override val context: FunContext) : FunApp {
         TestObject(this, kotlinSphere)
 
         TestObject(this, sphere, translate = Vec3f(2f, 2f, 2f))
-        TestObject(this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f))
+        TestObject(this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f)).apply {
+            affectedByGravity = false
+        }
 
         val obj = TestObject(this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
     }
 
 
-    override fun physics(delta: Float) {
+    override fun physics(delta: Duration) {
         inputManager.poll()
         physics.physics(delta)
     }
@@ -350,12 +370,12 @@ class FunPlayground(override val context: FunContext) : FunApp {
                 val selected = context.world.hoveredObject as PhysicalFun?
                 if (selectedObject != selected) {
                     // Restore the old color
-                    selectedObject?.tint?.value = selectedObjectOldTint ?: Tint(Color.White)
+                    selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
                     selectedObject = selected
                     // Save color to restore later
                     selectedObjectOldTint = hoveredObjectOldTint
                     if(selected != null && hoveredObjectOldTint != null) {
-                        selected.tint.value =  Tint(lerp(
+                        selected.tint =  Tint(lerp(
                             hoveredObjectOldTint!!.color,
                             Color.White.copy(alpha = 0.5f),
                             0.8f
@@ -371,15 +391,15 @@ class FunPlayground(override val context: FunContext) : FunApp {
         if (hoveredObject != context.world.hoveredObject) {
             // Restore the old color
             if (hoveredObject != selectedObject) {
-                hoveredObject?.tint?.value = hoveredObjectOldTint ?: Tint(Color.White)
+                hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
             }
 
             val newHovered = (context.world.hoveredObject as? PhysicalFun)
             hoveredObject = newHovered
             // Save color to restore later
-            hoveredObjectOldTint = newHovered?.tint?.value
+            hoveredObjectOldTint = newHovered?.tint
             if (newHovered != selectedObject) {
-                newHovered?.tint?.value = Tint(
+                newHovered?.tint = Tint(
                     lerp(hoveredObjectOldTint!!.color,Color.White.copy(alpha = 0.5f), 0.2f)
                     , strength = 0.2f)
             }

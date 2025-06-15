@@ -14,7 +14,7 @@ import kotlin.math.abs
  * @param epsilon The maximum allowed absolute difference for each component.
  * @throws AssertionError if the vectors are not roughly equal.
  */
-fun Vec3f.shouldRoughlyEqual(other: Vec3f, epsilon: Double = 1e-2) {
+fun Vec3f.shouldRoughlyEqual(other: Vec3f, epsilon: Double = 1e-5) {
     try {
         // Assert that each component is roughly equal.
         // This reuses our previously defined number assertion.

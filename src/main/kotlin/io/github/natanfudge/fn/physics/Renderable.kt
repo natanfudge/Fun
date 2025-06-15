@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.physics
 
 import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.PhysicsMod
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
@@ -31,74 +30,88 @@ interface Renderable : Boundable {
 //    }
 //}
 
+//class Transform(id: FunId,  context: FunContext, translation: Vec3f, rotation: Quatf, scale: Vec3f): Fun(id.child("transform"), context) {
+//    val translation = funValue<Vec3f>(translation, "translation", this)
+//    val rotation = funValue<Quatf>(rotation, "rotation", this)
+//    val scale = funValue<Vec3f>(scale, "scale", this)
+//}
 
+
+// TODO: need to see how I resolve the infinite parmaeter issue...
 
 open class PhysicalFun(
     id: FunId,
     context: FunContext,
     private val physics: PhysicsSystem,
     //SUS: overreaching boundary here - Physical is common and BoundModel is client. Need to abstract this somehow.
-    model: Model,
-    position: Vec3f = Vec3f.zero(),
-    orientation: Quatf = Quatf.identity(),
-    scale: Vec3f = Vec3f(1f, 1f, 1f),
-    tint: Tint = Tint(Color.White, 0f),
-    baseAABB: AxisAlignedBoundingBox = getAxisAlignedBoundingBox(model.mesh),
-    affectedByGravity: Boolean = true,
-    velocity: Vec3f = Vec3f.zero(),
-    acceleration: Vec3f = Vec3f.zero(),
+     val model: Model,
 ) : Renderable, Fun(id, context), Kinematic {
 
-    override var baseAABB: AxisAlignedBoundingBox by funValue(baseAABB, "baseAABB", this)
-    /**
-     * This value should be reassigned if you want Fun to react to changes in it.
-     */
-    final override var transform: Mat4f =  Mat4f.translateRotateScale(position, orientation, scale)
-        private set
+    private val _context = context
 
-    val translation = funValue<Vec3f>(position, "translation", this)
-    val rotation = funValue<Quatf>(orientation, "rotation", this)
-    val scale = funValue<Vec3f>(scale, "scaling", this)
-    val tint = funValue<Tint>(tint, "tint", this)
+    override var baseAABB: AxisAlignedBoundingBox by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB", this)
 
-    override var velocity: Vec3f by funValue(velocity, "velocity", this)
-    override var acceleration: Vec3f by funValue(acceleration, "acceleration", this)
-    override var affectedByGravity: Boolean by funValue(affectedByGravity, "affectedByGravity", this)
-
-    override val boundingBox: AxisAlignedBoundingBox
-        get() = super<Renderable>.boundingBox
-
-    override var position: Vec3f
-        get() = translation.value
-        set(value) {
-            translation.value = value
-        }
-    val renderInstance = context.world.getOrBindModel(model).getOrSpawn(id, this, tint)
-    var despawned = false
-
-    init {
-        translation.change.listen {
+    override var position by funValue<Vec3f>(Vec3f.zero(), "translation", this).apply {
+        change.listen {
             updateMatrix(position = it)
         }
-        rotation.change.listen {
+    }
+
+    var rotation by funValue<Quatf>(Quatf.identity(), "rotation", this).apply {
+        change.listen {
             updateMatrix(orientation = it)
         }
-        this.scale.change.listen {
+    }
+    var scale by funValue<Vec3f>(Vec3f(1f, 1f, 1f), "scaling", this).apply {
+        change.listen {
             updateMatrix(scale = it)
         }
-
-        this.tint.change.listen {
-            if (!despawned && this.tint.value != it) {
+    }
+    var tint by funValue<Tint>(Tint(Color.White, 0f), "tint", this).apply {
+        change.listen {
+            if (!despawned && value != it) {
                 renderInstance.setTintColor(it.color)
                 renderInstance.setTintStrength(it.strength)
             }
         }
+    }
 
+    /**
+     * This value should be reassigned if you want Fun to react to changes in it.
+     */
+    final override var transform: Mat4f = Mat4f.translateRotateScale(position, rotation, scale)
+        private set
+
+    override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity", this)
+    override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration", this)
+    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity", this)
+
+    override val boundingBox: AxisAlignedBoundingBox
+        get() = super.boundingBox
+
+    fun copy(id: FunId) = PhysicalFun(id, _context, physics, model).let {
+        it.baseAABB = baseAABB
+        it.position = position
+        it.rotation = rotation
+        it.scale = scale
+        it.tint = tint
+        it.velocity = velocity
+        it.acceleration = acceleration
+        it.affectedByGravity = affectedByGravity
+        it.transform = transform
+    }
+
+    val renderInstance: RenderInstance = context.world.getOrBindModel(model).getOrSpawn(id, this, tint)
+
+
+    var despawned = false
+
+    init {
         physics.add(this)
     }
 
 
-    private fun updateMatrix(position: Vec3f = this.position, orientation: Quatf = this.rotation.value, scale: Vec3f = this.scale.value) {
+    private fun updateMatrix(position: Vec3f = this.position, orientation: Quatf = this.rotation, scale: Vec3f = this.scale) {
         if (!despawned) {
             val matrix = Mat4f.translateRotateScale(position, orientation, scale)
             this.transform = matrix

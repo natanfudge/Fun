@@ -23,9 +23,15 @@ abstract class Fun(
         context.stateManager.register(this, MapStateHolder())
     }
 
+    override fun toString(): String {
+        return id
+    }
+
     override fun close() {
         context.stateManager.unregister(this)
     }
 }
 
 typealias FunId = String
+
+fun FunId.child(name: String) = "$this/$name"

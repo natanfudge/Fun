@@ -105,9 +105,14 @@ dependencies {
     testImplementation(libs.bundles.jvmTest)
 }
 
+
+
 kotlin {
     jvmToolchain {
+        //TODO: trying to get tests to launch with JBR 25
         this.languageVersion = JavaLanguageVersion.of(22)
+//        installationPath.set(rootProject.layout.projectDirectory.dir("jdks/jbr_25_11_05"))
+
 //        vendor = JvmVendorSpec.JETBRAINS
     }
     sourceSets.all {
@@ -148,6 +153,13 @@ composeCompiler {
 }
 
 tasks.withType<Test>() {
+    executable = rootProject.layout.projectDirectory.file("jdks/jbr_25_11_05/bin/java.exe").toString()
+    jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:HotswapAgent=core", "--enable-native-access=ALL-UNNAMED")
+//
+//   javaLauncher.set(javaToolchains.launcherFor {
+//       ins
+//   })
+
     useJUnitPlatform()
     maxParallelForks = 1
     testLogging { // credits: https://stackoverflow.com/a/36130467/5917497
