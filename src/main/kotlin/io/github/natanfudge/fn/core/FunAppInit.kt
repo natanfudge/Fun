@@ -10,7 +10,6 @@ import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.FunStateContext
-import io.github.natanfudge.fn.physics.Renderable
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.ValueHolder
@@ -245,7 +244,7 @@ interface FunWorldRender {
      * Used for ray casting, as the renderer is involved in it
      */
     fun setCursorPosition(position: Offset?)
-    val hoveredObject: Renderable?
+    val hoveredObject: Any?
 
     /**
      * Used to access the BoundModel, only creating it when needing
@@ -269,6 +268,7 @@ class VisibleFunContext(
 
     override fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
+        if (locked) world.setCursorPosition(null)
     }
 
     override fun setGUIFocused(focused: Boolean) {

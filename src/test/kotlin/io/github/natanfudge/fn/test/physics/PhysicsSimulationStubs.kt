@@ -2,7 +2,6 @@ package io.github.natanfudge.fn.test.physics
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunTime
 import io.github.natanfudge.fn.core.FunWindow
@@ -60,7 +59,7 @@ object PhysicsSimulationFunWorld : FunWorldRender {
 
     }
 
-    override val hoveredObject: Renderable? = null
+    override val hoveredObject: Any? = null
 
     override fun getOrBindModel(model: Model) = PhysicsSimulationModel
 

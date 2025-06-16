@@ -1,6 +1,15 @@
 package io.github.natanfudge.fn.network
 
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.state.MapStateHolder
+import io.github.natanfudge.fn.util.Listener
+
+
+//interface IFun {
+//    val id: FunId
+//    val context: FunContext
+//    fun onClose(callback: () -> Unit): Listener<Unit>
+//}
 
 
 /**
@@ -16,20 +25,42 @@ abstract class Fun(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-    val id: FunId,
-    val context: FunStateContext,
-): AutoCloseable {
+     val id: FunId,
+     val context: FunContext,
+) : AutoCloseable {
+
+    constructor(parent: Fun, name: String): this(parent.id.child(name), parent.context) {
+        parent.registerChild(this)
+    }
+
+
+    private val children = mutableListOf<Fun>()
+
+    internal fun registerChild(child: Fun) {
+        children.add(child)
+    }
+
     init {
         context.stateManager.register(this, MapStateHolder())
     }
+
+//    private val closeEvent = MutEventStream<Unit>()
+//    override fun onClose(callback: () -> Unit): Listener<Unit> = closeEvent.listen { callback() }
 
     override fun toString(): String {
         return id
     }
 
-    override fun close() {
+    final override fun close() {
         context.stateManager.unregister(this)
+        cleanup()
+        children.forEach { it.close() }
     }
+
+    protected open fun cleanup() {
+
+    }
+
 }
 
 typealias FunId = String

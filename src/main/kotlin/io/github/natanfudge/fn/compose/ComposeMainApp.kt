@@ -42,8 +42,7 @@ fun ComposeMainApp() {
                 }
             }
 
-            Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
-            Box(Modifier.size(20.dp, 2.dp).background(Color.Black).align(Alignment.Center))
+
         }
 
 

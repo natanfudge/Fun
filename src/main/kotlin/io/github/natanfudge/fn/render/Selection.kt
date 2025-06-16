@@ -44,6 +44,12 @@ data class AxisAlignedBoundingBox(
         }
     }
 
+    fun intersects(other: AxisAlignedBoundingBox): Boolean {
+        return (minX <= other.maxX && maxX >= other.minX) &&
+                (minY <= other.maxY && maxY >= other.minY) &&
+                (minZ <= other.maxZ && maxZ >= other.minZ)
+    }
+
     fun transformed(mat: Mat4f): AxisAlignedBoundingBox {
         // helper to track the new extrema
         var nxMin = Float.POSITIVE_INFINITY
@@ -115,6 +121,7 @@ fun getAxisAlignedBoundingBox(mesh: Mesh): AxisAlignedBoundingBox {
 
 interface Boundable {
     val boundingBox: AxisAlignedBoundingBox
+    val data: Any?
 }
 
 //class RCObject<T: Boundable>(

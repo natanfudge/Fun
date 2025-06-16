@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -30,8 +31,7 @@ import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
-import io.github.natanfudge.fn.physics.PhysicalFun
-import io.github.natanfudge.fn.physics.PhysicsSystem
+import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -142,21 +142,42 @@ private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
 val lightPos = Vec3f(4f, -4f, 4f)
 
 
-class TestObject(
+class TestBody(
+    id: String,
     app: FunPlayground, model: Model,
     translate: Vec3f = Vec3f.zero(),
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
-) :
-    PhysicalFun((app.id++).toString(), app.context, physics = app.physics.system,model){
+) : Fun(id, app.context) {
+    val render = renderState(model)
+    val physics = physics(render, physics = app.physics.system)
 
     init {
-        this.position = translate
-        this.rotation = rotate
-        this.scale = scale
-        this.tint = Tint(color, 0f)
+        render.position = translate
+        render.rotation = rotate
+        render.scale = scale
+        render.tint = Tint(color, 0f)
     }
+}
 
+class TestRenderObject(
+    id: String,
+    app: FunPlayground,
+    model: Model,
+    translate: Vec3f = Vec3f.zero(),
+    rotate: Quatf = Quatf.identity(),
+    scale: Vec3f = Vec3f(1f, 1f, 1f),
+    color: Color = Color.White,
+) : Fun(id, app.context) {
+
+    val render = renderState(model)
+
+    init {
+        render.position = translate
+        render.rotation = rotate
+        render.scale = scale
+        render.tint = Tint(color, 0f)
+    }
 }
 
 class PhysicsMod {
@@ -166,8 +187,9 @@ class PhysicsMod {
     }
 }
 
-// TODO: Physics. It should work in a GUI-less environment where we simulate ticks.
-// I think change Physical to RenderedPhysical, and have Physical be just bounding box, translation and rotation. Physics doesn't care about scale.
+
+// Todo: Everything is intersecting for no reason
+
 
 // TODO: I think we can add the Mod system now, I have a pretty good understanding of how to use it.
 class FunPlayground(override val context: FunContext) : FunApp {
@@ -180,32 +202,25 @@ class FunPlayground(override val context: FunContext) : FunApp {
     init {
         camera.bind(inputManager, context)
 
+        physics.system.gravity = false
+
         val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
 
         val cube = Model(Mesh.UnitCube(), "Cube")
         val sphere = Model(Mesh.uvSphere(), "Sphere")
-        PhysicalFun(id = "foo", context, physics.system,cube).apply {
-            scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f)
-            tint = Tint(Color.Red)
-            affectedByGravity = false
-        } // X axis
-        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green).apply {
-            affectedByGravity = false
-        } // Y Axis
-        TestObject(this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue).apply {
-            affectedByGravity = false
-        } // Z Axis
-        val floor = TestObject(this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray).apply {
-            affectedByGravity = false
-        }
+        //TODO: selection doesn't work anymore
+        TestRenderObject("X Axis", this, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
+        TestRenderObject("Y Axis", this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
+        TestRenderObject("Z Axis", this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
+        TestBody("Floor", this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
 //        floor.color = Color.Blue
 
         val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
 
         val wgpuCube = Model(Mesh.UnitCube(CubeUv.Grid3x2), "wgpucube", Material(wgpu4kImage))
 
-        val instance = TestObject(this, wgpuCube, translate = Vec3f(-2f, 2f, 2f))
+        val instance = TestBody("WGPU Cube", this, wgpuCube, translate = Vec3f(-2f, 2f, 2f))
 //        GlobalScope.launch {
 //            var i = 0
 //            while (true) {
@@ -221,14 +236,12 @@ class FunPlayground(override val context: FunContext) : FunApp {
 //        }
 
 
-        TestObject(this, kotlinSphere)
+        TestBody("Kotlin Sphere", this, kotlinSphere)
 
-        TestObject(this, sphere, translate = Vec3f(2f, 2f, 2f))
-        TestObject(this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f)).apply {
-            affectedByGravity = false
-        }
+        TestBody("Basic Sphere", this, sphere, translate = Vec3f(2f, 2f, 2f))
+        TestRenderObject("Light Sphere", this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f))
 
-        val obj = TestObject(this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
+        TestBody("Basic Cube", this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
     }
 
 
@@ -241,7 +254,10 @@ class FunPlayground(override val context: FunContext) : FunApp {
     @Composable
     override fun gui() {
         MaterialTheme(darkColorScheme()) {
+
             PanelSupport {
+                Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
+                Box(Modifier.size(20.dp, 2.dp).background(Color.Black).align(Alignment.Center))
                 Panel(Modifier.align(Alignment.CenterStart)) {
                     Surface {
                         Column {
@@ -338,9 +354,9 @@ class FunPlayground(override val context: FunContext) : FunApp {
 
     private var mouseDownPos: Offset? = null
 
-    private var hoveredObject: PhysicalFun? = null
+    private var hoveredObject: Visible? = null
     private var hoveredObjectOldTint: Tint? = null
-    var selectedObject: PhysicalFun? by mutableStateOf(null)
+    var selectedObject: Visible? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
 
 
@@ -367,19 +383,21 @@ class FunPlayground(override val context: FunContext) : FunApp {
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.world.hoveredObject as PhysicalFun?
+                val selected = context.world.hoveredObject as? Visible
                 if (selectedObject != selected) {
                     // Restore the old color
                     selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
                     selectedObject = selected
                     // Save color to restore later
                     selectedObjectOldTint = hoveredObjectOldTint
-                    if(selected != null && hoveredObjectOldTint != null) {
-                        selected.tint =  Tint(lerp(
-                            hoveredObjectOldTint!!.color,
-                            Color.White.copy(alpha = 0.5f),
-                            0.8f
-                        ) , strength = 0.8f)
+                    if (selected != null && hoveredObjectOldTint != null) {
+                        selected.tint = Tint(
+                            lerp(
+                                hoveredObjectOldTint!!.color,
+                                Color.White.copy(alpha = 0.5f),
+                                0.8f
+                            ), strength = 0.8f
+                        )
                     }
                 }
 
@@ -394,14 +412,15 @@ class FunPlayground(override val context: FunContext) : FunApp {
                 hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
             }
 
-            val newHovered = (context.world.hoveredObject as? PhysicalFun)
+            val newHovered = (context.world.hoveredObject as? Visible)
             hoveredObject = newHovered
             // Save color to restore later
             hoveredObjectOldTint = newHovered?.tint
+//            println("Setting tint to $hoveredObjectOldTint")
             if (newHovered != selectedObject) {
                 newHovered?.tint = Tint(
-                    lerp(hoveredObjectOldTint!!.color,Color.White.copy(alpha = 0.5f), 0.2f)
-                    , strength = 0.2f)
+                    lerp(hoveredObjectOldTint!!.color, Color.White.copy(alpha = 0.5f), 0.2f), strength = 0.2f
+                )
             }
         }
     }

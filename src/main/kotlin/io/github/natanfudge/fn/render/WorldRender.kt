@@ -125,7 +125,7 @@ class WorldRender(
     val rayCasting = RayCastingCache<VisibleRenderInstance>()
     var selectedObjectId: Int = -1
 
-    override var hoveredObject: Renderable? by mutableStateOf(null)
+    override var hoveredObject: Boundable? by mutableStateOf(null)
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
@@ -394,12 +394,8 @@ class VisibleRenderInstance(
 //    val value: T,
     private val model: VisibleBoundModel,
     @PublishedApi internal val world: WorldRender,
-    val value: Renderable,
-) : Boundable, RenderInstance {
-    //    private var baseAABB =value.baseAABB
-    override val boundingBox: AxisAlignedBoundingBox get() = value.boundingBox
-
-//    val transform = transform.copy()
+    val value: Boundable,
+) : Boundable by value, RenderInstance {
 
     var despawned = false
 
