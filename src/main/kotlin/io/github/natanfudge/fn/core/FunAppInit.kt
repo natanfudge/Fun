@@ -84,6 +84,7 @@ private fun run(app: FunAppInitializer<*>) {
 }
 
 class RealTime : FunTime {
+    override var speed = 1f
     internal lateinit var app: FunApp
     override fun advance(time: Duration) {
         app.physics(time)
@@ -112,13 +113,16 @@ class RealTime : FunTime {
         val physicsDelta = prevPhysicsTime.elapsedNow()
         prevPhysicsTime = TimeSource.Monotonic.markNow()
 
-        app.physics(physicsDelta)
+        app.physics(physicsDelta * speed.toDouble())
 //        }
     }
 
 }
 
+internal const val AppLifecycleName = "App"
+
 private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
+
     private lateinit var fsWatcher: FileSystemWatcher
     fun init(): WebGPUWindow {
         val builder = FunAppBuilder()
@@ -136,7 +140,7 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
         fsWatcher = FileSystemWatcher()
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
-        val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind("App") {
+        val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind(AppLifecycleName) {
             val time = RealTime()
             val app = initFunc(VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient(), time))
             time.app = app
@@ -212,12 +216,20 @@ interface FunContext : FunStateContext {
     fun setCursorLocked(locked: Boolean)
     fun setGUIFocused(focused: Boolean)
 
+    fun restartApp() {}
+
 
     val time: FunTime
 }
 
 interface FunTime {
     fun advance(time: Duration)
+
+    /**
+     * How quickly the game advances, the default is 1 which is normal speed.
+     */
+    var speed: Float
+
     fun stop()
 
     fun resume()
@@ -249,6 +261,10 @@ class VisibleFunContext(
     override val window by dims
 
     override val world = surface.world
+
+    override fun restartApp() {
+        ProcessLifecycle.restartByLabel(AppLifecycleName)
+    }
 
 
     override fun setCursorLocked(locked: Boolean) {

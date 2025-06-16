@@ -8,6 +8,8 @@ fun closeAll(vararg closeables: AutoCloseable) {
     }
 }
 
+fun Float.toString(decimalPlaces: Int) =String.format( "%.${decimalPlaces}f", this)
+
 //inline fun <T> Iterable<T>.allIndexed(iter: (Int, T) -> Boolean): Boolean {
 //    forEachIndexed { i, el ->
 //        val result = iter(i, el)

@@ -18,6 +18,7 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import kotlin.time.Duration
 
 class PhysicsSimulationTime() : FunTime {
+    override var speed: Float = 0f
     override fun advance(time: Duration) {
 
     }

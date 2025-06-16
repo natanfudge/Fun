@@ -1,7 +1,30 @@
 package io.github.natanfudge.fn.test.physics
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.PhysicsMod
+import io.github.natanfudge.fn.compose.utils.FunTheme
+import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
@@ -11,6 +34,7 @@ import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Tint
+import io.github.natanfudge.fn.util.toString
 import kotlin.time.Duration
 
 abstract class PhysicsTest(show: Boolean = false) {
@@ -37,23 +61,6 @@ private fun PhysicsTest.runTest(show: Boolean) {
         ).run()
     }
 }
-
-//fun physicsTest(show: Boolean = false, test: PhysicsSimulationContext.() -> Unit) {
-//    if (show) {
-//        startTheFun {
-//            {
-//                println("Physics app init")
-//                PhysicsSimulationApp(it, test)
-//            }
-//        }
-//    } else {
-//        val physics = PhysicsSystem()
-//
-//        PhysicsSimulationContext(
-//            PhysicsSimulationFunContext(), DefaultCamera(), scheduler = PhysicsSimulationScheduler(physics), physics = physics
-//        ).test()
-//    }
-//}
 
 
 class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, val physics: PhysicsSystem, val scheduler: Scheduler) : FunContext by context {
@@ -162,6 +169,48 @@ class PhysicsSimulationApp(override val context: FunContext, simulation: Physics
         val context = PhysicsSimulationContext(context, camera, physics.system, scheduler)
         with(simulation) {
             context.run()
+        }
+    }
+
+    @Composable
+    override fun gui() = FunTheme {
+        Box(Modifier.fillMaxSize().background(Color.Transparent)) {
+            Surface(Modifier.align(Alignment.CenterStart).padding(10.dp)) {
+                Column(Modifier.padding(5.dp)) {
+                    var stopped by remember { mutableStateOf(false) }
+                    IconButton(onClick = {
+                        if (stopped) {
+                            context.time.resume()
+                        } else {
+                            context.time.stop()
+                        }
+                        stopped = !stopped
+                    }) {
+                        if (stopped) {
+                            Icon(Icons.Filled.PlayArrow, "start")
+                        } else {
+                            Icon(Icons.Filled.Pause, "stop")
+                        }
+                    }
+                    IconButton(onClick = { context.restartApp() }) {
+                        Icon(Icons.Filled.Refresh, "restart")
+                    }
+                    var simulationSpeed by rememberPersistentFloat("simulation-speed") { 1f }
+                    LaunchedEffect(simulationSpeed) {
+                        context.time.speed = simulationSpeed
+                    }
+                    Text("x${simulationSpeed.toString(2)}", Modifier.align(Alignment.CenterHorizontally))
+                    Row {
+                        Slider(simulationSpeed, onValueChange = {
+                            simulationSpeed = it
+                        }, valueRange = 0.1f..10f, modifier = Modifier.width(200.dp))
+                        IconButton(onClick = { simulationSpeed = 1f}) {
+                            Icon(Icons.Filled.Refresh, "reset speed")
+                        }
+                    }
+
+                }
+            }
         }
     }
 

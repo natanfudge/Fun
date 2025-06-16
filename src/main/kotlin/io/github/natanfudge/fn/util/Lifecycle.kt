@@ -225,6 +225,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
             if (it.value.label in labels) Lifecycle<Any, Any>(it).restart()
         }
     }
+    fun restartByLabel(label: String) = restartByLabels(setOf(label))
 
     /**
      * Restarts this lifecycle with a specific [seedValue] for the specified parent.

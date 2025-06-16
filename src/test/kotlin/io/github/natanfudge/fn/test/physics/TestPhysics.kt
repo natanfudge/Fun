@@ -5,14 +5,13 @@ import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
 //TODO: must do before eitam:
-// 2. Allow stopping/resuming simulation
-// 3. Allow speeding up / slowing down simulation
 // 4. Implement collision detection first
 // 5. Verify it works on laptop
 
 class TestPhysics {
     @Test
     fun testVelocityVisual() {
+        // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
         object : PhysicsTest(show = true) {
             override fun PhysicsSimulationContext.run() {
                 val initialPosition = Vec3f.zero()
