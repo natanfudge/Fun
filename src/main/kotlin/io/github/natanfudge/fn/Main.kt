@@ -57,8 +57,8 @@ import kotlin.time.Duration
 
 fun DefaultCamera.bind(inputManager: InputManager, context: FunContext) {
     inputManager.mouseMoved.listen { delta ->
-        val normalizedDeltaX = delta.x / context.windowDimensions.width
-        val normalizedDeltaY = delta.y / context.windowDimensions.height
+        val normalizedDeltaX = delta.x / context.window.width
+        val normalizedDeltaY = delta.y / context.window.height
 
         when (mode) {
             CameraMode.Orbital -> {

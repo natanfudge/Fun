@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.FunApp
+import io.github.natanfudge.fn.core.FunWindow
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
@@ -26,8 +27,10 @@ import kotlin.math.roundToInt
 val msaaSamples = 4u
 
 
-class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable {
+class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable, FunWindow {
     val extent = Extent3D(dims.width.toUInt(), dims.height.toUInt())
+    override val height: Int = dims.height
+    override val width: Int = dims.width
 
     // Create z buffer
     val depthTexture = ctx.device.createTexture(
@@ -53,12 +56,23 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 
     val msaaTextureView = msaaTexture.createView()
 
-    val projection = Mat4f.perspective(
-        fieldOfViewYInRadians = PI.toFloat() / 3,
-        aspect = dims.width.toFloat() / dims.height,
+
+    private fun calculateProjectionMatrix() = Mat4f.perspective(
+        fieldOfViewYInRadians = fovYRadians,
+        aspect = aspectRatio,
         zNear = 0.01f,
         zFar = 100f
     )
+
+    override var fovYRadians = PI.toFloat() / 3f
+        set(value) {
+            field = value
+            calculateProjectionMatrix()
+        }
+    override val aspectRatio = dims.width.toFloat() / dims.height
+
+
+    val projection = calculateProjectionMatrix()
 
 
 //    val fovY = Math.PI.toFloat() / 3f      // ~60°

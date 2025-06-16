@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunTime
+import io.github.natanfudge.fn.core.FunWindow
 import io.github.natanfudge.fn.core.FunWorldRender
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.FunStateContext
@@ -34,7 +35,7 @@ class PhysicsSimulationTime() : FunTime {
 
 class PhysicsSimulationFunContext() : FunContext, FunStateContext by FunStateContext.isolatedClient() {
     override val world: FunWorldRender = PhysicsSimulationFunWorld
-    override val windowDimensions: IntSize = IntSize.Zero
+    override val window: FunWindow = PhysicsSimulationWindow
     override val time: FunTime = PhysicsSimulationTime()
 
     override fun setCursorLocked(locked: Boolean) {
@@ -44,6 +45,14 @@ class PhysicsSimulationFunContext() : FunContext, FunStateContext by FunStateCon
     }
 
 }
+
+object PhysicsSimulationWindow: FunWindow {
+    override val width: Int = 0
+    override val height: Int = 0
+    override val aspectRatio: Float = 0f
+    override var fovYRadians: Float = 0f
+}
+
 
 object PhysicsSimulationFunWorld : FunWorldRender {
     override fun setCursorPosition(position: Offset?) {

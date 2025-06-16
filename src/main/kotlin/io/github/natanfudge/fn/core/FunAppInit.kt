@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
@@ -49,7 +48,6 @@ private fun run(app: FunAppInitializer<*>) {
     val loop = GlfwGameLoop(window.window)
 
     ProcessLifecycle.start(Unit)
-
 
     FunHotReload.reloadStarted.listen {
         println("Reload started: pausing app")
@@ -111,10 +109,10 @@ class RealTime : FunTime {
 //            prevPhysicsTime = System.nanoTime()
 //            app.physics(Duration.ZERO)
 //        } else {
-            val physicsDelta = prevPhysicsTime.elapsedNow()
-            prevPhysicsTime = TimeSource.Monotonic.markNow()
+        val physicsDelta = prevPhysicsTime.elapsedNow()
+        prevPhysicsTime = TimeSource.Monotonic.markNow()
 
-            app.physics(physicsDelta)
+        app.physics(physicsDelta)
 //        }
     }
 
@@ -201,13 +199,19 @@ abstract class RenderBoundPhysical(val render: WorldRender)
 //        set(value) {}
 //}
 
+interface FunWindow {
+    val width: Int
+    val height: Int
+    val aspectRatio: Float
+    var fovYRadians: Float
+}
+
 interface FunContext : FunStateContext {
     val world: FunWorldRender
-    val windowDimensions: IntSize
+    val window: FunWindow
     fun setCursorLocked(locked: Boolean)
     fun setGUIFocused(focused: Boolean)
 
-//    val physics: PhysicsSystem
 
     val time: FunTime
 }
@@ -242,12 +246,7 @@ class VisibleFunContext(
     private val stateContext: FunStateContext, override val time: FunTime,
 ) : FunContext, FunStateContext by stateContext {
 
-//    override val physics: PhysicsSystem = PhysicsSystem()
-
-    private val dims by dims
-
-    override val windowDimensions: IntSize
-        get() = IntSize(dims.dims.width, dims.dims.height)
+    override val window by dims
 
     override val world = surface.world
 

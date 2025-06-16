@@ -53,9 +53,11 @@ open class PhysicalFun(
 
     override var position by funValue<Vec3f>(Vec3f.zero(), "translation", this).apply {
         change.listen {
+            println("Position set to $it")
             updateMatrix(position = it)
         }
     }
+
 
     var rotation by funValue<Quatf>(Quatf.identity(), "rotation", this).apply {
         change.listen {

@@ -13,19 +13,47 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Tint
 import kotlin.time.Duration
 
-fun physicsTest(show: Boolean = false, test: PhysicsSimulationContext.() -> Unit) {
+abstract class PhysicsTest(show: Boolean = false) {
+    abstract fun PhysicsSimulationContext.run()
+
+    init {
+        runTest(show)
+    }
+}
+
+private fun PhysicsTest.runTest(show: Boolean) {
     if (show) {
         startTheFun {
-            { PhysicsSimulationApp(it, test) }
+            {
+                println("Physics app init")
+                PhysicsSimulationApp(it, this@runTest)
+            }
         }
     } else {
         val physics = PhysicsSystem()
 
         PhysicsSimulationContext(
             PhysicsSimulationFunContext(), DefaultCamera(), scheduler = PhysicsSimulationScheduler(physics), physics = physics
-        ).test()
+        ).run()
     }
 }
+
+//fun physicsTest(show: Boolean = false, test: PhysicsSimulationContext.() -> Unit) {
+//    if (show) {
+//        startTheFun {
+//            {
+//                println("Physics app init")
+//                PhysicsSimulationApp(it, test)
+//            }
+//        }
+//    } else {
+//        val physics = PhysicsSystem()
+//
+//        PhysicsSimulationContext(
+//            PhysicsSimulationFunContext(), DefaultCamera(), scheduler = PhysicsSimulationScheduler(physics), physics = physics
+//        ).test()
+//    }
+//}
 
 
 class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, val physics: PhysicsSystem, val scheduler: Scheduler) : FunContext by context {
@@ -39,6 +67,7 @@ class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, v
     fun after(delay: Duration, callback: PhysicsAssertionBlock.() -> Unit) {
         val block = PhysicsAssertionBlock().apply(callback)
         spawnTargetGhosts(block)
+        placeCameraToShowEverything(block)
 
         scheduler.schedule(delay) {
             block.assertions.forEach {
@@ -52,13 +81,27 @@ class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, v
      */
     private fun spawnTargetGhosts(block: PhysicsAssertionBlock) {
         for ((body, assertion) in block.assertions) {
-            PhysicalFun("target-${index++}",this, physics, body.model).apply {
+            PhysicalFun("target-${index++}", this, physics, body.model).apply {
                 position = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
                 scale = body.scale * 1.1f
                 affectedByGravity = false
             }
         }
+    }
+
+    private fun placeCameraToShowEverything(block: PhysicsAssertionBlock) {
+        camera.viewAll(
+            positions = block.assertions.flatMap {
+                listOf(
+                    it.first.position,
+                    it.second.position
+                )
+            },
+            1f,
+            fovYRadians = window.fovYRadians,
+            aspectRatio = window.aspectRatio
+        )
     }
 }
 
@@ -110,15 +153,16 @@ class PhysicsSimulationScheduler(val physics: PhysicsSystem) : Scheduler {
 }
 
 
-
-
-class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsSimulationContext.() -> Unit) : FunApp {
+class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsTest) : FunApp {
     override val camera = DefaultCamera()
     val physics = PhysicsMod()
     val scheduler = VisibleSimulationTickerMod(context, physics.system)
 
     init {
-        simulation(PhysicsSimulationContext(context, camera, physics.system, scheduler))
+        val context = PhysicsSimulationContext(context, camera, physics.system, scheduler)
+        with(simulation) {
+            context.run()
+        }
     }
 
     override fun physics(delta: Duration) {

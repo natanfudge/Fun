@@ -62,7 +62,7 @@ class FunValue<T>(
     override val editor: ValueEditor<T>,
 ) : ReadWriteProperty<Fun, T>, FunState<T> {
 
-    private var _value by mutableStateOf(value)
+    private var composeValue by mutableStateOf(value)
 //    private var registered: Boolean = false
 
     private val _change = EventStream.create<T>()
@@ -83,7 +83,7 @@ class FunValue<T>(
     }
 
     override var value: T
-        get() = _value
+        get() = composeValue
         set(value) {
             owner.context.sendStateChange(
                 StateKey(owner.id, id),
@@ -91,7 +91,7 @@ class FunValue<T>(
             )
 
             _change.emit(value)
-            _value = value
+            composeValue = value
         }
 
 //    private var thisRef: Fun? = null
@@ -105,7 +105,7 @@ class FunValue<T>(
     @InternalFunApi
     override fun applyChange(change: StateChangeValue) {
         require(change is StateChangeValue.SetProperty)
-        this._value = change.value.decode(serializer)
+        this.composeValue = change.value.decode(serializer)
     }
 
 //    private fun capturePropertyValues(thisRef: Fun, property: KProperty<*>) {
@@ -132,7 +132,7 @@ class FunValue<T>(
      */
     override fun getValue(thisRef: Fun, property: KProperty<*>): T {
 //        capturePropertyValues(thisRef, property)
-        return _value
+        return composeValue
     }
 
     /**

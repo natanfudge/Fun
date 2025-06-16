@@ -2,6 +2,9 @@ package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.tan
 
 enum class CameraMode {
     Orbital,
@@ -100,11 +103,67 @@ class DefaultCamera: Camera {
         calculateMatrix()
     }
 
-    /** TODO: this needs more parameters, and also we need to consider the fact things have volume. That might be very annoying because it means going inside the model.
-     * Positions the camera in such a way that all [positions] are visible, with a minimum of [paddingPx] pixels from the edge of the window.
+    /**
+     * Positions the camera in such a way that all [positions] are visible, including a [padding] margin around them.
+     * This method calculates the bounding sphere of all points, then positions the camera at a sufficient
+     * distance to frame this sphere based on the provided field of view and aspect ratio.
+     *
      */
-    fun viewAll(positions: List<Vec3f>, paddingPx: Float) {
-        TODO()
+    fun viewAll(positions: List<Vec3f>, padding: Float, fovYRadians: Float, aspectRatio: Float) {
+        if (positions.isEmpty()) {
+            return // Nothing to view
+        }
+
+        // 1. Calculate the Axis-Aligned Bounding Box (AABB) enclosing all points.
+        val aabbMin = positions[0].copy()
+        val aabbMax = positions[0].copy()
+
+        for (i in 1 until positions.size) {
+            val pos = positions[i]
+            aabbMin.x = min(aabbMin.x, pos.x)
+            aabbMin.y = min(aabbMin.y, pos.y)
+            aabbMin.z = min(aabbMin.z, pos.z)
+
+            aabbMax.x = max(aabbMax.x, pos.x)
+            aabbMax.y = max(aabbMax.y, pos.y)
+            aabbMax.z = max(aabbMax.z, pos.z)
+        }
+
+        // 2. Determine the center and radius of the bounding sphere that encloses the AABB.
+        val center = aabbMin.add(aabbMax).mulScalar(0.5f)
+        val radius = aabbMax.sub(center).length + padding
+
+        // Handle cases with no volume (e.g., all points are identical).
+        if (radius <= 1e-6f) {
+            // Focus on the point from a reasonable distance. Padding might be 0, so use a fallback.
+            focus(center, (padding + 1.0f) * 2.0f)
+            return
+        }
+
+        // 3. Calculate the required distance to fit the bounding sphere in the view frustum.
+        // We use trigonometry, where tan(halfFov) = radius / distance.
+        // The camera must be far enough away to fit the sphere both vertically and horizontally.
+
+        // Tangent of the half vertical field of view.
+        val tanHalfFovY = tan(fovYRadians / 2.0f)
+
+        // The horizontal field of view is derived from the vertical FOV and aspect ratio.
+        // tan(fovX / 2) = tan(fovY / 2) * aspectRatio
+        val tanHalfFovX = tanHalfFovY * aspectRatio
+
+        // Distance required to fit the sphere vertically: dist_v = radius / tan(fovY / 2)
+        val distanceV = radius / tanHalfFovY
+
+        // Distance required to fit the sphere horizontally: dist_h = radius / tan(fovX / 2)
+        val distanceH = radius / tanHalfFovX
+
+        // The actual distance must be the larger of the two to ensure the sphere is fully visible.
+        val distance = max(distanceV, distanceH)
+
+        // 4. Use the existing `focus` method to position and orient the camera.
+        // This will aim the camera at the 'center' and move it back by 'distance'
+        // along the current line of sight, preserving the viewing angle.
+        focus(center, distance)
     }
 
     /**
