@@ -34,7 +34,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
             applyDisplacement(body, delta)
         }
         for(intersection in getIntersections()) {
-//            println("Intersection: $intersection")
         }
     }
 

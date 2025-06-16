@@ -38,9 +38,13 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.time.Duration
 
 //TODO:
-// 14. Basic Physics
-// 15. Trying making a basic game?
-// 13.   Visual transform system
+// 13. Basic Physics
+// 14. Trying making a basic game?
+// 15.   Visual transform system:
+//          - Bounding box wireframe
+//          - Translation Arrows
+//          - Rotation Arrows
+//          - Scale Arrows
 // 16. Better physics
 // 17. PBR
 // 18. Hotkeys
@@ -186,9 +190,6 @@ class PhysicsMod {
         system.tick(delta)
     }
 }
-
-
-// Todo: Everything is intersecting for no reason
 
 
 // TODO: I think we can add the Mod system now, I have a pretty good understanding of how to use it.

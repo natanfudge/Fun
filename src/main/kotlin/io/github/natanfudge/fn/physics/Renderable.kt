@@ -104,7 +104,7 @@ class FunPhysics(
     private val renderState: Visible,
     private val physics: PhysicsSystem,
 ) : Fun(parent, "physics"), Body {
-    override val boundingBox: AxisAlignedBoundingBox = renderState.boundingBox
+    override val boundingBox: AxisAlignedBoundingBox get() = renderState.boundingBox
     override var position: Vec3f
         get() = renderState.position
         set(value) {

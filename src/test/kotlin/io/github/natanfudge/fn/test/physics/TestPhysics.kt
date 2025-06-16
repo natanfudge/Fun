@@ -5,7 +5,8 @@ import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
 //TODO: must do before eitam:
-// 4. Implement collision detection first
+// 1. Allow creating standalone RenderStates
+// 2. Fix physics test
 // 5. Verify it works on laptop
 
 class TestPhysics {
