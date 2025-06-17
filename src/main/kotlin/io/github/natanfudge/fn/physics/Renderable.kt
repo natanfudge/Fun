@@ -125,6 +125,13 @@ class FunPhysics(
     override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration", this)
     override var affectedByGravity: Boolean by funValue(true, "affectedByGravity", this)
 
+//    val x = funValue(false, "x", this)
+//    val x1 = funValue(false, "x1", this)
+//    val x22 = funValue(false, "x2", this)
+//    val x3 = funValue(false, "x3", this)
+//    val x4 = funValue(false, "x5", this)
+//    val x5 = funValue(false, "x4", this)
+//
     init {
         physics.add(this)
     }

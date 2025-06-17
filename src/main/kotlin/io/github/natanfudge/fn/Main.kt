@@ -111,9 +111,10 @@ class FunPlayground(override val context: FunContext) : FunApp() {
         //TODO: selection doesn't work anymore
         TestRenderObject("X Axis", this, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
         TestRenderObject("Y Axis", this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
-        TestRenderObject("Z Axis", this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
+        TestRenderObject("W Axis", this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
         TestBody("Floor", this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
 //        floor.color = Color.Blue
+
 
         val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
 
