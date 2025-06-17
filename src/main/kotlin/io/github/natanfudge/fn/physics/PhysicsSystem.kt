@@ -7,6 +7,10 @@ import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 
+
+//TODO: 1. outOfMemoryError
+// 2. on-floor stuff is spazzing out
+// velocity not updating in real time
 /**
  * The physics system measures position in meters, velocity in meters per second, and acceleration in meters per second squared.
  * It is assumed the Z axis is down (sorry Minecraft bros).
@@ -32,33 +36,64 @@ class PhysicsSystem(var gravity: Boolean = true) {
      * Delta should be the fraction of the unit, so in this case in fractions of a second
      */
     fun tick(delta: Duration) {
+        val groundedBodies = mutableSetOf<Body>()
+        for ((a, b) in getIntersections()) {
+            // Floor has special handling, we simply place the elements above the ground
+            if (a.isFloor) {
+                if (!b.isFloor) {
+                    groundedBodies.add(b)
+                    groundBody(floor = a, body = b)
+                }
+
+            } else if (b.isFloor) {
+                if (!a.isFloor) {
+                    groundedBodies.add(a)
+                    groundBody(floor = b, body = a)
+                }
+            } else {
+                applyElasticCollision(a, b)
+            }
+        }
+
         for (body in bodies) {
-            if (gravity) applyGravity(body, delta)
+            if (gravity && body !in groundedBodies) applyGravity(body, delta)
             applyDisplacement(body, delta)
         }
-        for ((a, b) in getIntersections()) {
-            val direction = b.position - a.position
-            val n = direction.normalize()
-            val delta = (a.velocity - b.velocity).dot(n)
-            val newV1 = a.velocity - n * ((2 * b.mass) / (a.mass + b.mass)) * delta
-            val newV2 = b.velocity + n * ((2 * a.mass) / (a.mass + b.mass)) * delta
-            a.velocity = newV1
-            b.velocity = newV2
-        }
+
+
+    }
+
+    /**
+     * If a body touches the floor, we firmly place it above the floor and stop it from moving
+     */
+    private fun groundBody(floor: Body, body: Body) {
+        body.velocity = body.velocity.copy(z = 0f)
+        body.acceleration = body.acceleration.copy(z = 0f)
+
+        // It's better for it to sink slightly into the ground so it will stay firmly in place
+        body.position = body.position.copy(z = floor.boundingBox.maxZ + body.boundingBox.height / 2 - 0.0001f)
+    }
+
+    private fun applyElasticCollision(a: Body, b: Body) {
+        val direction = b.position - a.position
+        val n = direction.normalize()
+        val delta = (a.velocity - b.velocity).dot(n)
+        val newV1 = a.velocity - n * ((2 * b.mass) / (a.mass + b.mass)) * delta
+        val newV2 = b.velocity + n * ((2 * a.mass) / (a.mass + b.mass)) * delta
+        a.velocity = newV1
+        b.velocity = newV2
     }
 
     private fun applyDisplacement(body: Body, delta: Duration) {
-        //TODO: we can avoid a lot of allocations here
         body.velocity += body.acceleration * delta.seconds
         body.position += body.velocity * delta.seconds
         body.rotation = updateRotation(body.rotation, body.angularVelocity, delta.seconds.toFloat())
     }
 
     private fun applyGravity(body: Body, delta: Duration) {
-        if (body.affectedByGravity) {
+        if (body.affectedByGravity && !body.isFloor) {
             body.velocity = body.velocity.copy(
-                body.velocity.x, body.velocity.y, (body.velocity.z - EarthGravityAcceleration * delta.seconds).toFloat(),
-                dst = body.velocity // Avoid allocation
+                z = body.velocity.z - EarthGravityAcceleration * delta.seconds.toFloat()
             )
         }
     }

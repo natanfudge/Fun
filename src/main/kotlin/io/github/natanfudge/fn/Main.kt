@@ -101,7 +101,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
             VisualEditorMod(context),
         )
 
-        physics.system.gravity = false
+//        physics.system.gravity = false
 
         val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
@@ -112,7 +112,9 @@ class FunPlayground(override val context: FunContext) : FunApp() {
         TestRenderObject("X Axis", this, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
         TestRenderObject("Y Axis", this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
         TestRenderObject("W Axis", this, cube, scale = Vec3f(x = 0.1f, y = 0.1f, z = 10f), color = Color.Blue) // Z Axis
-        TestBody("Floor", this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray)
+        TestBody("Floor", this, cube, translate = Vec3f(0f, 0f, -1f), scale = Vec3f(x = 10f, y = 10f, z = 0.1f), color = Color.Gray).apply {
+            physics.isFloor = true
+        }
 //        floor.color = Color.Blue
 
 
@@ -138,7 +140,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
 
         TestBody("Kotlin Sphere", this, kotlinSphere)
 
-        TestBody("Basic Sphere", this, sphere, translate = Vec3f(2f, 2f, 2f))
+        TestBody("Basic Sphere", this, sphere, translate = Vec3f(2.8f, -2.8f, 2f))
         TestRenderObject("Light Sphere", this, sphere, translate = lightPos, scale = Vec3f(0.2f, 0.2f, 0.2f))
 
         TestBody("Basic Cube", this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)

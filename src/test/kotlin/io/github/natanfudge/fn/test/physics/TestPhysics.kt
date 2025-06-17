@@ -9,7 +9,7 @@ class TestPhysics {
     @Test
     fun testVelocityVisual() {
         // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
-        object : PhysicsTest(show = true) {
+        object : PhysicsTest(show = false) {
             override fun PhysicsSimulationContext.run() {
                 val initialPosition = Vec3f.zero()
                 val velocity = Vec3f(1f, 2f, 3f)
@@ -33,7 +33,7 @@ class TestPhysics {
     @Test
     fun testSpin() {
         // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
-        object : PhysicsTest(show = true) {
+        object : PhysicsTest(show = false) {
             override fun PhysicsSimulationContext.run() {
                 val initialPosition = Vec3f.zero()
 
@@ -55,29 +55,48 @@ class TestPhysics {
     @Test
     fun testCollision() {
         // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
-        object : PhysicsTest(show = true) {
+        object : PhysicsTest(show = false, throwOnFailure = true) {
             override fun PhysicsSimulationContext.run() {
-                val initialPosition = Vec3f.zero()
-
+                physics.gravity = false
                 val cube1 = cube()
                 cube1.physics.apply {
-                    position = initialPosition.copy(z = 10f)
-                    affectedByGravity = true
-//                    velocity = Vec3f(1f, 0f, 10f)
-                    mass = 2f
+                    position = Vec3f(x = 0f, y = 0f, z = 0f)
+                    velocity = Vec3f(0f, 1f, 0f)
+                    mass = 1f
                 }
 
                 val cube2 = cube()
                 cube2.physics.apply {
-                    position = initialPosition.copy(z = 0f)
-                    affectedByGravity = false
-                    mass = 99999999f
+                    position = Vec3f(x = 0f, y = 2f, z = 0f)
+                    mass = 1f
                 }
 
-                // No assertion for now
-                after(100000.seconds) {
-                    cube1.shouldHave(position = Vec3f(10f, 5f, 0.5f))
-                    cube2.shouldHave(position = Vec3f(-10f, 5f, 0.5f))
+                after(5.seconds) {
+                    cube1.shouldHave(position = Vec3f(x = 0f, y = 1f, z = 0f), epsilon = 0.1f)
+                    cube2.shouldHave(position = Vec3f(0f, 6f, 0f), epsilon = 0.1f)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testFloor() {
+        // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
+        object : PhysicsTest(show = true, throwOnFailure = true) {
+            override fun PhysicsSimulationContext.run() {
+                val cube = cube()
+                cube.render.position = Vec3f(x = 0f, y = 0f, z = 5f)
+
+                val floor = cube()
+                floor.render.scale = Vec3f(10f, 10f, 0.1f)
+                floor.physics.apply {
+                    position = Vec3f.zero()
+                    isFloor = true
+                }
+
+                after(5.seconds) {
+                    cube.shouldHave(position = Vec3f(x = 0f, y = 0f, z = 0.55f), epsilon = 0.01f)
+                    floor.shouldHave(position = Vec3f.zero())
                 }
             }
         }

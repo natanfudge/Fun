@@ -17,6 +17,7 @@ interface Body {
     var mass: Float
 
     val affectedByGravity: Boolean
+    val isFloor: Boolean
 }
 
 //class SimpleKinematic(

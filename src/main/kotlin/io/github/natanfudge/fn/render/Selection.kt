@@ -26,6 +26,9 @@ data class AxisAlignedBoundingBox(
     val maxY: Float,
     val maxZ: Float,
 ) {
+
+    val height get() = maxZ - minZ
+
     companion object {
         val UnitAABB = AxisAlignedBoundingBox(
             -0.5f,-0.5f,-0.5f,

@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.natanfudge.fn.base.CreativeMovementMod
 import io.github.natanfudge.fn.base.PhysicsMod
 import io.github.natanfudge.fn.base.VisualEditorMod
 import io.github.natanfudge.fn.compose.utils.FunTheme
@@ -36,39 +37,40 @@ import io.github.natanfudge.fn.physics.PhysicsSystem
 import io.github.natanfudge.fn.physics.SimplePhysicsObject
 import io.github.natanfudge.fn.physics.SimpleRenderObject
 import io.github.natanfudge.fn.render.DefaultCamera
+import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.toString
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
-abstract class PhysicsTest(show: Boolean = false) {
+abstract class PhysicsTest(show: Boolean = false, throwOnFailure: Boolean = true)  {
     abstract fun PhysicsSimulationContext.run()
 
     init {
-        runTest(show)
+        runTest(show, throwOnFailure)
     }
 }
 
-private fun PhysicsTest.runTest(show: Boolean) {
+private fun PhysicsTest.runTest(show: Boolean,  throwOnFailure: Boolean) {
     if (show) {
         startTheFun {
             {
-                println("Physics app init")
-                PhysicsSimulationApp(it, this@runTest)
+                PhysicsSimulationApp(it, this@runTest, throwOnFailure)
             }
         }
     } else {
         val physics = PhysicsSystem()
 
         PhysicsSimulationContext(
-            PhysicsSimulationFunContext(), scheduler = PhysicsSimulationScheduler(physics), physics = physics
+            PhysicsSimulationFunContext(), scheduler = PhysicsSimulationScheduler(physics), physics = physics, throwOnFailure = throwOnFailure
         ).run()
     }
 }
 
 
-class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, val scheduler: Scheduler) : FunContext by context {
+class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, val scheduler: Scheduler, private val throwOnFailure: Boolean) : FunContext by context {
     private val cubeModel = Model(Mesh.UnitCube(), id = "mesh-0")
     private var index = 0
     fun cube() = SimplePhysicsObject("body-${index++}", this, cubeModel, physics)
@@ -83,7 +85,7 @@ class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, 
 
         scheduler.schedule(delay) {
             block.assertions.forEach {
-                it.second.assert(it.first)
+                it.second.assert(it.first, throwOnFailure)
             }
         }
     }
@@ -161,20 +163,26 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
 
 class PhysicsSimulationScheduler(val physics: PhysicsSystem) : Scheduler {
     override fun schedule(delay: Duration, callback: () -> Unit) {
-        // Just run the physics right away
-        physics.tick(delay)
+        var timePassed = Duration.ZERO
+        while (timePassed < delay) {
+            timePassed += 10.milliseconds
+            // Tick granularily to allow for collision, and to better match real world physics
+            physics.tick(10.milliseconds)
+        }
+        // Tick the remainder of the last tick
+        physics.tick(delay - timePassed)
         callback()
     }
 }
 
 
-class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsTest) : FunApp() {
+class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsTest, throwOnFailure: Boolean) : FunApp() {
     val physics = PhysicsMod()
     val scheduler = installMod(VisibleSimulationTickerMod(context, physics.system))
 
     init {
-        val context = PhysicsSimulationContext(context, physics.system, scheduler)
-        installMod(VisualEditorMod(context))
+        val context = PhysicsSimulationContext(context, physics.system, scheduler, throwOnFailure)
+        installMods(VisualEditorMod(context), CreativeMovementMod(context, installMod(InputManagerMod())))
         with(simulation) {
             context.run()
         }

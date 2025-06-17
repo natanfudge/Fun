@@ -14,13 +14,13 @@ import kotlin.math.abs
  * @param epsilon The maximum allowed absolute difference for each component.
  * @throws AssertionError if the vectors are not roughly equal.
  */
-fun Vec3f.shouldRoughlyEqual(other: Vec3f, epsilon: Double = 1e-5) {
+fun Vec3f.shouldRoughlyEqual(other: Vec3f, throwOnFailure: Boolean = true, epsilon: Float = 1e-5f, ) {
     try {
         // Assert that each component is roughly equal.
         // This reuses our previously defined number assertion.
-        this.x.shouldRoughlyEqual(other.x, epsilon)
-        this.y.shouldRoughlyEqual(other.y, epsilon)
-        this.z.shouldRoughlyEqual(other.z, epsilon)
+        this.x.shouldRoughlyEqual(other.x, epsilon.toDouble())
+        this.y.shouldRoughlyEqual(other.y, epsilon.toDouble())
+        this.z.shouldRoughlyEqual(other.z, epsilon.toDouble())
     } catch (e: AssertionError) {
         // If any component assertion fails, catch the error and re-throw it
         // with a more descriptive, high-level message about the vectors.
@@ -30,8 +30,12 @@ fun Vec3f.shouldRoughlyEqual(other: Vec3f, epsilon: Double = 1e-5) {
                 "Epsilon:  $epsilon\n" +
                 "Reason:   ${e.message}" // Include the specific component failure message.
 
-        // Throw a new AssertionError with the combined message.
-        throw AssertionError(detailedMessage)
+        if (throwOnFailure) {
+            // Throw a new AssertionError with the combined message.
+            throw AssertionError(detailedMessage)
+        } else {
+            AssertionError(detailedMessage).printStackTrace()
+        }
     }
 }
 

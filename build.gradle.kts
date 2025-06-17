@@ -1,13 +1,10 @@
 @file:OptIn(ExperimentalKotlinGradlePluginApi::class)
 
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.gradle.api.tasks.testing.Test
-import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-import org.gradle.kotlin.dsl.register
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.compose.reload.ComposeHotRun
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -153,12 +150,20 @@ composeCompiler {
 }
 
 tasks.withType<Test>() {
-    executable = rootProject.layout.projectDirectory.file("jdks/jbr_25_09_06/bin/java.exe").toString()
+    val jdksDir = rootProject.layout.projectDirectory.dir("jdks").asFile
+    if (jdksDir.exists()) {
+        val specificJdk = jdksDir.listFiles()?.firstOrNull { it.isDirectory && it.name.startsWith("jbr") }
+        if (specificJdk != null) {
+            val exe = specificJdk.resolve("bin/java.exe")
+            println("Exe: $exe")
+            executable = exe.toString()
+        } else {
+            println("Warn: no JBR under jdks/")
+        }
+    } else {
+        println("Warn: missing jdks dir")
+    }
     jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:HotswapAgent=core", "--enable-native-access=ALL-UNNAMED")
-//
-//   javaLauncher.set(javaToolchains.launcherFor {
-//       ins
-//   })
 
     useJUnitPlatform()
     maxParallelForks = 1
