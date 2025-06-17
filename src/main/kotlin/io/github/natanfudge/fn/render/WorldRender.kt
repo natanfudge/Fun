@@ -69,9 +69,11 @@ class VisibleBoundModel(
 
 
     override fun getOrSpawn(id: FunId, value: Renderable, tint: Tint): VisibleRenderInstance {
-        return instances.computeIfAbsent(id) {
+        val instance = instances.computeIfAbsent(id) {
             world.spawn(id, this, value, tint)
         }
+        instance.value = value
+        return instance
     }
 
 
@@ -184,33 +186,6 @@ class WorldRender(
         )
     )
 
-//    fun createBindGroups(pipeline: GPURenderPipeline): WorldBindGroups = WorldBindGroups(
-//        world = ctx.device.createBindGroup(
-//            BindGroupDescriptor(
-//                layout = pipeline.getBindGroupLayout(0u),
-//                entries = listOf(
-//                    BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = uniformBuffer.buffer)),
-//                    BindGroupEntry(binding = 1u, resource = surface.sampler),
-//                    BindGroupEntry(binding = 2u, resource = BufferBinding(instanceBuffer.buffer)),
-//                    BindGroupEntry(binding = 3u, resource = BufferBinding(instanceIndexBuffer.buffer)),
-//                )
-//            )
-//        ),
-//        models = models.map {
-//            ctx.device.createBindGroup(
-//                BindGroupDescriptor(
-//                    layout = pipeline.getBindGroupLayout(1u),
-//                    entries = listOf(
-//                        BindGroupEntry(
-//                            binding = 0u,
-//                            resource = it.textureView
-//                        ),
-//                    )
-//                )
-//            )
-//        },
-//        pipeline = pipeline
-//    )
 
     /**
      * Returns where the use is pointing at in world space
@@ -239,11 +214,9 @@ class WorldRender(
         encoder: GPUCommandEncoder,
         worldBindGroup: GPUBindGroup,
         pipeline: GPURenderPipeline,
-//        bindGroups: WorldBindGroups,
         dimensions: FunFixedSizeWindow,
         frame: GPUTextureView,
         camera: Camera,
-//        cursorPosition: Offset?,
     ) {
         // If the bindgroups are not ready yet, don't do anything
 //        if (models.size != modelBindGroups.size) return
@@ -394,8 +367,12 @@ class VisibleRenderInstance(
 //    val value: T,
     private val model: VisibleBoundModel,
     @PublishedApi internal val world: WorldRender,
-    val value: Boundable,
-) : Boundable by value, RenderInstance {
+    var value: Boundable,
+) : Boundable, RenderInstance {
+    override val boundingBox: AxisAlignedBoundingBox
+        get() = value.boundingBox
+    override val data: Any?
+        get() = value.data
 
     var despawned = false
 

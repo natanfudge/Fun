@@ -45,6 +45,7 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
     Quatf::class -> QuatfEditor
     Color::class -> ColorEditor
     Tint::class -> TintEditor
+    Boolean::class -> BooleanEditor
     else -> ValueEditor.Missing
 } as ValueEditor<T>
 

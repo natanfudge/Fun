@@ -34,7 +34,7 @@ abstract class Fun(
     }
 
 
-    private val children = mutableListOf<Fun>()
+    val children = mutableListOf<Fun>()
 
     internal fun registerChild(child: Fun) {
         children.add(child)

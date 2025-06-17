@@ -4,6 +4,7 @@ package io.github.natanfudge.fn.compose.funedit
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -74,6 +75,13 @@ val TintEditor = VectorEditor(
     )
 )
 
+object BooleanEditor: ValueEditor<Boolean> {
+    @Composable
+    override fun EditorUi(state: MutableState<Boolean>, modifier: Modifier) {
+        Checkbox(checked = state.value, onCheckedChange = {state.value = it}, modifier)
+    }
+
+}
 
 val Vec3fEditor = VectorEditor(
     toMap = { mapOf("x" to it.x, "y" to it.y, "z" to it.z) },

@@ -5,9 +5,6 @@ import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
 //TODO: must do before eitam:
-// 3. Add mod system
-// 4. Add selection and camera to physics simulation
-// 4.5. Show physics variables in editor
 // 5. Verify it works on laptop
 
 class TestPhysics {
@@ -25,8 +22,6 @@ class TestPhysics {
                     this.velocity = velocity
                     affectedByGravity = false
                 }
-
-                //TODo: something killed the precision...
 
                 after(5.seconds) {
                     kinematic.shouldHave(

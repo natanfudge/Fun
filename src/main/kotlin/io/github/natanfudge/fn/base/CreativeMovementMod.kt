@@ -89,9 +89,7 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
                     val zoom = 1 + input.scrollDelta.y / 10
                     zoom(zoom)
                 }
-                if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
-                    context.world.setCursorPosition(input.position)
-                }
+
             }
 
             is InputEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {

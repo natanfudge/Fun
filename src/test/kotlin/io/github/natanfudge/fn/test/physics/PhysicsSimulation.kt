@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.base.PhysicsMod
+import io.github.natanfudge.fn.base.VisualEditorMod
 import io.github.natanfudge.fn.compose.utils.FunTheme
 import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
 import io.github.natanfudge.fn.core.ComposePanelPlacer
@@ -142,7 +143,7 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
         if (callback == null) return
         val newTime = timeSinceScheduleStart + delta
         if (newTime > scheduleDelay) {
-            physics.tick(newTime - scheduleDelay)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
+            physics.tick(scheduleDelay - timeSinceScheduleStart)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
             // After the final bit of physics is squeezed out, notify completion
             callback?.invoke()
             callback = null
@@ -168,6 +169,7 @@ class PhysicsSimulationApp(override val context: FunContext, simulation: Physics
 
     init {
         val context = PhysicsSimulationContext(context, physics.system, scheduler)
+        installMod(VisualEditorMod(context))
         with(simulation) {
             context.run()
         }

@@ -24,6 +24,7 @@ import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.physics.Visible
+import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.fn.render.Tint
 
 @Composable
@@ -44,30 +45,40 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
     private var selectedObjectOldTint: Tint? = null
 
     @Composable
+    fun FunEditor(fn: Fun) {
+        Column(Modifier.padding(5.dp).width(IntrinsicSize.Max), horizontalAlignment = Alignment.CenterHorizontally) {
+            val values = context.stateManager.getState(fn.id)
+            if (values != null) {
+                Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
+                for ((key, value) in values.getCurrentState()) {
+                    value as FunState<Any?>
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Box(Modifier.weight(1f))
+                        value.editor.EditorUi(
+                            mutableState(value.value) { value.value = it }
+                        )
+                        Box(Modifier.weight(1f))
+                    }
+                }
+            }
+            Column(Modifier.padding(start = 10.dp)) {
+                for(child in fn.children) {
+                    FunEditor(child)
+                }
+            }
+
+
+        }
+
+    }
+
+    @Composable
     override fun ComposePanelPlacer.gui() {
         FunPanel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
-                Column(Modifier.padding(5.dp).width(IntrinsicSize.Max), horizontalAlignment = Alignment.CenterHorizontally) {
-                    val selected = selectedObject
-                    if (selected is Fun) {
-                        val values = context.stateManager.getState(selected.id)
-                        if (values != null) {
-                            Text(selected.id, color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
-                            for ((key, value) in values.getCurrentState()) {
-                                value as FunState<Any?>
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                    Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                    Box(Modifier.weight(1f))
-                                    value.editor.EditorUi(
-                                        mutableState(value.value) { value.value = it }
-                                    )
-                                    Box(Modifier.weight(1f))
-                                }
-                            }
-                        }
-
-                    }
-
+                if (selectedObject?.data is Fun) {
+                    FunEditor(selectedObject?.data as Fun)
                 }
             }
         }
@@ -76,6 +87,9 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
 
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
+            if (input.eventType == PointerEventType.Move && (context.camera.mode == CameraMode.Orbital || context.camera.mode == CameraMode.Off)) {
+                context.world.setCursorPosition(input.position)
+            }
 
             colorHoveredObject()
 
@@ -83,6 +97,8 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
                 mouseDownPos = input.position
             }
             captureSelectedObject(input)
+
+
         }
     }
 
