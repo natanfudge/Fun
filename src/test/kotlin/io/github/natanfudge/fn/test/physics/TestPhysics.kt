@@ -31,4 +31,25 @@ class TestPhysics {
             }
         }
     }
+
+    @Test
+    fun testSpin() {
+        // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
+        object : PhysicsTest(show = true) {
+            override fun PhysicsSimulationContext.run() {
+                val initialPosition = Vec3f.zero()
+
+                val kinematic = cube()
+                kinematic.physics.apply {
+                    position = initialPosition.copy()
+                    angularVelocity = Vec3f(1f, 1f, 0f)
+                    affectedByGravity = false
+                }
+
+                // No assertion for now
+                after(20.seconds) {
+                }
+            }
+        }
+    }
 }

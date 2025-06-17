@@ -1,6 +1,9 @@
 package io.github.natanfudge.fn.physics
 
+import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 
@@ -33,7 +36,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
             if (gravity) applyGravity(body, delta)
             applyDisplacement(body, delta)
         }
-        for(intersection in getIntersections()) {
+        for (intersection in getIntersections()) {
         }
     }
 
@@ -41,6 +44,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
         //TODO: we can avoid a lot of allocations here
         body.velocity += body.acceleration * delta.seconds
         body.position += body.velocity * delta.seconds
+        body.rotation = updateRotation(body.rotation, body.angularVelocity, delta.seconds.toFloat())
     }
 
     private fun applyGravity(body: Body, delta: Duration) {
@@ -69,8 +73,52 @@ class PhysicsSystem(var gravity: Boolean = true) {
         }
         return intersections
     }
+
+    /**
+     * Updates a rotation quaternion based on an angular velocity vector.
+     * Mutates [currentRotation]
+     */
+    private fun updateRotation(currentRotation: Quatf, angularVelocity: Vec3f, deltaTime: Float): Quatf {
+        // We'll work with a local copy
+        var rotation = currentRotation
+
+        // Calculate the magnitude of the angular velocity
+        val angle = angularVelocity.length
+
+        // A small epsilon to avoid issues with zero-length vectors
+        if (angle > 0.0001) {
+            // The total angle to rotate this frame is the angular speed (angle) * time
+            // The quaternion formula uses half the angle.
+            val halfAngle = angle * deltaTime * 0.5
+
+            // The axis of rotation is the normalized angular velocity vector.
+            // We can get it by dividing the vector by its length (angle).
+            val axis = angularVelocity / angle
+
+            // Create the delta rotation quaternion
+            val sin_hA = sin(halfAngle).toFloat()
+            val cos_hA = cos(halfAngle).toFloat()
+
+            val deltaRotation = Quatf(
+                w = cos_hA,
+                x = axis.x * sin_hA,
+                y = axis.y * sin_hA,
+                z = axis.z * sin_hA
+            )
+
+            // Apply the delta rotation to the current rotation.
+            // The order is important: delta * current applies rotation in world space.
+            rotation = deltaRotation * rotation
+
+            // Re-normalize the quaternion to prevent floating-point drift.
+            // This is crucial for stability over time.
+            rotation.normalize(currentRotation)
+        }
+        // If angularVelocity is zero, no change in rotation.
+        return rotation
+    }
 }
 
-private operator fun Vec3f.times(value: Double) = Vec3f((x * value).toFloat(), (y * value).toFloat(), (z * value).toFloat())
+private operator fun Vec3f.times(ue: Double) = Vec3f((x * ue).toFloat(), (y * ue).toFloat(), (z * ue).toFloat())
 
 private val Duration.seconds get() = toDouble(DurationUnit.SECONDS)

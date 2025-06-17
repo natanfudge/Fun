@@ -123,7 +123,14 @@ class FunPhysics(
         }
     override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity", this)
     override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration", this)
+
+    override var rotation: Quatf
+        get() = renderState.rotation
+        set(value) {
+            renderState.rotation = value
+        }
     override var affectedByGravity: Boolean by funValue(true, "affectedByGravity", this)
+    override var angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity", this)
 
     init {
         physics.add(this)
