@@ -2,7 +2,13 @@
 
 package io.github.natanfudge.fn.base
 
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,7 +52,7 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
 
     @Composable
     fun FunEditor(fn: Fun) {
-        Column(Modifier.padding(5.dp).width(IntrinsicSize.Max), horizontalAlignment = Alignment.CenterHorizontally) {
+//        item {
             val values = context.stateManager.getState(fn.id)
             if (values != null) {
                 Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
@@ -62,14 +68,16 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
                     }
                 }
             }
-            Column(Modifier.padding(start = 10.dp)) {
+//        }
+
+//            Column(Modifier.padding(start = 10.dp)) {
                 for(child in fn.children) {
                     FunEditor(child)
                 }
-            }
+//            }
 
 
-        }
+
 
     }
 
@@ -78,7 +86,10 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
         FunPanel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
                 if (selectedObject?.data is Fun) {
-                    FunEditor(selectedObject?.data as Fun)
+                    Column (Modifier.padding(5.dp).width(IntrinsicSize.Max)
+                        .verticalScroll(rememberScrollState ()), horizontalAlignment = Alignment.CenterHorizontally) {
+                        FunEditor(selectedObject?.data as Fun)
+                    }
                 }
             }
         }
