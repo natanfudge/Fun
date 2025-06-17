@@ -4,8 +4,6 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
-//TODO: must do before eitam:
-// 5. Verify it works on laptop
 
 class TestPhysics {
     @Test
