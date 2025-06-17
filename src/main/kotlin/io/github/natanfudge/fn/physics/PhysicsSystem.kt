@@ -36,7 +36,14 @@ class PhysicsSystem(var gravity: Boolean = true) {
             if (gravity) applyGravity(body, delta)
             applyDisplacement(body, delta)
         }
-        for (intersection in getIntersections()) {
+        for ((a, b) in getIntersections()) {
+            val direction = b.position - a.position
+            val n = direction.normalize()
+            val delta = (a.velocity - b.velocity).dot(n)
+            val newV1 = a.velocity - n * ((2 * b.mass) / (a.mass + b.mass)) * delta
+            val newV2 = b.velocity + n * ((2 * a.mass) / (a.mass + b.mass)) * delta
+            a.velocity = newV1
+            b.velocity = newV2
         }
     }
 
@@ -49,9 +56,9 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     private fun applyGravity(body: Body, delta: Duration) {
         if (body.affectedByGravity) {
-            body.acceleration = body.acceleration.copy(
-                body.acceleration.x, body.acceleration.y, (body.acceleration.z - EarthGravityAcceleration * delta.seconds).toFloat(),
-                dst = body.acceleration // Avoid allocation
+            body.velocity = body.velocity.copy(
+                body.velocity.x, body.velocity.y, (body.velocity.z - EarthGravityAcceleration * delta.seconds).toFloat(),
+                dst = body.velocity // Avoid allocation
             )
         }
     }

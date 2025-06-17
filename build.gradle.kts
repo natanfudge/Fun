@@ -153,7 +153,7 @@ composeCompiler {
 }
 
 tasks.withType<Test>() {
-    executable = rootProject.layout.projectDirectory.file("jdks/jbr_25_11_05/bin/java.exe").toString()
+    executable = rootProject.layout.projectDirectory.file("jdks/jbr_25_09_06/bin/java.exe").toString()
     jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:HotswapAgent=core", "--enable-native-access=ALL-UNNAMED")
 //
 //   javaLauncher.set(javaToolchains.launcherFor {

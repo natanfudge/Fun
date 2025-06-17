@@ -14,6 +14,7 @@ interface Body {
     var acceleration: Vec3f
     var rotation: Quatf
     var angularVelocity: Vec3f
+    var mass: Float
 
     val affectedByGravity: Boolean
 }

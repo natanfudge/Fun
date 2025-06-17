@@ -31,6 +31,7 @@ import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.physics.FunRenderState
 import io.github.natanfudge.fn.physics.PhysicsSystem
 import io.github.natanfudge.fn.physics.SimplePhysicsObject
 import io.github.natanfudge.fn.physics.SimpleRenderObject
@@ -99,6 +100,10 @@ class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, 
             }
         }
     }
+
+//    fun showAll(physicals: List<FunRenderState>) {
+//
+//    }
 
     private fun placeCameraToShowEverything(block: PhysicsAssertionBlock) {
         camera.viewAll(
