@@ -7,12 +7,13 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
+import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.util.EventStream
+import kotlin.time.Duration
 
 
-
-class InputManager {
+class InputManagerMod: FunMod {
     val heldKeys = mutableSetOf<Key>()
     val heldMouseButtons = mutableSetOf<PointerButton>()
     var prevCursorPos: Offset? = null
@@ -26,15 +27,14 @@ class InputManager {
      */
     val mouseMoved = EventStream.create<Offset>()
 
-    /**
-     * Must be called before every frame
-     */
-    fun poll() {
+    override fun physics(delta: Duration) {
         if (focused) {
             heldKeys.forEach { keyHeld.emit(it) }
         }
     }
-    fun handle(input: InputEvent) {
+
+
+    override fun handleInput(input: InputEvent) {
         when (input) {
             is InputEvent.KeyEvent -> {
                 val event = input.event

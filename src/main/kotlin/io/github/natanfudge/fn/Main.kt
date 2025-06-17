@@ -1,41 +1,27 @@
 package io.github.natanfudge.fn
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
-import io.github.natanfudge.fn.compose.utils.mutableState
-import io.github.natanfudge.fn.core.*
+import io.github.natanfudge.fn.base.*
+import io.github.natanfudge.fn.core.ComposePanelPlacer
+import io.github.natanfudge.fn.core.FunApp
+import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.ProcessLifecycle
+import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.state.FunState
-import io.github.natanfudge.fn.physics.*
+import io.github.natanfudge.fn.physics.physics
+import io.github.natanfudge.fn.physics.renderState
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.time.Duration
 
 //TODO:
 // 13. Basic Physics
@@ -58,90 +44,6 @@ import kotlin.time.Duration
 // G. Expandable bound buffers - waiting for mutable bind groups
 // H. Zoom based on ray casting on where the cursor is pointing at - make the focal point be the center of the ray-casted object.
 
-
-fun DefaultCamera.bind(inputManager: InputManager, context: FunContext) {
-    inputManager.mouseMoved.listen { delta ->
-        val normalizedDeltaX = delta.x / context.window.width
-        val normalizedDeltaY = delta.y / context.window.height
-
-        when (mode) {
-            CameraMode.Orbital -> {
-                if (PointerButton.Tertiary in inputManager.heldMouseButtons) {
-                    if (delta.x != 0f || delta.y != 0f) {
-                        pan(normalizedDeltaX * 20, normalizedDeltaY * 20)
-                    }
-                }
-                if (PointerButton.Primary in inputManager.heldMouseButtons) {
-                    if (normalizedDeltaX != 0f) {
-                        rotateX(normalizedDeltaX * 10)
-                    }
-                    if (normalizedDeltaY != 0f) {
-                        rotateY(normalizedDeltaY * 10)
-                    }
-                }
-
-
-            }
-
-            CameraMode.Fly -> {
-                tilt(normalizedDeltaX * 2, normalizedDeltaY * 2)
-
-
-            }
-
-            else -> {}
-        }
-    }
-
-    inputManager.keyHeld.listen { key ->
-        val delta = 0.05f
-        when (key) {
-            Key.W -> moveForward(delta)
-            Key.S -> moveBackward(delta)
-            Key.A -> moveLeft(delta)
-            Key.D -> moveRight(delta)
-            Key.Spacebar -> moveUp(delta)
-            Key.CtrlLeft -> moveDown(delta)
-        }
-    }
-}
-
-
-private fun DefaultCamera.handleInput(inputManager: InputManager, input: InputEvent, context: FunContext) {
-    when (input) {
-        is InputEvent.PointerEvent -> {
-            if (input.eventType == PointerEventType.Scroll
-                && inputManager.focused && mode == CameraMode.Orbital
-            ) {
-                val zoom = 1 + input.scrollDelta.y / 10
-                zoom(zoom)
-            }
-            if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
-                context.world.setCursorPosition(input.position)
-            }
-        }
-
-        is InputEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {
-            setCameraMode(
-                when (input.event.key) {
-                    Key.Escape -> CameraMode.Off
-                    Key.O, Key.Grave -> CameraMode.Orbital
-                    Key.F -> CameraMode.Fly
-                    else -> mode // Keep existing
-                }, context
-            )
-        }
-
-        else -> {}
-    }
-}
-
-private fun DefaultCamera.setCameraMode(mode: CameraMode, context: FunContext) {
-    this.mode = mode
-
-    context.setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
-    context.setCursorLocked(mode == CameraMode.Fly)
-}
 
 val lightPos = Vec3f(4f, -4f, 4f)
 
@@ -184,24 +86,20 @@ class TestRenderObject(
     }
 }
 
-class PhysicsMod {
-    val system = PhysicsSystem()
-    fun physics(delta: Duration) {
-        system.tick(delta)
-    }
-}
-
 
 // TODO: I think we can add the Mod system now, I have a pretty good understanding of how to use it.
-class FunPlayground(override val context: FunContext) : FunApp {
-    override val camera = DefaultCamera()
-    val inputManager = InputManager()
-    val physics = PhysicsMod()
+class FunPlayground(override val context: FunContext) : FunApp() {
+    val inputManager = installMod(InputManagerMod())
 
     var id = 0
 
+    val physics = installMod(PhysicsMod())
+
     init {
-        camera.bind(inputManager, context)
+        installMods(
+            CreativeMovementMod(context, inputManager),
+            VisualEditorMod(context),
+        )
 
         physics.system.gravity = false
 
@@ -245,207 +143,38 @@ class FunPlayground(override val context: FunContext) : FunApp {
         TestBody("Basic Cube", this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
     }
 
-
-    override fun physics(delta: Duration) {
-        inputManager.poll()
-        physics.physics(delta)
-    }
-
     @Suppress("UNCHECKED_CAST")
     @Composable
-    override fun gui() {
-        MaterialTheme(darkColorScheme()) {
-
-            PanelSupport {
-                Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
-                Box(Modifier.size(20.dp, 2.dp).background(Color.Black).align(Alignment.Center))
-                Panel(Modifier.align(Alignment.CenterStart)) {
-                    Surface {
-                        Column {
-                            Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
-                                Text("Restart Surface Lifecycle")
-                            }
-
-                            Button(onClick = {
-                                ProcessLifecycle.restartByLabels(setOf("App"))
-                            }) {
-                                Text("Restart App Lifecycle")
-                            }
-                            Button(onClick = {
-                                ProcessLifecycle.restartByLabels(setOf("App Compose binding"))
-                            }) {
-                                Text("Reapply Compose App")
-                            }
-
-                            Button(onClick = {
-                                FunHotReload.reloadStarted.emit(Unit)
-                                FunHotReload.reloadEnded.emit(Unit)
-                            }) {
-                                Text("Emulate Hot Reload")
-                            }
-                        }
+    override fun ComposePanelPlacer.gui() {
+        FunPanel(Modifier.align(Alignment.CenterStart)) {
+            Surface(color = Color.Transparent) {
+                Column {
+                    Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
+                        Text("Restart Surface Lifecycle")
                     }
-                }
-                Panel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
-                        Column(Modifier.padding(5.dp).width(IntrinsicSize.Max), horizontalAlignment = Alignment.CenterHorizontally) {
-                            val selected = selectedObject
-                            if (selected is Fun) {
-                                val values = context.stateManager.getState(selected.id)
-                                if (values != null) {
-                                    Text(selected.id, color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
-                                    for ((key, value) in values.getCurrentState()) {
-                                        value as FunState<Any?>
-                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                            Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                            Box(Modifier.weight(1f))
-                                            value.editor.EditorUi(
-                                                mutableState(value.value) { value.value = it }
-                                            )
-                                            Box(Modifier.weight(1f))
-                                        }
-                                    }
-                                }
 
-                            }
+                    Button(onClick = {
+                        ProcessLifecycle.restartByLabels(setOf("App"))
+                    }) {
+                        Text("Restart App Lifecycle")
+                    }
+                    Button(onClick = {
+                        ProcessLifecycle.restartByLabels(setOf("App Compose binding"))
+                    }) {
+                        Text("Reapply Compose App")
+                    }
 
-                        }
+                    Button(onClick = {
+                        FunHotReload.reloadStarted.emit(Unit)
+                        FunHotReload.reloadEnded.emit(Unit)
+                    }) {
+                        Text("Emulate Hot Reload")
                     }
                 }
             }
         }
     }
 
-
-    /**
-     * Allows placing "Panels", which block clicks from reaching the game when they are clicked.
-     */
-    @OptIn(ExperimentalComposeUiApi::class)
-    @Composable
-    fun PanelSupport(panels: @Composable ComposePanelPlacer.() -> Unit) {
-        Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().focusable().onPointerEvent(PointerEventType.Press) {
-                // Allow clicking outside of the GUI
-                acceptMouseEvents = true
-                // The clickable thing is just for it to draw focus
-            }.clickableWithNoIndication { }.onPointerEvent(PointerEventType.Enter) {
-                acceptMouseEvents = true
-            }
-            )
-
-            panels(ComposePanelPlacerWithBoxScope(this) { modifier, panel ->
-                Box(
-                    modifier
-                        .onPointerEvent(PointerEventType.Press, pass = PointerEventPass.Initial) {
-                            // Block clicks
-                            acceptMouseEvents = false
-                        }.onPointerEvent(PointerEventType.Enter) {
-                            acceptMouseEvents = false
-                        }
-                ) {
-                    panel()
-                }
-            })
-
-        }
-    }
-
-
-    var acceptMouseEvents = true
-
-    private var mouseDownPos: Offset? = null
-
-    private var hoveredObject: Visible? = null
-    private var hoveredObjectOldTint: Tint? = null
-    var selectedObject: Visible? by mutableStateOf(null)
-    private var selectedObjectOldTint: Tint? = null
-
-
-    override fun handleInput(input: InputEvent) {
-        if (input is InputEvent.PointerEvent) {
-            if (!acceptMouseEvents) {
-                return
-            }
-
-            colorHoveredObject()
-
-            if (input.eventType == PointerEventType.Press) {
-                mouseDownPos = input.position
-            }
-            captureSelectedObject(input)
-        }
-        inputManager.handle(input)
-        camera.handleInput(inputManager, input, context)
-
-    }
-
-    private fun captureSelectedObject(input: InputEvent.PointerEvent) {
-        if (input.eventType == PointerEventType.Release) {
-            val mouseDownPos = mouseDownPos ?: return
-            // Don't reassign selected object if we dragged around too much
-            if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.world.hoveredObject as? Visible
-                if (selectedObject != selected) {
-                    // Restore the old color
-                    selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
-                    selectedObject = selected
-                    // Save color to restore later
-                    selectedObjectOldTint = hoveredObjectOldTint
-                    if (selected != null && hoveredObjectOldTint != null) {
-                        selected.tint = Tint(
-                            lerp(
-                                hoveredObjectOldTint!!.color,
-                                Color.White.copy(alpha = 0.5f),
-                                0.8f
-                            ), strength = 0.8f
-                        )
-                    }
-                }
-
-            }
-        }
-    }
-
-    private fun colorHoveredObject() {
-        if (hoveredObject != context.world.hoveredObject) {
-            // Restore the old color
-            if (hoveredObject != selectedObject) {
-                hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
-            }
-
-            val newHovered = (context.world.hoveredObject as? Visible)
-            hoveredObject = newHovered
-            // Save color to restore later
-            hoveredObjectOldTint = newHovered?.tint
-//            println("Setting tint to $hoveredObjectOldTint")
-            if (newHovered != selectedObject) {
-                newHovered?.tint = Tint(
-                    lerp(hoveredObjectOldTint!!.color, Color.White.copy(alpha = 0.5f), 0.2f), strength = 0.2f
-                )
-            }
-        }
-    }
-
-    /**
-     * We want to detect which areas belong to the 2D GUI, so every panel placement goes through this interface.
-     */
-    interface ComposePanelPlacer : BoxScope {
-        @Composable
-        fun Panel(modifier: Modifier, panel: @Composable BoxScope.() -> Unit)
-    }
-
-    class ComposePanelPlacerWithBoxScope(
-        scope: BoxScope, private val placer: @Composable (modifier: Modifier, panel: @Composable (BoxScope.() -> Unit)) -> Unit,
-    ) : ComposePanelPlacer, BoxScope by scope {
-        @Composable
-        override fun Panel(
-            modifier: Modifier,
-            panel: @Composable (BoxScope.() -> Unit),
-        ) {
-            placer(modifier, panel)
-        }
-
-    }
 
 }
 

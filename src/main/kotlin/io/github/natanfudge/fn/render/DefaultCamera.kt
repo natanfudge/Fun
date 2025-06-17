@@ -1,5 +1,8 @@
 package io.github.natanfudge.fn.render
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.max
@@ -54,7 +57,7 @@ class DefaultCamera: Camera {
 
 
     // doesn't really belong here
-    var mode: CameraMode = CameraMode.Off
+    var mode: CameraMode by mutableStateOf(CameraMode.Off)
 
 
     /**

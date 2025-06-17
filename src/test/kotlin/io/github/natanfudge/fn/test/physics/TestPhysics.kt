@@ -5,8 +5,9 @@ import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
 //TODO: must do before eitam:
-// 1. Allow creating standalone RenderStates
-// 2. Fix physics test
+// 3. Add mod system
+// 4. Add selection and camera to physics simulation
+// 4.5. Show physics variables in editor
 // 5. Verify it works on laptop
 
 class TestPhysics {
@@ -18,11 +19,14 @@ class TestPhysics {
                 val initialPosition = Vec3f.zero()
                 val velocity = Vec3f(1f, 2f, 3f)
 
-                val kinematic = cube().apply {
+                val kinematic = cube()
+                kinematic.physics.apply {
                     position = initialPosition.copy()
                     this.velocity = velocity
                     affectedByGravity = false
                 }
+
+                //TODo: something killed the precision...
 
                 after(5.seconds) {
                     kinematic.shouldHave(

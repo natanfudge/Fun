@@ -5,6 +5,7 @@ import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunWindow
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.actualHandleInput
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
@@ -126,7 +127,7 @@ var pipelines = 0
 
 class FunInputAdapter(private val app: FunApp) : WindowCallbacks {
     override fun onInput(input: InputEvent) {
-        app.handleInput(input)
+        app.actualHandleInput(input)
     }
 }
 
@@ -253,7 +254,7 @@ fun WebGPUWindow.bindFunLifecycles(
 
         //TO Do: need to think how to enable user-driven drawing
 
-        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, camera = app.camera)
+        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, camera = app.context.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 

@@ -1,7 +1,9 @@
 package io.github.natanfudge.fn.physics
 
 import androidx.compose.ui.graphics.Color
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
@@ -96,6 +98,15 @@ class FunRenderState(
     }
 }
 
+
+class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : Fun(id, context) {
+    val render = renderState(model)
+}
+
+class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physics: PhysicsSystem) : Fun(id, context) {
+    val render = renderState(model)
+    val physics = physics(render, physics)
+}
 
 class FunPhysics(
 //    id: FunId,

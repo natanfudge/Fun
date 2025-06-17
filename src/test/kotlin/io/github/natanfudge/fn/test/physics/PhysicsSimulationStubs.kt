@@ -10,6 +10,7 @@ import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.physics.Renderable
 import io.github.natanfudge.fn.render.BoundModel
+import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.RenderInstance
 import io.github.natanfudge.fn.render.Tint
@@ -43,6 +44,8 @@ class PhysicsSimulationFunContext() : FunContext, FunStateContext by FunStateCon
 
     override fun setGUIFocused(focused: Boolean) {
     }
+
+    override var camera: DefaultCamera = DefaultCamera()
 
 }
 

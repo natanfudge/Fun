@@ -22,14 +22,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import io.github.natanfudge.fn.PhysicsMod
+import io.github.natanfudge.fn.base.PhysicsMod
 import io.github.natanfudge.fn.compose.utils.FunTheme
 import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
+import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.startTheFun
-import io.github.natanfudge.fn.physics.PhysicalFun
 import io.github.natanfudge.fn.physics.PhysicsSystem
+import io.github.natanfudge.fn.physics.SimplePhysicsObject
+import io.github.natanfudge.fn.physics.SimpleRenderObject
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
@@ -57,16 +60,16 @@ private fun PhysicsTest.runTest(show: Boolean) {
         val physics = PhysicsSystem()
 
         PhysicsSimulationContext(
-            PhysicsSimulationFunContext(), DefaultCamera(), scheduler = PhysicsSimulationScheduler(physics), physics = physics
+            PhysicsSimulationFunContext(), scheduler = PhysicsSimulationScheduler(physics), physics = physics
         ).run()
     }
 }
 
 
-class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, val physics: PhysicsSystem, val scheduler: Scheduler) : FunContext by context {
+class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, val scheduler: Scheduler) : FunContext by context {
     private val cubeModel = Model(Mesh.UnitCube(), id = "mesh-0")
     private var index = 0
-    fun cube() = PhysicalFun("body-${index++}", this, physics, cubeModel)
+    fun cube() = SimplePhysicsObject("body-${index++}", this, cubeModel, physics)
 
     /**
      * Note that [callback] is called immediately, only the assertions occur in a delay.
@@ -88,11 +91,10 @@ class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, v
      */
     private fun spawnTargetGhosts(block: PhysicsAssertionBlock) {
         for ((body, assertion) in block.assertions) {
-            PhysicalFun("target-${index++}", this, physics, body.model).apply {
+            SimpleRenderObject("target-${index++}", this, body.render.model).render.apply {
                 position = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
-                scale = body.scale * 1.1f
-                affectedByGravity = false
+                scale = body.render.scale * 1.1f
             }
         }
     }
@@ -101,7 +103,7 @@ class PhysicsSimulationContext(context: FunContext, val camera: DefaultCamera, v
         camera.viewAll(
             positions = block.assertions.flatMap {
                 listOf(
-                    it.first.position,
+                    it.first.render.position,
                     it.second.position
                 )
             },
@@ -121,7 +123,7 @@ interface Scheduler {
     fun schedule(delay: Duration, callback: () -> Unit)
 }
 
-class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSystem) : Scheduler {
+class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSystem) : Scheduler, FunMod {
     private var callback: (() -> Unit)? = null
 
     private var timeSinceScheduleStart = Duration.ZERO
@@ -136,14 +138,14 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
     /**
      * Returns the delta to be passed to the physics system.
      */
-    fun physics(delta: Duration) {
+    override fun physics(delta: Duration) {
         if (callback == null) return
         val newTime = timeSinceScheduleStart + delta
         if (newTime > scheduleDelay) {
-            callback = null
             physics.tick(newTime - scheduleDelay)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
             // After the final bit of physics is squeezed out, notify completion
             callback?.invoke()
+            callback = null
         } else {
             timeSinceScheduleStart = newTime
             physics.tick(delta)
@@ -160,20 +162,19 @@ class PhysicsSimulationScheduler(val physics: PhysicsSystem) : Scheduler {
 }
 
 
-class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsTest) : FunApp {
-    override val camera = DefaultCamera()
+class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsTest) : FunApp() {
     val physics = PhysicsMod()
-    val scheduler = VisibleSimulationTickerMod(context, physics.system)
+    val scheduler = installMod(VisibleSimulationTickerMod(context, physics.system))
 
     init {
-        val context = PhysicsSimulationContext(context, camera, physics.system, scheduler)
+        val context = PhysicsSimulationContext(context, physics.system, scheduler)
         with(simulation) {
             context.run()
         }
     }
 
     @Composable
-    override fun gui() = FunTheme {
+    override fun ComposePanelPlacer.gui() = FunTheme {
         Box(Modifier.fillMaxSize().background(Color.Transparent)) {
             Surface(Modifier.align(Alignment.CenterStart).padding(10.dp)) {
                 Column(Modifier.padding(5.dp)) {
@@ -213,9 +214,4 @@ class PhysicsSimulationApp(override val context: FunContext, simulation: Physics
             }
         }
     }
-
-    override fun physics(delta: Duration) {
-        scheduler.physics(delta)
-    }
-
 }

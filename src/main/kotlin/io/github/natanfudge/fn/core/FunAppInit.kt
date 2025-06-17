@@ -86,7 +86,7 @@ class RealTime : FunTime {
     override var speed = 1f
     internal lateinit var app: FunApp
     override fun advance(time: Duration) {
-        app.physics(time)
+        app.actualPhysics(time)
     }
 
     var stopped = false
@@ -112,7 +112,7 @@ class RealTime : FunTime {
         val physicsDelta = prevPhysicsTime.elapsedNow()
         prevPhysicsTime = TimeSource.Monotonic.markNow()
 
-        app.physics(physicsDelta * speed.toDouble())
+        app.actualPhysics(physicsDelta * speed.toDouble())
 //        }
     }
 
@@ -148,7 +148,7 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
         }
         compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, app ->
             comp.setContent {
-                app.gui()
+                app.actualGui()
             }
         }
 
@@ -163,34 +163,80 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 }
 
 
-interface FunApp : AutoCloseable {
+abstract class FunApp : AutoCloseable {
+    internal val panels = Panels()
+
+    internal val mods = mutableListOf<FunMod>()
+
+    fun <T : FunMod> installMod(mod: T): T {
+        mods.add(mod)
+        return mod
+    }
+
+    fun installMods(vararg mods: FunMod) {
+        mods.forEach { installMod(it) }
+    }
+
 
     @Composable
-    fun gui() {
+    open fun ComposePanelPlacer.gui() {
 
     }
 
-    fun handleInput(input: InputEvent) {
+    open fun handleInput(input: InputEvent) {
 
     }
 
     //TODO: think of how to do component-callback binding
 
-    fun frame(delta: Float) {
+    open fun frame(delta: Float) {
 
     }
 
-    fun physics(delta: kotlin.time.Duration) {
+    open fun physics(delta: Duration) {
 
     }
 
-    //SUS: pretty arbitrary API, doesn't account for multiple camera angles, it should just be some method on WorldRender
-    val camera: Camera
-    val context: FunContext
+    abstract val context: FunContext
 
-    override fun close() {
+    open fun cleanup() {
 
     }
+
+    final override fun close() {
+        mods.forEach { it.cleanup() }
+        cleanup()
+    }
+}
+
+@Composable
+internal fun FunApp.actualGui() = panels.PanelSupport {
+    gui()
+    mods.forEach {
+        with(it) {
+            gui()
+        }
+    }
+}
+
+internal fun FunApp.actualHandleInput(input: InputEvent) {
+    if (input is InputEvent.PointerEvent && !panels.acceptMouseEvents) return
+    for (mod in mods) {
+        mod.handleInput(input)
+    }
+    handleInput(input)
+}
+
+//TODO: think of how to do component-callback binding
+
+internal fun FunApp.actualFrame(delta: Float) {
+    mods.forEach { it.frame(delta) }
+    frame(delta)
+}
+
+internal fun FunApp.actualPhysics(delta: Duration) {
+    mods.forEach { it.physics(delta) }
+    physics(delta)
 }
 
 
@@ -217,6 +263,7 @@ interface FunContext : FunStateContext {
 
     fun restartApp() {}
 
+    var camera: DefaultCamera
 
     val time: FunTime
 }
@@ -260,6 +307,8 @@ class VisibleFunContext(
     override val window by dims
 
     override val world = surface.world
+
+    override var camera = DefaultCamera()
 
     override fun restartApp() {
         ProcessLifecycle.restartByLabel(AppLifecycleName)
