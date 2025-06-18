@@ -14,6 +14,7 @@ import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 
 
 class Panels {
+//    var blockMouseEventsOnPanel = true
     var acceptMouseEvents = true
     /**
      * Allows placing "Panels", which block clicks from reaching the game when they are clicked.

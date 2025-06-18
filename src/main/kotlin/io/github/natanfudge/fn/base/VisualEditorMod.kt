@@ -98,9 +98,7 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
 
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
-            if (input.eventType == PointerEventType.Move && (context.camera.mode == CameraMode.Orbital || context.camera.mode == CameraMode.Off)) {
-                context.world.setCursorPosition(input.position)
-            }
+
 
             colorHoveredObject()
 

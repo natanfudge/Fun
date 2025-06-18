@@ -6,12 +6,10 @@ import kotlin.math.cos
 import kotlin.math.round
 import kotlin.math.sin
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 
 
-//TODO: 1. outOfMemoryError
-// 2. on-floor stuff is spazzing out
-// velocity not updating in real time
 /**
  * The physics system measures position in meters, velocity in meters per second, and acceleration in meters per second squared.
  * It is assumed the Z axis is down (sorry Minecraft bros).
@@ -19,6 +17,7 @@ import kotlin.time.DurationUnit
 class PhysicsSystem(var gravity: Boolean = true) {
     companion object {
         const val EarthGravityAcceleration = 9.8f
+        private val maxDelta = 40.milliseconds
     }
 
 
@@ -37,12 +36,14 @@ class PhysicsSystem(var gravity: Boolean = true) {
      * Delta should be the fraction of the unit, so in this case in fractions of a second
      */
     fun tick(delta: Duration) {
+        // We want to avoid extreme deltas causing things to go through each other. No quantum tunneling please.
+        val actualDelta = delta.coerceAtMost(maxDelta)
         val groundedBodies = mutableSetOf<Body>()
 
 
         for (body in bodies) {
-            if (gravity && body !in groundedBodies) applyGravity(body, delta)
-            applyDisplacement(body, delta)
+            if (gravity && body !in groundedBodies) applyGravity(body, actualDelta)
+            applyDisplacement(body, actualDelta)
         }
         val intersections = getIntersections()
         for ((a, b) in intersections) {
@@ -62,11 +63,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 applyElasticCollision(a, b)
             }
         }
-
-//        for (body in bodies) {
-////            println("Final displacement: ${body.position}")
-//        }
-
     }
 
     /**

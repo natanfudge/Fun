@@ -18,9 +18,9 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 @Composable
 fun FloatField(
     state: MutableState<Float>,
+    modifier: Modifier = Modifier,
     label: (@Composable () -> Unit)? = null,
     range: ClosedFloatingPointRange<Float>? = null,
-    modifier: Modifier = Modifier,
 ) {
     OutlinedTextField(
         label = label,

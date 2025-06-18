@@ -203,11 +203,7 @@ class WorldRender(
         }
     }
 
-    var _cursorPosition: Offset? = null
-
-    override fun setCursorPosition(position: Offset?) {
-        this._cursorPosition = position
-    }
+    override var cursorPosition: Offset? = null
 
 
     fun draw(
@@ -223,7 +219,7 @@ class WorldRender(
         val viewProjection = dimensions.projection * camera.viewMatrix
 
         // Update selected object based on ray casting
-        val rayCast = rayCasting.rayCast(getCursorRay(camera, _cursorPosition, viewProjection, dimensions))
+        val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
         hoveredObject = rayCast?.value
         selectedObjectId = rayCast?.renderId ?: -1
 

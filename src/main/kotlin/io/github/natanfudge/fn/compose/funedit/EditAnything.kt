@@ -80,7 +80,13 @@ object BooleanEditor : ValueEditor<Boolean> {
     override fun EditorUi(state: MutableState<Boolean>, modifier: Modifier) {
         Checkbox(checked = state.value, onCheckedChange = { state.value = it }, modifier)
     }
+}
 
+object FloatEditor: ValueEditor<Float> {
+    @Composable
+    override fun EditorUi(state: MutableState<Float>, modifier: Modifier) {
+        FloatField(state, modifier)
+    }
 }
 
 val Vec3fEditor = VectorEditor(

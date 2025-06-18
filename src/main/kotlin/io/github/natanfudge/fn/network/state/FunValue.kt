@@ -46,6 +46,7 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
     Color::class -> ColorEditor
     Tint::class -> TintEditor
     Boolean::class -> BooleanEditor
+    Float::class -> FloatEditor
     else -> ValueEditor.Missing
 } as ValueEditor<T>
 

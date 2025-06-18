@@ -164,7 +164,6 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
 
 abstract class FunApp : AutoCloseable {
-    internal val panels = Panels()
 
     internal val mods = mutableListOf<FunMod>()
 
@@ -210,7 +209,7 @@ abstract class FunApp : AutoCloseable {
 }
 
 @Composable
-internal fun FunApp.actualGui() = panels.PanelSupport {
+internal fun FunApp.actualGui() = context.panels.PanelSupport {
     gui()
     mods.forEach {
         with(it) {
@@ -220,14 +219,14 @@ internal fun FunApp.actualGui() = panels.PanelSupport {
 }
 
 internal fun FunApp.actualHandleInput(input: InputEvent) {
-    if (input is InputEvent.PointerEvent && !panels.acceptMouseEvents) return
+    // No need to block input with a null cursor position
+    if (context.world.cursorPosition != null && input is InputEvent.PointerEvent && !context.panels.acceptMouseEvents) return
     for (mod in mods) {
         mod.handleInput(input)
     }
     handleInput(input)
 }
 
-//TODO: think of how to do component-callback binding
 
 internal fun FunApp.actualFrame(delta: Float) {
     mods.forEach { it.frame(delta) }
@@ -266,6 +265,8 @@ interface FunContext : FunStateContext {
     var camera: DefaultCamera
 
     val time: FunTime
+
+    val panels: Panels
 }
 
 interface FunTime {
@@ -290,7 +291,8 @@ interface FunWorldRender {
     /**
      * Used for ray casting, as the renderer is involved in it
      */
-    fun setCursorPosition(position: Offset?)
+    var cursorPosition: Offset?
+
     val hoveredObject: Any?
 
     /**
@@ -314,10 +316,12 @@ class VisibleFunContext(
         ProcessLifecycle.restartByLabel(AppLifecycleName)
     }
 
+    override val panels: Panels = Panels()
+
 
     override fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
-        if (locked) world.setCursorPosition(null)
+        if (locked) world.cursorPosition =(null)
     }
 
     override fun setGUIFocused(focused: Boolean) {

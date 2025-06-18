@@ -83,6 +83,10 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
     override fun handleInput(input: InputEvent) = with(camera) {
         when (input) {
             is InputEvent.PointerEvent -> {
+                if (input.eventType == PointerEventType.Move && (context.camera.mode == CameraMode.Orbital || context.camera.mode == CameraMode.Off)) {
+                    context.world.cursorPosition = (input.position)
+                }
+
                 if (input.eventType == PointerEventType.Scroll
                     && inputManager.focused && mode == CameraMode.Orbital
                 ) {
@@ -112,6 +116,7 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
 
         context.setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
         context.setCursorLocked(mode == CameraMode.Fly)
+
     }
 }
 
