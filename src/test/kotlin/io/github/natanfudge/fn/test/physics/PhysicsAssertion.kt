@@ -17,6 +17,6 @@ data class PhysicsAssertion(
 )
 
 fun PhysicsAssertion.assert(body: SimplePhysicsObject, throwOnFailure: Boolean) {
-    body.render.position.shouldRoughlyEqual(position, epsilon = epsilon.toFloat(), throwOnFailure = throwOnFailure)
+    body.render.position.shouldRoughlyEqual(position, epsilon = epsilon, throwOnFailure = throwOnFailure)
 }
 

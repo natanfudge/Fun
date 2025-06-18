@@ -3,7 +3,6 @@ package io.github.natanfudge.fn.physics
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.cos
-import kotlin.math.round
 import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -16,7 +15,7 @@ import kotlin.time.DurationUnit
  * The physics system measures position in meters, velocity in meters per second, and acceleration in meters per second squared.
  * It is assumed the Z axis is down (sorry Minecraft bros).
  */
-class PhysicsSystem(var gravity: Boolean = true) {
+class PhysicsSystemOld(var gravity: Boolean = true) {
     companion object {
         const val EarthGravityAcceleration = 9.8f
     }
@@ -38,69 +37,41 @@ class PhysicsSystem(var gravity: Boolean = true) {
      */
     fun tick(delta: Duration) {
         val groundedBodies = mutableSetOf<Body>()
-
-
-        for (body in bodies) {
-            if (gravity && body !in groundedBodies) applyGravity(body, delta)
-            applyDisplacement(body, delta)
-        }
-        val intersections = getIntersections()
-        for ((a, b) in intersections) {
+        for ((a, b) in getIntersections()) {
             // Floor has special handling, we simply place the elements above the ground
             if (a.isImmovable) {
                 if (!b.isImmovable) {
                     groundedBodies.add(b)
-                    stopBody(surface = a, body = b)
+                    groundBody(floor = a, body = b)
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
                     groundedBodies.add(a)
-                    stopBody(surface = b, body = a)
+                    groundBody(floor = b, body = a)
                 }
             } else {
                 applyElasticCollision(a, b)
             }
         }
 
-//        for (body in bodies) {
-////            println("Final displacement: ${body.position}")
-//        }
+        for (body in bodies) {
+            if (gravity && body !in groundedBodies) applyGravity(body, delta)
+            applyDisplacement(body, delta)
+        }
+
 
     }
 
     /**
-     * If a body touches the floor / wall, we firmly place it above the floor / wall and stop it from moving
+     * If a body touches the floor, we firmly place it above the floor and stop it from moving
      */
-    private fun stopBody(surface: Body, body: Body) {
-        val overlapByAxis = (0..2).map {
-            it to surface.boundingBox.overlap(body.boundingBox, it)
-        }
+    private fun groundBody(floor: Body, body: Body) {
+        body.velocity = body.velocity.copy(z = 0f)
+        body.acceleration = body.acceleration.copy(z = 0f)
 
-        for ((axis, overlap) in overlapByAxis) {
-            if (overlap > 0f) stopInAxis(body, axis)
-        }
-
-        // Push the body apart along the axis with the smallest overlap, so it doesn't sink into the surface.
-        val pushoutAxis = overlapByAxis.minBy { it.second }.first
-
-        if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
-            // Place above surface
-            body.position = body.position.copy(
-                pushoutAxis, value = (surface.boundingBox.max(pushoutAxis) + body.boundingBox.size(pushoutAxis) / 2).roundTo5DecimalPoints()
-            )
-        } else {
-            // Place below surface
-            body.position = body.position.copy(
-                pushoutAxis, value = (surface.boundingBox.min(pushoutAxis) - body.boundingBox.size(pushoutAxis) / 2).roundTo5DecimalPoints()
-            )
-        }
-    }
-
-
-    private fun stopInAxis(body: Body, axis: Int) {
-        body.velocity = body.velocity.copy(axis = axis, value = 0f)
-        body.acceleration = body.acceleration.copy(axis = axis, value = 0f)
+        // It's better for it to sink slightly into the ground so it will stay firmly in place
+        body.position = body.position.copy(z = floor.boundingBox.maxZ + body.boundingBox.height / 2 - 0.0001f)
     }
 
     private fun applyElasticCollision(a: Body, b: Body) {
@@ -190,13 +161,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
     }
 }
 
-fun Float.roundTo5DecimalPoints(): Float {
-    val scale = 100_000f
-    return round(this * scale) / scale
-}
-
-// for metre–sized worlds a few microns is plenty
-private const val GROUND_EPS = 1e-4f      // 0.0001 m
 private operator fun Vec3f.times(ue: Double) = Vec3f((x * ue).toFloat(), (y * ue).toFloat(), (z * ue).toFloat())
 
 private val Duration.seconds get() = toDouble(DurationUnit.SECONDS)

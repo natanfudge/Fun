@@ -17,6 +17,7 @@ data class Ray(
 ) {
 //    val direction = (end - start)
 }
+
 @Serializable
 data class AxisAlignedBoundingBox(
     val minX: Float,
@@ -27,12 +28,43 @@ data class AxisAlignedBoundingBox(
     val maxZ: Float,
 ) {
 
+    fun min(axis: Int) = when (axis) {
+        0 -> minX
+        1 -> minY
+        2 -> minZ
+        else -> throw IllegalArgumentException("Invalid axis $axis")
+    }
+
+    fun max(axis: Int) = when (axis) {
+        0 -> maxX
+        1 -> maxY
+        2 -> maxZ
+        else -> throw IllegalArgumentException("Invalid axis $axis")
+    }
+
+    /**
+     * Returns the signed overlap of two AABBs on the requested axis (0=x, 1=y, 2=z).
+     * A positive result means the boxes intersect by that amount.
+     * A zero or negative result means no overlap on that axis.
+     */
+    fun overlap(other: AxisAlignedBoundingBox, axis: Int): Float {
+        return min(this.max(axis), other.max(axis)) - max(this.min(axis), other.min(axis))
+    }
+
+    val width get() = maxX - minX
+    val depth get() = maxY - minY
     val height get() = maxZ - minZ
+    fun size(axis: Int) = when (axis) {
+        0 -> width
+        1 -> depth
+        2 -> height
+        else -> throw IllegalArgumentException("Invalid axis $axis")
+    }
 
     companion object {
         val UnitAABB = AxisAlignedBoundingBox(
-            -0.5f,-0.5f,-0.5f,
-            0.5f,0.5f,0.5f,
+            -0.5f, -0.5f, -0.5f,
+            0.5f, 0.5f, 0.5f,
         )
 
         fun cube(center: Vec3f, height: Float): AxisAlignedBoundingBox {
@@ -47,10 +79,10 @@ data class AxisAlignedBoundingBox(
         }
     }
 
-    fun intersects(other: AxisAlignedBoundingBox): Boolean {
-        return (minX <= other.maxX && maxX >= other.minX) &&
-                (minY <= other.maxY && maxY >= other.minY) &&
-                (minZ <= other.maxZ && maxZ >= other.minZ)
+    fun intersects(other: AxisAlignedBoundingBox, epsilon: Float = 1e-5f): Boolean {
+        return (minX - epsilon <= other.maxX && maxX + epsilon >= other.minX) &&
+                (minY - epsilon <= other.maxY && maxY + epsilon >= other.minY) &&
+                (minZ - epsilon <= other.maxZ && maxZ + epsilon >= other.minZ)
     }
 
     fun transformed(mat: Mat4f): AxisAlignedBoundingBox {
@@ -132,7 +164,7 @@ interface Boundable {
 //    //  LATER: a proper containment test, that is more precise than the AABB check
 //)
 
-class RayCastingCache<T: Boundable> {
+class RayCastingCache<T : Boundable> {
     private val items = mutableListOf<T>()
 
     fun add(item: T) {
@@ -245,7 +277,7 @@ object Selection {
     /**
      * Returns the ray that is pointed by the cursor in the orbital view, in world space.
      */
-     fun orbitalSelectionRay(
+    fun orbitalSelectionRay(
         cursorCoords: Offset, // e.g. (mouseX, mouseY)
         screenSize: IntSize,   // e.g. (width, height)
         viewProjectionMatrix: Mat4f,

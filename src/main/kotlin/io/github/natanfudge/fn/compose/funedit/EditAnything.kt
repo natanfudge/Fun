@@ -51,8 +51,8 @@ val AABBEditor = VectorEditor(
 )
 
 val ColorEditor = VectorEditor(
-    toMap = {it.toMap()},
-    fromMap = {colorFrom(it) },
+    toMap = { it.toMap() },
+    fromMap = { colorFrom(it) },
     default = Color.White
 )
 
@@ -75,16 +75,18 @@ val TintEditor = VectorEditor(
     )
 )
 
-object BooleanEditor: ValueEditor<Boolean> {
+object BooleanEditor : ValueEditor<Boolean> {
     @Composable
     override fun EditorUi(state: MutableState<Boolean>, modifier: Modifier) {
-        Checkbox(checked = state.value, onCheckedChange = {state.value = it}, modifier)
+        Checkbox(checked = state.value, onCheckedChange = { state.value = it }, modifier)
     }
 
 }
 
 val Vec3fEditor = VectorEditor(
-    toMap = { mapOf("x" to it.x, "y" to it.y, "z" to it.z) },
+    toMap = {
+        mapOf("x" to it.x, "y" to it.y, "z" to it.z)
+    },
     fromMap = { Vec3f(it.getValue("x"), it.getValue("y"), it.getValue("z")) },
     default = Vec3f.zero()
 )
@@ -121,7 +123,7 @@ class VectorEditor<T>(
 
 data class VectorComponentConfig(
     val range: ClosedFloatingPointRange<Float>? = null,
-    val width: Dp = 70.dp
+    val width: Dp = 70.dp,
 )
 
 @Composable

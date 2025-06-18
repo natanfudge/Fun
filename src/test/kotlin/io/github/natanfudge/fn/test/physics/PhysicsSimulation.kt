@@ -45,7 +45,7 @@ import io.github.natanfudge.fn.util.toString
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-abstract class PhysicsTest(show: Boolean = false, throwOnFailure: Boolean = true)  {
+abstract class PhysicsTest(show: Boolean = false, throwOnFailure: Boolean = !show)  {
     abstract fun PhysicsSimulationContext.run()
 
     init {

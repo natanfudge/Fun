@@ -50,6 +50,7 @@ class FunRenderState(
 
     override var position by funValue<Vec3f>(Vec3f.zero(), "translation", this).apply {
         change.listen {
+//            println("Pos set to $it")
             updateMatrix(position = it)
         }
     }
@@ -132,7 +133,7 @@ class FunPhysics(
     override var affectedByGravity: Boolean by funValue(true, "affectedByGravity", this)
     override var angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity", this)
     override var mass: Float by funValue(1f, "mass", this)
-    override var isFloor: Boolean by funValue(false, "isFloor", this)
+    override var isImmovable: Boolean by funValue(false, "isFloor", this)
 
 //    val x = funValue(false, "x", this)
 //    val x1 = funValue(false, "x1", this)
