@@ -95,6 +95,8 @@ dependencies {
     implementation("io.insert-koin:koin-core")
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
     implementation("io.github.natanfudge:wgpu4k-matrix:0.4.1")
+    implementation("io.github.natanfudge:wgpu4k-matrix:0.4.1")
+    implementation("com.soywiz:korlibs-image:6.0.0")
     implementation(libs.wgpu4k)
     runtimeOnly(compose.desktop.windows_x64)
 

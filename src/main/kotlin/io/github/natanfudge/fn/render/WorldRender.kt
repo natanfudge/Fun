@@ -7,7 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunWorldRender
-import io.github.natanfudge.fn.files.Image
+import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
@@ -129,16 +129,19 @@ class WorldRender(
 
     override var hoveredObject: Boundable? by mutableStateOf(null)
 
-    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 1_000_000u, expandable = true, GPUBufferUsage.Vertex)
-    val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 200_000u, expandable = true, GPUBufferUsage.Index)
+    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
+    val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
 
-    val instanceBuffer = GPUInstance.createBuffer(ctx, 10u, expandable = false, GPUBufferUsage.Storage)
+    //TODO: I increased this temporarily to avoid crashes, but I should reduce to 500 and fix the issue
+    private val maxIndices = 1000u
+
+    val instanceBuffer = GPUInstance.createBuffer(ctx, maxIndices, expandable = false, GPUBufferUsage.Storage)
 
     /**
      * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
      * to its correct location in the instance buffer.
      */
-    val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * 10u, expandable = false, GPUBufferUsage.Storage)
+    val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * maxIndices, expandable = false, GPUBufferUsage.Storage)
 
     //    val models = mutableListOf<BoundModel>()
     val models = mutableMapOf<ModelId, VisibleBoundModel>()
@@ -404,10 +407,12 @@ class VisibleRenderInstance(
 }
 
 
-data class Model(val mesh: Mesh, val id: ModelId, val material: Material = Material())
+data class Model(val mesh: Mesh, val id: ModelId, val material: Material = Material()) {
+    companion object;
+}
 
 typealias ModelId = String
 
-class Material(val texture: Image? = null)
+class Material(val texture: FunImage? = null)
 
 

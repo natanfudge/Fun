@@ -19,7 +19,24 @@ enum class CubeUv {
     Grid3x2
 }
 
+private val verifyMeshes = true
+
 class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
+    init {
+        if(verifyMeshes) {
+            val visitedIndices = BooleanArray(vertices.size) { false }
+            indices.forEachTriangle { a, b, c ->
+                check(a < vertices.size) {"Triangle index $a is out of bounds of vertex array of size ${vertices.size}"}
+                check(b < vertices.size) {"Triangle index $b is out of bounds of vertex array of size ${vertices.size}"}
+                check(c < vertices.size) {"Triangle index $c is out of bounds of vertex array of size ${vertices.size}"}
+                visitedIndices[a] = true
+                visitedIndices[b] = true
+                visitedIndices[c] = true
+            }
+            val unvisitedIndex = visitedIndices.indexOfFirst { !it }
+            check(unvisitedIndex == -1) {"Mesh contains unvisited index $unvisitedIndex"}
+        }
+    }
     companion object {
         /**
          * Automatically infers normals for all vertices.
@@ -27,7 +44,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
          * If all indices use separate vertices, the shading will be flat.
          * If vertices share indices, the normal will be average out for that index, making the shading smooth.
          */
-        fun withNormals(
+        fun inferredNormals(
             indices: TriangleIndexArray,
             positions: List<Point3f>,
             uv: List<UV>,
@@ -57,7 +74,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         /**
          * Creates a cube that partially shares vertices, in a way that has the minimum amount of vertices, but allows for correct flat shading.
          */
-        fun UnitCube(uv: CubeUv = CubeUv.Repeat) = Mesh.withNormals(
+        fun UnitCube(uv: CubeUv = CubeUv.Repeat) = Mesh.inferredNormals(
             positions = listOf(
                 // top (Z = 1)
                 Vec3f(-0.5f, -0.5f, 0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(-0.5f, 0.5f, 0.5f),
@@ -166,7 +183,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 }
             }
 
-            return Mesh.withNormals(
+            return Mesh.inferredNormals(
                 positions = vertices,
                 indices = TriangleIndexArray(indices.toIntArray()),
                 uv = buildList {

@@ -27,13 +27,13 @@ value class GPUPointer<out T>(
 
 //TODO: for some usages, we don't need to recreate a render group so just changing the buffer pointer would be fine - for those usages enable auto-resizing.
 // for other usages, we could just set a decent limit and throw when we try to resize, saying "We are waiting for bindless/mutable bind groups to enable doing this simply and performantly"
-class ManagedGPUMemory(val ctx: WebGPUContext, initialSizeBytes: ULong, expandable: Boolean, vararg usage: GPUBufferUsage) : AutoCloseable {
+class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expandable: Boolean, vararg usage: GPUBufferUsage) : AutoCloseable {
     private var _nextByte = 0uL
     private var currentMemoryLimit = initialSizeBytes.wgpuAlign()
     fun alloc(bytes: ULong): UntypedGPUPointer {
         val address = _nextByte
         if (address + bytes > currentMemoryLimit) {
-            TODO("Dynamic Memory expansion is not implemented yet")
+            TODO("Dynamic Memory expansion is not implemented yet (limit: $currentMemoryLimit, requested: $address + $bytes)")
         }
         _nextByte += bytes
         return UntypedGPUPointer(address)
@@ -119,7 +119,7 @@ typealias KByteBuffer = ByteBuffer
 
 
 
- fun Any.arrayByteSize() = when (this) {
+ private fun Any.arrayByteSize() = when (this) {
     is IntArray -> size * 4
     is ByteArray -> size
     is FloatArray -> size * 4

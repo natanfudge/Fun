@@ -48,6 +48,13 @@ class DefaultCamera: Camera {
      */
     override val forward = (Vec3f.zero() - position).normalize()
 
+    fun setLookAt(position: Vec3f, forward: Vec3f) {
+        this.position.set(position)
+        this.forward.set(forward)
+        updateRight()
+        calculateMatrix()
+    }
+
     /**
      * The right vector, perpendicular to both [up] and [forward].
      * Always normalized to unit length.

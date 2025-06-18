@@ -99,6 +99,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
         installMods(
             CreativeMovementMod(context, inputManager),
             VisualEditorMod(context),
+            RestartButtonsMod()
         )
 
 //        physics.system.gravity = false
@@ -145,37 +146,6 @@ class FunPlayground(override val context: FunContext) : FunApp() {
         TestBody("Basic Cube", this, cube, translate = Vec3f(4f, -4f, 0.5f), color = Color.Gray)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    @Composable
-    override fun ComposePanelPlacer.gui() {
-        FunPanel(Modifier.align(Alignment.CenterStart)) {
-            Surface(color = Color.Transparent) {
-                Column {
-                    Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
-                        Text("Restart Surface Lifecycle")
-                    }
-
-                    Button(onClick = {
-                        ProcessLifecycle.restartByLabels(setOf("App"))
-                    }) {
-                        Text("Restart App Lifecycle")
-                    }
-                    Button(onClick = {
-                        ProcessLifecycle.restartByLabels(setOf("App Compose binding"))
-                    }) {
-                        Text("Reapply Compose App")
-                    }
-
-                    Button(onClick = {
-                        FunHotReload.reloadStarted.emit(Unit)
-                        FunHotReload.reloadEnded.emit(Unit)
-                    }) {
-                        Text("Emulate Hot Reload")
-                    }
-                }
-            }
-        }
-    }
 
 
 }
