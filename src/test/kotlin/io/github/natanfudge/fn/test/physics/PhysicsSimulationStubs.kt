@@ -6,6 +6,7 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunTime
 import io.github.natanfudge.fn.core.FunWindow
 import io.github.natanfudge.fn.core.FunWorldRender
+import io.github.natanfudge.fn.core.Panels
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.physics.Renderable
@@ -38,6 +39,7 @@ class PhysicsSimulationFunContext() : FunContext, FunStateContext by FunStateCon
     override val world: FunWorldRender = PhysicsSimulationFunWorld
     override val window: FunWindow = PhysicsSimulationWindow
     override val time: FunTime = PhysicsSimulationTime()
+    override val panels: Panels = Panels()
 
     override fun setCursorLocked(locked: Boolean) {
     }
@@ -58,9 +60,7 @@ object PhysicsSimulationWindow: FunWindow {
 
 
 object PhysicsSimulationFunWorld : FunWorldRender {
-    override fun setCursorPosition(position: Offset?) {
-
-    }
+    override var cursorPosition: Offset? = null
 
     override val hoveredObject: Any? = null
 

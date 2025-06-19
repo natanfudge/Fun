@@ -9,7 +9,7 @@ import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.hotreload.fromGlbResource
+import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.renderState
@@ -19,6 +19,7 @@ import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.PI
 import kotlin.random.Random
 
 enum class BlockType {
@@ -50,8 +51,12 @@ class Player(game: MineTheEarth) : Fun("Player", game.context) {
     val physics = physics(render, game.physics.system)
 }
 
-//TODO: 1. Rotation thing
-// 3. Fix texture
+//TODO: UI is being invalidated every frame with activated visual editor, need to avoid change state if not needed
+//TODO: 1. remove infinityprints
+// 2. Makes physics not make it fidget the fuck up
+// 3. The model is very unsmooth, it looks way better in blender. Found out why: it's because normals don't respect rotation! they don't light the correct place.
+
+// 4. fix orbital movement
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
     var nextBlockIndex = 0
@@ -60,7 +65,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val physics = installMod(PhysicsMod())
 
     init {
-        context.camera.setLookAt(Vec3f(0f, -20f, 0f), forward = Vec3f(0f, 1f, 0f))
+        context.camera.setLookAt(Vec3f(0f, -8f, 11f), forward = Vec3f(0f, 1f, 0f))
         installMods(
             CreativeMovementMod(context, inputManager),
             VisualEditorMod(context),
@@ -69,8 +74,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
         val player = Player(this)
         player.render.position = Vec3f(x = 0f, y = 0f, z = 12f)
-        //TODO: IDK why but the player is upside down
-        player.render.rotation = Quatf(0.77f,0.77f,0f,0f)
+        player.render.rotation = Quatf(0f,0f,0f,1f).rotateY(PI.toFloat()).rotateZ(PI.toFloat())
 //        player.render.scale = Vec3f(10f,10f,10f)
 //        player.physics.affectedByGravity =false
 

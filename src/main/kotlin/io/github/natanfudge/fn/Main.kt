@@ -15,6 +15,7 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
+import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.physics
@@ -45,7 +46,8 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 // H. Zoom based on ray casting on where the cursor is pointing at - make the focal point be the center of the ray-casted object.
 
 
-val lightPos = Vec3f(4f, -4f, 4f)
+
+val lightPos get() = Vec3f(0f, 2f, 12f)
 
 
 class TestBody(
@@ -87,6 +89,8 @@ class TestRenderObject(
 }
 
 
+
+
 // TODO: I think we can add the Mod system now, I have a pretty good understanding of how to use it.
 class FunPlayground(override val context: FunContext) : FunApp() {
     val inputManager = installMod(InputManagerMod())
@@ -122,7 +126,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
 
         val wgpuCube = Model(Mesh.UnitCube(CubeUv.Grid3x2), "wgpucube", Material(wgpu4kImage))
 
-        val instance = TestBody("WGPU Cube", this, wgpuCube, translate = Vec3f(-2f, 2f, 2f))
+        val instance = TestBody("WGPU Cube", this, Model.fromGlbResource("files/models/miner.glb"), translate = Vec3f(-2f, 2f, 2f))
 //        GlobalScope.launch {
 //            var i = 0
 //            while (true) {

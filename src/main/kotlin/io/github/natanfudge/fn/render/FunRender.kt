@@ -100,7 +100,19 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
 
 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
-    val sampler = ctx.device.createSampler()
+    val sampler = ctx.device.createSampler(
+        SamplerDescriptor(
+            magFilter = GPUFilterMode.Linear,
+            minFilter = GPUFilterMode.Linear,
+            mipmapFilter = GPUMipmapFilterMode.Nearest,
+            addressModeU = GPUAddressMode.Repeat,
+            addressModeV = GPUAddressMode.Repeat,
+            addressModeW = GPUAddressMode.Repeat,
+            lodMinClamp = 0f,
+            lodMaxClamp = 0f,
+            label = "Fun Sampler"
+        )
+    )
 
     val world = WorldRender(ctx, this)
 
@@ -174,8 +186,8 @@ fun WebGPUWindow.bindFunLifecycles(
                         arrayStride = VertexArrayBuffer.StrideBytes,
                         attributes = listOf(
                             VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 0uL, shaderLocation = 0u), // Position
-                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = Vec3f.ACTUAL_SIZE_BYTES.toULong(), shaderLocation = 1u), // Normal
-                            VertexAttribute(format = GPUVertexFormat.Float32x2, offset = Vec3f.ACTUAL_SIZE_BYTES.toULong() * 2u, shaderLocation = 2u), // uv
+                            VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 12uL, shaderLocation = 1u), // Normal
+                            VertexAttribute(format = GPUVertexFormat.Float32x2, offset = 24uL, shaderLocation = 2u), // uv
                         )
                     ),
                 )

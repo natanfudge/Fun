@@ -62,8 +62,8 @@ fn vs_main(
 
 @fragment
 fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
-//    if (vertex.color.r != -14241) {
-//        return vertex.color;
+//    if (vertex.tintColor.r != -14241) {
+//        return textureSample(texture, samp, vertex.uv);
 //    }
     var dims = vec2(uniforms.width, uniforms.height);
     var view_coords = get_view_coords(vertex.pos.xy, dims);
@@ -92,7 +92,7 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     // Tint texture (if no texture is used this is a no-op)
     let finalColor = mix(litColor, vertex.tintColor,vertex.tintStrength);
 
-let digits = number_to_digits(f32(uniforms.selectedObject));
+let digits = number_to_digits(f32(vertex.uv.x * 1000));
 if is_in_number(
     vertex.pos.xy,
     digits,

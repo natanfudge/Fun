@@ -286,7 +286,7 @@ class VertexArrayBuffer(val array: FloatArray) {
         //        fun of(vararg floats: Float) = VertexArrayBuffer(floats)
         fun of(positions: List<Point3f>, normals: List<Vec3f>, uv: List<UV>): VertexArrayBuffer {
             require(normals.size == positions.size)
-            require(uv.size == positions.size)
+            require(uv.size == positions.size) {"The amount of UVS (${uv.size}) doesn't match the amount of positions (${positions.size})"}
             val array = FloatArray(positions.size * StrideFloats)
             positions.forEachIndexed { i, pos ->
                 array[i * StrideFloats] = pos.x
