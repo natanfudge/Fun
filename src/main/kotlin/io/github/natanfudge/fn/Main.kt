@@ -47,7 +47,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
 
-val lightPos get() = Vec3f(0f, 2f, 12f)
+val lightPos get() = Vec3f(0f, -2f, 12f)
 
 
 class TestBody(

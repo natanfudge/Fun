@@ -1,14 +1,17 @@
 package io.github.natanfudge.fn.physics
 
 import androidx.compose.ui.graphics.Color
+import io.github.natanfudge.fn.base.PhysicsMod
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.PI
 
 interface Renderable : Boundable {
     val transform: Mat4f
@@ -20,13 +23,13 @@ interface Renderable : Boundable {
         get() = baseAABB.transformed(transform)
 }
 
-interface Transform {
+interface MutableTransform {
     var position: Vec3f
     var rotation: Quatf
     var scale: Vec3f
 }
 
-interface RenderObject : Transform {
+interface RenderObject : MutableTransform {
     var tint: Tint
 }
 
@@ -34,9 +37,13 @@ interface Visible : Renderable, RenderObject
 
 fun Fun.renderState(model: Model) = FunRenderState(this, model)
 fun Fun.physics(
-    renderState: Visible,
+    renderState: FunRenderState,
     physics: PhysicsSystem,
 ) = FunPhysics(this, renderState, physics)
+fun Fun.physics(
+    renderState: FunRenderState,
+    physics: PhysicsMod,
+) = FunPhysics(this, renderState, physics.system)
 
 class FunRenderState(
     parent: Fun,
@@ -46,26 +53,26 @@ class FunRenderState(
 ) : Visible, Fun(parent, "render") {
     override val data: Any? = parent
 
-    override var baseAABB: AxisAlignedBoundingBox by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB", this)
+    val baseAABBState = funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB")
 
-    override var position by funValue<Vec3f>(Vec3f.zero(), "translation", this).apply {
+    override var baseAABB: AxisAlignedBoundingBox by baseAABBState
+
+    val positionState = funValue<Vec3f>(model.initialTransform.position, "translation").apply {
         change.listen {
-//            println("Pos set to $it")
             updateMatrix(position = it)
         }
     }
-
-    override var rotation by funValue<Quatf>(Quatf.identity(), "rotation", this).apply {
+    val rotationState = funValue<Quatf>(model.initialTransform.rotation, "rotation").apply {
         change.listen {
             updateMatrix(orientation = it)
         }
     }
-    override var scale by funValue<Vec3f>(Vec3f(1f, 1f, 1f), "scaling", this).apply {
+    val scaleState = funValue<Vec3f>(model.initialTransform.scale, "scaling").apply {
         change.listen {
             updateMatrix(scale = it)
         }
     }
-    override var tint by funValue<Tint>(Tint(Color.White, 0f), "tint", this).apply {
+    val tintState = funValue<Tint>(Tint(Color.White, 0f), "tint").apply {
         change.listen {
             if (!despawned && value != it) {
                 renderInstance.setTintColor(it.color)
@@ -73,6 +80,18 @@ class FunRenderState(
             }
         }
     }
+
+    /**
+     * For `Fun` that have physics, it's generally best to update the position with the physics object, since those are only applied once each frame.
+     */
+    override var position by positionState
+
+    /**
+     * For `Fun` that have physics, it's generally best to update the rotation with the physics object, since those are only applied once each frame.
+     */
+    override var rotation by rotationState
+    override var scale by scaleState
+    override var tint by tintState
 
     /**
      * This value should be reassigned if you want Fun to react to changes in it.
@@ -113,140 +132,123 @@ class FunPhysics(
 //    id: FunId,
 //    context: FunContext,
     parent: Fun,
-    private val renderState: Visible,
+    private val renderState: FunRenderState,
     private val physics: PhysicsSystem,
 ) : Fun(parent, "physics"), Body {
-    override val boundingBox: AxisAlignedBoundingBox get() = renderState.boundingBox
-    override var position: Vec3f
-        get() = renderState.position
-        set(value) {
-            renderState.position = value
-        }
-    override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity", this)
-    override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration", this)
+//    override val boundingBox: AxisAlignedBoundingBox get() = renderState.boundingBox
 
-    override var rotation: Quatf
-        get() = renderState.rotation
-        set(value) {
-            renderState.rotation = value
-        }
-    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity", this)
-    override var angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity", this)
-    override var mass: Float by funValue(1f, "mass", this)
-    override var isImmovable: Boolean by funValue(false, "isImmovable", this)
+    // SUS: It pains me to hold this variable and update it whenever position changes, but it's the simplest way for now.
+    // The better way is to directly recalculate the bounding box based on the current rotation and position, and the baseAABB of the renderState.
+//    private var transform = renderState.transform.copy()
 
-//    val x = funValue(false, "x", this)
-//    val x1 = funValue(false, "x1", this)
-//    val x22 = funValue(false, "x2", this)
-//    val x3 = funValue(false, "x3", this)
-//    val x4 = funValue(false, "x5", this)
-//    val x5 = funValue(false, "x4", this)
-//
+    override var boundingBox: AxisAlignedBoundingBox = renderState.boundingBox
+        private set
+
+    /**
+     * These values are changed often by the physics system, so we only want the UI to update when the physics system commits changes.
+     */
+    override var position: Vec3f = renderState.position.copy()
+        set(value) {
+            field = value
+            // Position affects aabb
+            updateAABB()
+        }
+    override var velocity: Vec3f = Vec3f.zero()
+    override var acceleration: Vec3f = Vec3f.zero()
+    override var rotation = renderState.rotation.copy()
+        set(value) {
+            field = value
+            // Rotation affects aabb
+            updateAABB()
+        }
+    override var angularVelocity: Vec3f = Vec3f.zero()
+
+
+//        get() = renderState.position
+//        set(value) {
+//            if (value != renderState.position) {
+//                println("Setting new value: from $value to ${renderState.position}")
+//            }
+//            renderState.position = value
+//        }
+
+    /**
+     * Values exposed to the visual editor.
+     */
+    private var _velocity: Vec3f by funValue(Vec3f.zero(), "velocity").apply {
+        // Apply changes from the UI -> the physics system
+        change.listen {
+            velocity = it
+        }
+    }
+    private var _acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration").apply {
+        change.listen {
+            acceleration = it
+        }
+    }
+    private var _angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity").apply {
+        change.listen {
+            angularVelocity = it
+        }
+    }
+
+    val positionListener = renderState.positionState.change.listen {
+        position = it
+        // Transform changed -> new transform matrix -> new aabb
+        updateAABB()
+    }
+
+    val rotationListener = renderState.rotationState.change.listen {
+        rotation = it
+        // Transform changed -> new transform matrix -> new aabb
+        updateAABB()
+    }
+
+    val scaleListener = renderState.scaleState.change.listen {
+        // Scale change -> calculate new AABB
+        updateAABB(newScale = it)
+    }
+
+    val bbListener = renderState.baseAABBState.change.listen {
+        // BaseAABB changed -> new aabb
+        boundingBox = it.transformed(calculateTransformMatrix())
+    }
+
+    private fun calculateTransformMatrix(newScale: Vec3f = renderState.scale): Mat4f {
+        return Mat4f.translateRotateScale(this.position, this.rotation, newScale)
+    }
+
+
+    private fun updateAABB(newScale: Vec3f = renderState.scale) {
+        val newMatrix = calculateTransformMatrix(newScale)
+        boundingBox = renderState.baseAABB.transformed(newMatrix)
+    }
+
+
+    /**
+     * Apply changes from the physics system -> to the UI.
+     */
+    override fun commit() {
+        _velocity = velocity
+        _acceleration = acceleration
+        _angularVelocity = angularVelocity
+        renderState.rotation = rotation
+        renderState.position = position
+    }
+
+
+    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
+    override var mass: Float by funValue(1f, "mass")
+    override var isImmovable: Boolean by funValue(false, "isImmovable")
+
     init {
         physics.add(this)
     }
 
     override fun cleanup() {
         physics.remove(this)
+        // Close listeners to outside state
+        closeAll(positionListener, rotationListener, bbListener, scaleListener)
     }
 }
 
-//open class PhysicalFun(
-//    id: FunId,
-//    context: FunContext,
-//    private val physics: PhysicsSystem,
-//    //SUS: overreaching boundary here - Physical is common and BoundModel is client. Need to abstract this somehow.
-//    val model: Model,
-//) : Renderable, Fun(id, context), Body {
-////    override val data: Any? = this
-//
-//    private val _context = context
-//
-//    override var baseAABB: AxisAlignedBoundingBox by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB", this)
-//
-//    override var position by funValue<Vec3f>(Vec3f.zero(), "translation", this).apply {
-//        change.listen {
-//            updateMatrix(position = it)
-//        }
-//    }
-//
-//
-//    var rotation by funValue<Quatf>(Quatf.identity(), "rotation", this).apply {
-//        change.listen {
-//            updateMatrix(orientation = it)
-//        }
-//    }
-//    var scale by funValue<Vec3f>(Vec3f(1f, 1f, 1f), "scaling", this).apply {
-//        change.listen {
-//            updateMatrix(scale = it)
-//        }
-//    }
-//    var tint by funValue<Tint>(Tint(Color.White, 0f), "tint", this).apply {
-//        change.listen {
-//            if (!despawned && value != it) {
-//                renderInstance.setTintColor(it.color)
-//                renderInstance.setTintStrength(it.strength)
-//            }
-//        }
-//    }
-//
-//    /**
-//     * This value should be reassigned if you want Fun to react to changes in it.
-//     */
-//    final override var transform: Mat4f = Mat4f.translateRotateScale(position, rotation, scale)
-//        private set
-//
-//    override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity", this)
-//    override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration", this)
-//    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity", this)
-//
-//    override val boundingBox: AxisAlignedBoundingBox
-//        get() = super.boundingBox
-//
-//    fun copy(id: FunId) = PhysicalFun(id, _context, physics, model).let {
-//        it.baseAABB = baseAABB
-//        it.position = position
-//        it.rotation = rotation
-//        it.scale = scale
-//        it.tint = tint
-//        it.velocity = velocity
-//        it.acceleration = acceleration
-//        it.affectedByGravity = affectedByGravity
-//        it.transform = transform
-//    }
-//
-//    val renderInstance: RenderInstance = context.world.getOrBindModel(model).getOrSpawn(id, this, tint)
-//
-//
-//    var despawned = false
-//
-//    init {
-//        physics.add(this)
-//    }
-//
-//
-//    private fun updateMatrix(position: Vec3f = this.position, orientation: Quatf = this.rotation, scale: Vec3f = this.scale) {
-//        if (!despawned) {
-//            val matrix = Mat4f.translateRotateScale(position, orientation, scale)
-//            this.transform = matrix
-//            renderInstance.setTransform(matrix)
-//        }
-//    }
-//
-//    override fun close() {
-//        despawned = true
-//        super.close()
-//        renderInstance.despawn()
-//        physics.remove(this)
-//    }
-//}
-
-
-//TODO: think about spawning/despawning in relation to state, and how RenderInstance is tied in with this.
-// I'm thinking we could have state automatically managed that, and that renderinstance is not needed because we do everything by ID.
-// but tbh RenderInstance is mostly a performance thing, so we don't need to do through a map every time. I think performance should def be skipped atm.
-
-
-//class X(context: FunStateContext) : PhysicalFun("X", context) {
-//
-//}

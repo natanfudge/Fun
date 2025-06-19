@@ -29,13 +29,25 @@ import kotlin.reflect.typeOf
  * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
  * @see Fun
  */
-inline fun <reified T> funValue(
+inline fun <reified T> Fun.funValue(
     value: T,
-    id: FunId ,
-    owner: Fun ,
+    id: FunId,
+//    owner: Fun,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
-//    noinline onSetValue: (old: T, new: T) -> Unit = { o, n -> },
-): FunValue<T> = FunValue(value, getSerializerExtended<T>(), id, owner, editor)
+//    autocloseSetValue: Boolean = true,
+//    /**
+//     * If not null, a listener will be automatically registered for [onSetValue].
+//     * If [autocloseSetValue] is true, The listener will be automatically closed when this [Fun] is closed.
+//     */
+//    noinline onSetValue: ((value: T) -> Unit)? = null,
+): FunValue<T> {
+    val value = FunValue(value, getSerializerExtended<T>(), id, this, editor)
+//    if (onSetValue != null) {
+//        val listener = value.change.listen(onSetValue)
+//        if (autocloseSetValue) closeEvent.listen { listener.close() }
+//    }
+    return value
+}
 
 
 @PublishedApi
@@ -73,7 +85,7 @@ class FunValue<T>(
      * Changes are emitted BEFORE the field changes, so you can use both the old value by accessing the field, and the new value by using the
      * passed value in listen {}.
      */
-    val change: EventStream<T> =_change
+    val change: EventStream<T> = _change
 //        field = EventStream.create<T>()
 
     init {

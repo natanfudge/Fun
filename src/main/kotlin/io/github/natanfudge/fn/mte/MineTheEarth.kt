@@ -26,7 +26,7 @@ enum class BlockType {
     Dirt, Gold
 }
 
-class Block(game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun("${type}-${game.nextBlockIndex++}", game.context) {
+class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${type}-${game.nextBlockIndex++}", game.context) {
     companion object {
         private val unitCube = Mesh.UnitCube()
         val models = BlockType.entries.associateWith {
@@ -36,7 +36,7 @@ class Block(game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun("
 
 
     val render = renderState(models.getValue(type))
-    val physics = physics(render, game.physics.system)
+    val physics = physics(render, game.physics)
 
     init {
         render.position = Vec3f(x = pos.x.toFloat(), y = 0f, z = pos.y.toFloat())
@@ -46,17 +46,12 @@ class Block(game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun("
 }
 
 class Player(game: MineTheEarth) : Fun("Player", game.context) {
-//    val render = renderState(Model.fromGlbResource("files/models/cube.glb"))
     val render = renderState(Model.fromGlbResource("files/models/miner.glb"))
-    val physics = physics(render, game.physics.system)
+    val physics = physics(render, game.physics)
 }
 
-//TODO: UI is being invalidated every frame with activated visual editor, need to avoid change state if not needed
-//TODO: 1. remove infinityprints
-// 2. Makes physics not make it fidget the fuck up
-// 3. The model is very unsmooth, it looks way better in blender. Found out why: it's because normals don't respect rotation! they don't light the correct place.
 
-// 4. fix orbital movement
+// TODO: next thing: Improve InputManager for hotkeys!
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
     var nextBlockIndex = 0
@@ -65,7 +60,10 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val physics = installMod(PhysicsMod())
 
     init {
+        val playerStartingPos = Vec3f(x = 0f, y = 0f, z = 11f)
         context.camera.setLookAt(Vec3f(0f, -8f, 11f), forward = Vec3f(0f, 1f, 0f))
+        context.camera.focus(playerStartingPos, distance = 8f)
+
         installMods(
             CreativeMovementMod(context, inputManager),
             VisualEditorMod(context),
@@ -73,10 +71,8 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         )
 
         val player = Player(this)
-        player.render.position = Vec3f(x = 0f, y = 0f, z = 12f)
-        player.render.rotation = Quatf(0f,0f,0f,1f).rotateY(PI.toFloat()).rotateZ(PI.toFloat())
-//        player.render.scale = Vec3f(10f,10f,10f)
-//        player.physics.affectedByGravity =false
+        player.render.position = playerStartingPos
+        player.render.rotation = player.render.rotation
 
         for (x in -10..10) {
             for (y in (-10..10)) {

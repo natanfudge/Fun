@@ -18,6 +18,11 @@ interface Body {
 
     val affectedByGravity: Boolean
     val isImmovable: Boolean
+
+    /**
+     * Apply the changes of state in the body to consumers of this body like renderers.
+     */
+    fun commit()
 }
 
 //class SimpleKinematic(

@@ -12,11 +12,13 @@ import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.physics.Renderable
+import io.github.natanfudge.fn.physics.MutableTransform
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
+import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
@@ -393,6 +395,8 @@ class VisibleRenderInstance(
     override fun setTransform(transform: Mat4f) {
         checkDespawned()
         GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
+        // Update normal matrix, as the transform changed
+        GPUInstance.setSecond(world.instanceBuffer, pointer, Mat3f.normalMatrix(transform))
     }
 
     override fun setTintColor(color: Color) {
@@ -406,8 +410,14 @@ class VisibleRenderInstance(
     }
 }
 
+data class Transform(
+    val position: Vec3f = Vec3f.zero(),
+    val rotation: Quatf = Quatf.identity(),
+    var scale: Vec3f = Vec3f(1f,1f,1f)
+)
 
-data class Model(val mesh: Mesh, val id: ModelId, val material: Material = Material()) {
+
+data class Model(val mesh: Mesh, val id: ModelId, val material: Material = Material(), val initialTransform: Transform = Transform()) {
     companion object;
 }
 

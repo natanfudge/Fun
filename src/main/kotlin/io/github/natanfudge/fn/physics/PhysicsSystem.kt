@@ -10,6 +10,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 
 
+// TODO: now that we have commit we can easily avoid allocations now I think
 /**
  * The physics system measures position in meters, velocity in meters per second, and acceleration in meters per second squared.
  * It is assumed the Z axis is down (sorry Minecraft bros).
@@ -38,32 +39,33 @@ class PhysicsSystem(var gravity: Boolean = true) {
     fun tick(delta: Duration) {
         // We want to avoid extreme deltas causing things to go through each other. No quantum tunneling please.
         val actualDelta = delta.coerceAtMost(maxDelta)
-        val groundedBodies = mutableSetOf<Body>()
-
-
         for (body in bodies) {
-            if (gravity && body !in groundedBodies) applyGravity(body, actualDelta)
-            applyDisplacement(body, actualDelta)
+            if (!body.isImmovable) {
+                if (gravity) applyGravity(body, actualDelta)
+                applyDisplacement(body, actualDelta)
+            }
         }
         val intersections = getIntersections()
         for ((a, b) in intersections) {
             // Floor has special handling, we simply place the elements above the ground
             if (a.isImmovable) {
                 if (!b.isImmovable) {
-                    groundedBodies.add(b)
                     stopBody(surface = a, body = b)
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
-                    groundedBodies.add(a)
                     stopBody(surface = b, body = a)
                 }
             } else {
                 applyElasticCollision(a, b)
             }
         }
+        bodies.forEach { it.commit() }
     }
+
+
+    //TODo: sinking issues again...
 
     /**
      * If a body touches the floor / wall, we firmly place it above the floor / wall and stop it from moving
@@ -81,19 +83,22 @@ class PhysicsSystem(var gravity: Boolean = true) {
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
 
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
+            val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
             // Place above surface
             body.position = body.position.copy(
-                pushoutAxis, value = (surface.boundingBox.max(pushoutAxis) + body.boundingBox.size(pushoutAxis) / 2).roundTo5DecimalPoints()
+                pushoutAxis, value = (body.position[pushoutAxis] + sinkAmount).roundTo5DecimalPoints()
             )
+
         } else {
+            val sinkAmount = body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis)
             // Place below surface
             body.position = body.position.copy(
-                pushoutAxis, value = (surface.boundingBox.min(pushoutAxis) - body.boundingBox.size(pushoutAxis) / 2).roundTo5DecimalPoints()
+                pushoutAxis, value = (body.position[pushoutAxis] - sinkAmount).roundTo5DecimalPoints()
             )
         }
     }
 
-
+    // height = 0.9544878
     private fun stopInAxis(body: Body, axis: Int) {
         body.velocity = body.velocity.copy(axis = axis, value = 0f)
         body.acceleration = body.acceleration.copy(axis = axis, value = 0f)
@@ -116,7 +121,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
     }
 
     private fun applyGravity(body: Body, delta: Duration) {
-        if (body.affectedByGravity && !body.isImmovable) {
+        if (body.affectedByGravity) {
             body.velocity = body.velocity.copy(
                 z = body.velocity.z - EarthGravityAcceleration * delta.seconds.toFloat()
             )
@@ -191,8 +196,7 @@ fun Float.roundTo5DecimalPoints(): Float {
     return round(this * scale) / scale
 }
 
-// for metre–sized worlds a few microns is plenty
-private const val GROUND_EPS = 1e-4f      // 0.0001 m
+
 private operator fun Vec3f.times(ue: Double) = Vec3f((x * ue).toFloat(), (y * ue).toFloat(), (z * ue).toFloat())
 
 private val Duration.seconds get() = toDouble(DurationUnit.SECONDS)

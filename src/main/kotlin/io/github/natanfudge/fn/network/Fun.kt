@@ -2,7 +2,8 @@ package io.github.natanfudge.fn.network
 
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.state.MapStateHolder
-import io.github.natanfudge.fn.util.Listener
+import io.github.natanfudge.fn.util.EventStream
+import io.github.natanfudge.fn.util.MutEventStream
 
 
 //interface IFun {
@@ -25,13 +26,16 @@ abstract class Fun(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-     val id: FunId,
-     val context: FunContext,
+    val id: FunId,
+    val context: FunContext,
 ) : AutoCloseable {
 
-    constructor(parent: Fun, name: String): this(parent.id.child(name), parent.context) {
+    constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context) {
         parent.registerChild(this)
     }
+
+    val closeEvent: EventStream<Unit>
+        field = MutEventStream<Unit>()
 
 
     val children = mutableListOf<Fun>()
@@ -54,6 +58,7 @@ abstract class Fun(
     final override fun close() {
         context.stateManager.unregister(this)
         cleanup()
+        closeEvent.emit(Unit)
         children.forEach { it.close() }
     }
 
