@@ -129,7 +129,7 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
                                 hoveredObjectOldTint!!.color,
                                 Color.White.copy(alpha = 0.5f),
                                 0.8f
-                            ), strength = 0.8f
+                            ), strength = 0.6f
                         )
                     }
                 }

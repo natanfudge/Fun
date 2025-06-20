@@ -3,8 +3,7 @@ struct Uniforms {
     cameraPos: vec3f,
     lightPos: vec3f,
     width: u32,
-    height: u32,
-    selectedObject: u32
+    height: u32
 }
 
 

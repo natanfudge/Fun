@@ -65,11 +65,6 @@ class VisibleBoundModel(
 
     val instances = mutableMapOf<FunId, VisibleRenderInstance>()
 
-//    val instanceIds = mutableListOf<Int>()
-
-//    private fun spawn(value: Physical, color: Color = Color.White): RenderInstance =
-
-
     override fun getOrSpawn(id: FunId, value: Renderable, tint: Tint): VisibleRenderInstance {
         val instance = instances.computeIfAbsent(id) {
             world.spawn(id, this, value, tint)
@@ -80,48 +75,21 @@ class VisibleBoundModel(
 
 
     override fun close() {
-        //
-//        if(model.instanceIds.isEmpty()) {
-//            world.vertexBuffer.free(
-//                GPUPointer(model.baseVertex.toULong() * VertexArrayBuffer.StrideBytes),
-//                model.model.mesh.verticesByteSize.toUInt()
-//            )
-//            world.indexBuffer.free(
-//                model.firstIndex * Int.SIZE_BYTES.toUInt()
-//            )
-//        }
         closeAll(texture, textureView)
     }
 }
 
 
-///**
-// * Seperated from [WorldRender] in order to be able to maintain the same [WorldRender] between shader reloads, as the [io.github.natanfudge.fn.render.WorldBindGroups]
-// * will be swapped out when that happens.
-// */
-//class WorldBindGroups(
-//    val pipeline: GPURenderPipeline,
-//    val world: GPUBindGroup,
-//    val models: List<GPUBindGroup>,
-//) : AutoCloseable {
-//    override fun close() {
-//        world.close()
-//        models.forEach { it.close() }
-//    }
-//}
-
 object GPUInstance : Struct5<Mat4f, Mat3f, Color, Float, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT)
 
-object WorldUniform : Struct6<Mat4f, Vec3f, Vec3f, UInt, UInt, UInt, WorldUniform>(
-    Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT, UIntDT
+object WorldUniform : Struct5<Mat4f, Vec3f, Vec3f, UInt, UInt, WorldUniform>(
+    Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT
 )
 
 class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
 ) : FunWorldRender, AutoCloseable {
-
-//    var camera : Camera? = null
 
     var worldInstances = 0
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
@@ -134,8 +102,7 @@ class WorldRender(
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
 
-    //TODO: I increased this temporarily to avoid crashes, but I should reduce to 500 and fix the issue
-    private val maxIndices = 1000u
+    private val maxIndices = 500u
 
     val instanceBuffer = GPUInstance.createBuffer(ctx, maxIndices, expandable = false, GPUBufferUsage.Storage)
 
@@ -219,8 +186,6 @@ class WorldRender(
         frame: GPUTextureView,
         camera: Camera,
     ) {
-        // If the bindgroups are not ready yet, don't do anything
-//        if (models.size != modelBindGroups.size) return
         val viewProjection = dimensions.projection * camera.viewMatrix
 
         // Update selected object based on ray casting
@@ -228,12 +193,9 @@ class WorldRender(
         hoveredObject = rayCast?.value
         selectedObjectId = rayCast?.renderId ?: -1
 
-        val selectedObjectId = rayCast?.renderId?.toUInt() ?: 9999u
-        //TODO: stop passing the selected object
         val uniform = WorldUniform(
             viewProjection, camera.position, lightPos,
-            dimensions.dims.width.toUInt(), dimensions.dims.height.toUInt(),
-            selectedObjectId
+            dimensions.dims.width.toUInt(), dimensions.dims.height.toUInt()
         )
 
 

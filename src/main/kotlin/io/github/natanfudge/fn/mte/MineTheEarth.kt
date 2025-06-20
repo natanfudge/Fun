@@ -17,16 +17,14 @@ import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.Material
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.math.PI
 import kotlin.random.Random
 
 enum class BlockType {
     Dirt, Gold
 }
 
-class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${type}-${game.nextBlockIndex++}", game.context) {
+class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${type}-${game.getNextBlockIndex(type)}", game.context) {
     companion object {
         private val unitCube = Mesh.UnitCube()
         val models = BlockType.entries.associateWith {
@@ -46,7 +44,11 @@ class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${ty
 }
 
 class Player(game: MineTheEarth) : Fun("Player", game.context) {
-    val render = renderState(Model.fromGlbResource("files/models/miner.glb"))
+    companion object {
+        val model = Model.fromGlbResource("files/models/miner.glb")
+    }
+
+    val render = renderState(model)
     val physics = physics(render, game.physics)
 }
 
@@ -54,7 +56,20 @@ class Player(game: MineTheEarth) : Fun("Player", game.context) {
 // TODO: next thing: Improve InputManager for hotkeys!
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
-    var nextBlockIndex = 0
+    private val nextBlockIndices = mutableMapOf<BlockType, Int>()
+
+    fun getNextBlockIndex(type: BlockType): Int {
+        if (type in nextBlockIndices) {
+            val next = nextBlockIndices[type]!!
+            nextBlockIndices[type] = next + 1
+            return next
+        } else {
+            nextBlockIndices[type] = 1
+            return 0
+        }
+    }
+
+    //    var nextBlockIndex = 0
     val inputManager = installMod(InputManagerMod())
 
     val physics = installMod(PhysicsMod())

@@ -18,7 +18,7 @@ import kotlin.time.TimeSource
  */
 class LifecycleContext<P : Any, T : Any>(val thisLifecycle: Lifecycle<P, T>) : AutoClose by AutoCloseImpl()
 
-//TOdo: CLEAR this when unbinding
+// sus: we need to remove lifecycles from this list when we unbind them, when we add unbinding.
 private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*, *>>()
 
 interface ValueHolder<T>: ReadOnlyProperty<Any?,T> {
@@ -542,31 +542,6 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      */
     override val value: T? get() = tree.value.selfState as T?
 
-    /**
-     * Copies the state of [lifecycles] into the children lifecycles of `this`.
-     *
-     * This method is useful when you have two lifecycle hierarchies with the same structure
-     * and you want to transfer the state from one to the other. It copies the state from each
-     * lifecycle in [lifecycles] to the corresponding child of this lifecycle.
-     *
-     * The [lifecycles] list must have the same size and structure as the children of this lifecycle.
-     */
-    fun copyChildrenStateFrom(lifecycles: List<Lifecycle<*, *>>) {
-        //TODO: this would be more robust if it worked by label
-        lifecycles.zip(tree.children).forEach { (source, dest) ->
-            source.copyStateTo(dest)
-        }
-    }
-
-    fun takeSnapshot(): LifecycleSnapshot {
-        verifyUniqueLabels()
-        val stateByLabel = mutableMapOf<String, LifecycleState>()
-        tree.visit {
-            stateByLabel[it.label] = LifecycleState(it.parentState, it.selfState)
-        }
-        return LifecycleSnapshot(stateByLabel)
-    }
-
     private fun verifyUniqueLabels() {
         val labels = mutableSetOf<String>()
         val uniqueNodes = mutableSetOf<LifecycleTree>()
@@ -580,44 +555,17 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         }
     }
 
-    fun restoreFromSnapshot(snapshot: LifecycleSnapshot) {
-        tree.visit {
-            val savedValue = snapshot.stateByLabel[it.label] ?: return@visit
-            it as LifecycleData<Any, Any>
-            it.parentState = savedValue.parent
-            it.selfState = savedValue.self
-        }
-    }
-
     fun close() {
 
     }
-
-    /**
-     * Copies over all the state of this lifecycle to [other], assuming [other] is of the exact same structure
-     */
-    private fun copyStateTo(other: LifecycleTree) {
-        this.tree.visitTogetherWith(other) { thisNode, otherNode ->
-            otherNode as LifecycleData<Any, Any>
-            otherNode.selfState = thisNode.selfState
-            otherNode.parentState = thisNode.parentState
-        }
-    }
 }
 
-internal class LifecycleState(
-    val parent: Any?,
-    val self: Any?,
-)
-
-class LifecycleSnapshot internal constructor(internal val stateByLabel: Map<String, LifecycleState>)
 
 internal class LifecycleData<P : Any, T : Any>(
     var start: LifecycleContext<P, T>.(P) -> T,
     var stop: (T) -> Unit,
     var parentState: P?,
     var selfState: T?,
-//    var throwOnFail: Boolean,
     var closed: Boolean,
     /**
      * Since lifecycles can have multiple parents, we need a way to differentiate between them.
@@ -692,7 +640,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
         closed = false
         selfState = result
     } catch (e: NoSuchMethodError) {
-        //TODO: should think of a better thing to do when it fails, probably prevent children from running.
+        //SUS: should think of a better thing to do when it fails, probably prevent children from running.
         log(FunLogLevel.Error) { "Failed to run lifecycle $label" }
         e.printStackTrace()
     }

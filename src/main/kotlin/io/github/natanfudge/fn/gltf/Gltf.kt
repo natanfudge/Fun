@@ -23,8 +23,6 @@ fun main() {
     val model = Model.fromGlbResource("files/models/textured_cube.glb")
 }
 
-//TODO: bug: Seems like model is imported upside-down, but I IDK if it's a specific problem with the model I used
-// It's actually because the glb file specifies a rotation of (0.7,0.7,0,0)!
 fun Model.Companion.fromGlbResource(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }

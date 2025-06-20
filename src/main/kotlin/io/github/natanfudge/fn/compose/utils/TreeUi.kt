@@ -29,7 +29,6 @@ private fun <T> List<List<CollectedVertex<T>>>.distinct(): List<List<CollectedVe
     }.filter { it.isNotEmpty() }
 }
 
-//TODO: window resize has regressed - new frame does not appear in real time anymore
 
 @Composable
 fun <T> DagLayout(

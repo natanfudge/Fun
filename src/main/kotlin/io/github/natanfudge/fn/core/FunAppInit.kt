@@ -186,8 +186,6 @@ abstract class FunApp : AutoCloseable {
 
     }
 
-    //TODO: think of how to do component-callback binding
-
     open fun frame(delta: Float) {
 
     }
@@ -239,13 +237,6 @@ internal fun FunApp.actualPhysics(delta: Duration) {
 }
 
 
-abstract class RenderBoundPhysical(val render: WorldRender)
-
-//abstract class BasePhysical(override var transform: Mat4f, private var baseAABB: Mat4f): Physical {
-//    override var baseAABB: Mat4f
-//        get() = TODO("Not yet implemented")
-//        set(value) {}
-//}
 
 interface FunWindow {
     val width: Int

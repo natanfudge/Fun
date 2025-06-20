@@ -25,7 +25,7 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 //TODO:
-// 13. Basic Physics
+// 13. Hotkeys
 // 14. Trying making a basic game?
 // 15.   Visual transform system:
 //          - Bounding box wireframe
@@ -34,7 +34,6 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 //          - Scale Arrows
 // 16. Better physics
 // 17. PBR
-// 18. Hotkeys
 // 20. Backlog stuff i don't really care about atm:
 // A. Deallocating GPU memory and free lists
 // B. Find-grained picking with per-triangle ray intersection checks
@@ -91,7 +90,6 @@ class TestRenderObject(
 
 
 
-// TODO: I think we can add the Mod system now, I have a pretty good understanding of how to use it.
 class FunPlayground(override val context: FunContext) : FunApp() {
     val inputManager = installMod(InputManagerMod())
 

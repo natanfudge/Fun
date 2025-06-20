@@ -10,7 +10,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 
 
-// TODO: now that we have commit we can easily avoid allocations now I think
+// SLOW: now that we have commit we can easily avoid allocations now I think
 /**
  * The physics system measures position in meters, velocity in meters per second, and acceleration in meters per second squared.
  * It is assumed the Z axis is down (sorry Minecraft bros).
@@ -64,8 +64,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
         bodies.forEach { it.commit() }
     }
 
-
-    //TODo: sinking issues again...
 
     /**
      * If a body touches the floor / wall, we firmly place it above the floor / wall and stop it from moving

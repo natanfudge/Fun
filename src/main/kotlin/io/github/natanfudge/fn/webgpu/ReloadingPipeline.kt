@@ -104,7 +104,6 @@ fun reloadOnChange(
             val surface = surfaceLifecycle.assertValue
             surface.device.pushErrorScope(GPUErrorFilter.Validation)
 
-            //TODO: maybe we don't need the hack anymore
             val (module, error) = runBlocking {
                 surfaceLifecycle.assertValue.device.createShaderModule(ShaderModuleDescriptor(loadShader(shaderSource))) to
                         surface.device.popErrorScope().getOrThrow()

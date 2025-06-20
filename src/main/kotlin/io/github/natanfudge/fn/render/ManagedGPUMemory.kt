@@ -33,7 +33,7 @@ class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expa
     fun alloc(bytes: ULong): UntypedGPUPointer {
         val address = _nextByte
         if (address + bytes > currentMemoryLimit) {
-            TODO("Dynamic Memory expansion is not implemented yet (limit: $currentMemoryLimit, requested: $address + $bytes)")
+            throw NotImplementedError("Dynamic Memory expansion is not implemented yet (limit: $currentMemoryLimit, requested: $address + $bytes)")
         }
         _nextByte += bytes
         return UntypedGPUPointer(address)
@@ -53,7 +53,6 @@ class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expa
         write(data.buffer, address)
     }
 
-    //TODO: remove a lot of functions here
     fun new(data: Any): UntypedGPUPointer {
         val pointer = alloc(data.arrayByteSize().toULong())
         write(data, pointer)
