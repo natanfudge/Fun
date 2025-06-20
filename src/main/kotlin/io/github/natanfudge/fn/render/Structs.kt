@@ -3,12 +3,10 @@
 
 package io.github.natanfudge.fn.render
 
-import io.github.natanfudge.fn.render.putArray
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.ygdrasil.webgpu.GPUBufferUsage
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.exp
 
 interface GPUStructDescriptor {
     val size: UInt
@@ -16,9 +14,11 @@ interface GPUStructDescriptor {
     fun createBuffer(ctx: WebGPUContext, initialSize: UInt, expandable: Boolean, vararg usage: GPUBufferUsage): ManagedGPUMemory {
         return ManagedGPUMemory(ctx, initialSizeBytes = (initialSize * size.toULong()), expandable = expandable, *usage)
     }
+
+    fun fullElements(array: ManagedGPUMemory): ULong = array.fullBytes / size
 }
 
-class GPUStruct<T : GPUStructDescriptor>(
+class GPUStructInstance<T : GPUStructDescriptor>(
     internal val buffer: ByteArray,
     internal val descriptor: T,
 )
@@ -55,18 +55,18 @@ abstract class Struct4<T1, T2, T3, T4, S : Struct4<T1, T2, T3, T4, S>>(
     val t4: DataType<T4>,
 ) : GPUStructDescriptor {
 
-    val layout = layOut(t1,t2,t3,t4)
+    val layout = layOut(t1, t2, t3, t4)
     override val size = (layout.last() + t4.alignSize).wgpuAlignInt()
 
     private fun toArray(a: T1, b: T2, c: T3, d: T4) = concatDifferentArrays(
-        size, layout,t1.toArray(a), t2.toArray(b), t3.toArray(c), t4.toArray(d)
+        size, layout, t1.toArray(a), t2.toArray(b), t3.toArray(c), t4.toArray(d)
     )
 
-    operator fun invoke(a: T1, b: T2, c: T3, d: T4): GPUStruct<S> {
-        return GPUStruct(
+    operator fun invoke(a: T1, b: T2, c: T3, d: T4): GPUStructInstance<S> {
+        return GPUStructInstance(
             toArray(a, b, c, d),
             this
-        ) as GPUStruct<S>
+        ) as GPUStructInstance<S>
     }
 
     fun new(mem: ManagedGPUMemory, a: T1, b: T2, c: T3, d: T4): GPUPointer<S> {
@@ -99,19 +99,19 @@ abstract class Struct5<T1, T2, T3, T4, T5, S : Struct5<T1, T2, T3, T4, T5, S>>(
     val t5: DataType<T5>,
 ) : GPUStructDescriptor {
 
-    val layout = layOut(t1,t2,t3,t4,t5)
+    val layout = layOut(t1, t2, t3, t4, t5)
     override val size = (layout.last() + t5.alignSize).wgpuAlignInt()
 
     private fun toArray(a: T1, b: T2, c: T3, d: T4, e: T5) = concatDifferentArrays(
-        size, layout,t1.toArray(a), t2.toArray(b), t3.toArray(c),
+        size, layout, t1.toArray(a), t2.toArray(b), t3.toArray(c),
         t4.toArray(d), t5.toArray(e)
     )
 
-    operator fun invoke(a: T1, b: T2, c: T3, d: T4, e: T5): GPUStruct<S> {
-        return GPUStruct(
+    operator fun invoke(a: T1, b: T2, c: T3, d: T4, e: T5): GPUStructInstance<S> {
+        return GPUStructInstance(
             toArray(a, b, c, d, e),
             this
-        ) as GPUStruct<S>
+        ) as GPUStructInstance<S>
     }
 
     fun new(mem: ManagedGPUMemory, a: T1, b: T2, c: T3, d: T4, e: T5): GPUPointer<S> {
@@ -150,7 +150,7 @@ abstract class Struct6<T1, T2, T3, T4, T5, T6, S : Struct6<T1, T2, T3, T4, T5, T
     val t6: DataType<T6>,
 ) : GPUStructDescriptor {
 
-    val layout = layOut(t1,t2,t3,t4,t5,t6)
+    val layout = layOut(t1, t2, t3, t4, t5, t6)
     override val size = (layout.last() + t6.alignSize).wgpuAlignInt()
 
     private fun toArray(a: T1, b: T2, c: T3, d: T4, e: T5, f: T6) = concatDifferentArrays(
@@ -158,11 +158,11 @@ abstract class Struct6<T1, T2, T3, T4, T5, T6, S : Struct6<T1, T2, T3, T4, T5, T
         t4.toArray(d), t5.toArray(e), t6.toArray(f),
     )
 
-    operator fun invoke(a: T1, b: T2, c: T3, d: T4, e: T5, f: T6): GPUStruct<S> {
-        return GPUStruct(
+    operator fun invoke(a: T1, b: T2, c: T3, d: T4, e: T5, f: T6): GPUStructInstance<S> {
+        return GPUStructInstance(
             toArray(a, b, c, d, e, f),
             this
-        ) as GPUStruct<S>
+        ) as GPUStructInstance<S>
     }
 
     fun new(mem: ManagedGPUMemory, a: T1, b: T2, c: T3, d: T4, e: T5, f: T6): GPUPointer<S> {

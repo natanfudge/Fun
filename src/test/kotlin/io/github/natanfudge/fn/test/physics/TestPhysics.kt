@@ -105,7 +105,7 @@ class TestPhysics {
     @Test
     fun testWall() {
         // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
-        object : PhysicsTest(show = false, throwOnFailure = true) {
+        object : PhysicsTest(show = true) {
             override fun PhysicsSimulationContext.run() {
                 physics.gravity = false
                 val cube = cube()
@@ -119,8 +119,28 @@ class TestPhysics {
                 }
 
                 after(5.seconds) {
-                    cube.shouldHave(position = Vec3f(x = 4.212f, y = 4f, z =0f), epsilon = 0.01f)
+                    cube.shouldHave(position = Vec3f(x = 5f, y = 4f, z = 0f), epsilon = 0.01f)
                     wall.shouldHave(position = Vec3f(5f, 5f, 0f))
+                }
+
+            }
+        }
+    }
+
+    @Test
+    fun testSlide() {
+        object : PhysicsTest(show = false) {
+            override fun PhysicsSimulationContext.run() {
+                val cube = cube()
+                cube.render.position = Vec3f(x = 0f, y = 0f, z = 0.55f)
+                cube.physics.velocity = Vec3f(1f, 0f, 0f)
+
+                val floor = cube()
+                floor.render.scale = Vec3f(10f, 10f, 0.1f)
+                floor.physics.isImmovable = true
+
+                after(5.seconds) {
+                    cube.shouldHave(position = Vec3f(x = 5f, y = 0f, z = 0.55f))
                 }
             }
         }

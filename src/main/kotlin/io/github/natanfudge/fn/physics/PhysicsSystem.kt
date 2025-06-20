@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.round
 import kotlin.math.sin
@@ -16,8 +17,9 @@ import kotlin.time.DurationUnit
  * It is assumed the Z axis is down (sorry Minecraft bros).
  */
 class PhysicsSystem(var gravity: Boolean = true) {
+    var earthGravityAcceleration = 9.8f
+
     companion object {
-        const val EarthGravityAcceleration = 9.8f
         private val maxDelta = 40.milliseconds
     }
 
@@ -32,17 +34,41 @@ class PhysicsSystem(var gravity: Boolean = true) {
         bodies.remove(obj)
     }
 
+    fun getTouching(body: Body): List<Body> {
+        val intersections = bodies.filter { intersect(body, it) && it !== body }
+        return intersections
+    }
+
+    fun isGrounded(body: Body): Boolean {
+        // We add an extra epsilon of padding because objects are usually placed slightly above the ground.
+        return getTouching(body).any { it.boundingBox.maxZ < body.boundingBox.minZ + 0.0001f }
+    }
+
+    private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox)
+
+    fun tick(delta: Duration) {
+        if (delta > maxDelta) {
+            val ticks = ceil(delta / maxDelta).toInt()
+            println("Warn: physics is lagging behind, quickly emulating $ticks ticks. If the game is sped up you can ignore this.")
+            repeat(ticks - 1) {
+                singleTick(maxDelta)
+            }
+            // Run the leftover delta
+            singleTick(delta - (maxDelta * (ticks - 1)))
+        } else {
+            singleTick(delta)
+        }
+    }
+
 
     /**
      * Delta should be the fraction of the unit, so in this case in fractions of a second
      */
-    fun tick(delta: Duration) {
-        // We want to avoid extreme deltas causing things to go through each other. No quantum tunneling please.
-        val actualDelta = delta.coerceAtMost(maxDelta)
+    private fun singleTick(delta: Duration) {
         for (body in bodies) {
             if (!body.isImmovable) {
-                if (gravity) applyGravity(body, actualDelta)
-                applyDisplacement(body, actualDelta)
+                if (gravity) applyGravity(body, delta)
+                applyDisplacement(body, delta)
             }
         }
         val intersections = getIntersections()
@@ -73,12 +99,14 @@ class PhysicsSystem(var gravity: Boolean = true) {
             it to surface.boundingBox.overlap(body.boundingBox, it)
         }
 
-        for ((axis, overlap) in overlapByAxis) {
-            if (overlap > 0f) stopInAxis(body, axis)
-        }
+//        for ((axis, overlap) in overlapByAxis) {
+//            if (overlap > 0f) stopInAxis(body, axis)
+//        }
 
-        // Push the body apart along the axis with the smallest overlap, so it doesn't sink into the surface.
+        // Push the body apart along the axis with the smallest overlap, so it stops and doesn't sink into the surface.
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
+
+        stopInAxis(body, pushoutAxis)
 
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
             val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
@@ -121,7 +149,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
     private fun applyGravity(body: Body, delta: Duration) {
         if (body.affectedByGravity) {
             body.velocity = body.velocity.copy(
-                z = body.velocity.z - EarthGravityAcceleration * delta.seconds.toFloat()
+                z = body.velocity.z - earthGravityAcceleration * delta.seconds.toFloat()
             )
         }
     }
@@ -136,7 +164,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 val bodyB = bodies[j]
 
                 // Use the Body's boundingBox property to check for intersection.
-                if (bodyA.boundingBox.intersects(bodyB.boundingBox)) {
+                if (intersect(bodyA, bodyB)) {
                     intersections.add(bodyA to bodyB)
                 }
             }

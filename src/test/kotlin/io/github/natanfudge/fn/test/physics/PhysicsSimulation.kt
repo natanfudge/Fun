@@ -71,7 +71,7 @@ private fun PhysicsTest.runTest(show: Boolean,  throwOnFailure: Boolean) {
 
 
 class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, val scheduler: Scheduler, private val throwOnFailure: Boolean) : FunContext by context {
-    private val cubeModel = Model(Mesh.UnitCube(), id = "mesh-0")
+    private val cubeModel = Model(Mesh.HomogenousCube, id = "mesh-0")
     private var index = 0
     fun cube() = SimplePhysicsObject("body-${index++}", this, cubeModel, physics)
 
@@ -146,7 +146,7 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
     /**
      * Returns the delta to be passed to the physics system.
      */
-    override fun physics(delta: Duration) {
+    override fun prePhysics(delta: Duration) {
         if (callback == null) return
         val newTime = timeSinceScheduleStart + delta
         if (newTime > scheduleDelay) {

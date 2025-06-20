@@ -39,13 +39,13 @@ inline fun <reified T> Fun.funValue(
 //     * If not null, a listener will be automatically registered for [onSetValue].
 //     * If [autocloseSetValue] is true, The listener will be automatically closed when this [Fun] is closed.
 //     */
-//    noinline onSetValue: ((value: T) -> Unit)? = null,
+    noinline onSetValue: ((value: T) -> Unit)? = null,
 ): FunValue<T> {
     val value = FunValue(value, getSerializerExtended<T>(), id, this, editor)
-//    if (onSetValue != null) {
-//        val listener = value.change.listen(onSetValue)
+    if (onSetValue != null) {
+       value.change.listen(onSetValue)
 //        if (autocloseSetValue) closeEvent.listen { listener.close() }
-//    }
+    }
     return value
 }
 

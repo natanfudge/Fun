@@ -63,8 +63,7 @@ class DefaultCamera: Camera {
     val right = up.cross(forward)
 
 
-    // doesn't really belong here
-    var mode: CameraMode by mutableStateOf(CameraMode.Off)
+
 
 
     /**

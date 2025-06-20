@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.core
 
 import androidx.compose.runtime.Composable
+import kotlin.time.Duration
 
 interface FunMod {
     @Composable
@@ -14,7 +15,11 @@ interface FunMod {
 
     }
 
-    fun physics(delta: kotlin.time.Duration) {
+    fun prePhysics(delta: Duration) {
+
+    }
+
+    fun postPhysics(delta: Duration) {
 
     }
 

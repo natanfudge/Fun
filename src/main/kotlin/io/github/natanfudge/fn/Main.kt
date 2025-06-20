@@ -100,8 +100,8 @@ class FunPlayground(override val context: FunContext) : FunApp() {
     init {
         installMods(
             CreativeMovementMod(context, inputManager),
-            VisualEditorMod(context),
-            RestartButtonsMod()
+            VisualEditorMod(this),
+            RestartButtonsMod(context)
         )
 
 //        physics.system.gravity = false
@@ -109,7 +109,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
         val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
 
-        val cube = Model(Mesh.UnitCube(), "Cube")
+        val cube = Model(Mesh.HomogenousCube, "Cube")
         val sphere = Model(Mesh.uvSphere(), "Sphere")
         TestRenderObject("X Axis", this, cube, scale = Vec3f(x = 10f, y = 0.1f, z = 0.1f), color = Color.Red) // X axis
         TestRenderObject("Y Axis", this, cube, scale = Vec3f(x = 0.1f, y = 10f, z = 0.1f), color = Color.Green) // Y Axis
@@ -122,7 +122,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
 
         val kotlinSphere = sphere.copy(material = Material(texture = kotlinImage), id = "kotlin sphere")
 
-        val wgpuCube = Model(Mesh.UnitCube(CubeUv.Grid3x2), "wgpucube", Material(wgpu4kImage))
+        val wgpuCube = Model(Mesh.HeterogeneousCube, "wgpucube", Material(wgpu4kImage))
 
         val instance = TestBody("WGPU Cube", this, Model.fromGlbResource("files/models/miner.glb"), translate = Vec3f(-2f, 2f, 2f))
 //        GlobalScope.launch {

@@ -2,11 +2,7 @@
 
 package io.github.natanfudge.fn.base
 
-import androidx.compose.foundation.gestures.rememberScrollableState
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -24,13 +20,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.ComposePanelPlacer
+import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.physics.Visible
-import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.fn.render.Tint
 
 @Composable
@@ -42,43 +38,41 @@ fun ComposePanelPlacer.FunPanel(modifier: Modifier = Modifier, content: @Composa
     }
 }
 
-class VisualEditorMod(private val context: FunContext) : FunMod {
+/**
+ * If you use [HoverHighlightMod], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditorMod].
+ */
+class VisualEditorMod(private val hoverMod: HoverHighlightMod) : FunMod {
+    constructor(app: FunApp) : this(app.installMod(HoverHighlightMod(app.context)))
+
+    private val context = hoverMod.context
     private var mouseDownPos: Offset? = null
 
-    private var hoveredObject: Visible? = null
-    private var hoveredObjectOldTint: Tint? = null
+//    private var hoveredObject: Visible? = null
+//    private var hoveredObjectOldTint: Tint? = null
     var selectedObject: Visible? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
 
     @Composable
     fun FunEditor(fn: Fun) {
 //        item {
-            val values = context.stateManager.getState(fn.id)
-            if (values != null) {
-                Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
-                for ((key, value) in values.getCurrentState()) {
-                    value as FunState<Any?>
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Box(Modifier.weight(1f))
-                        value.editor.EditorUi(
-                            mutableState(value.value) { value.value = it }
-                        )
-                        Box(Modifier.weight(1f))
-                    }
+        val values = context.stateManager.getState(fn.id)
+        if (values != null) {
+            Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
+            for ((key, value) in values.getCurrentState()) {
+                value as FunState<Any?>
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Box(Modifier.weight(1f))
+                    value.editor.EditorUi(
+                        mutableState(value.value) { value.value = it }
+                    )
+                    Box(Modifier.weight(1f))
                 }
             }
-//        }
-
-//            Column(Modifier.padding(start = 10.dp)) {
-                for(child in fn.children) {
-                    FunEditor(child)
-                }
-//            }
-
-
-
-
+        }
+        for (child in fn.children) {
+            FunEditor(child)
+        }
     }
 
     @Composable
@@ -86,8 +80,10 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
         FunPanel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
                 if (selectedObject?.data is Fun) {
-                    Column (Modifier.padding(5.dp).width(IntrinsicSize.Max)
-                        .verticalScroll(rememberScrollState ()), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        Modifier.padding(5.dp).width(IntrinsicSize.Max)
+                            .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         FunEditor(selectedObject?.data as Fun)
                     }
                 }
@@ -98,16 +94,10 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
 
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent) {
-
-
-            colorHoveredObject()
-
             if (input.eventType == PointerEventType.Press) {
                 mouseDownPos = input.position
             }
             captureSelectedObject(input)
-
-
         }
     }
 
@@ -120,13 +110,18 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
                 if (selectedObject != selected) {
                     // Restore the old color
                     selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
+                    // We can hover-highlight again
+                    selectedObject?.removeTag(HoverHighlightMod.DoNotHighlightTag)
                     selectedObject = selected
                     // Save color to restore later
-                    selectedObjectOldTint = hoveredObjectOldTint
-                    if (selected != null && hoveredObjectOldTint != null) {
+                    selectedObjectOldTint = hoverMod.hoveredObjectOldTint
+                    val oldTint = hoverMod.hoveredObjectOldTint ?: error("Expected hoveredObjectOldTint to be set, because we are clicking an object so it should be hovered before, but it was null.")
+                    if (selected != null) {
+                        // Don't hover-highlight when selecting
+                        selected.setTag(HoverHighlightMod.DoNotHighlightTag, true)
                         selected.tint = Tint(
                             lerp(
-                                hoveredObjectOldTint!!.color,
+                                oldTint.color,
                                 Color.White.copy(alpha = 0.5f),
                                 0.8f
                             ), strength = 0.6f
@@ -138,23 +133,5 @@ class VisualEditorMod(private val context: FunContext) : FunMod {
         }
     }
 
-    private fun colorHoveredObject() {
-        if (hoveredObject != context.world.hoveredObject) {
-            // Restore the old color
-            if (hoveredObject != selectedObject) {
-                hoveredObject?.tint = hoveredObjectOldTint ?: Tint(Color.White)
-            }
 
-            val newHovered = (context.world.hoveredObject as? Visible)
-            hoveredObject = newHovered
-            // Save color to restore later
-            hoveredObjectOldTint = newHovered?.tint
-//            println("Setting tint to $hoveredObjectOldTint")
-            if (newHovered != selectedObject) {
-                newHovered?.tint = Tint(
-                    lerp(hoveredObjectOldTint!!.color, Color.White.copy(alpha = 0.5f), 0.2f), strength = 0.2f
-                )
-            }
-        }
-    }
 }

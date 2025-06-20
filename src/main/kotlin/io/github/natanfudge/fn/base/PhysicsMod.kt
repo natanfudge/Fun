@@ -6,7 +6,7 @@ import kotlin.time.Duration
 
 class PhysicsMod: FunMod {
     val system = PhysicsSystem()
-    override fun physics(delta: Duration) {
+    override fun postPhysics(delta: Duration) {
         system.tick(delta)
     }
 }

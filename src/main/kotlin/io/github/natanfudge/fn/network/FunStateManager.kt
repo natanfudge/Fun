@@ -225,11 +225,11 @@ class FunStateManager(
     /**
      * Registers a Fun component with this client, allowing it to send and receive state updates.
      */
-    internal fun register(fn: Fun, state: MapStateHolder) {
+    internal fun register(fn: Fun) {
         if (fn.id in stateHolders) {
             throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give Fun components unique IDs. ")
         }
-        stateHolders[fn.id] = state
+        stateHolders[fn.id] = MapStateHolder()
     }
 
     internal fun unregister(fn: Fun) {

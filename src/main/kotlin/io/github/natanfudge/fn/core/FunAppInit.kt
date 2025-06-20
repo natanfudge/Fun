@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
+import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
@@ -203,6 +205,7 @@ abstract class FunApp : AutoCloseable {
     final override fun close() {
         mods.forEach { it.cleanup() }
         cleanup()
+//        context.close()
     }
 }
 
@@ -232,10 +235,10 @@ internal fun FunApp.actualFrame(delta: Float) {
 }
 
 internal fun FunApp.actualPhysics(delta: Duration) {
-    mods.forEach { it.physics(delta) }
+    mods.forEach { it.prePhysics(delta) }
     physics(delta)
+    mods.forEach { it.postPhysics(delta) }
 }
-
 
 
 interface FunWindow {
@@ -252,6 +255,14 @@ interface FunContext : FunStateContext {
     fun setGUIFocused(focused: Boolean)
 
     fun restartApp() {}
+
+    fun register(fn: Fun) {}
+
+    fun unregister(fn: Fun) {}
+
+
+//    fun onAppRestarted(callback: () -> Unit) {}
+//    fun close(){}
 
     var camera: DefaultCamera
 
@@ -297,27 +308,56 @@ class VisibleFunContext(
     private val stateContext: FunStateContext, override val time: FunTime,
 ) : FunContext, FunStateContext by stateContext {
 
+
     override val window by dims
 
     override val world = surface.world
 
     override var camera = DefaultCamera()
 
+    private val rootFuns = mutableMapOf<FunId, Fun>()
+    private var restarting = false
+
+//    private val appRestarted = MutEventStream<Unit>()
+
     override fun restartApp() {
+        restarting = true
+        rootFuns.forEach { it.value.close() }
+
         ProcessLifecycle.restartByLabel(AppLifecycleName)
     }
+
+    override fun register(fn: Fun) {
+        if (fn.isRoot) rootFuns[fn.id] = fn
+        stateContext.stateManager.register(fn)
+    }
+
+    override fun unregister(fn: Fun) {
+        // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
+        if (restarting) return
+        if (fn.isRoot) rootFuns.remove(fn.id)
+        stateContext.stateManager.unregister(fn)
+    }
+
+//    override fun onAppRestarted(callback: () -> Unit) {
+//        super.onAppRestarted(callback)
+//    }
 
     override val panels: Panels = Panels()
 
 
     override fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
-        if (locked) world.cursorPosition =(null)
+        if (locked) world.cursorPosition = (null)
     }
 
     override fun setGUIFocused(focused: Boolean) {
         compose.compose.windowLifecycle.assertValue.focused = focused
     }
+
+//    override fun close() {
+//        appRestarted.clearListeners()
+//    }
 }
 
 

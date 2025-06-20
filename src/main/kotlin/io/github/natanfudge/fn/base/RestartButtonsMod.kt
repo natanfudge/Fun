@@ -9,11 +9,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.core.ComposePanelPlacer
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
 
-class RestartButtonsMod: FunMod {
+class RestartButtonsMod(val context: FunContext): FunMod {
     @Suppress("UNCHECKED_CAST")
     @Composable
     override fun ComposePanelPlacer.gui() {
@@ -25,7 +26,7 @@ class RestartButtonsMod: FunMod {
                     }
 
                     Button(onClick = {
-                        ProcessLifecycle.restartByLabels(setOf("App"))
+                        context.restartApp()
                     }) {
                         Text("Restart App Lifecycle")
                     }

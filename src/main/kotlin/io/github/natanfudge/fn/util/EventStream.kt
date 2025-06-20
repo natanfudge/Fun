@@ -1,6 +1,5 @@
 package io.github.natanfudge.fn.util
 
-import io.github.natanfudge.fn.error.UnfunStateException
 import java.util.function.Consumer
 
 
@@ -11,8 +10,9 @@ import java.util.function.Consumer
  */
 interface EventStream<T> {
     companion object {
-        fun <T>create() = MutEventStream<T>()
+        fun <T> create() = MutEventStream<T>()
     }
+
     /**
      * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [MutEventStream]).
      * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks
@@ -28,7 +28,7 @@ interface EventStream<T> {
  * to stop listening. This is typically returned by [EventStream.listen].
  * @see EventStream
  */
-class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>): AutoCloseable {
+class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : AutoCloseable {
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
@@ -40,7 +40,7 @@ class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private
 }
 
 
- // IDEA: it would make sense for eventstreams to have a string identifier to be able to track them in runtime.
+// IDEA: it would make sense for eventstreams to have a string identifier to be able to track them in runtime.
 // Then inside components we can have an API like this
 // class MyThing(override val id: String): Component {
 //      val firedFireballs by event<Int>()
@@ -58,6 +58,10 @@ class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private
  */
 class MutEventStream<T> : EventStream<T> {
     private val listeners = mutableListOf<Listener<T>>()
+
+    fun clearListeners() {
+        listeners.clear()
+    }
 
     /** @see EventStream */
     override fun listen(onEvent: Consumer<T>): Listener<T> {
@@ -82,10 +86,8 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     internal fun detach(listener: Listener<T>) {
-        println("Removing listener: ${listener.callback}")
-        if(!listeners.remove(listener)){
-//            throw UnfunStateException("Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
-            println("Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
+        if (!listeners.remove(listener)) {
+            println("Warn: Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
         }
     }
 }

@@ -10,16 +10,18 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.util.EventStream
+import korlibs.time.seconds
 import kotlin.time.Duration
 
 
-class InputManagerMod: FunMod {
+class InputManagerMod : FunMod {
     val heldKeys = mutableSetOf<Key>()
     val heldMouseButtons = mutableSetOf<PointerButton>()
     var prevCursorPos: Offset? = null
 
     val focused: Boolean get() = prevCursorPos != null
 
+    // TODO: this should go i think, hotkeys are better
     val keyHeld = EventStream.create<Key>()
 
     /**
@@ -27,9 +29,28 @@ class InputManagerMod: FunMod {
      */
     val mouseMoved = EventStream.create<Offset>()
 
-    override fun physics(delta: Duration) {
+    val hotkeys: List<Hotkey>
+        field = mutableListOf<Hotkey>()
+
+
+    //TODO: we need to improve this to include mouse keys...
+    fun registerHotkey(
+        name: String, defaultKey: Key,
+        onHold: (delta: Float) -> Unit = {},
+        onRelease: () -> Unit = {},
+        onPress: () -> Unit = {}
+    ): Hotkey {
+        val hotkey = Hotkey(defaultKey, onPress, onRelease, onHold, name)
+        hotkeys.add(hotkey)
+        return hotkey
+    }
+
+    override fun prePhysics(delta: Duration) {
         if (focused) {
-            heldKeys.forEach { keyHeld.emit(it) }
+            for (hotkey in hotkeys) {
+                if (hotkey.key in heldKeys) hotkey.onHold(delta.seconds.toFloat())
+            }
+            heldKeys.forEach { keyHeld.emit(it) } // SUS: should go
         }
     }
 
@@ -39,8 +60,23 @@ class InputManagerMod: FunMod {
             is InputEvent.KeyEvent -> {
                 val event = input.event
                 when (event.type) {
-                    KeyEventType.KeyDown -> heldKeys.add(event.key)
-                    KeyEventType.KeyUp -> heldKeys.remove(event.key)
+                    KeyEventType.KeyDown -> {
+                        for (hotkey in hotkeys) {
+                            if (hotkey.key == event.key) {
+                                hotkey.onPress()
+                            }
+                        }
+                        heldKeys.add(event.key)
+                    }
+
+                    KeyEventType.KeyUp -> {
+                        for (hotkey in hotkeys) {
+                            if (hotkey.key == event.key) {
+                                hotkey.onRelease()
+                            }
+                        }
+                        heldKeys.remove(event.key)
+                    }
                 }
             }
 
@@ -82,3 +118,17 @@ class InputManagerMod: FunMod {
         }
     }
 }
+
+//enum class PressType {
+//    Press, Release, Hold
+//}
+
+data class Hotkey(
+//    val type: PressType,
+    var key: Key,
+    val onPress: () -> Unit,
+    val onRelease: () -> Unit,
+    val onHold: (delta: Float) -> Unit,
+//    val action: () -> Unit,
+    val name: String,
+)

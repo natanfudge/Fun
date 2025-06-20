@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +27,8 @@ import io.github.natanfudge.fn.render.InputManagerMod
 
 class CreativeMovementMod(private val context: FunContext, private val inputManager: InputManagerMod) : FunMod {
     private val camera = context.camera
+
+    var mode: CameraMode by mutableStateOf(CameraMode.Off)
 
     init {
         with(camera) {
@@ -58,21 +63,24 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
 
             inputManager.keyHeld.listen { key ->
                 val delta = 0.05f
-                when (key) {
-                    Key.W -> moveForward(delta)
-                    Key.S -> moveBackward(delta)
-                    Key.A -> moveLeft(delta)
-                    Key.D -> moveRight(delta)
-                    Key.Spacebar -> moveUp(delta)
-                    Key.CtrlLeft -> moveDown(delta)
+                if (mode != CameraMode.Off) {
+                    when (key) {
+                        Key.W -> moveForward(delta)
+                        Key.S -> moveBackward(delta)
+                        Key.A -> moveLeft(delta)
+                        Key.D -> moveRight(delta)
+                        Key.Spacebar -> moveUp(delta)
+                        Key.CtrlLeft -> moveDown(delta)
+                    }
                 }
+
             }
         }
     }
 
     @Composable
     override fun ComposePanelPlacer.gui() {
-        if (camera.mode == CameraMode.Fly) {
+        if (mode == CameraMode.Fly) {
             Box(Modifier.fillMaxSize().background(Color.Transparent)) {
                 Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
                 Box(Modifier.size(20.dp, 2.dp).background(Color.Black).align(Alignment.Center))
@@ -83,7 +91,7 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
     override fun handleInput(input: InputEvent) = with(camera) {
         when (input) {
             is InputEvent.PointerEvent -> {
-                if (input.eventType == PointerEventType.Move && (context.camera.mode == CameraMode.Orbital || context.camera.mode == CameraMode.Off)) {
+                if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
                     context.world.cursorPosition = (input.position)
                 }
 
@@ -112,7 +120,7 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
     }
 
     private fun setCameraMode(mode: CameraMode, context: FunContext) {
-        camera.mode = mode
+        this.mode = mode
 
         context.setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
         context.setCursorLocked(mode == CameraMode.Fly)

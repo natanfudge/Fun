@@ -2,17 +2,11 @@
 
 package io.github.natanfudge.fn.render
 
-import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.webgpu.WebGPUContext
-import io.github.natanfudge.wgpu4k.matrix.Mat3f
-import io.github.natanfudge.wgpu4k.matrix.Mat4f
-import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import io.ygdrasil.webgpu.BufferDescriptor
 import io.ygdrasil.webgpu.GPUBufferUsage
 import io.ygdrasil.webgpu.writeBuffer
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 
 typealias UntypedGPUPointer = GPUPointer<Any?>
@@ -28,6 +22,7 @@ value class GPUPointer<out T>(
 //TODO: for some usages, we don't need to recreate a render group so just changing the buffer pointer would be fine - for those usages enable auto-resizing.
 // for other usages, we could just set a decent limit and throw when we try to resize, saying "We are waiting for bindless/mutable bind groups to enable doing this simply and performantly"
 class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expandable: Boolean, vararg usage: GPUBufferUsage) : AutoCloseable {
+    val fullBytes get() = _nextByte
     private var _nextByte = 0uL
     private var currentMemoryLimit = initialSizeBytes.wgpuAlign()
     fun alloc(bytes: ULong): UntypedGPUPointer {
@@ -39,6 +34,8 @@ class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expa
         return UntypedGPUPointer(address)
     }
 
+
+
     fun free(pointer: UntypedGPUPointer, size: UInt) {
         // SLOW: currently a no-op, so a memory leak, i'll do this later.
     }
@@ -49,7 +46,7 @@ class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expa
     }
 
 
-    operator fun <T : GPUStructDescriptor> set(address: GPUPointer<T>, data: GPUStruct<T>) {
+    operator fun <T : GPUStructDescriptor> set(address: GPUPointer<T>, data: GPUStructInstance<T>) {
         write(data.buffer, address)
     }
 

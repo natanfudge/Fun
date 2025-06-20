@@ -69,7 +69,7 @@ object PhysicsSimulationFunWorld : FunWorldRender {
 }
 
 object PhysicsSimulationModel : BoundModel {
-    override fun getOrSpawn(
+    override fun spawn(
         id: FunId,
         value: Renderable,
         tint: Tint,

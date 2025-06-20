@@ -69,12 +69,15 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
             return Mesh(indices, vbo)
         }
 
+        val HomogenousCube = unitCube(CubeUv.Repeat)
+        val HeterogeneousCube = unitCube(CubeUv.Grid3x2)
+
 
         // There is actually only 24 unique positions, we don't need 36
         /**
          * Creates a cube that partially shares vertices, in a way that has the minimum amount of vertices, but allows for correct flat shading.
          */
-        fun UnitCube(uv: CubeUv = CubeUv.Repeat) = Mesh.inferredNormals(
+        private fun unitCube(uv: CubeUv = CubeUv.Repeat) = Mesh.inferredNormals(
             positions = listOf(
                 // top (Z = 1)
                 Vec3f(-0.5f, -0.5f, 0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(-0.5f, 0.5f, 0.5f),

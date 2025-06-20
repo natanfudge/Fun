@@ -5,13 +5,13 @@ import io.github.natanfudge.fn.base.PhysicsMod
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.network.state.FunValue
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.math.PI
 
 interface Renderable : Boundable {
     val transform: Mat4f
@@ -23,6 +23,15 @@ interface Renderable : Boundable {
         get() = baseAABB.transformed(transform)
 }
 
+interface Taggable {
+    fun <T> getTag(tag: Tag<T>): T?
+    fun <T> setTag(tag: Tag<T>, value: T?)
+    fun removeTag(tag: Tag<*>)
+    fun hasTag(tag: Tag<*>): Boolean
+}
+
+data class Tag<T>(val name: String)
+
 interface MutableTransform {
     var position: Vec3f
     var rotation: Quatf
@@ -33,51 +42,53 @@ interface RenderObject : MutableTransform {
     var tint: Tint
 }
 
-interface Visible : Renderable, RenderObject
+interface Visible : Renderable, RenderObject, Taggable
 
-fun Fun.renderState(model: Model) = FunRenderState(this, model)
+fun Fun.renderState(model: Model, name: String = "render") = FunRenderState(name, this, model)
 fun Fun.physics(
     renderState: FunRenderState,
     physics: PhysicsSystem,
-) = FunPhysics(this, renderState, physics)
+) = FunPhysics(this, { renderState }, physics)
+
 fun Fun.physics(
     renderState: FunRenderState,
     physics: PhysicsMod,
+) = FunPhysics(this, { renderState }, physics.system)
+
+fun Fun.physics(
+    physics: PhysicsMod,
+    renderState: () -> FunRenderState,
 ) = FunPhysics(this, renderState, physics.system)
 
 class FunRenderState(
+    name: String,
     parent: Fun,
 //    id: FunId,
 //    app: FunApp,
     val model: Model,
-) : Visible, Fun(parent, "render") {
+) : Visible, Fun(parent, name) {
     override val data: Any? = parent
 
     val baseAABBState = funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB")
 
     override var baseAABB: AxisAlignedBoundingBox by baseAABBState
 
-    val positionState = funValue<Vec3f>(model.initialTransform.position, "translation").apply {
-        change.listen {
-            updateMatrix(position = it)
-        }
+    val positionState = funValue<Vec3f>(model.initialTransform.position, "translation") {
+        updateMatrix(position = it)
     }
-    val rotationState = funValue<Quatf>(model.initialTransform.rotation, "rotation").apply {
-        change.listen {
-            updateMatrix(orientation = it)
-        }
+    val rotationState = funValue<Quatf>(model.initialTransform.rotation, "rotation") {
+        updateMatrix(orientation = it)
+
     }
-    val scaleState = funValue<Vec3f>(model.initialTransform.scale, "scaling").apply {
-        change.listen {
-            updateMatrix(scale = it)
-        }
+    val scaleState = funValue<Vec3f>(model.initialTransform.scale, "scaling") {
+        updateMatrix(scale = it)
     }
-    val tintState = funValue<Tint>(Tint(Color.White, 0f), "tint").apply {
-        change.listen {
-            if (!despawned && value != it) {
-                renderInstance.setTintColor(it.color)
-                renderInstance.setTintStrength(it.strength)
-            }
+
+    val tintState: FunValue<Tint> = funValue<Tint>(Tint(Color.White, 0f), "tint") {
+        check(!despawned) { "Attempt to change tint of a despawned object" }
+        if (tint != it) {
+            renderInstance.setTintColor(it.color)
+            renderInstance.setTintStrength(it.strength)
         }
     }
 
@@ -99,7 +110,7 @@ class FunRenderState(
     final override var transform: Mat4f = Mat4f.translateRotateScale(position, rotation, scale)
         private set
 
-    val renderInstance: RenderInstance = context.world.getOrBindModel(model).getOrSpawn(id, this, tint)
+    val renderInstance: RenderInstance = context.world.getOrBindModel(model).spawn(id, this, tint)
 
 
     var despawned = false
@@ -110,11 +121,10 @@ class FunRenderState(
     }
 
     private fun updateMatrix(position: Vec3f = this.position, orientation: Quatf = this.rotation, scale: Vec3f = this.scale) {
-        if (!despawned) {
-            val matrix = Mat4f.translateRotateScale(position, orientation, scale)
-            this.transform = matrix
-            renderInstance.setTransform(matrix)
-        }
+        check(!despawned) { "Attempt to change transform of a despawned object" }
+        val matrix = Mat4f.translateRotateScale(position, orientation, scale)
+        this.transform = matrix
+        renderInstance.setTransform(matrix)
     }
 }
 
@@ -131,10 +141,11 @@ class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physics:
 class FunPhysics(
 //    id: FunId,
 //    context: FunContext,
-    parent: Fun,
-    private val renderState: FunRenderState,
+    val parent: Fun,
+    private val renderStateProvider: () -> FunRenderState,
     private val physics: PhysicsSystem,
 ) : Fun(parent, "physics"), Body {
+    private val renderState get() = renderStateProvider()
 //    override val boundingBox: AxisAlignedBoundingBox get() = renderState.boundingBox
 
     // SUS: It pains me to hold this variable and update it whenever position changes, but it's the simplest way for now.
@@ -175,21 +186,16 @@ class FunPhysics(
     /**
      * Values exposed to the visual editor.
      */
-    private var _velocity: Vec3f by funValue(Vec3f.zero(), "velocity").apply {
-        // Apply changes from the UI -> the physics system
-        change.listen {
-            velocity = it
-        }
+    private var _velocity: Vec3f by funValue(Vec3f.zero(), "velocity") {
+        velocity = it
+
     }
-    private var _acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration").apply {
-        change.listen {
-            acceleration = it
-        }
+    private var _acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration") {
+        acceleration = it
+
     }
-    private var _angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity").apply {
-        change.listen {
-            angularVelocity = it
-        }
+    private var _angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity") {
+        angularVelocity = it
     }
 
     val positionListener = renderState.positionState.change.listen {
@@ -240,6 +246,16 @@ class FunPhysics(
     override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
     override var mass: Float by funValue(1f, "mass")
     override var isImmovable: Boolean by funValue(false, "isImmovable")
+
+    fun getTouching(): List<Fun> {
+        return physics.getTouching(this).map {
+            check(it is FunPhysics) { "Only expecting FunPhysics to be inserted to the physics system" }
+            it.parent
+        }
+    }
+
+    fun isGrounded() = physics.isGrounded(this)
+
 
     init {
         physics.add(this)
