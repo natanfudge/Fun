@@ -93,7 +93,7 @@ class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${ty
 
 class Player(game: MineTheEarth) : Fun("Player", game.context) {
     companion object {
-        val model = Model.fromGlbResource("files/models/miner.glb")
+        val model = Model.fromGlbResource("files/models/hedgie_lowres.glb")
     }
 
     val physics = physics(renderState(model), game.physics)
