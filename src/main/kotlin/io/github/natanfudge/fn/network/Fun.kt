@@ -1,11 +1,8 @@
 package io.github.natanfudge.fn.network
 
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.network.state.MapStateHolder
 import io.github.natanfudge.fn.physics.Tag
 import io.github.natanfudge.fn.physics.Taggable
-import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.MutEventStream
 
 
 //interface IFun {
@@ -30,13 +27,14 @@ abstract class Fun(
      */
     val id: FunId,
     val context: FunContext,
-    val parent: Fun? = null
+    val parent: Fun? = null,
 ) : AutoCloseable, Taggable {
     val isRoot: Boolean = parent == null
 
     constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context, parent) {
         parent.registerChild(this)
     }
+
     private val tags = mutableMapOf<String, Any?>()
 
     override fun <T> getTag(tag: Tag<T>): T? {
@@ -65,6 +63,10 @@ abstract class Fun(
         children.add(child)
     }
 
+    internal fun unregisterChild(child: Fun) {
+        children.remove(child)
+    }
+
     init {
         context.register(this)
     }
@@ -77,10 +79,17 @@ abstract class Fun(
     }
 
     final override fun close() {
+        close(unregisterFromParent = true)
+    }
+
+    private fun close(unregisterFromParent: Boolean) {
         context.unregister(this)
         cleanup()
-//        closeEvent.emit(Unit)
-        children.forEach { it.close() }
+        // No need to unregister when this is getting closed anyway
+        children.forEach { it.close(unregisterFromParent = false) }
+        if (unregisterFromParent) {
+            parent?.unregisterChild(this)
+        }
     }
 
     protected open fun cleanup() {

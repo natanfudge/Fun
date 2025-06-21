@@ -135,9 +135,8 @@ class VisualEditorMod(
                     selectedObject?.removeTag(HoverHighlightMod.DoNotHighlightTag)
                     selectedObject = selected
                     // Save color to restore later
-                    selectedObjectOldTint = hoverMod.hoveredObjectOldTint
-                    val oldTint = hoverMod.hoveredObjectOldTint
-                        ?: error("Expected hoveredObjectOldTint to be set, because we are clicking an object so it should be hovered before, but it was null.")
+                    selectedObjectOldTint = selected?.getTag(HoverHighlightMod.PreHoverTintTag) ?: selected?.tint
+                    val oldTint = selectedObjectOldTint!!
                     if (selected != null) {
                         // Don't hover-highlight when selecting
                         selected.setTag(HoverHighlightMod.DoNotHighlightTag, true)

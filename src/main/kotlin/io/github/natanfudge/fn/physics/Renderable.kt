@@ -48,17 +48,13 @@ fun Fun.renderState(model: Model, name: String = "render") = FunRenderState(name
 fun Fun.physics(
     renderState: FunRenderState,
     physics: PhysicsSystem,
-) = FunPhysics(this, { renderState }, physics)
+) = FunPhysics(this, renderState, physics)
 
 fun Fun.physics(
     renderState: FunRenderState,
     physics: PhysicsMod,
-) = FunPhysics(this, { renderState }, physics.system)
-
-fun Fun.physics(
-    physics: PhysicsMod,
-    renderState: () -> FunRenderState,
 ) = FunPhysics(this, renderState, physics.system)
+
 
 class FunRenderState(
     name: String,
@@ -143,10 +139,10 @@ class FunPhysics(
 //    id: FunId,
 //    context: FunContext,
     parent: Fun,
-    private val renderStateProvider: () -> FunRenderState,
+    private val renderState: FunRenderState,
     private val physics: PhysicsSystem,
 ) : Fun(parent, "physics"), Body {
-    private val renderState get() = renderStateProvider()
+
 //    override val boundingBox: AxisAlignedBoundingBox get() = renderState.boundingBox
 
     // SUS: It pains me to hold this variable and update it whenever position changes, but it's the simplest way for now.

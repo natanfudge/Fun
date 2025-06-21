@@ -21,6 +21,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     companion object {
         private val maxDelta = 40.milliseconds
+        private val maxSkipTicks = 50
     }
 
 
@@ -49,12 +50,20 @@ class PhysicsSystem(var gravity: Boolean = true) {
     fun tick(delta: Duration) {
         if (delta > maxDelta) {
             val ticks = ceil(delta / maxDelta).toInt()
-            println("Warn: physics is lagging behind, quickly emulating $ticks ticks. If the game is sped up you can ignore this.")
-            repeat(ticks - 1) {
-                singleTick(maxDelta)
+            if (ticks > maxSkipTicks) {
+                println("Warn: physics is lagging behind by more than $maxSkipTicks ticks ($maxSkipTicks)!  Only $maxSkipTicks ticks will be emulated.")
+                repeat(maxSkipTicks) {
+                    singleTick(maxDelta)
+                }
+            } else {
+                println("Warn: physics is lagging behind, quickly emulating $ticks ticks. If the game is sped up you can ignore this.")
+                repeat(ticks - 1) {
+                    singleTick(maxDelta)
+                }
+                // Run the leftover delta
+                singleTick(delta - (maxDelta * (ticks - 1)))
             }
-            // Run the leftover delta
-            singleTick(delta - (maxDelta * (ticks - 1)))
+
         } else {
             singleTick(delta)
         }

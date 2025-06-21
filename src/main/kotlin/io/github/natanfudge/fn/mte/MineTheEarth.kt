@@ -22,16 +22,20 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.milliseconds
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.random.Random
 
 object Balance {
     fun blockHardness(type: BlockType): Float = when (type) {
         BlockType.Dirt -> 2f
-        BlockType.Gold -> 5f
+        BlockType.Gold -> 6f
     }
 
     val MineInterval = 500.milliseconds
+
+    val BreakReach = 5
 }
 
 enum class BlockType {
@@ -40,7 +44,7 @@ enum class BlockType {
 
 fun Float.ceilToInt(): Int = ceil(this).toInt()
 
-class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${type}-${game.getNextBlockIndex(type)}", game.context) {
+class Block(game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun("${type}-${game.getNextBlockIndex(type)}", game.context) {
     companion object {
         val models = BlockType.entries.associateWith {
             Model(Mesh.HomogenousCube, "Block-$it", Material(FunImage.fromResource("drawable/blocks/${it.name.lowercase()}.png")))
@@ -56,20 +60,23 @@ class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${ty
     val physics = physics(render, game.physics)
 
     var breakOverlay: FunRenderState? = null
-    // TODO: I need to stop trying to retain rendering stuff and close things properly on app restart.
 
     var health by funValue(Balance.blockHardness(type), "health") {
-        val missingHpFraction = (1 - (it / Balance.blockHardness(type))).coerceIn(0f, 1f)
+        updateBreakOverlay(it)
+    }
+
+    private fun updateBreakOverlay(newHealth: Float) {
+        val missingHpFraction = (1 - (newHealth / Balance.blockHardness(type))).coerceIn(0f, 1f)
         if (missingHpFraction == 1f) {
             close()
-            return@funValue
+            return
         }
 
         if (missingHpFraction > 0) {
             val damageIndex = (missingHpFraction * 5).ceilToInt().coerceAtMost(5)
             breakOverlay?.close()
             breakOverlay = renderState(breakOverlays[damageIndex - 1], "break").apply {
-                scale = Vec3f(1.001f, 1.001f, 1.001f) // It should be slightly around the cube
+                scale = Vec3f(1.01f, 1.01f, 1.01f) // It should be slightly around the cube
                 position = render.position
             }
         } else {
@@ -83,6 +90,7 @@ class Block(game: MineTheEarth, val type: BlockType, pos: IntOffset) : Fun("${ty
         render.position = Vec3f(x = pos.x.toFloat(), y = 0f, z = pos.y.toFloat())
         physics.affectedByGravity = false
         physics.isImmovable = true
+        updateBreakOverlay(health)
     }
 }
 
@@ -135,22 +143,30 @@ class Player(game: MineTheEarth) : Fun("Player", game.context) {
         game.input.registerHotkey("Break", PointerButton.Primary, onHold = {
             mineRateLimit.run(MineInterval) {
                 val selectedBlock = context.getHoveredRoot()
-                if (selectedBlock is Block) {
+                if (selectedBlock is Block && hasReachToBlock(selectedBlock)) {
                     selectedBlock.health -= 1f
                 }
             }
         })
     }
-}
 
-fun FunContext.getHoveredRoot(): Fun? {
-    var current = world.hoveredObject as? Fun ?: return null
-    while (true) {
-        val parent = current.parent
-        if (parent == null) return current
-        current = parent
+    val intPos2D get() = IntOffset(physics.position.x.toInt(), physics.position.z.toInt())
+
+    fun hasReachToBlock(block: Block): Boolean {
+        if (intPos2D.diagonalDistance(block.pos) > Balance.BreakReach) return false
+        return true
+    }
+
+    private fun blocksInWay(startPos: IntOffset, endPos: IntOffset): List<Block> {
+        TODO()
     }
 }
+
+/**
+ * Returns the distance between two [IntOffset]s, with diagonals only counting as one unit.
+ */
+fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - to.y))
+
 
 //TODO: on Compose error, catch it instead of making it run loose and freeze the Compose menu
 
@@ -169,10 +185,27 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         }
     }
 
+
     //    var nextBlockIndex = 0
     val input = installMod(InputManagerMod())
 
     val physics = installMod(PhysicsMod())
+
+    val player = Player(this)
+
+    val hoverMod = installMod(HoverHighlightMod(context) {
+        it is Block && player.hasReachToBlock(it)
+    })
+
+    private val mapWidth = 21
+    private val mapHeight = 21
+
+    val blocks = List(mapHeight * mapWidth) {
+        val x = it % mapWidth
+        val y = it / mapWidth
+        val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
+        Block(this, type, IntOffset(x - mapWidth / 2, y - mapHeight / 2))
+    }.associateWith { it.pos }
 
     init {
         physics.system.earthGravityAcceleration = 20f
@@ -183,20 +216,9 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
         installMods(
             CreativeMovementMod(context, input),
-            VisualEditorMod(this, input, enabled = false),
+            VisualEditorMod(hoverMod, input, enabled = false),
             RestartButtonsMod(context)
         )
-
-        val player = Player(this)
-
-
-        for (x in -10..10) {
-            for (y in (-10..10)) {
-                val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
-                Block(this, type, IntOffset(x, y))
-            }
-        }
-
 
     }
 }
