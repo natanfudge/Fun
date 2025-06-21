@@ -15,14 +15,14 @@ import kotlin.time.Duration
 
 
 class InputManagerMod : FunMod {
-    val heldKeys = mutableSetOf<Key>()
-    val heldMouseButtons = mutableSetOf<PointerButton>()
+    val heldKeys = mutableSetOf<FunKey>()
+//    val heldMouseButtons = mutableSetOf<PointerButton>()
     var prevCursorPos: Offset? = null
 
     val focused: Boolean get() = prevCursorPos != null
 
     // TODO: this should go i think, hotkeys are better
-    val keyHeld = EventStream.create<Key>()
+//    val keyHeld = EventStream.create<Key>()
 
     /**
      * Passes the movement delta
@@ -39,6 +39,19 @@ class InputManagerMod : FunMod {
         onHold: (delta: Float) -> Unit = {},
         onRelease: () -> Unit = {},
         onPress: () -> Unit = {}
+    ) = registerHotkey(name, FunKey.Keyboard(defaultKey), onHold, onRelease, onPress)
+
+    fun registerHotkey(
+        name: String, defaultKey: PointerButton,
+        onHold: (delta: Float) -> Unit = {},
+        onRelease: () -> Unit = {},
+        onPress: () -> Unit = {}
+    ) = registerHotkey(name, FunKey.Mouse(defaultKey), onHold, onRelease, onPress)
+    fun registerHotkey(
+        name: String, defaultKey: FunKey,
+        onHold: (delta: Float) -> Unit = {},
+        onRelease: () -> Unit = {},
+        onPress: () -> Unit = {}
     ): Hotkey {
         val hotkey = Hotkey(defaultKey, onPress, onRelease, onHold, name)
         hotkeys.add(hotkey)
@@ -50,7 +63,7 @@ class InputManagerMod : FunMod {
             for (hotkey in hotkeys) {
                 if (hotkey.key in heldKeys) hotkey.onHold(delta.seconds.toFloat())
             }
-            heldKeys.forEach { keyHeld.emit(it) } // SUS: should go
+//            heldKeys.forEach { keyHeld.emit(it) } // SUS: should go
         }
     }
 
@@ -62,20 +75,20 @@ class InputManagerMod : FunMod {
                 when (event.type) {
                     KeyEventType.KeyDown -> {
                         for (hotkey in hotkeys) {
-                            if (hotkey.key == event.key) {
+                            if (hotkey.key.isKey(event.key)) {
                                 hotkey.onPress()
                             }
                         }
-                        heldKeys.add(event.key)
+                        heldKeys.add(FunKey.Keyboard(event.key))
                     }
 
                     KeyEventType.KeyUp -> {
                         for (hotkey in hotkeys) {
-                            if (hotkey.key == event.key) {
+                            if (hotkey.key.isKey(event.key)) {
                                 hotkey.onRelease()
                             }
                         }
-                        heldKeys.remove(event.key)
+                        heldKeys.remove(FunKey.Keyboard(event.key))
                     }
                 }
             }
@@ -102,13 +115,13 @@ class InputManagerMod : FunMod {
 
                     PointerEventType.Press -> {
                         if (input.button != null && focused) {
-                            heldMouseButtons.add(input.button)
+                            heldKeys.add(FunKey.Mouse(input.button))
                         }
                     }
 
                     PointerEventType.Release -> {
                         if (input.button != null && focused) {
-                            heldMouseButtons.remove(input.button)
+                            heldKeys.remove(FunKey.Mouse(input.button))
                         }
                     }
                 }
@@ -119,13 +132,21 @@ class InputManagerMod : FunMod {
     }
 }
 
+//SUS: I would prefer not to wrap anything and have one FunKey class that has both mouse and keyboard keys
+sealed interface FunKey {
+    data class Keyboard(val value: Key): FunKey
+    data class Mouse(val value: PointerButton): FunKey
+
+    fun isKey(other: Key) = this is Keyboard && value == other
+}
+
 //enum class PressType {
 //    Press, Release, Hold
 //}
 
 data class Hotkey(
 //    val type: PressType,
-    var key: Key,
+    var key: FunKey,
     val onPress: () -> Unit,
     val onRelease: () -> Unit,
     val onHold: (delta: Float) -> Unit,

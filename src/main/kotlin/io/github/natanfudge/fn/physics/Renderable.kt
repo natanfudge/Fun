@@ -85,8 +85,8 @@ class FunRenderState(
     }
 
     val tintState: FunValue<Tint> = funValue<Tint>(Tint(Color.White, 0f), "tint") {
-        check(!despawned) { "Attempt to change tint of a despawned object" }
-        if (tint != it) {
+//        check(!despawned) { "Attempt to change tint of a despawned object '$id'" }
+        if (tint != it && !despawned) {
             renderInstance.setTintColor(it.color)
             renderInstance.setTintStrength(it.strength)
         }
@@ -121,7 +121,8 @@ class FunRenderState(
     }
 
     private fun updateMatrix(position: Vec3f = this.position, orientation: Quatf = this.rotation, scale: Vec3f = this.scale) {
-        check(!despawned) { "Attempt to change transform of a despawned object" }
+//        check(!despawned) { "Attempt to change transform of a despawned object" }
+        if (despawned) return
         val matrix = Mat4f.translateRotateScale(position, orientation, scale)
         this.transform = matrix
         renderInstance.setTransform(matrix)
@@ -141,7 +142,7 @@ class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physics:
 class FunPhysics(
 //    id: FunId,
 //    context: FunContext,
-    val parent: Fun,
+    parent: Fun,
     private val renderStateProvider: () -> FunRenderState,
     private val physics: PhysicsSystem,
 ) : Fun(parent, "physics"), Body {
@@ -250,7 +251,7 @@ class FunPhysics(
     fun getTouching(): List<Fun> {
         return physics.getTouching(this).map {
             check(it is FunPhysics) { "Only expecting FunPhysics to be inserted to the physics system" }
-            it.parent
+            it.parent!!
         }
     }
 

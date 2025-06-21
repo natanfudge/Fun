@@ -100,7 +100,7 @@ class FunPlayground(override val context: FunContext) : FunApp() {
     init {
         installMods(
             CreativeMovementMod(context, inputManager),
-            VisualEditorMod(this),
+            VisualEditorMod(this, inputManager),
             RestartButtonsMod(context)
         )
 

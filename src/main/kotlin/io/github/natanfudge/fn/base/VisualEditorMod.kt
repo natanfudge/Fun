@@ -15,18 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
-import io.github.natanfudge.fn.core.ComposePanelPlacer
-import io.github.natanfudge.fn.core.FunApp
-import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunMod
-import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.physics.Visible
+import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.Tint
 
 @Composable
@@ -41,13 +39,36 @@ fun ComposePanelPlacer.FunPanel(modifier: Modifier = Modifier, content: @Composa
 /**
  * If you use [HoverHighlightMod], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditorMod].
  */
-class VisualEditorMod(private val hoverMod: HoverHighlightMod) : FunMod {
-    constructor(app: FunApp) : this(app.installMod(HoverHighlightMod(app.context)))
+class VisualEditorMod(
+    private val hoverMod: HoverHighlightMod, private val inputManagerMod: InputManagerMod,
+    /**
+     * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
+     */
+    private var enabled: Boolean = true,
+) : FunMod {
+    constructor(app: FunApp, inputManagerMod: InputManagerMod, enabled: Boolean = true) : this(
+        app.installMod(HoverHighlightMod(app.context)), inputManagerMod, enabled
+    )
+
+    init {
+        inputManagerMod.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
+            enabled = !enabled
+            println("Visual Editor=$enabled")
+            if (!enabled) {
+                // Reset state if disabled
+                selectedObject = null
+                selectedObjectOldTint = null
+                mouseDownPos = null
+            }
+        })
+    }
+
+//    private var enabled: Boolean = true
 
     private val context = hoverMod.context
     private var mouseDownPos: Offset? = null
 
-//    private var hoveredObject: Visible? = null
+    //    private var hoveredObject: Visible? = null
 //    private var hoveredObjectOldTint: Tint? = null
     var selectedObject: Visible? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
@@ -93,7 +114,7 @@ class VisualEditorMod(private val hoverMod: HoverHighlightMod) : FunMod {
 
 
     override fun handleInput(input: InputEvent) {
-        if (input is InputEvent.PointerEvent) {
+        if (input is InputEvent.PointerEvent && enabled) {
             if (input.eventType == PointerEventType.Press) {
                 mouseDownPos = input.position
             }
@@ -115,7 +136,8 @@ class VisualEditorMod(private val hoverMod: HoverHighlightMod) : FunMod {
                     selectedObject = selected
                     // Save color to restore later
                     selectedObjectOldTint = hoverMod.hoveredObjectOldTint
-                    val oldTint = hoverMod.hoveredObjectOldTint ?: error("Expected hoveredObjectOldTint to be set, because we are clicking an object so it should be hovered before, but it was null.")
+                    val oldTint = hoverMod.hoveredObjectOldTint
+                        ?: error("Expected hoveredObjectOldTint to be set, because we are clicking an object so it should be hovered before, but it was null.")
                     if (selected != null) {
                         // Don't hover-highlight when selecting
                         selected.setTag(HoverHighlightMod.DoNotHighlightTag, true)

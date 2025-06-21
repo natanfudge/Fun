@@ -180,9 +180,11 @@ class PhysicsSimulationApp(override val context: FunContext, simulation: Physics
     val physics = PhysicsMod()
     val scheduler = installMod(VisibleSimulationTickerMod(context, physics.system))
 
+    val input = installMod(InputManagerMod())
+
     init {
         val context = PhysicsSimulationContext(context, physics.system, scheduler, throwOnFailure)
-        installMods(VisualEditorMod(context), CreativeMovementMod(context, installMod(InputManagerMod())))
+        installMods(VisualEditorMod(this, input), CreativeMovementMod(context, installMod(input)))
         with(simulation) {
             context.run()
         }

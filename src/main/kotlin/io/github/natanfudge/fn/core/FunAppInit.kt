@@ -12,6 +12,7 @@ import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.FunStateContext
+import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.ValueHolder
@@ -84,8 +85,8 @@ private fun run(app: FunAppInitializer<*>) {
     exitProcess(0)
 }
 
-class RealTime : FunTime {
-    override var speed = 1f
+class RealTime(context: FunContext): Fun("time", context) , FunTime {
+    override var speed by funValue(1f, "speed")
     internal lateinit var app: FunApp
     override fun advance(time: Duration) {
         app.actualPhysics(time)
@@ -102,20 +103,19 @@ class RealTime : FunTime {
         prevPhysicsTime = TimeSource.Monotonic.markNow()
     }
 
+    override var gameTime: Duration by funValue(Duration.ZERO, "gameTime")
+
     private var prevPhysicsTime = TimeSource.Monotonic.markNow()
 
     override fun _poll() {
         if (stopped) return
 
-//        if (prevPhysicsTime == 0L) {
-//            prevPhysicsTime = System.nanoTime()
-//            app.physics(Duration.ZERO)
-//        } else {
         val physicsDelta = prevPhysicsTime.elapsedNow()
         prevPhysicsTime = TimeSource.Monotonic.markNow()
+        val actualDelta = physicsDelta * speed.toDouble()
+        gameTime += actualDelta
 
-        app.actualPhysics(physicsDelta * speed.toDouble())
-//        }
+        app.actualPhysics(actualDelta)
     }
 
 }
@@ -142,8 +142,11 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
         val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind(AppLifecycleName) {
-            val time = RealTime()
-            val app = initFunc(VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient(), time))
+            val context = VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
+            val time = RealTime(context)
+            context.time = time
+
+            val app = initFunc(context)
             time.app = app
             it.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
             app
@@ -283,6 +286,8 @@ interface FunTime {
 
     fun resume()
 
+    val gameTime: Duration get() = Duration.ZERO
+
     /**
      * Should not be called by users.
      */
@@ -305,8 +310,10 @@ interface FunWorldRender {
 
 class VisibleFunContext(
     private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
-    private val stateContext: FunStateContext, override val time: FunTime,
+    private val stateContext: FunStateContext
 ) : FunContext, FunStateContext by stateContext {
+
+    override lateinit var time: FunTime
 
 
     override val window by dims

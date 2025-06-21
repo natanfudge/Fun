@@ -30,10 +30,11 @@ abstract class Fun(
      */
     val id: FunId,
     val context: FunContext,
-    val isRoot: Boolean = true
+    val parent: Fun? = null
 ) : AutoCloseable, Taggable {
+    val isRoot: Boolean = parent == null
 
-    constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context, isRoot = false) {
+    constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context, parent) {
         parent.registerChild(this)
     }
     private val tags = mutableMapOf<String, Any?>()

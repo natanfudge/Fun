@@ -23,12 +23,18 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.render.CameraMode
+import io.github.natanfudge.fn.render.FunKey
 import io.github.natanfudge.fn.render.InputManagerMod
 
 class CreativeMovementMod(private val context: FunContext, private val inputManager: InputManagerMod) : FunMod {
     private val camera = context.camera
 
     var mode: CameraMode by mutableStateOf(CameraMode.Off)
+
+    /**
+     * Constant movement distance per frame. Not related to game time, because this is a dev tool.
+     */
+    var speed = 0.05f
 
     init {
         with(camera) {
@@ -38,12 +44,12 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
 
                 when (mode) {
                     CameraMode.Orbital -> {
-                        if (PointerButton.Tertiary in inputManager.heldMouseButtons) {
+                        if (FunKey.Mouse(PointerButton.Tertiary) in inputManager.heldKeys) {
                             if (delta.x != 0f || delta.y != 0f) {
                                 pan(normalizedDeltaX * 20, normalizedDeltaY * 20)
                             }
                         }
-                        if (PointerButton.Primary in inputManager.heldMouseButtons) {
+                        if (FunKey.Mouse(PointerButton.Primary) in inputManager.heldKeys) {
                             if (normalizedDeltaX != 0f) {
                                 rotateX(normalizedDeltaX * 10)
                             }
@@ -61,20 +67,46 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
                 }
             }
 
-            inputManager.keyHeld.listen { key ->
-                val delta = 0.05f
-                if (mode != CameraMode.Off) {
-                    when (key) {
-                        Key.W -> moveForward(delta)
-                        Key.S -> moveBackward(delta)
-                        Key.A -> moveLeft(delta)
-                        Key.D -> moveRight(delta)
-                        Key.Spacebar -> moveUp(delta)
-                        Key.CtrlLeft -> moveDown(delta)
-                    }
+            inputManager.registerHotkey("Creative Move Forward", Key.W, onHold = {
+                ifNotOff {
+                    moveForward(speed)
                 }
+            })
 
-            }
+            inputManager.registerHotkey("Creative Move Backward", Key.S, onHold = {
+                ifNotOff {
+                    moveBackward(speed)
+                }
+            })
+
+            inputManager.registerHotkey("Creative Move Left", Key.A, onHold = {
+                ifNotOff {
+                    moveLeft(speed)
+                }
+            })
+            inputManager.registerHotkey("Creative Move Right", Key.D, onHold = {
+                ifNotOff {
+                    moveRight(speed)
+                }
+            })
+
+            inputManager.registerHotkey("Creative Move Up", Key.Spacebar, onHold = {
+                ifNotOff {
+                    moveUp(speed)
+                }
+            })
+
+            inputManager.registerHotkey("Creative Move Down", Key.CtrlLeft, onHold = {
+                ifNotOff {
+                    moveDown(speed)
+                }
+            })
+        }
+    }
+
+    private inline fun ifNotOff(block: () -> Unit) {
+        if (mode != CameraMode.Off) {
+            block()
         }
     }
 
