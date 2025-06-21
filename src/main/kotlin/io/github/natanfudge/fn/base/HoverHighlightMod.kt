@@ -13,9 +13,11 @@ import io.github.natanfudge.fn.render.Tint
 class HoverHighlightMod(
     val context: FunContext,
     /**
-     * Allows specifying which items should be hoverable. Return false to not allow an item to be hoverable.
+     * Allows making another Fun be hovered instead of the one the cursor is pointing at.
+     * Return null to not highlight anything.
      */
-    private val hoverPredicate: (Fun) -> Boolean = { true },
+    private val redirectHover: (Fun) -> Fun? = { it },
+    private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
 ) : FunMod {
     companion object {
         /**
@@ -35,10 +37,9 @@ class HoverHighlightMod(
 
     private fun colorHoveredObject() {
         val newRoot = context.getHoveredRoot()
+        val actualNewRoot = if (newRoot == null) null else redirectHover(newRoot)
 
-        val canHover = if (newRoot == null) false else hoverPredicate(newRoot)
-
-        if (newRoot != hoveredObjectRoot) {
+        if (actualNewRoot != hoveredObjectRoot) {
             // We no longer hover over the old object, remove its tint
             if (hoveredObjectRoot != null) {
                 val oldHover = hoveredObjectRoot!!
@@ -53,8 +54,9 @@ class HoverHighlightMod(
                 }
             }
 
-            if (canHover) {
-                newRoot?.forEachChildTyped<FunRenderState> {
+            actualNewRoot?.forEachChildTyped<FunRenderState> {
+                // Only apply hover tint when it is allowed
+                if (hoverRenderPredicate(it)) {
                     // Save old tint
                     it.setTag(PreHoverTintTag, it.tint)
                     // Apply new tint
@@ -65,12 +67,10 @@ class HoverHighlightMod(
                     it.setTag(PostHoverTintTag, it.tint)
                 }
             }
+
         }
-        if (canHover) {
-            hoveredObjectRoot = newRoot
-        } else {
-            hoveredObjectRoot = null
-        }
+        hoveredObjectRoot = actualNewRoot
+
     }
 
     override fun handleInput(input: InputEvent) {

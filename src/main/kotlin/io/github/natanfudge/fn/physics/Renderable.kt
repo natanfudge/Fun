@@ -195,24 +195,24 @@ class FunPhysics(
         angularVelocity = it
     }
 
-    val positionListener = renderState.positionState.change.listen {
+    private val positionListener = renderState.positionState.change.listen {
         position = it
         // Transform changed -> new transform matrix -> new aabb
         updateAABB()
     }
 
-    val rotationListener = renderState.rotationState.change.listen {
+    private val rotationListener = renderState.rotationState.change.listen {
         rotation = it
         // Transform changed -> new transform matrix -> new aabb
         updateAABB()
     }
 
-    val scaleListener = renderState.scaleState.change.listen {
+    private val scaleListener = renderState.scaleState.change.listen {
         // Scale change -> calculate new AABB
         updateAABB(newScale = it)
     }
 
-    val bbListener = renderState.baseAABBState.change.listen {
+    private val bbListener = renderState.baseAABBState.change.listen {
         // BaseAABB changed -> new aabb
         boundingBox = it.transformed(calculateTransformMatrix())
     }
