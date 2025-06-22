@@ -10,9 +10,10 @@ import io.github.natanfudge.fn.physics.renderState
 import io.github.natanfudge.fn.render.Material
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class Block(private val game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun("${type}-${game.getNextBlockIndex(type)}", game.context) {
+class Block(private val game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun(game.nextFunId("Block-$type"), game.context) {
     companion object {
         val BreakRenderId = "break"
         val models = BlockType.entries.associateWith {
@@ -65,4 +66,7 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: IntOff
     override fun cleanup() {
         game.blocks.remove(pos)
     }
+}
+
+class Item(private val game: MineTheEarth): Fun(game.nextFunId("item"), game.context) {
 }

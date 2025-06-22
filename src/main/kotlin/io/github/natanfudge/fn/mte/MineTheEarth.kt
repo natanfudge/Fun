@@ -5,6 +5,7 @@ import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.milliseconds
@@ -13,22 +14,8 @@ import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.random.Random
 
-object Balance {
-    fun blockHardness(type: BlockType): Float = when (type) {
-        BlockType.Dirt -> 2f
-        BlockType.Gold -> 6f
-    }
 
-    val MineInterval = 500.milliseconds
 
-    val BreakReach = 5
-}
-
-enum class BlockType {
-    Dirt, Gold
-}
-
-fun Float.ceilToInt(): Int = ceil(this).toInt()
 
 
 
@@ -41,6 +28,16 @@ fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - 
 //TODO: on Compose error, catch it instead of making it run loose and freeze the Compose menu
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
+
+    private val indices = mutableMapOf<String, Int>()
+    fun nextFunId(name: String): FunId {
+        if(name !in indices) indices[name] = 0
+        val nextIndex = indices.getValue(name)
+        indices[name] = nextIndex + 1
+        return "$name-$nextIndex"
+    }
+
+
     private val nextBlockIndices = mutableMapOf<BlockType, Int>()
     val playerStartingPos = Vec3f(x = 0f, y = 0f, z = 11f)
 
