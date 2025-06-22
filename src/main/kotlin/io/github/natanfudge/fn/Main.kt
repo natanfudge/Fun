@@ -25,7 +25,6 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 //TODO:
-// 13. Hotkeys
 // 14. Trying making a basic game?
 // 15.   Visual transform system:
 //          - Bounding box wireframe

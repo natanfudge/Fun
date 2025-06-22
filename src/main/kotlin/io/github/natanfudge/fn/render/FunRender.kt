@@ -2,9 +2,9 @@ package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.FunApp
-import io.github.natanfudge.fn.core.FunWindow
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.actualFrame
 import io.github.natanfudge.fn.core.actualHandleInput
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.FunLogLevel
@@ -28,10 +28,10 @@ import kotlin.math.roundToInt
 val msaaSamples = 4u
 
 
-class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable, FunWindow {
+class FunWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable {
     val extent = Extent3D(dims.width.toUInt(), dims.height.toUInt())
-    override val height: Int = dims.height
-    override val width: Int = dims.width
+     val height: Int = dims.height
+     val width: Int = dims.width
 
     // Create z buffer
     val depthTexture = ctx.device.createTexture(
@@ -65,12 +65,12 @@ class FunFixedSizeWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoC
         zFar = 100f
     )
 
-    override var fovYRadians = PI.toFloat() / 3f
+     var fovYRadians = PI.toFloat() / 3f
         set(value) {
             field = value
             calculateProjectionMatrix()
         }
-    override val aspectRatio = dims.width.toFloat() / dims.height
+     val aspectRatio = dims.width.toFloat() / dims.height
 
 
     val projection = calculateProjectionMatrix()
@@ -156,7 +156,7 @@ fun WebGPUWindow.bindFunLifecycles(
     fsWatcher: FileSystemWatcher,
     appLifecycle: Lifecycle<*, FunApp>,
     funSurface: Lifecycle<*, FunSurface>,
-    funDimLifecycle: Lifecycle<*, FunFixedSizeWindow>,
+    funDimLifecycle: Lifecycle<*, FunWindow>,
 ) {
 //    val appLifecycle = ProcessLifecycle.bind("App") {
 //        AppState(this@bindFunLifecycles, compose)
@@ -257,6 +257,8 @@ fun WebGPUWindow.bindFunLifecycles(
     ) { frame, surface, dimensions, bindGroup, shaders, composeFrame, app ->
         if (!frame.isReady) return@bind
         frame.isReady = false // Avoid drawing using the same parent frame twice
+
+        app.actualFrame(frame.deltaMs)
 
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)

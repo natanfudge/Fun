@@ -11,7 +11,7 @@ interface FunMod {
 
     fun handleInput(input: InputEvent){}
 
-    fun frame(delta: Float) {
+    fun frame(deltaMs: Double) {
 
     }
 

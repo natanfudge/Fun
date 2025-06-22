@@ -108,7 +108,6 @@ dependencies {
 
 kotlin {
     jvmToolchain {
-        //TODO: trying to get tests to launch with JBR 25
         this.languageVersion = JavaLanguageVersion.of(22)
 //        installationPath.set(rootProject.layout.projectDirectory.dir("jdks/jbr_25_11_05"))
 

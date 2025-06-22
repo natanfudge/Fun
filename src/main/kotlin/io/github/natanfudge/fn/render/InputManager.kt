@@ -17,13 +17,10 @@ import kotlin.time.Duration
 class InputManagerMod : FunMod {
     val heldKeys = mutableSetOf<FunKey>()
 
-    //    val heldMouseButtons = mutableSetOf<PointerButton>()
     var prevCursorPos: Offset? = null
 
     val focused: Boolean get() = prevCursorPos != null
 
-    // TODO: this should go i think, hotkeys are better
-//    val keyHeld = EventStream.create<Key>()
 
     /**
      * Passes the movement delta
@@ -34,7 +31,6 @@ class InputManagerMod : FunMod {
         field = mutableListOf<Hotkey>()
 
 
-    //TODO: we need to improve this to include mouse keys...
     fun registerHotkey(
         name: String, defaultKey: Key,
         onHold: (delta: Float) -> Unit = {},
@@ -65,7 +61,6 @@ class InputManagerMod : FunMod {
             for (hotkey in hotkeys) {
                 if (hotkey.key in heldKeys) hotkey.onHold(delta.seconds.toFloat())
             }
-//            heldKeys.forEach { keyHeld.emit(it) } // SUS: should go
         }
     }
 
@@ -146,18 +141,13 @@ sealed interface FunKey {
     fun isKey(other: Key) = this is Keyboard && value == other
 }
 
-//enum class PressType {
-//    Press, Release, Hold
-//}
 
 class Hotkey(
-//    val type: PressType,
     pressed: Boolean,
     var key: FunKey,
     val onPress: () -> Unit,
     val onRelease: () -> Unit,
     val onHold: (delta: Float) -> Unit,
-//    val action: () -> Unit,
     val name: String,
 ) {
     var isPressed: Boolean = pressed

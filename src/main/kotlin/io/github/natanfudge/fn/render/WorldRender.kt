@@ -6,7 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.FunWorldRender
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
@@ -93,7 +92,7 @@ object WorldUniform : Struct5<Mat4f, Vec3f, Vec3f, UInt, UInt, WorldUniform>(
 class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
-) : FunWorldRender, AutoCloseable {
+) : AutoCloseable {
 
 //    private val instanceIndexProvider = ConsecutiveIndexProvider()
 
@@ -102,7 +101,7 @@ class WorldRender(
     val rayCasting = RayCastingCache<VisibleRenderInstance>()
     var selectedObjectId: Int = -1
 
-    override var hoveredObject: Boundable? by mutableStateOf(null)
+     var hoveredObject: Boundable? by mutableStateOf(null)
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
@@ -169,7 +168,7 @@ class WorldRender(
     /**
      * Returns where the use is pointing at in world space
      */
-    private fun getCursorRay(camera: Camera, cursorPosition: Offset?, viewProjection: Mat4f, dimensions: FunFixedSizeWindow): Ray {
+    private fun getCursorRay(camera: Camera, cursorPosition: Offset?, viewProjection: Mat4f, dimensions: FunWindow): Ray {
         if (cursorPosition != null) {
             val ray = Selection.orbitalSelectionRay(
                 cursorPosition,
@@ -182,14 +181,14 @@ class WorldRender(
         }
     }
 
-    override var cursorPosition: Offset? = null
+     var cursorPosition: Offset? = null
 
 
     fun draw(
         encoder: GPUCommandEncoder,
         worldBindGroup: GPUBindGroup,
         pipeline: GPURenderPipeline,
-        dimensions: FunFixedSizeWindow,
+        dimensions: FunWindow,
         frame: GPUTextureView,
         camera: Camera,
     ) {
@@ -197,8 +196,6 @@ class WorldRender(
 
         // Update selected object based on ray casting
         val rayCast = rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
-        //TODO: raycasting stops working after restart... //TODO: I think it's because i'm not freeing the instance buffer, so everything just stays
-//        println("raycast: $rayCast")
         hoveredObject = rayCast?.value
         selectedObjectId = rayCast?.renderId ?: -1
 
@@ -254,7 +251,7 @@ class WorldRender(
         pass.end()
     }
 
-    override fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
+     fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
 
     /**
      * Note: [models] is updated by [getOrBindModel]

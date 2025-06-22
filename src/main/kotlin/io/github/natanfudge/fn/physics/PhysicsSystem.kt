@@ -36,10 +36,10 @@ class PhysicsSystem(var gravity: Boolean = true) {
         bodies.remove(obj)
     }
 
-    fun getTouching(body: Body): List<Body> {
-        val intersections = bodies.filter { intersect(body, it) && it !== body }
-        return intersections
-    }
+//    fun getTouching(body: Body): List<Body> {
+//        val intersections = bodies.filter { intersect(body, it) && it !== body }
+//        return intersections
+//    }
 
     private fun isGrounded(body: Body): Boolean {
         for (other in bodies) {
@@ -47,19 +47,10 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 // Make sure to not allow "standing on ledges" inside nearby walls
                 other.boundingBox.intersects(body.boundingBox, xEpsilon = 0f, yEpsilon = 0f)
             ) {
-//                println("Grounded because our body ${body.boundingBox} intersects with other body ${other.boundingBox}")
                 return true
             }
         }
         return false
-//        // We add an extra epsilon of padding because objects are usually placed slightly above the ground.
-//        return getTouching(body).any {
-//            it.boundingBox.maxZ < body.boundingBox.minZ + 0.0001f
-//                    // Make sure the body is decently touching teh ground as well, to avoid being able to sort of "stand
-//                    && it.boundingBox.overlap(body.boundingBox, 0) > 0.001f
-//                    && it.boundingBox.overlap(body.boundingBox, 1) > 0.001f
-////                    && it.boundingBox.overlap(body.boundingBox, 2) > 1.001f
-//        }
     }
 
     private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox, epsilon = 0f)
@@ -150,21 +141,10 @@ class PhysicsSystem(var gravity: Boolean = true) {
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
             val sinkAmount = (surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)).roundUpTo5DecimalPoints()
 
-            val oldPos = body.boundingBox
-
             // Place above surface
             body.position = body.position.copy(
                 pushoutAxis, value = body.position[pushoutAxis] + sinkAmount
             )
-
-            //TODO: I think solution is to not do this when two axis have very little overlap
-
-            if (pushoutAxis != 2) {
-                println(
-                    "Pushout in axis $pushoutAxis to ${(body.boundingBox.min(pushoutAxis))}- ${body.boundingBox.max(pushoutAxis)} because the overlaps are: $overlapByAxis. " +
-                            "We were at $oldPos, and after push of sink = $sinkAmount we are at ${body.boundingBox} and surface is at ${surface.boundingBox}"
-                )
-            }
 
         } else {
             val sinkAmount = (body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis)).roundUpTo5DecimalPoints()
@@ -290,10 +270,6 @@ fun Float.roundUpTo5DecimalPoints(): Float {
     return ceil(this * scale) / scale
 }
 
-fun Float.roundDownTo5DecimalPoints(): Float {
-    val scale = 100_000f
-    return floor(this * scale) / scale
-}
 
 
 private operator fun Vec3f.times(ue: Double) = Vec3f((x * ue).toFloat(), (y * ue).toFloat(), (z * ue).toFloat())

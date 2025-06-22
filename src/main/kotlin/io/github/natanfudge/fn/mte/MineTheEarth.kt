@@ -1,22 +1,16 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
-import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.mte.Balance.MineInterval
-import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.renderState
 import io.github.natanfudge.fn.render.InputManagerMod
-import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.milliseconds
-import kotlin.math.*
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.random.Random
 
 object Balance {
@@ -37,134 +31,12 @@ enum class BlockType {
 fun Float.ceilToInt(): Int = ceil(this).toInt()
 
 
-//TODO: change hoverMod to reach the root fun, then find all child renders and set their tint.
-
-// Old restart: ~30 ms
-
-
-class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
-    companion object {
-        val model = Model.fromGlbResource("files/models/hedgie_lowres.glb")
-    }
-
-    val render = renderState(model)
-
-    val physics = physics(render, game.physics)
-
-    private val baseRotation = physics.rotation
-
-    private val mineRateLimit = RateLimiter(game.context)
-
-    private var movingLeft = true
-    private var movingRight = true
-
-    init {
-        physics.position = game.playerStartingPos
-
-        val speed = 3f
-
-        var balance = 0
-        // TODO: 1. go back to position setting and check isGrounded.. with velocity any thing that stops the velocity will cause us to have minus velocity aftewards/
-        // and also the reverse - we might lose the velocity fast and be unable to move
-        // I think the edge problem still exists tho. Maybe less of a problem once we constantly move the velocity.
-
-        game.input.registerHotkey(
-            "Left", Key.A, onHold = {
-                physics.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
-                physics.position -= Vec3f(it * 3, 0f, 0f)
-            },
-            onRelease = {
-                physics.rotation = baseRotation
-            }
-        )
-
-        game.input.registerHotkey(
-            "Right", Key.D,
-            onHold = {
-                physics.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
-                physics.position += Vec3f(it * 3, 0f, 0f)
-            },
-            onRelease = {
-                physics.rotation = baseRotation
-            }
-        )
-
-
-        game.input.registerHotkey("Jump", Key.Spacebar, onPress = {
-            if (physics.isGrounded) {
-                physics.velocity += Vec3f(0f, 0f, 8f)
-            }
-        })
-
-        game.input.registerHotkey("Break", PointerButton.Primary, onHold = {
-            mineRateLimit.run(MineInterval) {
-                val selectedBlock = context.getHoveredRoot()
-                if (selectedBlock is Block) {
-                    val target = targetBlock(selectedBlock)
-                    if (target != null) {
-                        target.health -= 1f
-                    }
-                }
-            }
-        })
-    }
-
-    val intPos2D get() = IntOffset(physics.position.x.roundToInt(), physics.position.z.roundToInt())
-
-    /**
-     * We target the first block near the player, because the selected block might be "covered" by the perspective of the player character.
-     */
-    fun targetBlock(directlyHoveredBlock: Block): Block? {
-        if (intPos2D.diagonalDistance(directlyHoveredBlock.pos) > Balance.BreakReach) return null
-        return firstBlockAlong(intPos2D, directlyHoveredBlock.pos)
-    }
-
-    private fun firstBlockAlong(startPos: IntOffset, endPos: IntOffset): Block? {
-        var x0 = startPos.x
-        var y0 = startPos.y
-        val x1 = endPos.x
-        val y1 = endPos.y
-
-        // Δ values
-        val dx = abs(x1 - x0)
-        val dy = -abs(y1 - y0)
-
-        // Step directions (+1 or -1)
-        val sx = if (x0 < x1) 1 else -1
-        val sy = if (y0 < y1) 1 else -1
-
-        var err = dx + dy      // error term (≈ 0 at perfect diagonal)
-
-        while (true) {
-            val pointAlongTheWay = IntOffset(x0, y0)      // current cell
-            val block = game.blocks[pointAlongTheWay]
-            if (block != null) return block
-
-            // reached destination → stop
-            if (x0 == x1 && y0 == y1) break
-
-            val e2 = 2 * err                 // doubled error for comparison
-            if (e2 >= dy) {                  // step in X?
-                err += dy
-                x0 += sx
-            }
-            if (e2 <= dx) {                  // step in Y?
-                err += dx
-                y0 += sy
-            }
-        }
-        return null
-    }
-}
 
 /**
  * Returns the distance between two [IntOffset]s, with diagonals only counting as one unit.
  */
 fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - to.y))
 
-
-//TODO: if we walk into the wall it registers as being on a floor, which stops falling and allows us to jump again.
-// (it's because slightly walk into the wall, and then it looks like we are inside the wall. The fix is
 
 //TODO: on Compose error, catch it instead of making it run loose and freeze the Compose menu
 

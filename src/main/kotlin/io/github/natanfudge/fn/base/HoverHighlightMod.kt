@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
-import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.FunRenderState
 import io.github.natanfudge.fn.physics.Tag
@@ -30,6 +29,10 @@ class HoverHighlightMod(
 
         // The tint that was given to the object by hovering over it. We store this to check if this has changed, and if so
         val PostHoverTintTag = Tag<Tint>("HoverHighlightMod-PostHoverTint")
+    }
+
+    override fun frame(deltaMs: Double) {
+        colorHoveredObject()
     }
 
     var hoveredObjectRoot: Fun? = null
@@ -61,7 +64,7 @@ class HoverHighlightMod(
                     it.setTag(PreHoverTintTag, it.tint)
                     // Apply new tint
                     it.tint = Tint(
-                        lerp(it.tint.color, Color.White.copy(alpha = 0.5f), 0.2f), strength = 0.2f
+                        lerp(it.tint.color, Color.White.copy(alpha = 0.5f), 0.2f), strength = 0.1f
                     )
                     // Remember new tint
                     it.setTag(PostHoverTintTag, it.tint)
@@ -73,9 +76,4 @@ class HoverHighlightMod(
 
     }
 
-    override fun handleInput(input: InputEvent) {
-        if (input is InputEvent.PointerEvent) {
-            colorHoveredObject()
-        }
-    }
 }

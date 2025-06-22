@@ -85,29 +85,29 @@ private fun run(app: FunAppInitializer<*>) {
     exitProcess(0)
 }
 
-class RealTime(context: FunContext): Fun("time", context) , FunTime {
-    override var speed by funValue(1f, "speed")
+class FunTime(context: FunContext) : Fun("time", context) {
+    var speed by funValue(1f, "speed")
     internal lateinit var app: FunApp
-    override fun advance(time: Duration) {
+    fun advance(time: Duration) {
         app.actualPhysics(time)
     }
 
     var stopped = false
 
-    override fun stop() {
+    fun stop() {
         stopped = true
     }
 
-    override fun resume() {
+    fun resume() {
         stopped = false
         prevPhysicsTime = TimeSource.Monotonic.markNow()
     }
 
-    override var gameTime: Duration by funValue(Duration.ZERO, "gameTime")
+    var gameTime: Duration by funValue(Duration.ZERO, "gameTime")
 
     private var prevPhysicsTime = TimeSource.Monotonic.markNow()
 
-    override fun _poll() {
+    fun _poll() {
         if (stopped) return
 
         val physicsDelta = prevPhysicsTime.elapsedNow()
@@ -135,15 +135,15 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
         }
 
         val funDimLifecycle = window.dimensionsLifecycle.bind("Fun Dimensions") {
-            FunFixedSizeWindow(it.surface, it.dimensions)
+            FunWindow(it.surface, it.dimensions)
         }
 
         fsWatcher = FileSystemWatcher()
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
         val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind(AppLifecycleName) {
-            val context = VisibleFunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
-            val time = RealTime(context)
+            val context = FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
+            val time = FunTime(context)
             context.time = time
 
             val app = initFunc(context)
@@ -191,7 +191,7 @@ abstract class FunApp : AutoCloseable {
 
     }
 
-    open fun frame(delta: Float) {
+    open fun frame(delta: Double) {
 
     }
 
@@ -232,9 +232,9 @@ internal fun FunApp.actualHandleInput(input: InputEvent) {
 }
 
 
-internal fun FunApp.actualFrame(delta: Float) {
-    mods.forEach { it.frame(delta) }
-    frame(delta)
+internal fun FunApp.actualFrame(deltaMs: Double) {
+    mods.forEach { it.frame(deltaMs) }
+    frame(deltaMs)
 }
 
 internal fun FunApp.actualPhysics(delta: Duration) {
@@ -244,102 +244,38 @@ internal fun FunApp.actualPhysics(delta: Duration) {
 }
 
 
-interface FunWindow {
-    val width: Int
-    val height: Int
-    val aspectRatio: Float
-    var fovYRadians: Float
-}
+class FunContext(
+    private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
+    private val stateContext: FunStateContext,
+) : FunStateContext by stateContext {
 
-interface FunContext : FunStateContext {
-    val world: FunWorldRender
-    val window: FunWindow
-    fun setCursorLocked(locked: Boolean)
-    fun setGUIFocused(focused: Boolean)
-
-    fun restartApp() {}
-
-    fun register(fn: Fun) {}
-
-    fun unregister(fn: Fun) {}
+    lateinit var time: FunTime
 
 
-//    fun onAppRestarted(callback: () -> Unit) {}
-//    fun close(){}
+    val window by dims
 
-    var camera: DefaultCamera
+    val world = surface.world
 
-    val time: FunTime
-
-    val panels: Panels
-}
-
-interface FunTime {
-    fun advance(time: Duration)
-
-    /**
-     * How quickly the game advances, the default is 1 which is normal speed.
-     */
-    var speed: Float
-
-    fun stop()
-
-    fun resume()
-
-    val gameTime: Duration get() = Duration.ZERO
-
-    /**
-     * Should not be called by users.
-     */
-    fun _poll()
-}
-
-interface FunWorldRender {
-    /**
-     * Used for ray casting, as the renderer is involved in it
-     */
-    var cursorPosition: Offset?
-
-    val hoveredObject: Any?
-
-    /**
-     * Used to access the BoundModel, only creating it when needing
-     */
-    fun getOrBindModel(model: Model): BoundModel
-}
-
-class VisibleFunContext(
-    private val surface: FunSurface, dims: ValueHolder<FunFixedSizeWindow>, private val compose: ComposeWebGPURenderer,
-    private val stateContext: FunStateContext
-) : FunContext, FunStateContext by stateContext {
-
-    override lateinit var time: FunTime
-
-
-    override val window by dims
-
-    override val world = surface.world
-
-    override var camera = DefaultCamera()
+    var camera = DefaultCamera()
 
     private val rootFuns = mutableMapOf<FunId, Fun>()
     private var restarting = false
 
 //    private val appRestarted = MutEventStream<Unit>()
 
-    override fun restartApp() {
+    fun restartApp() {
         restarting = true
         rootFuns.forEach { it.value.close() }
 
         ProcessLifecycle.restartByLabel(AppLifecycleName)
     }
 
-    override fun register(fn: Fun) {
+    fun register(fn: Fun) {
         if (fn.isRoot) rootFuns[fn.id] = fn
         stateContext.stateManager.register(fn)
     }
 
-    override fun unregister(fn: Fun) {
+    fun unregister(fn: Fun) {
         // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
         if (restarting) return
         if (fn.isRoot) rootFuns.remove(fn.id)
@@ -350,15 +286,15 @@ class VisibleFunContext(
 //        super.onAppRestarted(callback)
 //    }
 
-    override val panels: Panels = Panels()
+    val panels: Panels = Panels()
 
 
-    override fun setCursorLocked(locked: Boolean) {
+    fun setCursorLocked(locked: Boolean) {
         surface.ctx.window.cursorLocked = locked
         if (locked) world.cursorPosition = (null)
     }
 
-    override fun setGUIFocused(focused: Boolean) {
+    fun setGUIFocused(focused: Boolean) {
         compose.compose.windowLifecycle.assertValue.focused = focused
     }
 
