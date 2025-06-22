@@ -55,8 +55,18 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     private val mineRateLimit = RateLimiter(game.context)
 
+    private var movingLeft = true
+    private var movingRight = true
+
     init {
         physics.position = game.playerStartingPos
+
+        val speed = 3f
+
+        var balance = 0
+        // TODO: 1. go back to position setting and check isGrounded.. with velocity any thing that stops the velocity will cause us to have minus velocity aftewards/
+        // and also the reverse - we might lose the velocity fast and be unable to move
+        // I think the edge problem still exists tho. Maybe less of a problem once we constantly move the velocity.
 
         game.input.registerHotkey(
             "Left", Key.A, onHold = {
@@ -79,8 +89,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             }
         )
 
+
         game.input.registerHotkey("Jump", Key.Spacebar, onPress = {
-            if (physics.isGrounded()) {
+            if (physics.isGrounded) {
                 physics.velocity += Vec3f(0f, 0f, 8f)
             }
         })
@@ -202,7 +213,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         physics.system.earthGravityAcceleration = 20f
 
         player.render.positionState.change.listen {
-            context.camera.setLookAt(it + Vec3f(0f,-8f,0f) , forward = Vec3f(0f, 1f, 0f))
+            context.camera.setLookAt(it + Vec3f(0f, -8f, 0f), forward = Vec3f(0f, 1f, 0f))
             // This one is mostly for zooming in
             context.camera.focus(it, distance = 8f)
         }

@@ -19,6 +19,8 @@ interface Body {
     val affectedByGravity: Boolean
     val isImmovable: Boolean
 
+    var isGrounded: Boolean // SLOW: Don't think if we need this for EVERYTHING
+
 
     /**
      * Apply the changes of state in the body to consumers of this body like renderers.

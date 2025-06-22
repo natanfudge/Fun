@@ -145,4 +145,15 @@ class TestPhysics {
             }
         }
     }
+
+    @Test
+    fun testLedgeAbuse() {
+        object : PhysicsTest(show = true) {
+            override fun PhysicsSimulationContext.run() {
+                val cube = cube()
+                cube.render.position = Vec3f(x = 0f, y = 0f, z = 0.55f)
+                cube.physics.velocity = Vec3f(1f, 0f, 0f)
+            }
+        }
+    }
 }

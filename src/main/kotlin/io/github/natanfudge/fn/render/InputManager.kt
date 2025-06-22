@@ -16,7 +16,8 @@ import kotlin.time.Duration
 
 class InputManagerMod : FunMod {
     val heldKeys = mutableSetOf<FunKey>()
-//    val heldMouseButtons = mutableSetOf<PointerButton>()
+
+    //    val heldMouseButtons = mutableSetOf<PointerButton>()
     var prevCursorPos: Offset? = null
 
     val focused: Boolean get() = prevCursorPos != null
@@ -38,22 +39,23 @@ class InputManagerMod : FunMod {
         name: String, defaultKey: Key,
         onHold: (delta: Float) -> Unit = {},
         onRelease: () -> Unit = {},
-        onPress: () -> Unit = {}
+        onPress: () -> Unit = {},
     ) = registerHotkey(name, FunKey.Keyboard(defaultKey), onHold, onRelease, onPress)
 
     fun registerHotkey(
         name: String, defaultKey: PointerButton,
         onHold: (delta: Float) -> Unit = {},
         onRelease: () -> Unit = {},
-        onPress: () -> Unit = {}
+        onPress: () -> Unit = {},
     ) = registerHotkey(name, FunKey.Mouse(defaultKey), onHold, onRelease, onPress)
+
     fun registerHotkey(
         name: String, defaultKey: FunKey,
         onHold: (delta: Float) -> Unit = {},
         onRelease: () -> Unit = {},
-        onPress: () -> Unit = {}
+        onPress: () -> Unit = {},
     ): Hotkey {
-        val hotkey = Hotkey(defaultKey, onPress, onRelease, onHold, name)
+        val hotkey = Hotkey(pressed = defaultKey in heldKeys, defaultKey, onPress, onRelease, onHold, name)
         hotkeys.add(hotkey)
         return hotkey
     }
@@ -76,7 +78,10 @@ class InputManagerMod : FunMod {
                     KeyEventType.KeyDown -> {
                         for (hotkey in hotkeys) {
                             if (hotkey.key.isKey(event.key)) {
-                                hotkey.onPress()
+                                if (!hotkey.isPressed) {
+                                    hotkey.isPressed = true
+                                    hotkey.onPress()
+                                }
                             }
                         }
                         heldKeys.add(FunKey.Keyboard(event.key))
@@ -85,6 +90,7 @@ class InputManagerMod : FunMod {
                     KeyEventType.KeyUp -> {
                         for (hotkey in hotkeys) {
                             if (hotkey.key.isKey(event.key)) {
+                                hotkey.isPressed = false
                                 hotkey.onRelease()
                             }
                         }
@@ -134,8 +140,8 @@ class InputManagerMod : FunMod {
 
 //SUS: I would prefer not to wrap anything and have one FunKey class that has both mouse and keyboard keys
 sealed interface FunKey {
-    data class Keyboard(val value: Key): FunKey
-    data class Mouse(val value: PointerButton): FunKey
+    data class Keyboard(val value: Key) : FunKey
+    data class Mouse(val value: PointerButton) : FunKey
 
     fun isKey(other: Key) = this is Keyboard && value == other
 }
@@ -144,12 +150,16 @@ sealed interface FunKey {
 //    Press, Release, Hold
 //}
 
-data class Hotkey(
+class Hotkey(
 //    val type: PressType,
+    pressed: Boolean,
     var key: FunKey,
     val onPress: () -> Unit,
     val onRelease: () -> Unit,
     val onHold: (delta: Float) -> Unit,
 //    val action: () -> Unit,
     val name: String,
-)
+) {
+    var isPressed: Boolean = pressed
+        internal set
+}

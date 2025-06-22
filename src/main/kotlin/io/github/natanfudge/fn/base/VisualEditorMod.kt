@@ -55,6 +55,7 @@ class VisualEditorMod(
             enabled = !enabled
             println("Visual Editor=$enabled")
             if (!enabled) {
+                restoreOldTint()
                 // Reset state if disabled
                 selectedObject = null
                 selectedObjectOldTint = null
@@ -122,6 +123,10 @@ class VisualEditorMod(
         }
     }
 
+    private fun restoreOldTint() {
+        selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
+    }
+
     private fun captureSelectedObject(input: InputEvent.PointerEvent) {
         if (input.eventType == PointerEventType.Release) {
             val mouseDownPos = mouseDownPos ?: return
@@ -130,19 +135,19 @@ class VisualEditorMod(
                 val selected = context.world.hoveredObject as? Visible
                 if (selectedObject != selected) {
                     // Restore the old color
-                    selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
+                    restoreOldTint()
                     // We can hover-highlight again
                     selectedObject?.removeTag(HoverHighlightMod.DoNotHighlightTag)
                     selectedObject = selected
                     // Save color to restore later
                     selectedObjectOldTint = selected?.getTag(HoverHighlightMod.PreHoverTintTag) ?: selected?.tint
-                    val oldTint = selectedObjectOldTint!!
+                    val oldTint = selectedObjectOldTint
                     if (selected != null) {
                         // Don't hover-highlight when selecting
                         selected.setTag(HoverHighlightMod.DoNotHighlightTag, true)
                         selected.tint = Tint(
                             lerp(
-                                oldTint.color,
+                                oldTint!!.color,
                                 Color.White.copy(alpha = 0.5f),
                                 0.8f
                             ), strength = 0.6f

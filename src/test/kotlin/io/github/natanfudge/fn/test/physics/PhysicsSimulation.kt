@@ -78,7 +78,7 @@ class PhysicsSimulationContext(context: FunContext, val physics: PhysicsSystem, 
     /**
      * Note that [callback] is called immediately, only the assertions occur in a delay.
      */
-    fun after(delay: Duration, callback: PhysicsAssertionBlock.() -> Unit) {
+    fun after(delay: Duration, everyPhysicsTick: () -> Unit = {}, callback: PhysicsAssertionBlock.() -> Unit) {
         val block = PhysicsAssertionBlock().apply(callback)
         spawnTargetGhosts(block)
         placeCameraToShowEverything(block)

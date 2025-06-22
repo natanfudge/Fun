@@ -4,6 +4,7 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.round
 import kotlin.math.sin
 import kotlin.time.Duration
@@ -40,12 +41,28 @@ class PhysicsSystem(var gravity: Boolean = true) {
         return intersections
     }
 
-    fun isGrounded(body: Body): Boolean {
-        // We add an extra epsilon of padding because objects are usually placed slightly above the ground.
-        return getTouching(body).any { it.boundingBox.maxZ < body.boundingBox.minZ + 0.0001f }
+    private fun isGrounded(body: Body): Boolean {
+        for (other in bodies) {
+            if (other.isImmovable &&
+                // Make sure to not allow "standing on ledges" inside nearby walls
+                other.boundingBox.intersects(body.boundingBox, xEpsilon = 0f, yEpsilon = 0f)
+            ) {
+//                println("Grounded because our body ${body.boundingBox} intersects with other body ${other.boundingBox}")
+                return true
+            }
+        }
+        return false
+//        // We add an extra epsilon of padding because objects are usually placed slightly above the ground.
+//        return getTouching(body).any {
+//            it.boundingBox.maxZ < body.boundingBox.minZ + 0.0001f
+//                    // Make sure the body is decently touching teh ground as well, to avoid being able to sort of "stand
+//                    && it.boundingBox.overlap(body.boundingBox, 0) > 0.001f
+//                    && it.boundingBox.overlap(body.boundingBox, 1) > 0.001f
+////                    && it.boundingBox.overlap(body.boundingBox, 2) > 1.001f
+//        }
     }
 
-    private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox)
+    private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox, epsilon = 0f)
 
     fun tick(delta: Duration) {
         if (delta > maxDelta) {
@@ -82,58 +99,100 @@ class PhysicsSystem(var gravity: Boolean = true) {
         }
         val intersections = getIntersections()
         for ((a, b) in intersections) {
-            // Floor has special handling, we simply place the elements above the ground
+            // When a body encounters an immovable object, we "push out" the body from the immovable object.
+            // We make sure to do this first, then we resolve whether we need to stop velocity as a result of hitting a floor/wall
             if (a.isImmovable) {
                 if (!b.isImmovable) {
-                    stopBody(surface = a, body = b)
+                    pushOut(surface = a, body = b)
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
-                    stopBody(surface = b, body = a)
+                    pushOut(surface = b, body = a)
                 }
             } else {
                 applyElasticCollision(a, b)
             }
         }
-        bodies.forEach { it.commit() }
+
+        // Now that nothing is inside the wall/floor, we can check if we hit a wall or stand on a floor
+        for ((a, b) in intersections) {
+            // Floor has special handling, we simply place the elements above the ground
+            if (a.isImmovable) {
+                if (!b.isImmovable) {
+                    stop(surface = a, body = b)
+                }
+
+            } else if (b.isImmovable) {
+                if (!a.isImmovable) {
+                    stop(surface = b, body = a)
+                }
+            }
+        }
+        bodies.forEach {
+            it.isGrounded = isGrounded(it)
+            it.commit()
+        }
     }
 
 
     /**
      * If a body touches the floor / wall, we firmly place it above the floor / wall and stop it from moving
      */
-    private fun stopBody(surface: Body, body: Body) {
+    private fun pushOut(surface: Body, body: Body) {
         val overlapByAxis = (0..2).map {
             it to surface.boundingBox.overlap(body.boundingBox, it)
         }
 
-//        for ((axis, overlap) in overlapByAxis) {
-//            if (overlap > 0f) stopInAxis(body, axis)
-//        }
-
         // Push the body apart along the axis with the smallest overlap, so it stops and doesn't sink into the surface.
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
 
-        stopInAxis(body, pushoutAxis)
-
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
-            val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
+            val sinkAmount = (surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)).roundUpTo5DecimalPoints()
+
+            val oldPos = body.boundingBox
+
             // Place above surface
             body.position = body.position.copy(
-                pushoutAxis, value = (body.position[pushoutAxis] + sinkAmount).roundTo5DecimalPoints()
+                pushoutAxis, value = body.position[pushoutAxis] + sinkAmount
             )
 
+            //TODO: I think solution is to not do this when two axis have very little overlap
+
+            if (pushoutAxis != 2) {
+                println(
+                    "Pushout in axis $pushoutAxis to ${(body.boundingBox.min(pushoutAxis))}- ${body.boundingBox.max(pushoutAxis)} because the overlaps are: $overlapByAxis. " +
+                            "We were at $oldPos, and after push of sink = $sinkAmount we are at ${body.boundingBox} and surface is at ${surface.boundingBox}"
+                )
+            }
+
         } else {
-            val sinkAmount = body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis)
+            val sinkAmount = (body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis)).roundUpTo5DecimalPoints()
             // Place below surface
             body.position = body.position.copy(
-                pushoutAxis, value = (body.position[pushoutAxis] - sinkAmount).roundTo5DecimalPoints()
+                pushoutAxis, value = body.position[pushoutAxis] - sinkAmount
             )
         }
     }
 
-    // height = 0.9544878
+    /**
+     * If a body is close to a surface, and will reasonably touch it, we do not allow it to move through the surface, in the axis of that surface.
+     */
+    private fun stop(surface: Body, body: Body) {
+        val overlapByAxis = (0..2).map {
+            it to surface.boundingBox.overlap(body.boundingBox, it)
+        }
+
+        // Push the body apart along the axis with the smallest overlap, so it stops.
+        val pushoutAxis = overlapByAxis.minBy { it.second }.first
+
+        val otherAxes = overlapByAxis.filter { it.first != pushoutAxis }
+        // Only stop if the body is reasonably touching the surface in the OTHER axes
+        if (otherAxes.all { it.second > 0.001f }) {
+            stopInAxis(body, pushoutAxis)
+        }
+    }
+
     private fun stopInAxis(body: Body, axis: Int) {
         body.velocity = body.velocity.copy(axis = axis, value = 0f)
         body.acceleration = body.acceleration.copy(axis = axis, value = 0f)
@@ -226,9 +285,14 @@ class PhysicsSystem(var gravity: Boolean = true) {
     }
 }
 
-fun Float.roundTo5DecimalPoints(): Float {
+fun Float.roundUpTo5DecimalPoints(): Float {
     val scale = 100_000f
-    return round(this * scale) / scale
+    return ceil(this * scale) / scale
+}
+
+fun Float.roundDownTo5DecimalPoints(): Float {
+    val scale = 100_000f
+    return floor(this * scale) / scale
 }
 
 

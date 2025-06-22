@@ -79,10 +79,11 @@ data class AxisAlignedBoundingBox(
         }
     }
 
-    fun intersects(other: AxisAlignedBoundingBox, epsilon: Float = 1e-5f): Boolean {
-        return (minX - epsilon <= other.maxX && maxX + epsilon >= other.minX) &&
-                (minY - epsilon <= other.maxY && maxY + epsilon >= other.minY) &&
-                (minZ - epsilon <= other.maxZ && maxZ + epsilon >= other.minZ)
+    fun intersects(other: AxisAlignedBoundingBox, epsilon: Float = 1e-5f): Boolean = intersects(other, epsilon, epsilon, epsilon)
+    fun intersects(other: AxisAlignedBoundingBox,xEpsilon: Float = 1e-5f, yEpsilon: Float = 1e-5f, zEpsilon: Float = 1e-5f): Boolean {
+        return (minX - xEpsilon <= other.maxX && maxX + xEpsilon >= other.minX) &&
+                (minY - yEpsilon <= other.maxY && maxY + yEpsilon >= other.minY) &&
+                (minZ - zEpsilon <= other.maxZ && maxZ + zEpsilon >= other.minZ)
     }
 
     fun transformed(mat: Mat4f): AxisAlignedBoundingBox {

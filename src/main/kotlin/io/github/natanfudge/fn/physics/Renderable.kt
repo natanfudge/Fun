@@ -244,14 +244,16 @@ class FunPhysics(
     override var mass: Float by funValue(1f, "mass")
     override var isImmovable: Boolean by funValue(false, "isImmovable")
 
-    fun getTouching(): List<Fun> {
-        return physics.getTouching(this).map {
-            check(it is FunPhysics) { "Only expecting FunPhysics to be inserted to the physics system" }
-            it.parent!!
-        }
-    }
+    override var isGrounded: Boolean by funValue(true, "isGrounded")
 
-    fun isGrounded() = physics.isGrounded(this)
+//    fun getTouching(): List<Fun> {
+//        return physics.getTouching(this).map {
+//            check(it is FunPhysics) { "Only expecting FunPhysics to be inserted to the physics system" }
+//            it.parent!!
+//        }
+//    }
+
+
 
 
     init {
