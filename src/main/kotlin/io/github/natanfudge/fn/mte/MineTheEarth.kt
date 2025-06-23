@@ -25,7 +25,6 @@ import kotlin.random.Random
 fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - to.y))
 
 
-//TODO: on Compose error, catch it instead of making it run loose and freeze the Compose menu
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
 

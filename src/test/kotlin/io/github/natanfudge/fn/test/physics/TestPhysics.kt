@@ -149,7 +149,7 @@ class TestPhysics {
 
     @Test
     fun testLedgeAbuse() {
-        object : PhysicsTest(show = false) {
+        object : PhysicsTest(show = true) {
             override fun PhysicsSimulation.run() {
                 val cube = cube(
                     position = Vec3f(x = 0f, y = 0f, z = 4f),

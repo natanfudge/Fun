@@ -258,7 +258,7 @@ class FunContext(
 
     var camera = DefaultCamera()
 
-    private val rootFuns = mutableMapOf<FunId, Fun>()
+    val rootFuns = mutableMapOf<FunId, Fun>()
     private var restarting = false
 
 //    private val appRestarted = MutEventStream<Unit>()

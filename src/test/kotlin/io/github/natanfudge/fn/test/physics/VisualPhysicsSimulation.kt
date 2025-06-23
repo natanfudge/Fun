@@ -103,22 +103,23 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
     }
 }
 
-class PhysicsSimulationApp(override val context: FunContext, simulation: PhysicsTest, val throwOnFailure: Boolean) : FunApp() {
+class PhysicsSimulationApp(override val context: FunContext, private val simulation: PhysicsTest, val throwOnFailure: Boolean) : FunApp() {
     val physics = PhysicsMod()
     val scheduler = installMod(VisibleSimulationTickerMod(context, physics.system))
 
     val input = installMod(InputManagerMod())
 
+    val simulationRunner = VisualPhysicsSimulation(this)
+
+    private fun runSimulation() {
+        with(simulation) {
+            simulationRunner.run()
+        }
+    }
+
     init {
         installMods(VisualEditorMod(this, input), CreativeMovementMod(context, installMod(input)))
-
-        with(simulation) {
-            VisualPhysicsSimulation(this@PhysicsSimulationApp).run()
-        }
-//        val context = PhysicsSimulationContext(context, physics.system, scheduler, throwOnFailure)
-//        with(simulation) {
-//            context.run()
-//        }
+        runSimulation()
     }
 
     @Composable
@@ -141,7 +142,14 @@ class PhysicsSimulationApp(override val context: FunContext, simulation: Physics
                             Icon(Icons.Filled.Pause, "stop")
                         }
                     }
-                    IconButton(onClick = { context.restartApp() }) {
+                    IconButton(onClick = {
+                        //TODO: CME
+                        scheduler.reset()
+                        context.rootFuns.forEach {
+                            it.value.close()
+                        }
+                        runSimulation()
+                    }) {
                         Icon(Icons.Filled.Refresh, "restart")
                     }
                     var simulationSpeed by rememberPersistentFloat("simulation-speed") { 1f }
@@ -175,6 +183,13 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
         this.scheduleDelay = delay
         this.finishCallback = callback
         this.tickCallback = tickCallback
+    }
+
+    fun reset() {
+        finishCallback = null
+        tickCallback = null
+        timeSinceScheduleStart = Duration.ZERO
+        scheduleDelay = Duration.ZERO
     }
 
 

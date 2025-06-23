@@ -16,17 +16,12 @@ import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.window.*
+import kotlinx.coroutines.CoroutineExceptionHandler
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
 import org.lwjgl.glfw.GLFW
-import org.lwjgl.glfw.GLFW.GLFW_CROSSHAIR_CURSOR
-import org.lwjgl.glfw.GLFW.GLFW_HAND_CURSOR
-import org.lwjgl.glfw.GLFW.GLFW_IBEAM_CURSOR
-import org.lwjgl.glfw.GLFW.glfwCreateStandardCursor
-import org.lwjgl.glfw.GLFW.glfwDestroyCursor
-import org.lwjgl.glfw.GLFW.glfwGetWindowContentScale
-import org.lwjgl.glfw.GLFW.glfwSwapBuffers
+import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.system.MemoryUtil
@@ -72,7 +67,7 @@ class GlfwComposeSceneContext(handle: () -> WindowHandle) : ComposeSceneContext,
 }
 
 class GlfwComposePlatformContext(
-    private val handle: () -> WindowHandle
+    private val handle: () -> WindowHandle,
 ) : PlatformContext by PlatformContext.Empty, AutoCloseable {
 
     /** Cache of `glfwCreateStandardCursor` results so we don’t create the same cursor twice. */
@@ -82,9 +77,9 @@ class GlfwComposePlatformContext(
         // Pick (or build) the native cursor to install
         val cursor: Long = when (pointerIcon) {
             PointerIcon.Default -> 0L                             // Arrow
-            PointerIcon.Text    -> std(GLFW_IBEAM_CURSOR)           // I-beam
+            PointerIcon.Text -> std(GLFW_IBEAM_CURSOR)           // I-beam
             PointerIcon.Crosshair -> std(GLFW_CROSSHAIR_CURSOR)     // Crosshair
-            PointerIcon.Hand    -> std(GLFW_HAND_CURSOR)            // Hand
+            PointerIcon.Hand -> std(GLFW_HAND_CURSOR)            // Hand
             /* ---------- Anything else: just arrow ---------- */
             else -> 0L
         }
@@ -118,16 +113,26 @@ class ComposeGlfwWindow(
     val hostHandle: () -> WindowHandle,
     private val density: Density,
 //    private val composeContent: @Composable () -> Unit,
+    val config: ComposeConfig,
     private val onInvalidate: () -> Unit,
 ) : AutoCloseable {
 
     init {
         GLFW.glfwMakeContextCurrent(handle)
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            println("Foo")
+        }
     }
 
 
     val frameStream = MutEventStream<ComposeFrameEvent>()
     val context = DirectContext.makeGL()
+    val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        // TODO: use proper logging
+        System.err.println("An error occurred inside an asynchronous Compose callback. The GUI will restart itself to recover.")
+        throwable.printStackTrace()
+        config.windowLifecycle.restart()
+    }
     val dispatcher = GlfwCoroutineDispatcher()
     val frameDispatcher = FrameDispatcher(dispatcher) {
         // Draw new skia content
@@ -140,7 +145,7 @@ class ComposeGlfwWindow(
     val glfwContext = GlfwComposeSceneContext(hostHandle)
 
     val scene = PlatformLayersComposeScene(
-        coroutineContext = dispatcher,
+        coroutineContext = dispatcher + exceptionHandler,
         density = density,
         invalidate = frameDispatcher::scheduleFrame,
         size = IntSize(initialWidth, initialHeight),
@@ -195,7 +200,8 @@ class ComposeConfig(
             var window: ComposeGlfwWindow? = null
             window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
-                density = Density(glfwGetWindowContentScale(it.handle)), hostHandle = { host.windowLifecycle.assertValue.handle }
+                density = Density(glfwGetWindowContentScale(it.handle)), hostHandle = { host.windowLifecycle.assertValue.handle },
+                config = this@ComposeConfig
             ) {
                 // Invalidate Compose frame on change
                 window!!.invalid = true
@@ -292,7 +298,17 @@ class ComposeConfig(
                     is InputEvent.KeyEvent -> window.scene.sendKeyEvent(input.event)
                     is InputEvent.PointerEvent -> {
                         with(input) {
-                            window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
+                            window.scene.sendPointerEvent(
+                                eventType,
+                                position,
+                                scrollDelta,
+                                timeMillis,
+                                type,
+                                buttons,
+                                keyboardModifiers,
+                                nativeEvent,
+                                button
+                            )
                         }
                     }
 
