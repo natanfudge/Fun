@@ -259,13 +259,13 @@ class FunContext(
     var camera = DefaultCamera()
 
     val rootFuns = mutableMapOf<FunId, Fun>()
-    private var restarting = false
+//    private var restarting = false
 
 //    private val appRestarted = MutEventStream<Unit>()
 
     fun restartApp() {
-        restarting = true
-        rootFuns.forEach { it.value.close() }
+//        restarting = true
+        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false)}
 
         ProcessLifecycle.restartByLabel(AppLifecycleName)
     }
@@ -277,7 +277,7 @@ class FunContext(
 
     fun unregister(fn: Fun) {
         // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
-        if (restarting) return
+//        if (restarting) return
         if (fn.isRoot) rootFuns.remove(fn.id)
         stateContext.stateManager.unregister(fn)
     }

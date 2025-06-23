@@ -82,11 +82,11 @@ abstract class Fun(
         close(unregisterFromParent = true)
     }
 
-    private fun close(unregisterFromParent: Boolean) {
-        context.unregister(this)
+    internal fun close(unregisterFromParent: Boolean, unregisterFromContext: Boolean = true) {
+        if (unregisterFromContext) context.unregister(this)
         cleanup()
         // No need to unregister when this is getting closed anyway
-        children.forEach { it.close(unregisterFromParent = false) }
+        children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }

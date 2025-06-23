@@ -45,11 +45,11 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
     private fun spawnTargetGhosts(block: PhysicsAssertionBlock) {
         for ((body, assertion) in block.assertions) {
             val renderNode = (body as Fun).getRoot().childrenTyped<FunRenderState>().single()
-            SimpleRenderObject("target-${index++}", app.context, renderNode.model).render.apply {
+            bodies.add(SimpleRenderObject("target-${index++}", app.context, renderNode.model).render.apply {
                 position = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
                 scale = renderNode.scale * 1.1f
-            }
+            })
         }
     }
 
@@ -67,6 +67,8 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
             aspectRatio = app.context.window.aspectRatio
         )
     }
+
+    val bodies = mutableListOf<Fun>()
 
     override fun cube(
         position: Vec3f,
@@ -87,13 +89,20 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
         body.physics.affectedByGravity = affectedByGravity
         body.physics.angularVelocity = angularVelocity
         body.physics.isImmovable = isImmovable
+        bodies.add(body)
         return body.physics
     }
+
+    var firstRun = true
 
     override fun after(delay: Duration, everyPhysicsTick: (Float) -> Unit, assertions: PhysicsAssertionBlock.() -> Unit) {
         val block = PhysicsAssertionBlock().apply(assertions)
         spawnTargetGhosts(block)
-        placeCameraToShowEverything(block)
+        if (firstRun) {
+            // We don't want to move the camera after the simulation was reset
+            placeCameraToShowEverything(block)
+            firstRun = false
+        }
 
         app.scheduler.schedule(delay, everyPhysicsTick) {
             block.assertions.forEach {
@@ -145,9 +154,10 @@ class PhysicsSimulationApp(override val context: FunContext, private val simulat
                     IconButton(onClick = {
                         //TODO: CME
                         scheduler.reset()
-                        context.rootFuns.forEach {
-                            it.value.close()
+                        simulationRunner.bodies.forEach {
+                            it.close()
                         }
+                        simulationRunner.bodies.clear()
                         runSimulation()
                     }) {
                         Icon(Icons.Filled.Refresh, "restart")
