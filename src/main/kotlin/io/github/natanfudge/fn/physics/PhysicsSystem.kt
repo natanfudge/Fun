@@ -43,11 +43,15 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     private fun isGrounded(body: Body): Boolean {
         for (other in bodies) {
-            if (other.isImmovable &&
-                // Make sure to not allow "standing on ledges" inside nearby walls
-                other.boundingBox.intersects(body.boundingBox, xEpsilon = 0f, yEpsilon = 0f)
-            ) {
-                return true
+            if (other.isImmovable) {
+                val zOverlap = other.boundingBox.maxZ - body.boundingBox.minZ
+                val xOverlap = other.boundingBox.overlap(body.boundingBox, 0)
+                val yOverlap = other.boundingBox.overlap(body.boundingBox, 1)
+
+                // Check that the other is *below* the body and overlaps significantly in X & Y
+                if (zOverlap >= -0.00001 && zOverlap <= 0.1 && xOverlap > 0.1 && yOverlap > 0.1) {
+                    return true
+                }
             }
         }
         return false
