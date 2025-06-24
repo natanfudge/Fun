@@ -128,7 +128,6 @@ class ComposeGlfwWindow(
     val frameStream = MutEventStream<ComposeFrameEvent>()
     val context = DirectContext.makeGL()
     val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        // TODO: use proper logging
         System.err.println("An error occurred inside an asynchronous Compose callback. The GUI will restart itself to recover.")
         throwable.printStackTrace()
         config.windowLifecycle.restart()

@@ -152,7 +152,6 @@ class PhysicsSimulationApp(override val context: FunContext, private val simulat
                         }
                     }
                     IconButton(onClick = {
-                        //TODO: CME
                         scheduler.reset()
                         simulationRunner.bodies.forEach {
                             it.close()

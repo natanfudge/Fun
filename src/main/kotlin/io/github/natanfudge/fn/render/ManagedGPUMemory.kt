@@ -19,8 +19,7 @@ value class GPUPointer<out T>(
     operator fun plus(offset: UInt) = GPUPointer<T>(address + offset)
 }
 
-//TODO: for some usages, we don't need to recreate a render group so just changing the buffer pointer would be fine - for those usages enable auto-resizing.
-// for other usages, we could just set a decent limit and throw when we try to resize, saying "We are waiting for bindless/mutable bind groups to enable doing this simply and performantly"
+
 class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expandable: Boolean, vararg usage: GPUBufferUsage) : AutoCloseable {
     val fullBytes get() = _nextByte
     private var _nextByte = 0uL

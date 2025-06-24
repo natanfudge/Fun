@@ -24,24 +24,6 @@ import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-//TODO:
-// 14. Trying making a basic game?
-// 15.   Visual transform system:
-//          - Bounding box wireframe
-//          - Translation Arrows
-//          - Rotation Arrows
-//          - Scale Arrows
-// 16. Better physics
-// 17. PBR
-// 20. Backlog stuff i don't really care about atm:
-// A. Deallocating GPU memory and free lists
-// B. Find-grained picking with per-triangle ray intersection checks
-// C. Various optimizations
-// D. Blender-like selection outline  https://www.reddit.com/r/howdidtheycodeit/comments/1bdzr16/how_did_they_code_the_selection_outline_in_blender/?utm_source=chatgpt.com
-// E. automatic GPU buffer expansion for expandable = true buffers
-// F. MDI the render calls: waiting for MDI itself and bindless resources for binding the textures
-// G. Expandable bound buffers - waiting for mutable bind groups
-// H. Zoom based on ray casting on where the cursor is pointing at - make the focal point be the center of the ray-casted object.
 
 
 

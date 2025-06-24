@@ -219,7 +219,6 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         start(seedValue = null, parentIndex = 0) // Placeholder parentIndex, it won't be used
     }
 
-    // SLOW: technically we can build a single "Restart" action for all the labels which would be faster than restarting the labels one by one.
     fun restartByLabels(labels: Set<String>) {
         tree.visitSubtrees {
             if (it.value.label in labels) Lifecycle<Any, Any>(it).restart()

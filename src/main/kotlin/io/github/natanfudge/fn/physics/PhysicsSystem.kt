@@ -4,8 +4,6 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.ceil
 import kotlin.math.cos
-import kotlin.math.floor
-import kotlin.math.round
 import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -125,7 +123,10 @@ class PhysicsSystem(var gravity: Boolean = true) {
             }
         }
         bodies.forEach {
-            it.isGrounded = isGrounded(it)
+            if (!it.isImmovable) {
+                // Don't care about isGrounded for immovable stuff.
+                it.isGrounded = isGrounded(it)
+            }
             it.commit()
         }
     }
@@ -273,7 +274,6 @@ fun Float.roundUpTo5DecimalPoints(): Float {
     val scale = 100_000f
     return ceil(this * scale) / scale
 }
-
 
 
 private operator fun Vec3f.times(ue: Double) = Vec3f((x * ue).toFloat(), (y * ue).toFloat(), (z * ue).toFloat())

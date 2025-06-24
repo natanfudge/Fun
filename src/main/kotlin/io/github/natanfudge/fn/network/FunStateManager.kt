@@ -11,28 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.KSerializer
 
 
-//class ServerSynchronizer(
-//    /**
-//     * If true, updates in state will synchronize synchronously, meaning changing state will stall until all other clients have received the update.
-//     * This should only be used in local environments where there's no latency that will cause serious lag.
-//     */
-//    private val synchronousUpdates: Boolean,
-//    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
-//    private val sendFunc: suspend (List<StateChange>) -> Unit,
-//) : FunStateSynchronizer {
-//    override fun send(changes: List<StateChange>) {
-//        if (synchronousUpdates) {
-//            runBlocking {
-//                sendFunc(changes)
-//            }
-//        } else {
-//            // SLOW: this is not how I want to do it. It should be added to a queue SYNCHRONOUSLY, and then processed in batches
-//            scope.launch {
-//                sendFunc(changes)
-//            }
-//        }
-//    }
-//}
+
 
 /**
  * Interface for sending state updates between clients.
