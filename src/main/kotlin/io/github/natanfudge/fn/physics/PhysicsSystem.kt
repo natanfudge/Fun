@@ -47,7 +47,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 val yOverlap = other.boundingBox.overlap(body.boundingBox, 1)
 
                 // Check that the other is *below* the body and overlaps significantly in X & Y
-                if (zOverlap >= -0.00001 && zOverlap <= 0.1 && xOverlap > 0.1 && yOverlap > 0.1) {
+                if (zOverlap >= -0.00001  && xOverlap > 0.0001 && yOverlap > 0.0001) {
                     return true
                 }
             }

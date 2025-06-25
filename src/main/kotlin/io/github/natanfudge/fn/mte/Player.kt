@@ -12,6 +12,7 @@ import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.renderState
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import korlibs.math.squared
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -33,7 +34,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     private val mineRateLimit = RateLimiter(game.context)
 
     init {
-        physics.position = game.playerStartingPos
+        physics.position = Vec3f(0f, 0.5f, 11.5f)
 
         game.input.registerHotkey(
             "Left", Key.A, onHold = {
@@ -76,16 +77,21 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         })
     }
 
-    val intPos2D get() = IntOffset(physics.position.x.roundToInt(), physics.position.z.roundToInt())
+    val blockPos get() = physics.position.toBlockPos()
+
 
     /**
      * We target the first block near the player, because the selected block might be "covered" by the perspective of the player character.
      */
     fun targetBlock(directlyHoveredBlock: Block): Block? {
-        if (intPos2D.diagonalDistance(directlyHoveredBlock.pos) > Balance.BreakReach) return null
-        return firstBlockAlong(intPos2D, directlyHoveredBlock.pos)
+        if (directlyHoveredBlock.pos.squaredDistance(physics.position) > Balance.BreakReach.squared()) return null
+        return firstBlockAlong(blockPos.to2D(), directlyHoveredBlock.pos.to2D())
     }
 
+    /**
+     * Implemented only for 2D for now.
+     * Better solution would use raycasting to find the target block , that would be simpler and work in 3D.
+     */
     private fun firstBlockAlong(startPos: IntOffset, endPos: IntOffset): Block? {
         var x0 = startPos.x
         var y0 = startPos.y
@@ -104,7 +110,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
         while (true) {
             val pointAlongTheWay = IntOffset(x0, y0)      // current cell
-            val block = game.blocks[pointAlongTheWay]
+            val block = game.blocks[pointAlongTheWay.to2DBlockPos()]
             if (block != null) return block
 
             // reached destination → stop

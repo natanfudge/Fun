@@ -92,7 +92,7 @@ class FunTime(context: FunContext) : Fun("time", context) {
         app.actualPhysics(time)
     }
 
-    var stopped = false
+    var stopped by funValue(false, "stopped")
 
     fun stop() {
         stopped = true

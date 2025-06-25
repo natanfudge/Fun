@@ -13,7 +13,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class Block(private val game: MineTheEarth, val type: BlockType, val pos: IntOffset) : Fun(game.nextFunId("Block-$type"), game.context) {
+class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockPos) : Fun(game.nextFunId("Block-$type"), game.context) {
     companion object {
         val BreakRenderId = "break"
         val models = BlockType.entries.associateWith {
@@ -57,7 +57,7 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: IntOff
 
 
     init {
-        render.position = Vec3f(x = pos.x.toFloat(), y = 0f, z = pos.y.toFloat())
+        render.position = pos.toVec3()
         physics.affectedByGravity = false
         physics.isImmovable = true
         updateBreakOverlay(health)

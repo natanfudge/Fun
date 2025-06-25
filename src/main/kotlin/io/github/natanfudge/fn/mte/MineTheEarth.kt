@@ -8,15 +8,9 @@ import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import korlibs.time.milliseconds
 import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.random.Random
-
-
-
-
 
 
 /**
@@ -25,12 +19,11 @@ import kotlin.random.Random
 fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - to.y))
 
 
-
 class MineTheEarth(override val context: FunContext) : FunApp() {
 
     private val indices = mutableMapOf<String, Int>()
     fun nextFunId(name: String): FunId {
-        if(name !in indices) indices[name] = 0
+        if (name !in indices) indices[name] = 0
         val nextIndex = indices.getValue(name)
         indices[name] = nextIndex + 1
         return "$name-$nextIndex"
@@ -38,7 +31,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
 
     private val nextBlockIndices = mutableMapOf<BlockType, Int>()
-    val playerStartingPos = Vec3f(x = 0f, y = 0f, z = 11f)
 
     fun getNextBlockIndex(type: BlockType): Int {
         if (type in nextBlockIndices) {
@@ -74,7 +66,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         val x = it % mapWidth
         val y = it / mapWidth
         val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
-        Block(this, type, IntOffset(x - mapWidth / 2, y - mapHeight / 2))
+        Block(this, type, BlockPos(x - mapWidth / 2, y = 0, z = y - mapHeight / 2))
     }.associateBy { it.pos }.toMutableMap()
 
     init {

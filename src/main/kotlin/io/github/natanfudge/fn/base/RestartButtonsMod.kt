@@ -14,7 +14,7 @@ import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
 
-class RestartButtonsMod(val context: FunContext): FunMod {
+class RestartButtonsMod(val context: FunContext) : FunMod {
     @Suppress("UNCHECKED_CAST")
     @Composable
     override fun ComposePanelPlacer.gui() {
@@ -29,6 +29,12 @@ class RestartButtonsMod(val context: FunContext): FunMod {
                         context.restartApp()
                     }) {
                         Text("Restart App Lifecycle")
+                    }
+                    Button(onClick = {
+                        if (context.time.stopped) context.time.resume()
+                        else context.time.stop()
+                    }) {
+                        Text("${if (context.time.stopped) "Resume" else "Stop"} Game")
                     }
                     Button(onClick = {
                         ProcessLifecycle.restartByLabels(setOf("App Compose binding"))
