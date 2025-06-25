@@ -11,14 +11,10 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.renderState
 import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
 import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.roundToInt
-
-
 
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
@@ -66,6 +62,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         })
 
         game.input.registerHotkey("Break", PointerButton.Primary, onHold = {
+            if (game.visualEditor.enabled) return@registerHotkey
             mineRateLimit.run(MineInterval) {
                 val selectedBlock = context.getHoveredRoot()
                 if (selectedBlock is Block) {

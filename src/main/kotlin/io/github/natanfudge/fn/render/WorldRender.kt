@@ -11,7 +11,6 @@ import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.physics.Renderable
-import io.github.natanfudge.fn.util.ConsecutiveIndexProvider
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
@@ -101,7 +100,7 @@ class WorldRender(
     val rayCasting = RayCastingCache<VisibleRenderInstance>()
     var selectedObjectId: Int = -1
 
-     var hoveredObject: Boundable? by mutableStateOf(null)
+    var hoveredObject: Boundable? by mutableStateOf(null)
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
@@ -181,7 +180,7 @@ class WorldRender(
         }
     }
 
-     var cursorPosition: Offset? = null
+    var cursorPosition: Offset? = null
 
 
     fun draw(
@@ -251,7 +250,7 @@ class WorldRender(
         pass.end()
     }
 
-     fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
+    fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
 
     /**
      * Note: [models] is updated by [getOrBindModel]
@@ -279,9 +278,6 @@ class WorldRender(
      * Note: `model.instances` is updated by [VisibleBoundModel.spawn]
      */
     fun spawn(id: FunId, model: VisibleBoundModel, value: Renderable, tint: Tint): VisibleRenderInstance {
-//        val globalId = instanceIndexProvider.get()
-
-
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(value.transform)
         val pointer = GPUInstance.new(
@@ -294,26 +290,38 @@ class WorldRender(
         val instance = VisibleRenderInstance(pointer, instanceIndex, id, model, this, value)
         rayCasting.add(instance)
 
+        indexBufferInvalid = true
+
         return instance
     }
 
+    /**
+     * The index buffer is invalid when new instances are added or removed. This is usually not every frame,
+     * so we recreate the index buffer only when that happens (we set this to true, and on render we recreate the buffer and set this to false)
+     */
+    private var indexBufferInvalid = true
+
     private fun rebuildInstanceIndexBuffer() {
-        val indices = IntArray(instanceBufferElementCount)
-        var globalI = 0
-        for (model in models) {
-            // For each model we have a contiguous block of pointers to the instance index
-            for (instance in model.value.instances) {
-                indices[globalI++] = instance.value.renderId
+        if (indexBufferInvalid) {
+            indexBufferInvalid = false
+            val indices = IntArray(instanceBufferElementCount)
+            var globalI = 0
+            for (model in models) {
+                // For each model we have a contiguous block of pointers to the instance index
+                for (instance in model.value.instances) {
+                    indices[globalI++] = instance.value.renderId
+                }
             }
+            instanceIndexBuffer.write(indices)
         }
-        instanceIndexBuffer.write(indices)
+
     }
 
     internal fun remove(renderInstance: VisibleRenderInstance) {
         renderInstance.model.instances.remove(renderInstance.funId)
         instanceBuffer.free(renderInstance.pointer, GPUInstance.size)
         rayCasting.remove(renderInstance)
-//        instanceIndexProvider.free(renderInstance.renderId)
+        indexBufferInvalid = true
     }
 
     override fun close() {

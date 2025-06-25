@@ -38,6 +38,8 @@ class PhysicsSystem(var gravity: Boolean = true) {
 //    }
 
     private fun isGrounded(body: Body): Boolean {
+        // Can't be grounded when going up
+        if (body.velocity.z > 0f) return false
         for (other in bodies) {
             if (other.isImmovable) {
                 val zOverlap = other.boundingBox.maxZ - body.boundingBox.minZ
@@ -87,9 +89,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
             if (!body.isImmovable) {
                 if (gravity) applyGravity(body, deltaSeconds)
                 applyDisplacement(body, deltaSeconds)
-                if (!body.isImmovable) {
-//                    println("After displacement, Velocity = ${body.velocity.toString(round = false)}, pos = ${body.position}")
-                }
             }
         }
         val intersections = getIntersections()
@@ -100,15 +99,11 @@ class PhysicsSystem(var gravity: Boolean = true) {
             if (a.isImmovable) {
                 if (!b.isImmovable) {
                     pushOut(surface = a, body = b)
-//                    pushedOut = true
-//                    println("After pushOut,, pos = ${b.position}")
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
                     pushOut(surface = b, body = a)
-//                    pushedOut = true
-//                    println("After pushOut, pos = ${a.position}")
                 }
             } else {
                 applyElasticCollision(a, b)
@@ -121,17 +116,11 @@ class PhysicsSystem(var gravity: Boolean = true) {
             if (a.isImmovable) {
                 if (!b.isImmovable) {
                     stop(surface = a, body = b)
-                    if (!b.isImmovable) {
-//                        println("After stop, Velocity = ${b.velocity.toString(round = false)}, pos = ${b.position}")
-                    }
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
                     stop(surface = b, body = a)
-                    if (!a.isImmovable) {
-//                        println("After stop, Velocity = ${a.velocity.toString(round = false)}, pos = ${a.position}")
-                    }
                 }
             }
         }
@@ -156,17 +145,13 @@ class PhysicsSystem(var gravity: Boolean = true) {
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
 
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
-//            println("Min push")
             val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
-//            println("Sinkamount = $sinkAmount, to go from ${body.boundingBox.min(pushoutAxis)} to ${body.boundingBox.min(pushoutAxis) + sinkAmount}")
 
             // Place above surface
             body.position = body.position.copy(
                 // Round a bit to make it stable
                 pushoutAxis, value = (body.position[pushoutAxis] + sinkAmount).roundUpTo5DecimalPoints()
             )
-//            println("New min: ${body.boundingBox.min(pushoutAxis)}")
-
         } else {
             val sinkAmount = (body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis))
             // Place below surface
@@ -191,13 +176,22 @@ class PhysicsSystem(var gravity: Boolean = true) {
         val otherAxes = overlapByAxis.filter { it.first != pushoutAxis }
         // Only stop if the body is reasonably touching the surface in the OTHER axes
         if (otherAxes.all { it.second > 0.001f }) {
-            stopInAxis(body, pushoutAxis)
+            stopInAxis(body, pushoutAxis, surface)
         }
     }
 
-    private fun stopInAxis(body: Body, axis: Int) {
-        body.velocity = body.velocity.copy(axis = axis, value = 0f)
-        body.acceleration = body.acceleration.copy(axis = axis, value = 0f)
+    private fun stopInAxis(body: Body, axis: Int, surface: Body) {
+        val below = body.boundingBox.min(axis) < surface.boundingBox.min(axis)
+        body.velocity = body.velocity.copy(
+            axis = axis,
+            // If the velocity is already in the other direction we don't want to interrupt it
+            value = if (below) min(0f, body.velocity[axis]) else max(0f, body.velocity[axis])
+        )
+        body.acceleration = body.acceleration.copy(
+            axis = axis,
+            // If the acceleration is already in the other direction we don't want to interrupt it
+            value = if (below) min(0f, body.acceleration[axis]) else max(0f, body.acceleration[axis])
+        )
     }
 
     private fun applyElasticCollision(a: Body, b: Body) {

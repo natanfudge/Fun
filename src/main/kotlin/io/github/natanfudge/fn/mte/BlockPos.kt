@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.mte
 
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import korlibs.math.toIntFloor
 
 data class BlockPos(
     val x: Int,
@@ -31,6 +32,6 @@ data class BlockPos(
 /**
  * Will round down the xyz values to get the correct BlockPos
  */
-fun Vec3f.toBlockPos() = BlockPos(x.toInt(), y.toInt(), z.toInt())
+fun Vec3f.toBlockPos() = BlockPos(x.toIntFloor(), y.toIntFloor(), z.toIntFloor())
 fun IntOffset.to2DBlockPos() = BlockPos(x, 0, y)
 

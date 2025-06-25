@@ -193,7 +193,6 @@ class FunPhysics(
     }
     private var _acceleration: Vec3f by funValue(acceleration, "acceleration") {
         acceleration = it
-
     }
     private var _angularVelocity: Vec3f by funValue(angularVelocity, "angularVelocity") {
         angularVelocity = it
