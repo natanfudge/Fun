@@ -7,6 +7,7 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.render.InputManagerMod
+import io.github.natanfudge.fn.render.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.abs
 import kotlin.math.max
@@ -69,13 +70,30 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         Block(this, type, BlockPos(x - mapWidth / 2, y = 0, z = y - mapHeight / 2))
     }.associateBy { it.pos }.toMutableMap()
 
+    var cameraDistance = 8f
+
+    private fun repositionCamera(playerPos: Vec3f) {
+        context.camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
+        // This one is mostly for zooming in
+        context.camera.focus(playerPos, distance = cameraDistance)
+    }
+
     init {
         physics.system.earthGravityAcceleration = 20f
 
+
         player.render.positionState.change.listen {
-            context.camera.setLookAt(it + Vec3f(0f, -8f, 0f), forward = Vec3f(0f, 1f, 0f))
-            // This one is mostly for zooming in
-            context.camera.focus(it, distance = 8f)
+            repositionCamera(it)
+        }
+
+        input.registerHotkey("Zoom Out", ScrollDirection.Down, ctrl = true) {
+            cameraDistance += 1f
+            repositionCamera(player.render.positionState.value)
+        }
+
+        input.registerHotkey("Zoom In", ScrollDirection.Up, ctrl = true) {
+            cameraDistance -= 1f
+            repositionCamera(player.render.positionState.value)
         }
 
 

@@ -27,41 +27,80 @@ class InputManagerMod : FunMod {
      */
     val mouseMoved = EventStream.create<Offset>()
 
-    val hotkeys: List<Hotkey>
-        field = mutableListOf<Hotkey>()
 
+    private val _hotkeys: MutableList<Hotkey> = mutableListOf()
+
+    val hotkeys: List<Hotkey> get() = _hotkeys
+
+
+    /**
+     * Scroll hotkeys are special, as they don't have the same notion of hold/press/release that other keys have.
+     *
+     * Instead, [onSignificantScrollDelta] is called when a sufficient scroll deltas was received for [defaultScrollKey],
+     * and this corresponds to `onPress` of other keys, meaning if the hotkey was changed some non-scrolling key, then [onSignificantScrollDelta]
+     * will be called when that key is pressed.
+     *
+     */
+    fun registerHotkey(
+        name: String,
+        defaultScrollKey: ScrollDirection,
+        ctrl: Boolean = false,
+        alt: Boolean = false,
+        shift: Boolean = false,
+        onSignificantScrollDelta: () -> Unit,
+    ) {
+        registerHotkey(name, FunKey.ScrollKey(defaultScrollKey), ctrl, alt, shift, onPress = onSignificantScrollDelta)
+    }
 
     fun registerHotkey(
         name: String, defaultKey: Key,
-        onHold: (delta: Float) -> Unit = {},
-        onRelease: () -> Unit = {},
-        onPress: () -> Unit = {},
-    ) = registerHotkey(name, FunKey.Keyboard(defaultKey), onHold, onRelease, onPress)
+        ctrl: Boolean = false,
+        alt: Boolean = false,
+        shift: Boolean = false,
+        onHold: ((delta: Float) -> Unit)? = null,
+        onRelease: (() -> Unit)? = null,
+        onPress: (() -> Unit)? = null,
+    ) = registerHotkey(name, FunKey.Keyboard(defaultKey), ctrl, alt, shift, onHold, onRelease, onPress)
 
     fun registerHotkey(
         name: String, defaultKey: PointerButton,
-        onHold: (delta: Float) -> Unit = {},
-        onRelease: () -> Unit = {},
-        onPress: () -> Unit = {},
-    ) = registerHotkey(name, FunKey.Mouse(defaultKey), onHold, onRelease, onPress)
+        ctrl: Boolean = false,
+        alt: Boolean = false,
+        shift: Boolean = false,
+        onHold: ((delta: Float) -> Unit)? = null,
+        onRelease: (() -> Unit)? = null,
+        onPress: (() -> Unit)? = null,
+    ) = registerHotkey(name, FunKey.Mouse(defaultKey), ctrl, alt, shift, onHold, onRelease, onPress)
 
     fun registerHotkey(
         name: String, defaultKey: FunKey,
-        onHold: (delta: Float) -> Unit = {},
-        onRelease: () -> Unit = {},
-        onPress: () -> Unit = {},
+        ctrl: Boolean = false,
+        alt: Boolean = false,
+        shift: Boolean = false,
+        onHold: ((delta: Float) -> Unit)? = null,
+        onRelease: (() -> Unit)? = null,
+        onPress: (() -> Unit)? = null,
     ): Hotkey {
-        val hotkey = Hotkey(pressed = defaultKey in heldKeys, defaultKey, onPress, onRelease, onHold, name)
-        hotkeys.add(hotkey)
+        val hotkey = Hotkey(pressed = defaultKey in heldKeys, defaultKey, onPress, onRelease, onHold, name, KeyboardModifiers(ctrl, alt, shift))
+        _hotkeys.add(hotkey)
         return hotkey
     }
 
     override fun prePhysics(delta: Duration) {
         if (focused) {
             for (hotkey in hotkeys) {
-                if (hotkey.key in heldKeys) hotkey.onHold(delta.seconds.toFloat())
+                if (hotkey.key in heldKeys && hotkey.modifiersPressed()) hotkey.onHold?.invoke(delta.seconds.toFloat())
             }
         }
+    }
+
+    //SLOW: make sure we stop creating FunKey instances constantly
+
+    private fun Hotkey.modifiersPressed(): Boolean {
+        if (modifiers.ctrl && FunKey.Keyboard(Key.CtrlLeft) !in heldKeys && FunKey.Keyboard(Key.CtrlRight) !in heldKeys) return false
+        if (modifiers.alt && FunKey.Keyboard(Key.AltLeft) !in heldKeys && FunKey.Keyboard(Key.AltRight) !in heldKeys) return false
+        if (modifiers.shift && FunKey.Keyboard(Key.ShiftLeft) !in heldKeys && FunKey.Keyboard(Key.ShiftRight) !in heldKeys) return false
+        return true
     }
 
 
@@ -72,11 +111,9 @@ class InputManagerMod : FunMod {
                 when (event.type) {
                     KeyEventType.KeyDown -> {
                         for (hotkey in hotkeys) {
-                            if (hotkey.key.isKey(event.key)) {
-                                if (!hotkey.isPressed) {
-                                    hotkey.isPressed = true
-                                    hotkey.onPress()
-                                }
+                            if (hotkey.key.isKey(event.key) && !hotkey.isPressed && hotkey.modifiersPressed()) {
+                                hotkey.isPressed = true
+                                hotkey.onPress?.invoke()
                             }
                         }
                         heldKeys.add(FunKey.Keyboard(event.key))
@@ -84,9 +121,9 @@ class InputManagerMod : FunMod {
 
                     KeyEventType.KeyUp -> {
                         for (hotkey in hotkeys) {
-                            if (hotkey.key.isKey(event.key)) {
+                            if (hotkey.key.isKey(event.key) && hotkey.modifiersPressed()) {
                                 hotkey.isPressed = false
-                                hotkey.onRelease()
+                                hotkey.onRelease?.invoke()
                             }
                         }
                         heldKeys.remove(FunKey.Keyboard(event.key))
@@ -117,12 +154,52 @@ class InputManagerMod : FunMod {
                     PointerEventType.Press -> {
                         if (input.button != null && focused) {
                             heldKeys.add(FunKey.Mouse(input.button))
+
+                            for (hotkey in hotkeys) {
+                                if (hotkey.key.isMouseButton(input.button) && !hotkey.isPressed && hotkey.modifiersPressed()) {
+                                    hotkey.isPressed = true
+                                    hotkey.onPress?.invoke()
+                                }
+                            }
                         }
                     }
 
                     PointerEventType.Release -> {
                         if (input.button != null && focused) {
                             heldKeys.remove(FunKey.Mouse(input.button))
+
+                            for (hotkey in hotkeys) {
+                                if (hotkey.key.isMouseButton(input.button) && hotkey.modifiersPressed()) {
+                                    hotkey.isPressed = false
+                                    hotkey.onRelease?.invoke()
+                                }
+                            }
+                        }
+                    }
+
+                    PointerEventType.Scroll -> {
+                        // SLOW we shouldn't go over all hotkeys each frame
+                        for (hotkey in hotkeys) {
+                            val key = hotkey.key
+                            if (key is FunKey.ScrollKey) {
+                                val (deltaX, deltaY) = input.scrollDelta
+                                if (key.direction == ScrollDirection.Right && deltaX > 0) {
+                                    hotkey.unconsumedScrollDistance += deltaX
+                                }
+                                if (key.direction == ScrollDirection.Left && deltaX < 0) {
+                                    hotkey.unconsumedScrollDistance -= deltaX // Negate the delta
+                                }
+                                if (key.direction == ScrollDirection.Down && deltaY > 0.0) {
+                                    hotkey.unconsumedScrollDistance += deltaY
+                                }
+                                if (key.direction == ScrollDirection.Up && deltaY < 0.0) {
+                                    hotkey.unconsumedScrollDistance -= deltaY // Negate the delta
+                                }
+                                if (hotkey.unconsumedScrollDistance >= significantScrollDelta) {
+                                    hotkey.unconsumedScrollDistance = 0f
+                                    hotkey.onPress?.invoke()
+                                }
+                            }
                         }
                     }
                 }
@@ -133,23 +210,44 @@ class InputManagerMod : FunMod {
     }
 }
 
+private val significantScrollDelta = 1.0f
+
+enum class ScrollDirection {
+    Up, Down, Left, Right
+}
+
 //SUS: I would prefer not to wrap anything and have one FunKey class that has both mouse and keyboard keys
 sealed interface FunKey {
     data class Keyboard(val value: Key) : FunKey
     data class Mouse(val value: PointerButton) : FunKey
+    data class ScrollKey(val direction: ScrollDirection) : FunKey
 
     fun isKey(other: Key) = this is Keyboard && value == other
+    fun isMouseButton(other: PointerButton) = this is Mouse && value == other
 }
 
+data class KeyboardModifiers(
+    val ctrl: Boolean,
+    val alt: Boolean,
+    val shift: Boolean,
+)
 
 class Hotkey(
     pressed: Boolean,
     var key: FunKey,
-    val onPress: () -> Unit,
-    val onRelease: () -> Unit,
-    val onHold: (delta: Float) -> Unit,
+    // Note: if onHold/onRelease is not null, a hotkey key cannot be ScrollKey.
+    val onPress: (() -> Unit)?,
+    val onRelease: (() -> Unit)?,
+    val onHold: ((delta: Float) -> Unit)?,
     val name: String,
+    val modifiers: KeyboardModifiers,
 ) {
+    // sus: can be replaced by the heldKeys list i think
     var isPressed: Boolean = pressed
         internal set
+
+    /**
+     * Used for scroll keys, we update and check this value to make the scroll callback only be called when a significant amount of scrolling was done.
+     */
+    internal var unconsumedScrollDistance: Float = 0f
 }

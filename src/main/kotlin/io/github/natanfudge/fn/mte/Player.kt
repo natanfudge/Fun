@@ -11,6 +11,7 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.renderState
 import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
 import kotlin.math.PI
