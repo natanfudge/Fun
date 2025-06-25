@@ -149,21 +149,21 @@ composeCompiler {
     featureFlags.add(ComposeFeatureFlag.OptimizeNonSkippingGroups)
 }
 
-tasks.withType<Test>() {
+tasks.withType<Test> {
     val jdksDir = rootProject.layout.projectDirectory.dir("jdks").asFile
     if (jdksDir.exists()) {
         val specificJdk = jdksDir.listFiles()?.firstOrNull { it.isDirectory && it.name.startsWith("jbr") }
         if (specificJdk != null) {
             val exe = specificJdk.resolve("bin/java.exe")
-            println("Exe: $exe")
+            println("Use JBR 25: $exe")
             executable = exe.toString()
+            jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:HotswapAgent=core", "--enable-native-access=ALL-UNNAMED")
         } else {
             println("Warn: no JBR under jdks/")
         }
     } else {
         println("Warn: missing jdks dir")
     }
-    jvmArgs("-XX:+AllowEnhancedClassRedefinition", "-XX:HotswapAgent=core", "--enable-native-access=ALL-UNNAMED")
 
     useJUnitPlatform()
     maxParallelForks = 1

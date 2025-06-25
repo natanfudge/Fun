@@ -16,6 +16,10 @@ class HoverHighlightMod(
      * Return null to not highlight anything.
      */
     private val redirectHover: (Fun) -> Fun? = { it },
+    /**
+     * Allows filtering out specific [FunRenderState]s, subcomponents of [Fun]s, from being highlighted.
+     * Note that [redirectHover] must still return non-null for this to matter.
+     */
     private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
 ) : FunMod {
     companion object {
