@@ -52,13 +52,18 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val player = Player(this)
 
+
     val hoverMod = installMod(HoverHighlightMod(context, redirectHover = {
-        if (it is Block) player.targetBlock(it)
+        if (visualEditor.enabled) it
+        else if (it is Block) player.targetBlock(it)
         else null
     }, hoverRenderPredicate = {
+        if (visualEditor.enabled) true
         // Don't highlight the break overlay
-        !it.id.endsWith(Block.BreakRenderId)
+        else !it.id.endsWith(Block.BreakRenderId)
     }))
+
+    val visualEditor: VisualEditorMod = installMod(VisualEditorMod(hoverMod, input, enabled = false))
 
     private val mapWidth = 21
     private val mapHeight = 21
@@ -100,7 +105,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
         installMods(
             CreativeMovementMod(context, input),
-            VisualEditorMod(hoverMod, input, enabled = false),
+
             RestartButtonsMod(context)
         )
 

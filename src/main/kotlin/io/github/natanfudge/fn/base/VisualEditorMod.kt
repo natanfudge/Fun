@@ -45,7 +45,7 @@ class VisualEditorMod(
     /**
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
-    private var enabled: Boolean = true,
+     var enabled: Boolean = true,
 ) : FunMod {
     constructor(app: FunApp, inputManagerMod: InputManagerMod, enabled: Boolean = true) : this(
         app.installMod(HoverHighlightMod(app.context)), inputManagerMod, enabled
