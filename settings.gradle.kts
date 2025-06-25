@@ -11,7 +11,6 @@ plugins {
     id("de.fayard.refreshVersions") version "0.60.5"
 }
 rootProject.name = "Fun"
-
 val linkMatrix = false
 val matrixDir = file("../wgpu4k-matrix")
 if (linkMatrix) {
