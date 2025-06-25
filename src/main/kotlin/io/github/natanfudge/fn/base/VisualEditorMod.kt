@@ -113,7 +113,6 @@ class VisualEditorMod(
         }
     }
 
-
     override fun handleInput(input: InputEvent) {
         if (input is InputEvent.PointerEvent && enabled) {
             if (input.eventType == PointerEventType.Press) {
