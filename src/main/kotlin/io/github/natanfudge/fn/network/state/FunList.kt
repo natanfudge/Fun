@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.network.state
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.sendStateChange
+import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.serializer
@@ -70,6 +71,10 @@ class FunList<T> @PublishedApi internal constructor(
     private val owner: Fun,
     private val serializer: KSerializer<T>,
 ) : MutableList<T>, FunState<List<T>> {
+
+    override fun onChange(callback: (List<T>) -> Unit): Listener<List<T>> {
+        TODO("Not yet implemented")
+    }
     
     private val key = StateKey(owner.id, name)
 
@@ -95,6 +100,7 @@ class FunList<T> @PublishedApi internal constructor(
 
 
     override fun add(element: T): Boolean {
+        //TODO: do this only in a ServerFunValue
         owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element.toNetwork()))
         return _items.add(element)
     }

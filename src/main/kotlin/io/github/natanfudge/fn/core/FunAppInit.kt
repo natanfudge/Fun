@@ -251,6 +251,8 @@ class FunContext(
 
     lateinit var time: FunTime
 
+    val isClient = true
+
 
     val window by dims
 

@@ -23,6 +23,7 @@ import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
+import io.github.natanfudge.fn.network.state.collectAsState
 import io.github.natanfudge.fn.physics.Visible
 import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.Tint
@@ -76,17 +77,17 @@ class VisualEditorMod(
 
     @Composable
     fun FunEditor(fn: Fun) {
-//        item {
         val values = context.stateManager.getState(fn.id)
         if (values != null) {
             Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
-            for ((key, value) in values.getCurrentState()) {
-                value as FunState<Any?>
+            for ((key, state) in values.getCurrentState()) {
+                state as FunState<Any?>
+                val value by state.collectAsState()
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Box(Modifier.weight(1f))
-                    value.editor.EditorUi(
-                        mutableState(value.value) { value.value = it }
+                    state.editor.EditorUi(
+                        mutableState(value) { state.value = it }
                     )
                     Box(Modifier.weight(1f))
                 }

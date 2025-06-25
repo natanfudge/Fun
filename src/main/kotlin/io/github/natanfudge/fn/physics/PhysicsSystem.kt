@@ -2,9 +2,7 @@ package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.math.ceil
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
@@ -46,8 +44,8 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 val xOverlap = other.boundingBox.overlap(body.boundingBox, 0)
                 val yOverlap = other.boundingBox.overlap(body.boundingBox, 1)
 
-                // Check that the other is *below* the body and overlaps significantly in X & Y
-                if (zOverlap >= -0.00001  && xOverlap > 0.0001 && yOverlap > 0.0001) {
+                // Check that the other is *below* the body and overlaps in X & Y
+                if (zOverlap >= -0.00001 && other.boundingBox.minZ <= body.boundingBox.maxZ && xOverlap > 0 && yOverlap > 0) {
                     return true
                 }
             }
@@ -55,7 +53,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
         return false
     }
 
-    private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox, epsilon = 0f)
+    private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox)
 
     fun tick(delta: Duration) {
         if (delta > maxDelta) {
@@ -84,24 +82,33 @@ class PhysicsSystem(var gravity: Boolean = true) {
      * Delta should be the fraction of the unit, so in this case in fractions of a second
      */
     private fun singleTick(delta: Duration) {
+        val deltaSeconds = delta.seconds
         for (body in bodies) {
             if (!body.isImmovable) {
-                if (gravity) applyGravity(body, delta)
-                applyDisplacement(body, delta)
+                if (gravity) applyGravity(body, deltaSeconds)
+                applyDisplacement(body, deltaSeconds)
+                if (!body.isImmovable) {
+//                    println("After displacement, Velocity = ${body.velocity.toString(round = false)}, pos = ${body.position}")
+                }
             }
         }
         val intersections = getIntersections()
+//        var pushedOut = false
         for ((a, b) in intersections) {
             // When a body encounters an immovable object, we "push out" the body from the immovable object.
             // We make sure to do this first, then we resolve whether we need to stop velocity as a result of hitting a floor/wall
             if (a.isImmovable) {
                 if (!b.isImmovable) {
                     pushOut(surface = a, body = b)
+//                    pushedOut = true
+//                    println("After pushOut,, pos = ${b.position}")
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
                     pushOut(surface = b, body = a)
+//                    pushedOut = true
+//                    println("After pushOut, pos = ${a.position}")
                 }
             } else {
                 applyElasticCollision(a, b)
@@ -114,11 +121,17 @@ class PhysicsSystem(var gravity: Boolean = true) {
             if (a.isImmovable) {
                 if (!b.isImmovable) {
                     stop(surface = a, body = b)
+                    if (!b.isImmovable) {
+//                        println("After stop, Velocity = ${b.velocity.toString(round = false)}, pos = ${b.position}")
+                    }
                 }
 
             } else if (b.isImmovable) {
                 if (!a.isImmovable) {
                     stop(surface = b, body = a)
+                    if (!a.isImmovable) {
+//                        println("After stop, Velocity = ${a.velocity.toString(round = false)}, pos = ${a.position}")
+                    }
                 }
             }
         }
@@ -130,7 +143,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
             it.commit()
         }
     }
-
 
     /**
      * If a body touches the floor / wall, we firmly place it above the floor / wall and stop it from moving
@@ -144,18 +156,23 @@ class PhysicsSystem(var gravity: Boolean = true) {
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
 
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
-            val sinkAmount = (surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)).roundUpTo5DecimalPoints()
+//            println("Min push")
+            val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
+//            println("Sinkamount = $sinkAmount, to go from ${body.boundingBox.min(pushoutAxis)} to ${body.boundingBox.min(pushoutAxis) + sinkAmount}")
 
             // Place above surface
             body.position = body.position.copy(
-                pushoutAxis, value = body.position[pushoutAxis] + sinkAmount
+                // Round a bit to make it stable
+                pushoutAxis, value = (body.position[pushoutAxis] + sinkAmount).roundUpTo5DecimalPoints()
             )
+//            println("New min: ${body.boundingBox.min(pushoutAxis)}")
 
         } else {
-            val sinkAmount = (body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis)).roundUpTo5DecimalPoints()
+            val sinkAmount = (body.boundingBox.max(pushoutAxis) - surface.boundingBox.min(pushoutAxis))
             // Place below surface
             body.position = body.position.copy(
-                pushoutAxis, value = body.position[pushoutAxis] - sinkAmount
+                // Round a bit to make it stable
+                pushoutAxis, value = (body.position[pushoutAxis] - sinkAmount).roundDownTo5DecimalPoints()
             )
         }
     }
@@ -193,36 +210,77 @@ class PhysicsSystem(var gravity: Boolean = true) {
         b.velocity = newV2
     }
 
-    private fun applyDisplacement(body: Body, delta: Duration) {
-        body.velocity += body.acceleration * delta.seconds
-        body.position += body.velocity * delta.seconds
-        body.rotation = updateRotation(body.rotation, body.angularVelocity, delta.seconds.toFloat())
+    private fun applyDisplacement(body: Body, deltaSeconds: Double) {
+        body.velocity = applyChange(deltaSeconds, body.velocity, body.acceleration)
+        body.position = applyChange(deltaSeconds, body.position, body.velocity)
+        body.rotation = updateRotation(body.rotation, body.angularVelocity, deltaSeconds.toFloat())
     }
 
-    private fun applyGravity(body: Body, delta: Duration) {
+    /**
+     * Applies changes in value like velocity or acceleration in a way that works better with small floating point numbers.
+     */
+    private fun applyChange(delta: Double, prevValue: Vec3f, change: Vec3f): Vec3f {
+        if (change.isZero) return prevValue
+        val xIncrement = if (change.x == 0f) 0f else {
+            // If the change is non-zero we want the new value to actually change. If we don't do this, extremely small values might not cause any change in
+            // the final value, so we change by at least some small value
+            val changeAbs = max(abs(change.x * delta).toFloat(), 0.00001f)
+            if (change.x > 0) changeAbs else -changeAbs
+        }
+
+        val yIncrement = if (change.y == 0f) 0f else {
+            val changeAbs = max(abs(change.y * delta).toFloat(), 0.00001f)
+            if (change.y > 0) changeAbs else -changeAbs
+        }
+
+        val zIncrement = if (change.z == 0f) 0f else {
+            val changeAbs = max(abs(change.z * delta).toFloat(), 0.00001f)
+            if (change.z > 0) changeAbs else -changeAbs
+        }
+
+        return Vec3f(prevValue.x + xIncrement, prevValue.y + yIncrement, prevValue.z + zIncrement)
+    }
+
+    private fun applyGravity(body: Body, deltaSeconds: Double) {
         if (body.affectedByGravity) {
             body.velocity = body.velocity.copy(
-                z = body.velocity.z - earthGravityAcceleration * delta.seconds.toFloat()
+                z = body.velocity.z - earthGravityAcceleration * deltaSeconds.toFloat()
             )
         }
     }
 
     private fun getIntersections(): List<Pair<Body, Body>> {
-        val intersections = mutableListOf<Pair<Body, Body>>()
-        // To avoid checking the same pair twice (A,B and B,A) and checking a body against itself (A,A),
-        // we use nested loops where the inner loop starts from the element after the outer loop's current element.
-        for (i in 0 until bodies.size - 1) {
-            for (j in i + 1 until bodies.size) {
-                val bodyA = bodies[i]
-                val bodyB = bodies[j]
-
-                // Use the Body's boundingBox property to check for intersection.
-                if (intersect(bodyA, bodyB)) {
-                    intersections.add(bodyA to bodyB)
-                }
+        // O(n) partition
+        val movables = ArrayList<Body>()
+        // We expect there to be much more immovables
+        val immovables = ArrayList<Body>(bodies.size)
+        for (element in bodies) {
+            if (element.isImmovable) {
+                immovables.add(element)
+            } else {
+                movables.add(element)
             }
         }
-        return intersections
+
+        val hits = ArrayList<Pair<Body, Body>>()
+
+        /* ── movable ↔ movable ───────────────────────────────────────────── */
+        for (i in movables.indices) {
+            val a = movables[i]
+            for (j in i + 1 until movables.size) {   // j > i ⇒ no duplicate order
+                val b = movables[j]
+                if (intersect(a, b)) hits += a to b
+            }
+        }
+
+        /* ── movable ↔ immovable ─────────────────────────────────────────── */
+        for (a in movables) {
+            // order chosen once → no duplicates
+            for (b in immovables) {
+                if (intersect(a, b)) hits += a to b
+            }
+        }
+        return hits
     }
 
     /**
@@ -273,6 +331,11 @@ class PhysicsSystem(var gravity: Boolean = true) {
 fun Float.roundUpTo5DecimalPoints(): Float {
     val scale = 100_000f
     return ceil(this * scale) / scale
+}
+
+fun Float.roundDownTo5DecimalPoints(): Float {
+    val scale = 100_000f
+    return floor(this * scale) / scale
 }
 
 

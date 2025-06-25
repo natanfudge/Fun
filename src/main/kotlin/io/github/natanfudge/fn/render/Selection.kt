@@ -86,6 +86,12 @@ data class AxisAlignedBoundingBox(
                 (minZ - zEpsilon <= other.maxZ && maxZ + zEpsilon >= other.minZ)
     }
 
+    fun intersects(other: AxisAlignedBoundingBox): Boolean {
+        return (minX <= other.maxX && maxX >= other.minX) &&
+                (minY <= other.maxY && maxY  >= other.minY) &&
+                (minZ<= other.maxZ && maxZ >= other.minZ)
+    }
+
     fun transformed(mat: Mat4f): AxisAlignedBoundingBox {
         // helper to track the new extrema
         var nxMin = Float.POSITIVE_INFINITY

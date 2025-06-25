@@ -3,9 +3,14 @@
 package io.github.natanfudge.fn.network.state
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
+import io.github.natanfudge.fn.util.Listener
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
@@ -60,11 +65,11 @@ import kotlinx.serialization.json.Json
  * Represents a serialized value that can be sent over the network.
  */
 internal typealias NetworkValue = String
+
 // SLOW: we can avoid serialization in case both clients are in the same process.
 // Maybe we just type NetworkValue as Any and then we can use the values themselves as the NetworkValues
 internal fun <T> NetworkValue.decode(serializer: KSerializer<T>): T = Json.decodeFromString(serializer, this)
 internal fun <T> T.toNetwork(serializer: KSerializer<T>) = Json.encodeToString(serializer, this)
-
 
 
 /**
@@ -84,8 +89,8 @@ internal class MapStateHolder : FunStateHolder {
      */
     override fun applyChange(key: String, change: StateChangeValue) {
 //        if (key in map) {
-            val state = map.getValue(key)
-            state.applyChange(change)
+        val state = map.getValue(key)
+        state.applyChange(change)
 //        } else {
 //            check(change is StateChangeValue.SetProperty) { "The list with the key $key was unexpectedly not registered prior to having a change applied to it" }
 //             Not registered yet, wait for it to be registered to grant it the value
@@ -119,22 +124,22 @@ internal class MapStateHolder : FunStateHolder {
 
 /**
  * Interface for objects that can hold and update multiple state properties.
- * 
+ *
  * A FunStateHolder manages a collection of [FunState] objects, each identified by a unique key.
  * It's responsible for routing incoming state changes to the appropriate state object.
- * 
+ *
  * The primary implementation is [MapStateHolder], which stores state objects in a map.
- * 
+ *
  * @see FunState
  * @see MapStateHolder
  */
 interface FunStateHolder {
     /**
      * Updates the value of a property identified by [key].
-     * 
+     *
      * When a state change is received from the network, this method routes it to the
      * appropriate [FunState] object based on the key.
-     * 
+     *
      * [key] The unique identifier for the state property
      * [change] The state change to apply
      */
@@ -146,13 +151,13 @@ interface FunStateHolder {
 
 /**
  * Base interface for all synchronized state objects in the Fun network system.
- * 
+ *
  * FunState objects represent data that is automatically synchronized across all clients
  * in a multiplayer environment. When a FunState object is modified on one client,
  * the changes are automatically propagated to all other clients.
- * 
+ *
  * Implementations include:
- * - [FunValue] - For single values
+ * - [ClientFunValue] - For single values
  * - [FunList] - For synchronized lists
  * - [FunMap] - For synchronized maps
  * - [FunSet] - For synchronized sets
@@ -183,8 +188,8 @@ interface FunStateHolder {
  *
  * *******
  *
- * 
- * @see FunValue
+ *
+ * @see ClientFunValue
  * @see FunList
  * @see FunMap
  * @see FunSet
@@ -192,7 +197,7 @@ interface FunStateHolder {
 sealed interface FunState<T> {
     /**
      * Applies a state change received from the network to this object.
-     * 
+     *
      * This method is called internally by the Fun framework when a state change
      * is received from another client.
      */
@@ -201,9 +206,27 @@ sealed interface FunState<T> {
 
     var value: T
 
+    /**
+     * Changes are emitted BEFORE the field changes, so you can use both the old value by accessing the field, and the new value by using the
+     * passed value in listen {}.
+     */
+    fun onChange(callback: (T) -> Unit): Listener<T>
+
     val editor: ValueEditor<T> get() = ValueEditor.Missing as ValueEditor<T>
 }
 
+@Composable
+fun <T> FunState<T>.collectAsState(): State<T> {
+    val state = remember { mutableStateOf(value) }
+    DisposableEffect(this) {
+        val listener = onChange { state.value = it }
+        onDispose {
+            listener.close()
+        }
+    }
+
+    return state
+}
 
 
 // API: enable this in the future
@@ -220,21 +243,19 @@ sealed interface FunState<T> {
 annotation class InternalFunApi
 
 
-
-
 /**
  * Represents a change to a state object that can be sent over the network.
- * 
+ *
  * StateChange is the core mechanism for synchronizing state between clients.
  * When a state object is modified, a StateChange is created and sent to all clients.
  * Each client then applies the change to its local copy of the state object.
- * 
+ *
  * There are different types of state changes for different types of state objects:
  * - Property changes (SetProperty)
  * - List operations (ListOp)
  * - Map operations (MapOp)
  * - Set operations (SetOp)
- * 
+ *
  * @see FunState
  */
 sealed interface StateChangeValue {
@@ -260,7 +281,7 @@ sealed interface StateChangeValue {
     /**
      * Marker interface for operations on a [FunList].
      */
-    sealed interface ListOp: StateChangeValue
+    sealed interface ListOp : StateChangeValue
 
     /**
      * Sets the element at the specified [index] in a list.
@@ -285,7 +306,7 @@ sealed interface StateChangeValue {
     /**
      * Marker interface for operations on a [FunMap].
      */
-    sealed interface MapOp: StateChangeValue
+    sealed interface MapOp : StateChangeValue
 
     /**
      * Puts a key-value pair in a map.
@@ -305,7 +326,7 @@ sealed interface StateChangeValue {
     /**
      * Marker interface for operations on a [FunSet].
      */
-    sealed interface SetOp: StateChangeValue
+    sealed interface SetOp : StateChangeValue
 
     /**
      * Clears all elements from a collection.

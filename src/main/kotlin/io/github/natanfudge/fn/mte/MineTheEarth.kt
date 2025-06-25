@@ -82,7 +82,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         physics.system.earthGravityAcceleration = 20f
 
 
-        player.render.positionState.change.listen {
+        player.render.positionState.onChange {
             repositionCamera(it)
         }
 

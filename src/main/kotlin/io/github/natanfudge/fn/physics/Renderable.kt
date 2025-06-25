@@ -5,7 +5,7 @@ import io.github.natanfudge.fn.base.PhysicsMod
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.network.state.FunValue
+import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.closeAll
@@ -18,9 +18,6 @@ interface Renderable : Boundable {
     var baseAABB: AxisAlignedBoundingBox
 
     override val boundingBox: AxisAlignedBoundingBox
-        /// SLOW: this should be cached per Physical, only calculate it when baseAABB/transform changes.
-        // FUTURE: We also need to update the ray tracing tree when baseAABB/transform changes.
-        get() = baseAABB.transformed(transform)
 }
 
 interface Taggable {
@@ -65,9 +62,11 @@ class FunRenderState(
 ) : Visible, Fun(parent, name) {
     override val data: Any? = parent
 
+
     val baseAABBState = funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB")
 
     override var baseAABB: AxisAlignedBoundingBox by baseAABBState
+
 
     val positionState = funValue<Vec3f>(model.initialTransform.position, "translation") {
         updateMatrix(position = it)
@@ -80,7 +79,7 @@ class FunRenderState(
         updateMatrix(scale = it)
     }
 
-    val tintState: FunValue<Tint> = funValue<Tint>(Tint(Color.White, 0f), "tint") {
+    val tintState: ClientFunValue<Tint> = funValue<Tint>(Tint(Color.White, 0f), "tint") {
 //        check(!despawned) { "Attempt to change tint of a despawned object '$id'" }
         if (tint != it && !despawned) {
             renderInstance.setTintColor(it.color)
@@ -106,6 +105,10 @@ class FunRenderState(
     final override var transform: Mat4f = Mat4f.translateRotateScale(position, rotation, scale)
         private set
 
+
+    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform)
+        private set
+
     val renderInstance: RenderInstance = context.world.getOrBindModel(model).spawn(id, this, tint)
 
 
@@ -121,6 +124,7 @@ class FunRenderState(
         if (despawned) return
         val matrix = Mat4f.translateRotateScale(position, orientation, scale)
         this.transform = matrix
+        this.boundingBox = baseAABB.transformed(matrix)
         renderInstance.setTransform(matrix)
     }
 }
@@ -170,6 +174,7 @@ class FunPhysics(
             updateAABB()
         }
     override var angularVelocity: Vec3f = Vec3f.zero()
+    override var isGrounded: Boolean = true
 
 
 //        get() = renderState.position
@@ -183,36 +188,39 @@ class FunPhysics(
     /**
      * Values exposed to the visual editor.
      */
-    private var _velocity: Vec3f by funValue(Vec3f.zero(), "velocity") {
+    private var _velocity: Vec3f by funValue(velocity, "velocity") {
         velocity = it
-
     }
-    private var _acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration") {
+    private var _acceleration: Vec3f by funValue(acceleration, "acceleration") {
         acceleration = it
 
     }
-    private var _angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity") {
+    private var _angularVelocity: Vec3f by funValue(angularVelocity, "angularVelocity") {
         angularVelocity = it
     }
 
-    private val positionListener = renderState.positionState.change.listen {
+    private var _isGrounded: Boolean by funValue(isGrounded, "isGrounded") {
+        isGrounded = it
+    }
+
+    private val positionListener = renderState.positionState.onChange {
         position = it
         // Transform changed -> new transform matrix -> new aabb
         updateAABB()
     }
 
-    private val rotationListener = renderState.rotationState.change.listen {
+    private val rotationListener = renderState.rotationState.onChange {
         rotation = it
         // Transform changed -> new transform matrix -> new aabb
         updateAABB()
     }
 
-    private val scaleListener = renderState.scaleState.change.listen {
+    private val scaleListener = renderState.scaleState.onChange {
         // Scale change -> calculate new AABB
         updateAABB(newScale = it)
     }
 
-    private val bbListener = renderState.baseAABBState.change.listen {
+    private val bbListener = renderState.baseAABBState.onChange {
         // BaseAABB changed -> new aabb
         boundingBox = it.transformed(calculateTransformMatrix())
     }
@@ -227,24 +235,35 @@ class FunPhysics(
         boundingBox = renderState.baseAABB.transformed(newMatrix)
     }
 
+    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
+    override var mass: Float by funValue(1f, "mass")
+    override var isImmovable: Boolean by funValue(false, "isImmovable")
+
 
     /**
      * Apply changes from the physics system -> to the UI.
      */
     override fun commit() {
-        _velocity = velocity
-        _acceleration = acceleration
-        _angularVelocity = angularVelocity
-        renderState.rotation = rotation
-        renderState.position = position
+        if (_velocity != velocity) {
+            _velocity = velocity
+        }
+        if (_acceleration != acceleration) {
+            _acceleration = acceleration
+        }
+        if (_angularVelocity != angularVelocity) {
+            _angularVelocity = angularVelocity
+        }
+        if (_isGrounded != isGrounded) {
+            _isGrounded = isGrounded
+        }
+        if (renderState.position != position) {
+            renderState.position = position
+        }
+        if (renderState.rotation != rotation) {
+            renderState.rotation = rotation
+        }
     }
 
-
-    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
-    override var mass: Float by funValue(1f, "mass")
-    override var isImmovable: Boolean by funValue(false, "isImmovable")
-
-    override var isGrounded: Boolean by funValue(true, "isGrounded")
 
 //    fun getTouching(): List<Fun> {
 //        return physics.getTouching(this).map {
@@ -252,8 +271,6 @@ class FunPhysics(
 //            it.parent!!
 //        }
 //    }
-
-
 
 
     init {

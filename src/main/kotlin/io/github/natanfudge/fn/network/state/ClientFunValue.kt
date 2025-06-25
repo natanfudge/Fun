@@ -2,15 +2,15 @@
 
 package io.github.natanfudge.fn.network.state
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
-import io.github.natanfudge.fn.network.*
+import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.network.getSerializerExtended
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.EventStream
+import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.serialization.KSerializer
@@ -40,10 +40,10 @@ inline fun <reified T> Fun.funValue(
 //     * If [autocloseSetValue] is true, The listener will be automatically closed when this [Fun] is closed.
 //     */
     noinline onSetValue: ((value: T) -> Unit)? = null,
-): FunValue<T> {
-    val value = FunValue(value, getSerializerExtended<T>(), id, this, editor)
+): ClientFunValue<T> {
+    val value = ClientFunValue(value, getSerializerExtended<T>(), id, this, editor)
     if (onSetValue != null) {
-       value.change.listen(onSetValue)
+        value.onChange(onSetValue)
 //        if (autocloseSetValue) closeEvent.listen { listener.close() }
     }
     return value
@@ -71,41 +71,37 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
  * @see funValue
  * @see Fun
  */
-class FunValue<T>(
+class ClientFunValue<T>(
     value: T, private val serializer: KSerializer<T>, private val id: FunId, private val owner: Fun,
     override val editor: ValueEditor<T>,
 ) : ReadWriteProperty<Fun, T>, FunState<T> {
 
-    private var composeValue by mutableStateOf(value)
+//    private var composeValue
 //    private var registered: Boolean = false
 
-    private val _change = EventStream.create<T>()
+    private val change = EventStream.create<T>()
 
-    /**
-     * Changes are emitted BEFORE the field changes, so you can use both the old value by accessing the field, and the new value by using the
-     * passed value in listen {}.
-     */
-    val change: EventStream<T> = _change
-//        field = EventStream.create<T>()
 
     init {
         owner.context.stateManager.registerState(
             holderKey = owner.id,
             propertyKey = id,
-            state = this as FunValue<Any?>
+            state = this as ClientFunValue<Any?>
         )
     }
 
-    override var value: T
-        get() = composeValue
-        set(value) {
-            owner.context.sendStateChange(
-                StateKey(owner.id, id),
-                StateChangeValue.SetProperty(value.toNetwork(serializer)),
-            )
+    override fun onChange(callback: (T) -> Unit): Listener<T> = change.listen(callback)
 
-            _change.emit(value)
-            composeValue = value
+    override var value: T = value
+        set(value) {
+            //TODO: do this only in a ServerFunValue
+//            owner.context.sendStateChange(
+//                StateKey(owner.id, id),
+//                StateChangeValue.SetProperty(value.toNetwork(serializer)),
+//            )
+            change.emit(value)
+            field = value
+//            composeValue = value
         }
 
 //    private var thisRef: Fun? = null
@@ -119,24 +115,8 @@ class FunValue<T>(
     @InternalFunApi
     override fun applyChange(change: StateChangeValue) {
         require(change is StateChangeValue.SetProperty)
-        this.composeValue = change.value.decode(serializer)
+        this.value = change.value.decode(serializer)
     }
-
-//    private fun capturePropertyValues(thisRef: Fun, property: KProperty<*>) {
-//        if (!registered) {
-//            this.thisRef = thisRef
-//            this.property = property
-//            registered = true
-//
-//
-//            // It's possible some new data came through before we managed to captured the values, so we apply it now.
-//            thisRef.context.stateManager.setToPendingValue(
-//                holderKey = thisRef.id,
-//                propertyKey = property.name,
-//                state = this as FunValue<Any?>
-//            )
-//        }
-//    }
 
     /**
      * Gets the current value of the property.
@@ -146,7 +126,7 @@ class FunValue<T>(
      */
     override fun getValue(thisRef: Fun, property: KProperty<*>): T {
 //        capturePropertyValues(thisRef, property)
-        return composeValue
+        return value
     }
 
     /**

@@ -7,6 +7,7 @@ import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.sendStateChange
 import io.github.natanfudge.fn.util.ImmutableCollection
 import io.github.natanfudge.fn.util.ImmutableSet
+import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.serializer
@@ -77,6 +78,10 @@ class FunMap<K, V> @PublishedApi internal constructor(
     private val valueSerializer: KSerializer<V>,
 ) : MutableMap<K, V> , FunState<Map<K,V>> {
 
+    override fun onChange(callback: (Map<K, V>) -> Unit): Listener<Map<K, V>> {
+        TODO("Not yet implemented")
+    }
+
 
     override var value: Map<K,V>
         get() = _items
@@ -109,6 +114,7 @@ class FunMap<K, V> @PublishedApi internal constructor(
     override val entries: MutableSet<MutableMap.MutableEntry<K, V>> = ImmutableSet(_items.entries)
 
     override fun put(key: K, value: V): V? {
+        //TODO: do this only in a ServerFunValue
         owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key.keyToNetwork(), value.valueToNetwork()))
         return _items.put(key, value)
     }
