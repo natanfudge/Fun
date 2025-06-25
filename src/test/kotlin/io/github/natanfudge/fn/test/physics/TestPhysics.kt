@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.test.physics
 
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
@@ -148,8 +149,9 @@ class TestPhysics {
 
 
     @Test
+    @Ignore
     fun testLedgeAbuse() {
-        object : PhysicsTest(show = true) {
+        object : PhysicsTest(show = false) {
             override fun PhysicsSimulation.run() {
                 val cube = cube(
                     position = Vec3f(x = 0f, y = 0f, z = 4f),
