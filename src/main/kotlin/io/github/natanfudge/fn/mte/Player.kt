@@ -13,6 +13,7 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
+import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
@@ -25,7 +26,13 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         val model = Model.fromGlbResource("files/models/hedgie_lowres.glb")
     }
 
-    val render = render(model)
+    val render = render(model).apply {
+        baseAABB = AxisAlignedBoundingBox(
+            minX = -0.2f, maxX = 0.4f,
+            minZ = -0.45f, maxZ = 0.45f,
+            minY = -0.4f, maxY = 0.4f,
+        )
+    }
 
     val physics = physics(render, game.physics)
 

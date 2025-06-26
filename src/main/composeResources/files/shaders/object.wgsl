@@ -91,15 +91,15 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     // Tint texture (if no texture is used this is a no-op)
     let finalColor = mix(litColor, vertex.tintColor,vertex.tintStrength);
 
-let digits = number_to_digits(f32(vertex.uv.x * 1000));
-if is_in_number(
-    vertex.pos.xy,
-    digits,
-    vec2(200,200),
-    3.0
-) {
-    return vec4f(1.0,0.0,0.0,1.0);
-}
+//let digits = number_to_digits(f32(vertex.uv.x * 1000));
+//if is_in_number(
+//    vertex.pos.xy,
+//    digits,
+//    vec2(200,200),
+//    3.0
+//) {
+//    return vec4f(1.0,0.0,0.0,1.0);
+//}
 
 
 
