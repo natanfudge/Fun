@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
+import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
@@ -261,26 +262,30 @@ class FunContext(
     var camera = DefaultCamera()
 
     val rootFuns = mutableMapOf<FunId, Fun>()
-//    private var restarting = false
+    private var restarting = false
 
-//    private val appRestarted = MutEventStream<Unit>()
 
     fun restartApp() {
-//        restarting = true
-        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false)}
+        restarting = true
+        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false) }
 
         ProcessLifecycle.restartByLabel(AppLifecycleName)
     }
 
     fun register(fn: Fun) {
-        if (fn.isRoot) rootFuns[fn.id] = fn
+        if (restarting) throw UnallowedFunException("Don't spawn Funs during cleanup of a Fun.")
+        if (fn.isRoot) {
+            rootFuns[fn.id] = fn
+        }
         stateContext.stateManager.register(fn)
     }
 
     fun unregister(fn: Fun) {
         // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
-//        if (restarting) return
-        if (fn.isRoot) rootFuns.remove(fn.id)
+        if (restarting) return
+        if (fn.isRoot) {
+            rootFuns.remove(fn.id)
+        }
         stateContext.stateManager.unregister(fn)
     }
 

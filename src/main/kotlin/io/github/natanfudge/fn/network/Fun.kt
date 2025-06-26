@@ -67,6 +67,14 @@ abstract class Fun(
         children.remove(child)
     }
 
+    private val childCloseables = mutableSetOf<AutoCloseable>()
+
+    /**
+     * `this` will be closed when this Fun is closed.
+     * @return `this`.
+     */
+    fun AutoCloseable.closeWithThis() = apply { childCloseables.add(this) }
+
     init {
         context.register(this)
     }
@@ -84,6 +92,7 @@ abstract class Fun(
 
     internal fun close(unregisterFromParent: Boolean, unregisterFromContext: Boolean = true) {
         if (unregisterFromContext) context.unregister(this)
+        childCloseables.forEach { it.close() }
         cleanup()
         // No need to unregister when this is getting closed anyway
         children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext) }

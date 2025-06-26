@@ -22,7 +22,7 @@ import java.util.function.IntFunction
  * @see funMap
  * @see funList
  */
-inline fun <reified T> Fun.funSet(name: String, vararg items: T): FunSet<T> = funSet(name, serializer(), mutableSetOf(*items))
+inline fun <reified T> Fun.funSet(name: String, vararg items: T): FunSet<T> = funSet(name, getFunSerializer(), mutableSetOf(*items))
 
 /**
  * Creates a synchronized set that automatically propagates changes to all clients.

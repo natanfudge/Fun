@@ -1,25 +1,15 @@
 package io.github.natanfudge.fn
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.base.*
-import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.renderState
+import io.github.natanfudge.fn.physics.render
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -37,7 +27,7 @@ class TestBody(
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
 ) : Fun(id, app.context) {
-    val render = renderState(model)
+    val render = render(model)
     val physics = physics(render, physics = app.physics.system)
 
     init {
@@ -58,7 +48,7 @@ class TestRenderObject(
     color: Color = Color.White,
 ) : Fun(id, app.context) {
 
-    val render = renderState(model)
+    val render = render(model)
 
     init {
         render.position = translate

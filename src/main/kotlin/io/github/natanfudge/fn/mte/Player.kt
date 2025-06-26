@@ -5,11 +5,14 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.RateLimiter
 import io.github.natanfudge.fn.base.getHoveredRoot
+import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.mte.Balance.MineInterval
+import io.github.natanfudge.fn.mte.Balance.PickaxeStrength
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.renderState
+import io.github.natanfudge.fn.physics.render
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
@@ -22,7 +25,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         val model = Model.fromGlbResource("files/models/hedgie_lowres.glb")
     }
 
-    val render = renderState(model)
+    val render = render(model)
 
     val physics = physics(render, game.physics)
 
@@ -68,11 +71,19 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 if (selectedBlock is Block) {
                     val target = targetBlock(selectedBlock)
                     if (target != null) {
-                        target.health -= 1f
+                        target.health -= PickaxeStrength
                     }
                 }
             }
         })
+
+        game.physics.system.collision.listen { (a, b) ->
+            val aRoot = a.getRootFun()
+            val bRoot = b.getRootFun()
+            if (aRoot is Player && bRoot is WorldItem) {
+                bRoot.close()
+            }
+        }.closeWithThis()
     }
 
     val blockPos get() = physics.position.toBlockPos()
@@ -108,7 +119,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
         while (true) {
             val pointAlongTheWay = IntOffset(x0, y0)      // current cell
-            val block = game.blocks[pointAlongTheWay.to2DBlockPos()]
+            val block = game.world.blocks[pointAlongTheWay.to2DBlockPos()]
             if (block != null) return block
 
             // reached destination → stop
@@ -127,3 +138,5 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         return null
     }
 }
+
+fun Body.getRootFun(): Fun = (this as Fun).getRoot()

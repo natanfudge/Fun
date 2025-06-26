@@ -11,6 +11,8 @@ object Balance {
     val MineInterval = 500.milliseconds
 
     val BreakReach = 5
+
+    val PickaxeStrength = 5f
 }
 
 enum class BlockType {

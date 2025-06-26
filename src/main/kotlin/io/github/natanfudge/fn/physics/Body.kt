@@ -20,6 +20,8 @@ interface Body {
     val affectedByGravity: Boolean
     val isImmovable: Boolean
 
+    var collisionGroup: Int
+
     var isGrounded: Boolean // SLOW: Don't think if we need this for EVERYTHING
 
 
@@ -41,6 +43,7 @@ class SimpleBody(
     override var mass: Float = 1f,
     override val isImmovable: Boolean = false,
     override var isGrounded: Boolean = false,
+    override var collisionGroup: Int = 0
 ) : Body {
     override val boundingBox: AxisAlignedBoundingBox get() = baseAABB.transformed(
         Mat4f.translateRotateScale(position, rotation, scale)

@@ -10,7 +10,12 @@ import io.github.natanfudge.fn.util.ImmutableSet
 import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.serializer
+
+
 
 /**
  * Creates a synchronized map that automatically propagates changes to all clients.
@@ -27,7 +32,10 @@ import kotlinx.serialization.serializer
  * @see funList
  */
 inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
-    funMap(name, serializer(), serializer(), mutableMapOf(*items))
+    funMap(name, getFunSerializer(), getFunSerializer(), mutableMapOf(*items))
+
+inline fun <reified K, reified V> Fun.funMap(name: String,  items: Map<K,V>): FunMap<K, V> =
+    funMap(name, getFunSerializer(), getFunSerializer(), items.toMutableMap())
 
 /**
  * Creates a synchronized map that automatically propagates changes to all clients.

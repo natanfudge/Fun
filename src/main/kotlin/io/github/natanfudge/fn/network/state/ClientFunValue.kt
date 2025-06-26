@@ -41,7 +41,7 @@ inline fun <reified T> Fun.funValue(
 //     */
     noinline onSetValue: ((value: T) -> Unit)? = null,
 ): ClientFunValue<T> {
-    val value = ClientFunValue(value, getSerializerExtended<T>(), id, this, editor)
+    val value = ClientFunValue(value, getFunSerializer<T>(), id, this, editor)
     if (onSetValue != null) {
         value.onChange(onSetValue)
 //        if (autocloseSetValue) closeEvent.listen { listener.close() }
@@ -94,7 +94,7 @@ class ClientFunValue<T>(
 
     override var value: T = value
         set(value) {
-            //TODO: do this only in a ServerFunValue
+            // do this only in a ServerFunValue
 //            owner.context.sendStateChange(
 //                StateKey(owner.id, id),
 //                StateChangeValue.SetProperty(value.toNetwork(serializer)),

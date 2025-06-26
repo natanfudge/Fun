@@ -1,11 +1,15 @@
 package io.github.natanfudge.fn.physics
 
+import io.github.natanfudge.fn.util.EventStream
+import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
+
+data class CollisionEvent(val bodyA: Body, val bodyB: Body)
 
 
 // SLOW: now that we have commit we can easily avoid allocations now I think
@@ -15,6 +19,11 @@ import kotlin.time.DurationUnit
  */
 class PhysicsSystem(var gravity: Boolean = true) {
     var earthGravityAcceleration = 9.8f
+
+    var elasticCollision: Boolean = false
+
+    private val _collision = MutEventStream<CollisionEvent>()
+    val collision: EventStream<CollisionEvent> get() = _collision
 
     companion object {
         private val maxDelta = 40.milliseconds
@@ -92,6 +101,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
             }
         }
         val intersections = getIntersections()
+        intersections.forEach { _collision.emit(it) }
 //        var pushedOut = false
         for ((a, b) in intersections) {
             // When a body encounters an immovable object, we "push out" the body from the immovable object.
@@ -106,7 +116,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
                     pushOut(surface = b, body = a)
                 }
             } else {
-                applyElasticCollision(a, b)
+                if (elasticCollision) applyElasticCollision(a, b)
             }
         }
 
@@ -243,7 +253,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
         }
     }
 
-    private fun getIntersections(): List<Pair<Body, Body>> {
+    private fun getIntersections(): List<CollisionEvent> {
         // O(n) partition
         val movables = ArrayList<Body>()
         // We expect there to be much more immovables
@@ -256,14 +266,14 @@ class PhysicsSystem(var gravity: Boolean = true) {
             }
         }
 
-        val hits = ArrayList<Pair<Body, Body>>()
+        val hits = ArrayList<CollisionEvent>()
 
         /* ── movable ↔ movable ───────────────────────────────────────────── */
         for (i in movables.indices) {
             val a = movables[i]
             for (j in i + 1 until movables.size) {   // j > i ⇒ no duplicate order
                 val b = movables[j]
-                if (intersect(a, b)) hits += a to b
+                if (intersect(a, b)) hits += CollisionEvent(a, b)
             }
         }
 
@@ -271,7 +281,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
         for (a in movables) {
             // order chosen once → no duplicates
             for (b in immovables) {
-                if (intersect(a, b)) hits += a to b
+                if (intersect(a, b)) hits += CollisionEvent(a, b)
             }
         }
         return hits

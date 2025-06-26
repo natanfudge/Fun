@@ -3,7 +3,9 @@ package io.github.natanfudge.fn.mte
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.toIntFloor
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class BlockPos(
     val x: Int,
     val y: Int,

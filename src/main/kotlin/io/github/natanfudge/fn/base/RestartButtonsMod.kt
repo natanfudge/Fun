@@ -12,6 +12,7 @@ import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.ProcessLifecycle
+import io.github.natanfudge.fn.gltf.clearModelCache
 import io.github.natanfudge.fn.hotreload.FunHotReload
 
 class RestartButtonsMod(val context: FunContext) : FunMod {
@@ -29,6 +30,12 @@ class RestartButtonsMod(val context: FunContext) : FunMod {
                         context.restartApp()
                     }) {
                         Text("Restart App Lifecycle")
+                    }
+                    Button(onClick = {
+                        clearModelCache()
+                        context.restartApp()
+                    }) {
+                        Text("Reload models")
                     }
                     Button(onClick = {
                         if (context.time.stopped) context.time.resume()

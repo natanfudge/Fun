@@ -119,9 +119,6 @@ class ComposeGlfwWindow(
 
     init {
         GLFW.glfwMakeContextCurrent(handle)
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            println("Foo")
-        }
     }
 
 

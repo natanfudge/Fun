@@ -69,7 +69,8 @@ internal typealias NetworkValue = String
 // SLOW: we can avoid serialization in case both clients are in the same process.
 // Maybe we just type NetworkValue as Any and then we can use the values themselves as the NetworkValues
 internal fun <T> NetworkValue.decode(serializer: KSerializer<T>): T = Json.decodeFromString(serializer, this)
-internal fun <T> T.toNetwork(serializer: KSerializer<T>) = Json.encodeToString(serializer, this)
+//internal fun <T> T.toNetwork(serializer: KSerializer<T>) = Json.encodeToString(serializer, this)
+internal fun <T> T.toNetwork(serializer: KSerializer<T>) = ""  // Placeholder
 
 
 /**

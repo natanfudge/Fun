@@ -8,7 +8,6 @@ import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
-import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -41,12 +40,16 @@ interface RenderObject : MutableTransform {
 
 interface Visible : Renderable, RenderObject, Taggable
 
-fun Fun.renderState(model: Model, name: String = "render") = FunRenderState(name, this, model)
+fun Fun.render(model: Model, name: String = "render") = FunRenderState(name, this, model)
 fun Fun.physics(
     renderState: FunRenderState,
     physics: PhysicsSystem,
 ) = FunPhysics(this, renderState, physics)
 
+/**
+ * Changes in physics state is applied to the [renderState].
+ * Note that the opposite is not true - updates to [renderState] don't update the physics state - we treat changes to render state as "visual only".
+ */
 fun Fun.physics(
     renderState: FunRenderState,
     physics: PhysicsMod,
@@ -131,11 +134,11 @@ class FunRenderState(
 
 
 class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : Fun(id, context) {
-    val render = renderState(model)
+    val render = render(model)
 }
 
 class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physics: PhysicsSystem) : Fun(id, context) {
-    val render = renderState(model)
+    val render = render(model)
     val physics = physics(render, physics)
 }
 
@@ -177,6 +180,7 @@ class FunPhysics(
     override var isGrounded: Boolean = true
 
 
+
 //        get() = renderState.position
 //        set(value) {
 //            if (value != renderState.position) {
@@ -202,27 +206,27 @@ class FunPhysics(
         isGrounded = it
     }
 
-    private val positionListener = renderState.positionState.onChange {
-        position = it
-        // Transform changed -> new transform matrix -> new aabb
-        updateAABB()
-    }
-
-    private val rotationListener = renderState.rotationState.onChange {
-        rotation = it
-        // Transform changed -> new transform matrix -> new aabb
-        updateAABB()
-    }
-
-    private val scaleListener = renderState.scaleState.onChange {
-        // Scale change -> calculate new AABB
-        updateAABB(newScale = it)
-    }
-
-    private val bbListener = renderState.baseAABBState.onChange {
-        // BaseAABB changed -> new aabb
-        boundingBox = it.transformed(calculateTransformMatrix())
-    }
+//    private val positionListener = renderState.positionState.onChange {
+//        position = it
+//        // Transform changed -> new transform matrix -> new aabb
+//        updateAABB()
+//    }
+//
+//    private val rotationListener = renderState.rotationState.onChange {
+//        rotation = it
+//        // Transform changed -> new transform matrix -> new aabb
+//        updateAABB()
+//    }
+//
+//    private val scaleListener = renderState.scaleState.onChange {
+//        // Scale change -> calculate new AABB
+//        updateAABB(newScale = it)
+//    }
+//
+//    private val bbListener = renderState.baseAABBState.onChange {
+//        // BaseAABB changed -> new aabb
+//        boundingBox = it.transformed(calculateTransformMatrix())
+//    }
 
     private fun calculateTransformMatrix(newScale: Vec3f = renderState.scale): Mat4f {
         return Mat4f.translateRotateScale(this.position, this.rotation, newScale)
@@ -237,6 +241,7 @@ class FunPhysics(
     override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
     override var mass: Float by funValue(1f, "mass")
     override var isImmovable: Boolean by funValue(false, "isImmovable")
+    override var collisionGroup: Int by funValue(0, "collisionGroup")
 
 
     /**
@@ -279,7 +284,7 @@ class FunPhysics(
     override fun cleanup() {
         physics.remove(this)
         // Close listeners to outside state
-        closeAll(positionListener, rotationListener, bbListener, scaleListener)
+//        closeAll(positionListener, rotationListener, bbListener, scaleListener)
     }
 }
 

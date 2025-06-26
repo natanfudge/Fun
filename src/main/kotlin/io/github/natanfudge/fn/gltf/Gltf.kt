@@ -19,11 +19,16 @@ import java.nio.ByteBuffer
 import kotlin.io.path.toPath
 import kotlin.math.PI
 
-fun main() {
-    val model = Model.fromGlbResource("files/models/textured_cube.glb")
+
+private val modelCache = mutableMapOf<String, Model>()
+
+fun clearModelCache() = modelCache.clear()
+
+fun Model.Companion.fromGlbResource(path: String): Model = modelCache.getOrPut(path) {
+    Model.fromGlbResourceImpl(path)
 }
 
-fun Model.Companion.fromGlbResource(path: String): Model {
+fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }
 

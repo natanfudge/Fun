@@ -11,7 +11,6 @@ import io.github.natanfudge.fn.render.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.random.Random
 
 
 /**
@@ -21,6 +20,7 @@ fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - 
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
+    val animation = installMod(AnimationMod())
 
     private val indices = mutableMapOf<String, Int>()
     fun nextFunId(name: String): FunId {
@@ -30,22 +30,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         return "$name-$nextIndex"
     }
 
-
-    private val nextBlockIndices = mutableMapOf<BlockType, Int>()
-
-    fun getNextBlockIndex(type: BlockType): Int {
-        if (type in nextBlockIndices) {
-            val next = nextBlockIndices[type]!!
-            nextBlockIndices[type] = next + 1
-            return next
-        } else {
-            nextBlockIndices[type] = 1
-            return 0
-        }
-    }
-
-
-    //    var nextBlockIndex = 0
     val input = installMod(InputManagerMod())
 
     val physics = installMod(PhysicsMod())
@@ -65,15 +49,9 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val visualEditor: VisualEditorMod = installMod(VisualEditorMod(hoverMod, input, enabled = false))
 
-    private val mapWidth = 21
-    private val mapHeight = 21
+    val world = World(this)
 
-    val blocks = List(mapHeight * mapWidth) {
-        val x = it % mapWidth
-        val y = it / mapWidth
-        val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
-        Block(this, type, BlockPos(x - mapWidth / 2, y = 0, z = y - mapHeight / 2))
-    }.associateBy { it.pos }.toMutableMap()
+
 
     var cameraDistance = 8f
 
@@ -85,7 +63,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     init {
         physics.system.earthGravityAcceleration = 20f
-
 
         player.render.positionState.onChange {
             repositionCamera(it)
@@ -102,10 +79,8 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         }
 
 
-
         installMods(
             CreativeMovementMod(context, input),
-
             RestartButtonsMod(context)
         )
 

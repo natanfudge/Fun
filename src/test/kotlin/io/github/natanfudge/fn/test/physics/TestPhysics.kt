@@ -58,6 +58,7 @@ class TestPhysics {
         object : PhysicsTest(show = false, throwOnFailure = true) {
             override fun PhysicsSimulation.run() {
                 physics.gravity = false
+                physics.elasticCollision = true
                 val cube1 = cube(
                     position = Vec3f(x = 0f, y = 0f, z = 0f),
                     velocity = Vec3f(0f, 1f, 0f)
