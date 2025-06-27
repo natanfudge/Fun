@@ -7,8 +7,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,11 +24,64 @@ import java.net.URI
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
 import kotlin.io.path.toPath
+import kotlin.math.max
+import kotlin.math.min
+
 
 class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
-    val items = funList<Item>("items", mutableStateListOf())
-
     val maxSlots = 15
+
+    private val items = funList<Item>("items", List(maxSlots) {
+        Item(ItemType.Nothing, 0)
+    }.toMutableStateList())
+
+
+    private val maxStackSize = 10
+
+    /**
+     * Returns the leftover count of the item that could not be inserted
+     */
+    fun insert(item: Item): Int {
+        var remainder = merge(item)
+        if (remainder > 0) {
+            remainder = addToEmptySlots(item.copy(count = remainder))
+        }
+        return remainder
+    }
+
+    private fun addToEmptySlots(item: Item): Int {
+        var remainder = item.count
+        for ((i, invItem) in items.withIndex()) {
+            if (invItem.type == ItemType.Nothing) {
+                val transfer = min(remainder, maxStackSize)
+                items[i] = item.copy(count = invItem.count + transfer)
+                remainder -= transfer
+                if (remainder == 0) return 0
+            }
+        }
+        return remainder
+    }
+
+    /**
+     * Attempts to merge the given [item] stack with existing stacks in the inventory.
+     * Returns the leftover count of the item that could not be merged with existing item stacks
+     */
+    private fun merge(item: Item): Int {
+        var remainder = item.count
+        for ((i, invItem) in items.withIndex()) {
+            if (invItem.type == item.type) {
+                val possibleTransfer = maxStackSize - invItem.count
+                if (possibleTransfer > 0) {
+                    val transfer = min(remainder, possibleTransfer)
+                    items[i] = invItem.copy(count = invItem.count + transfer)
+                    remainder -= transfer
+                    if (remainder == 0) return 0
+                }
+            }
+        }
+        return remainder
+    }
+
 
     val itemsPerRow = 10
     private val slotWidth = 60.dp
@@ -47,26 +100,27 @@ class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
                         }
                         Row(Modifier.height(IntrinsicSize.Min)) {
                             for ((col, item) in row.withIndex()) {
-                                if (col > 0) {
-                                    VerticalDivider(thickness = 2.dp)
-                                }
+//                                if (col > 0) {
+//
+//                                }
                                 DisplayItem(item)
-                            }
-                            repeat(itemsPerRow - row.size) {
                                 VerticalDivider(thickness = 2.dp)
-                                Box(modifier = Modifier.size(totalSlotWidth))
                             }
+//                            repeat(itemsPerRow - row.size) {
+//                                VerticalDivider(thickness = 2.dp)
+//                                Box(modifier = Modifier.size(totalSlotWidth))
+//                            }
                         }
 
                     }
-                    if (items.isEmpty()) {
-                        Row(Modifier.height(IntrinsicSize.Min)) {
-                            repeat(itemsPerRow) {
-                                if (it > 0) VerticalDivider(thickness = 2.dp)
-                                Box(modifier = Modifier.size(totalSlotWidth))
-                            }
-                        }
-                    }
+//                    if (items.isEmpty()) {
+//                        Row(Modifier.height(IntrinsicSize.Min)) {
+//                            repeat(itemsPerRow) {
+//                                if (it > 0) VerticalDivider(thickness = 2.dp)
+//                                Box(modifier = Modifier.size(totalSlotWidth))
+//                            }
+//                        }
+//                    }
                 }
             }
         }
@@ -76,6 +130,10 @@ class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
 
     @Composable
     private fun DisplayItem(item: Item) {
+        if (item.type == ItemType.Nothing) {
+            Box(Modifier.size(slotWidth))
+            return
+        }
         Box {
             val image by produceState<Pair<Boolean, Any?>?>(null) {
                 val uri = getResourceUri("files/icons/items/${item.type.name.lowercase()}.png")

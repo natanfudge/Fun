@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.mte
 
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
 import io.github.natanfudge.fn.render.Model
@@ -11,20 +12,39 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 enum class ItemType {
-    GoldOre
+    GoldOre,
+    Nothing
 }
 
 data class Item(
     val type: ItemType,
     val count: Int,
-)
+) {
+    init {
+        if (type == ItemType.Nothing) {
+            check(count == 0) { "The Nothing item should have a count of 0" }
+        } else {
+            check(count > 0) { "A regular item should have a positive count" }
+        }
+    }
+}
 
-class WorldItem(val game: MineTheEarth, val item: Item, pos: Vec3f) : Fun(game.nextFunId("Item-${item.type}"), game.context) {
+class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextFunId("Item-${item.type}"), game.context) {
     companion object {
-        val models = ItemType.entries.associateWith {
+        val models = ItemType.entries.filter { it != ItemType.Nothing }.associateWith {
             Model.fromGlbResource("files/models/items/${it.name.lowercase()}.glb")
         }
     }
+
+    /**
+     * We allow setting the count dynamically for efficiency. For setting the type, we can just destroy and respawn the item.
+     */
+    var itemCount by funValue(item.count, "itemCount")
+
+    val itemType = item.type
+
+    val item get() = Item(itemType, itemCount)
+
 
     val render = render(models.getValue(item.type)).apply { scale = Vec3f(0.5f, 0.5f, 0.5f) }
     val physics = physics(render, game.physics)
@@ -35,6 +55,7 @@ class WorldItem(val game: MineTheEarth, val item: Item, pos: Vec3f) : Fun(game.n
 
         game.animation.animateLoop(2.seconds) {
             val down = spring(it)
+            //TODO: this works really badly because the phyiscs overwrite it, idk how it even works. need to rework this.
             render.position = pos.copy(z = physics.position.z + down * 0.1f)
         }.closeWithThis()
     }

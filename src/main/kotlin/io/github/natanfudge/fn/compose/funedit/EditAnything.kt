@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.compose.utils.FloatField
+import io.github.natanfudge.fn.compose.utils.IntField
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
@@ -86,6 +87,13 @@ object FloatEditor: ValueEditor<Float> {
     @Composable
     override fun EditorUi(state: MutableState<Float>, modifier: Modifier) {
         FloatField(state, modifier)
+    }
+}
+
+object IntEditor: ValueEditor<Int> {
+    @Composable
+    override fun EditorUi(state: MutableState<Int>, modifier: Modifier) {
+        IntField(state, modifier)
     }
 }
 

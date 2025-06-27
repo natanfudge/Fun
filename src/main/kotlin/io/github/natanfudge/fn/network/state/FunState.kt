@@ -218,9 +218,12 @@ sealed interface FunState<T> {
 
 @Composable
 fun <T> FunState<T>.collectAsState(): State<T> {
-    val state = remember { mutableStateOf(value) }
+    val state = remember(this) { mutableStateOf(value) }
     DisposableEffect(this) {
-        val listener = onChange { state.value = it }
+        val listener = onChange {
+            println("New value: $it")
+            state.value = it
+        }
         onDispose {
             listener.close()
         }

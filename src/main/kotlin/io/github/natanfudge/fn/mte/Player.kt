@@ -91,15 +91,20 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             val bRoot = b.getRootFun()
             if (aRoot is Player && bRoot is WorldItem) {
                 collectItem(aRoot, bRoot)
-            } else if(bRoot is Player && aRoot is WorldItem) {
+            } else if (bRoot is Player && aRoot is WorldItem) {
                 collectItem(bRoot, aRoot)
             }
         }.closeWithThis()
     }
 
     private fun collectItem(player: Player, item: WorldItem) {
-        player.inventory.items.add(item.item)
-        item.close()
+        val remainder = player.inventory.insert(item.item)
+        if (remainder == 0) {
+            // Only destroy the item if there is nothing left
+            item.close()
+        } else {
+            item.itemCount = remainder
+        }
     }
 
 
