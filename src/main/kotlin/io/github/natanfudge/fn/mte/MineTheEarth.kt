@@ -66,18 +66,18 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     init {
         physics.system.earthGravityAcceleration = 20f
 
-        player.render.positionState.onChange {
+        player.render.onTranslationChanged {
             repositionCamera(it)
         }
 
         input.registerHotkey("Zoom Out", ScrollDirection.Down, ctrl = true) {
             cameraDistance += 1f
-            repositionCamera(player.render.positionState.value)
+            repositionCamera(player.render.translation)
         }
 
         input.registerHotkey("Zoom In", ScrollDirection.Up, ctrl = true) {
             cameraDistance -= 1f
-            repositionCamera(player.render.positionState.value)
+            repositionCamera(player.render.translation)
         }
 
 

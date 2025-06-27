@@ -10,7 +10,7 @@ class TestPhysics {
     @Test
     fun testVelocityVisual() {
         // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
-        object : PhysicsTest(show = false) {
+        object : PhysicsTest(show = true) {
             override fun PhysicsSimulation.run() {
                 val initialPosition = Vec3f.zero()
                 val velocity = Vec3f(1f, 2f, 3f)

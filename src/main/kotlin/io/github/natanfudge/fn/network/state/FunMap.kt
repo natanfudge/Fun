@@ -86,7 +86,7 @@ class FunMap<K, V> @PublishedApi internal constructor(
     private val valueSerializer: KSerializer<V>,
 ) : MutableMap<K, V> , FunState<Map<K,V>> {
 
-    override fun onChange(callback: (Map<K, V>) -> Unit): Listener<Map<K, V>> {
+    override fun beforeChange(callback: (Map<K, V>) -> Unit): Listener<Map<K, V>> {
         TODO("Not yet implemented")
     }
 

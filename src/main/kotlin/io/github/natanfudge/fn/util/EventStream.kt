@@ -29,6 +29,12 @@ interface EventStream<T> {
  * @see EventStream
  */
 class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : AutoCloseable {
+    companion object {
+        /**
+         * Listener that is never called
+         */
+        val Stub = Listener<Any?>({}, MutEventStream())
+    }
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
@@ -76,8 +82,7 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     fun emit(value: T) {
-        // Iterate over a copy in case a listener detaches itself during the callback
-        listeners.toList().forEach { it.callback.accept(value) }
+        listeners.forEach { it.callback.accept(value) }
     }
 
     /**

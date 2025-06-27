@@ -5,8 +5,8 @@ import androidx.compose.ui.graphics.lerp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.Tag
 import io.github.natanfudge.fn.physics.FunRenderState
-import io.github.natanfudge.fn.physics.Tag
 import io.github.natanfudge.fn.render.Tint
 
 class HoverHighlightMod(

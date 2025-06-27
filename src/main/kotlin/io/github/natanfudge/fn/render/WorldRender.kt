@@ -10,7 +10,6 @@ import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.physics.Renderable
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
@@ -22,17 +21,17 @@ import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
 
 
-interface BoundModel {
-    fun spawn(id: FunId, value: Renderable, tint: Tint): RenderInstance
-}
+//interface BoundModel {
+//    fun spawn(id: FunId, value: Renderable, tint: Tint): RenderInstance
+//}
 
 /**
  * Stores GPU information about all instances of a [Model].
  */
-class VisibleBoundModel(
+class BoundModel(
     val model: Model, ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
     val world: WorldRender,
-) : AutoCloseable, BoundModel {
+) : AutoCloseable {
     val image = model.material.texture
 
     val texture = ctx.device.createTexture(
@@ -61,12 +60,12 @@ class VisibleBoundModel(
 
     val textureView = texture.createView()
 
-    val instances = mutableMapOf<FunId, VisibleRenderInstance>()
+    val instances = mutableMapOf<FunId, RenderInstance>()
 
 
-    override fun spawn(id: FunId, value: Renderable, tint: Tint): VisibleRenderInstance {
+    fun spawn(id: FunId, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
         check(id !in instances) { "Instance with id $id already exists" }
-        val instance = world.spawn(id, this, value, tint)
+        val instance = world.spawn(id, this, value, initialTransform, tint)
         instances[id] = instance
 //        val instance = instances.computeIfAbsent(id) {
         return instance
@@ -97,7 +96,7 @@ class WorldRender(
 
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
 
-    val rayCasting = RayCastingCache<VisibleRenderInstance>()
+    val rayCasting = RayCastingCache<RenderInstance>()
     var selectedObjectId: Int = -1
 
     var hoveredObject: Boundable? by mutableStateOf(null)
@@ -118,7 +117,7 @@ class WorldRender(
     val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * maxIndices, expandable = false, GPUBufferUsage.Storage)
 
     //    val models = mutableListOf<BoundModel>()
-    val models = mutableMapOf<ModelId, VisibleBoundModel>()
+    val models = mutableMapOf<ModelId, BoundModel>()
 
     //    var bindGroup =
     val modelBindGroups = mutableListOf<GPUBindGroup>()
@@ -151,7 +150,7 @@ class WorldRender(
         )
     }
 
-    private fun createModelBindGroup(pipeline: GPURenderPipeline, model: VisibleBoundModel) = ctx.device.createBindGroup(
+    private fun createModelBindGroup(pipeline: GPURenderPipeline, model: BoundModel) = ctx.device.createBindGroup(
         BindGroupDescriptor(
             layout = pipeline.getBindGroupLayout(1u),
             entries = listOf(
@@ -255,10 +254,10 @@ class WorldRender(
     /**
      * Note: [models] is updated by [getOrBindModel]
      */
-    private fun bind(model: Model): VisibleBoundModel {
+    private fun bind(model: Model): BoundModel {
         val vertexPointer = vertexBuffer.new(model.mesh.vertices.array)
         val indexPointer = indexBuffer.new(model.mesh.indices.array)
-        val bound = VisibleBoundModel(
+        val bound = BoundModel(
             model, ctx,
             // These values are indices, not bytes, so we need to divide by the size of the value
             firstIndex = (indexPointer.address / Int.SIZE_BYTES.toUInt()).toUInt(),
@@ -277,17 +276,17 @@ class WorldRender(
     /**
      * Note: `model.instances` is updated by [VisibleBoundModel.spawn]
      */
-    fun spawn(id: FunId, model: VisibleBoundModel, value: Renderable, tint: Tint): VisibleRenderInstance {
+    fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
         // SLOW: should reconsider passing normal matrices always
-        val normalMatrix = Mat3f.normalMatrix(value.transform)
+        val normalMatrix = Mat3f.normalMatrix(initialTransform)
         val pointer = GPUInstance.new(
-            instanceBuffer, value.transform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
+            instanceBuffer, initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
         )
 
         // The index is a pointer to the instance in the instanceBuffer array (wgpu indexes a struct of arrays, so it needs an index, not a pointer)
         val instanceIndex = (pointer.address / GPUInstance.size).toInt()
 
-        val instance = VisibleRenderInstance(pointer, instanceIndex, id, model, this, value)
+        val instance = RenderInstance(pointer, instanceIndex, id, model, this, value)
         rayCasting.add(instance)
 
         indexBufferInvalid = true
@@ -317,7 +316,7 @@ class WorldRender(
 
     }
 
-    internal fun remove(renderInstance: VisibleRenderInstance) {
+    internal fun remove(renderInstance: RenderInstance) {
         renderInstance.model.instances.remove(renderInstance.funId)
         instanceBuffer.free(renderInstance.pointer, GPUInstance.size)
         rayCasting.remove(renderInstance)
@@ -335,30 +334,30 @@ class WorldRender(
 data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, val strength: Float = 0.5f)
 
 
-interface RenderInstance {
+//interface RenderInstance {
+//
+//    fun setTransform(transform: Mat4f)
+//
+//    fun setTintColor(color: Color)
+//
+//    fun setTintStrength(strength: Float)
+//
+//    fun despawn()
+//}
 
-    fun setTransform(transform: Mat4f)
-
-    fun setTintColor(color: Color)
-
-    fun setTintStrength(strength: Float)
-
-    fun despawn()
-}
-
-class VisibleRenderInstance(
+class RenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
     internal val renderId: Int,
     val funId: FunId,
 //    val value: T,
-    val model: VisibleBoundModel,
+    val model: BoundModel,
     @PublishedApi internal val world: WorldRender,
     var value: Boundable,
-) : Boundable, RenderInstance {
+) : Boundable {
     override val boundingBox: AxisAlignedBoundingBox
         get() = value.boundingBox
-    override val data: Any?
-        get() = value.data
+//    override val data: Any?
+//        get() = value.data
 
     var despawned = false
 
@@ -366,7 +365,7 @@ class VisibleRenderInstance(
      * Removes this instance from the world, cleaning up any held resources.
      * After despawning, attempting to transform this instance will fail.
      */
-    override fun despawn() {
+     fun despawn() {
         world.remove(this)
         despawned = true
     }
@@ -375,19 +374,19 @@ class VisibleRenderInstance(
         if (despawned) throw IllegalStateException("Attempt to transform despawned object")
     }
 
-    override fun setTransform(transform: Mat4f) {
+     fun setTransform(transform: Mat4f) {
         checkDespawned()
         GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
         // Update normal matrix, as the transform changed
         GPUInstance.setSecond(world.instanceBuffer, pointer, Mat3f.normalMatrix(transform))
     }
 
-    override fun setTintColor(color: Color) {
+     fun setTintColor(color: Color) {
         checkDespawned()
         GPUInstance.setThird(world.instanceBuffer, pointer, color)
     }
 
-    override fun setTintStrength(strength: Float) {
+     fun setTintStrength(strength: Float) {
         checkDespawned()
         GPUInstance.setFourth(world.instanceBuffer, pointer, strength)
     }

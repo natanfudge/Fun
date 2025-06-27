@@ -24,7 +24,8 @@ import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.collectAsState
-import io.github.natanfudge.fn.physics.Visible
+import io.github.natanfudge.fn.physics.FunRenderState
+import io.github.natanfudge.fn.render.Boundable
 import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.Tint
 
@@ -65,14 +66,9 @@ class VisualEditorMod(
         })
     }
 
-//    private var enabled: Boolean = true
-
     private val context = hoverMod.context
     private var mouseDownPos: Offset? = null
-
-    //    private var hoveredObject: Visible? = null
-//    private var hoveredObjectOldTint: Tint? = null
-    var selectedObject: Visible? by mutableStateOf(null)
+    var selectedObject: FunRenderState? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
 
     @Composable
@@ -102,12 +98,13 @@ class VisualEditorMod(
     override fun ComposePanelPlacer.gui() {
         FunPanel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
-                if (selectedObject?.data is Fun) {
+                val root = selectedObject?.getRoot()
+                if (root != null) {
                     Column(
                         Modifier.padding(5.dp).width(IntrinsicSize.Max)
                             .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        FunEditor(selectedObject?.data as Fun)
+                        FunEditor(root)
                     }
                 }
             }
@@ -132,7 +129,7 @@ class VisualEditorMod(
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.world.hoveredObject as? Visible
+                val selected = context.world.hoveredObject as? FunRenderState
                 if (selectedObject != selected) {
                     // Restore the old color
                     restoreOldTint()

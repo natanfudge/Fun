@@ -5,12 +5,10 @@ package io.github.natanfudge.fn.network.state
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.util.Listener
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 
@@ -211,7 +209,7 @@ sealed interface FunState<T> {
      * Changes are emitted BEFORE the field changes, so you can use both the old value by accessing the field, and the new value by using the
      * passed value in listen {}.
      */
-    fun onChange(callback: (T) -> Unit): Listener<T>
+    fun beforeChange(callback: (T) -> Unit): Listener<T>
 
     val editor: ValueEditor<T> get() = ValueEditor.Missing as ValueEditor<T>
 }
@@ -220,7 +218,7 @@ sealed interface FunState<T> {
 fun <T> FunState<T>.collectAsState(): State<T> {
     val state = remember(this) { mutableStateOf(value) }
     DisposableEffect(this) {
-        val listener = onChange {
+        val listener = beforeChange {
             println("New value: $it")
             state.value = it
         }

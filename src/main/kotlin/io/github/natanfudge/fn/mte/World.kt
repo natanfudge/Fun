@@ -27,7 +27,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
 
     init {
         repeat(10) {
-            spawnItem(Item(ItemType.GoldOre, (it + 1) * 4), game.player.physics.position + Vec3f(2f + it, 0f, 0f))
+            spawnItem(Item(ItemType.GoldOre, (it + 1) * 4), game.player.physics.translation + Vec3f(2f + it, 0f, 0f))
         }
     }
 }

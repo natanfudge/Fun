@@ -13,7 +13,7 @@ interface Body {
     var position: Vec3f
     var velocity: Vec3f
     var acceleration: Vec3f
-    var rotation: Quatf
+    var orientation: Quatf
     var angularVelocity: Vec3f
     var mass: Float
 
@@ -38,7 +38,7 @@ class SimpleBody(
     val baseAABB: AxisAlignedBoundingBox = AxisAlignedBoundingBox.UnitAABB,
     val scale: Vec3f,
     override val affectedByGravity: Boolean = true,
-    override var rotation: Quatf = Quatf.identity(),
+    override var orientation: Quatf = Quatf.identity(),
     override var angularVelocity: Vec3f = Vec3f.zero(),
     override var mass: Float = 1f,
     override val isImmovable: Boolean = false,
@@ -46,7 +46,7 @@ class SimpleBody(
     override var collisionGroup: Int = 0
 ) : Body {
     override val boundingBox: AxisAlignedBoundingBox get() = baseAABB.transformed(
-        Mat4f.translateRotateScale(position, rotation, scale)
+        Mat4f.translateRotateScale(position, orientation, scale)
     )
 
     override fun commit() {

@@ -46,17 +46,18 @@ class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextF
     val item get() = Item(itemType, itemCount)
 
 
-    val render = render(models.getValue(item.type)).apply { scale = Vec3f(0.5f, 0.5f, 0.5f) }
-    val physics = physics(render, game.physics)
+    val physics = physics(game.physics.system)
+    val render = render(models.getValue(item.type), physics)
 
     init {
+        physics.scale = Vec3f(0.5f, 0.5f, 0.5f)
         physics.position = pos.copy(z = pos.z - 0.2f)
-        physics.rotation = physics.rotation.rotateY(PI.toFloat() / 2)
+        physics.orientation = physics.orientation.rotateY(PI.toFloat() / 2)
 
         game.animation.animateLoop(2.seconds) {
             val down = spring(it)
-            //TODO: this works really badly because the phyiscs overwrite it, idk how it even works. need to rework this.
-            render.position = pos.copy(z = physics.position.z + down * 0.1f)
+            //TODO: we did everything for this, lets hope it works
+            render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = physics.translation.z + down * 0.1f)
         }.closeWithThis()
     }
 

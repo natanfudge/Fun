@@ -218,7 +218,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
     private fun applyDisplacement(body: Body, deltaSeconds: Double) {
         body.velocity = applyChange(deltaSeconds, body.velocity, body.acceleration)
         body.position = applyChange(deltaSeconds, body.position, body.velocity)
-        body.rotation = updateRotation(body.rotation, body.angularVelocity, deltaSeconds.toFloat())
+        body.orientation = updateRotation(body.orientation, body.angularVelocity, deltaSeconds.toFloat())
     }
 
     /**

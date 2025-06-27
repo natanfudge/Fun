@@ -1,16 +1,18 @@
 package io.github.natanfudge.fn.network
 
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.physics.Tag
-import io.github.natanfudge.fn.physics.Taggable
+
 
 
 //interface IFun {
 //    val id: FunId
+//
 //    val context: FunContext
-//    fun onClose(callback: () -> Unit): Listener<Unit>
+//
+//    fun registerChild(child: Fun)
+//
+//    fun unregisterChild(child: Fun)
 //}
-
 
 /**
  * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
@@ -25,10 +27,10 @@ abstract class Fun(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-    val id: FunId,
-    val context: FunContext,
+    /*override*/ val id: FunId,
+    /*override*/ val context: FunContext,
     val parent: Fun? = null,
-) : AutoCloseable, Taggable {
+) : AutoCloseable, Taggable{
     val isRoot: Boolean = parent == null
 
     constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context, parent) {
@@ -59,11 +61,11 @@ abstract class Fun(
 
     val children = mutableListOf<Fun>()
 
-    internal fun registerChild(child: Fun) {
+     fun registerChild(child: Fun) {
         children.add(child)
     }
 
-    internal fun unregisterChild(child: Fun) {
+      fun unregisterChild(child: Fun) {
         children.remove(child)
     }
 
@@ -106,6 +108,15 @@ abstract class Fun(
     }
 
 }
+
+interface Taggable {
+    fun <T> getTag(tag: Tag<T>): T?
+    fun <T> setTag(tag: Tag<T>, value: T?)
+    fun removeTag(tag: Tag<*>)
+    fun hasTag(tag: Tag<*>): Boolean
+}
+
+data class Tag<T>(val name: String)
 
 typealias FunId = String
 

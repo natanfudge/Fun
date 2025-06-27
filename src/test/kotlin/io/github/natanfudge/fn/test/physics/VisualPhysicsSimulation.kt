@@ -46,9 +46,9 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
         for ((body, assertion) in block.assertions) {
             val renderNode = (body as Fun).getRoot().childrenTyped<FunRenderState>().single()
             bodies.add(SimpleRenderObject("target-${index++}", app.context, renderNode.model).render.apply {
-                position = assertion.position
+                localTransform.translation = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
-                scale = renderNode.scale * 1.1f
+                localTransform.scale = renderNode.scale * 1.1f
             })
         }
     }
@@ -81,9 +81,9 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
         isImmovable: Boolean,
     ): Body {
         val body = SimplePhysicsObject("body-${index++}", app.context, cubeModel, app.physics.system)
-        body.render.scale = scale
+        body.physics.scale = scale
         body.physics.position = position
-        body.physics.rotation = rotation
+        body.physics.orientation = rotation
         body.physics.velocity = velocity
         body.physics.mass = mass
         body.physics.affectedByGravity = affectedByGravity

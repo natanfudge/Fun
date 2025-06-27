@@ -24,7 +24,7 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockP
         }
     }
 
-    val physics = physics(render(models.getValue(type)), game.physics)
+    val physics = physics( game.physics.system)
 
     var breakOverlay: FunRenderState? = null
 
@@ -42,9 +42,9 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockP
         if (missingHpFraction > 0) {
             val damageIndex = (missingHpFraction * 5).ceilToInt().coerceAtMost(5)
             breakOverlay?.close()
-            breakOverlay = render(breakOverlays[damageIndex - 1], BreakRenderId).apply {
-                scale = Vec3f(1.01f, 1.01f, 1.01f) // It should be slightly around the cube
-                position = physics.position
+            breakOverlay = this@Block.render(breakOverlays[damageIndex - 1], BreakRenderId).apply {
+                localTransform.scale = Vec3f(1.01f, 1.01f, 1.01f) // It should be slightly around the cube
+                localTransform.translation = physics.translation
             }
         } else {
             breakOverlay?.close()
@@ -54,6 +54,7 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockP
 
 
     init {
+        render(models.getValue(type), physics)
         physics.position = pos.toVec3()
         physics.affectedByGravity = false
         physics.isImmovable = true
@@ -62,7 +63,7 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockP
 
     fun destroy() {
         if (type == BlockType.Gold) {
-            game.world.spawnItem(Item(ItemType.GoldOre, 1), physics.position)
+            game.world.spawnItem(Item(ItemType.GoldOre, 1), physics.translation)
         }
         close()
     }

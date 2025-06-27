@@ -74,7 +74,7 @@ class FunList<T> @PublishedApi internal constructor(
     private val serializer: KSerializer<T>,
 ) : MutableList<T>, FunState<List<T>> {
 
-    override fun onChange(callback: (List<T>) -> Unit): Listener<List<T>> {
+    override fun beforeChange(callback: (List<T>) -> Unit): Listener<List<T>> {
         TODO("Not yet implemented")
     }
     

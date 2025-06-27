@@ -61,7 +61,7 @@ class HeadlessPhysicsSimulation : PhysicsSimulation {
     ): Body {
         val body = SimpleBody(
             position = position,
-            rotation = rotation,
+            orientation = rotation,
             scale = scale,
             velocity = velocity,
             mass = mass,

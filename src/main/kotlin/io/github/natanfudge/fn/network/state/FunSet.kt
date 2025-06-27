@@ -68,7 +68,7 @@ class FunSet<T> @PublishedApi internal constructor(
     private val serializer: KSerializer<T>,
 ) : MutableSet<T>, FunState<Set<T>> {
 
-    override fun onChange(callback: (Set<T>) -> Unit): Listener<Set<T>> {
+    override fun beforeChange(callback: (Set<T>) -> Unit): Listener<Set<T>> {
         TODO("Not yet implemented")
     }
 

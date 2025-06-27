@@ -8,8 +8,8 @@ import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
+import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -27,13 +27,15 @@ class TestBody(
     rotate: Quatf = Quatf.identity(),
     scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
 ) : Fun(id, app.context) {
-    val render = render(model)
-    val physics = physics(render, physics = app.physics.system)
+//    val render = render(model)
+    val physics = physics(app.physics.system)
+    val render = physics.render(model)
 
     init {
-        render.position = translate
-        render.rotation = rotate
-        render.scale = scale
+        physics.render(model)
+        physics.position = translate
+        physics.orientation = rotate
+        physics.scale = scale
         render.tint = Tint(color, 0f)
     }
 }
@@ -48,12 +50,12 @@ class TestRenderObject(
     color: Color = Color.White,
 ) : Fun(id, app.context) {
 
-    val render = render(model)
+    val render = this@TestRenderObject.render(model)
 
     init {
-        render.position = translate
-        render.rotation = rotate
-        render.scale = scale
+        render.localTransform.translation = translate
+        render.localTransform.rotation = rotate
+        render.localTransform.scale = scale
         render.tint = Tint(color, 0f)
     }
 }

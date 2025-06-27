@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.network.getSerializerExtended
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.EventStream
@@ -43,7 +42,7 @@ inline fun <reified T> Fun.funValue(
 ): ClientFunValue<T> {
     val value = ClientFunValue(value, getFunSerializer<T>(), id, this, editor)
     if (onSetValue != null) {
-        value.onChange(onSetValue)
+        value.beforeChange(onSetValue)
 //        if (autocloseSetValue) closeEvent.listen { listener.close() }
     }
     return value
@@ -91,7 +90,12 @@ class ClientFunValue<T>(
         )
     }
 
-    override fun onChange(callback: (T) -> Unit): Listener<T> = change.listen(callback)
+    /**
+     * Changes are emitted BEFORE setting a new value, and are passed the new value.
+     */
+    override fun beforeChange(callback: (T) -> Unit): Listener<T> = change.listen(callback)
+
+//    fun afterChange(callback: (T) -> Unit):
 
     override var value: T = value
         set(value) {

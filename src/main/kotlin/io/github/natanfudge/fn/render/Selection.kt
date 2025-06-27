@@ -163,7 +163,7 @@ fun getAxisAlignedBoundingBox(mesh: Mesh): AxisAlignedBoundingBox {
 
 interface Boundable {
     val boundingBox: AxisAlignedBoundingBox
-    val data: Any?
+//    val data: Any?
 }
 
 //class RCObject<T: Boundable>(

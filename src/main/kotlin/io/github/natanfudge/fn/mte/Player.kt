@@ -26,43 +26,45 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         val model = Model.fromGlbResource("files/models/hedgie_lowres.glb")
     }
 
-    val render = render(model).apply {
-        baseAABB = AxisAlignedBoundingBox(
-            minX = -0.2f, maxX = 0.4f,
-            minZ = -0.45f, maxZ = 0.45f,
-            minY = -0.4f, maxY = 0.4f,
-        )
-    }
 
-    val physics = physics(render, game.physics)
+
+    val physics = physics(game.physics.system)
+    val render = render(model)
+
 
     val inventory = Inventory(game)
 
-    private val baseRotation = physics.rotation
+    private val baseRotation = physics.orientation
 
     private val mineRateLimit = RateLimiter(game.context)
 
     init {
+        physics.baseAABB = AxisAlignedBoundingBox(
+            minX = -0.2f, maxX = 0.4f,
+            minZ = -0.45f, maxZ = 0.45f,
+            minY = -0.4f, maxY = 0.4f,
+        )
+
         physics.position = Vec3f(0f, 0.5f, 11.5f)
 
         game.input.registerHotkey(
             "Left", Key.A, onHold = {
-                physics.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
+                physics.orientation = baseRotation.rotateZ(PI.toFloat() / 2)
                 physics.position -= Vec3f(it * 3, 0f, 0f)
             },
             onRelease = {
-                physics.rotation = baseRotation
+                physics.orientation = baseRotation
             }
         )
 
         game.input.registerHotkey(
             "Right", Key.D,
             onHold = {
-                physics.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
+                physics.orientation = baseRotation.rotateZ(PI.toFloat() / -2)
                 physics.position += Vec3f(it * 3, 0f, 0f)
             },
             onRelease = {
-                physics.rotation = baseRotation
+                physics.orientation = baseRotation
             }
         )
 
@@ -108,14 +110,14 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     }
 
 
-    val blockPos get() = physics.position.toBlockPos()
+    val blockPos get() = physics.translation.toBlockPos()
 
 
     /**
      * We target the first block near the player, because the selected block might be "covered" by the perspective of the player character.
      */
     fun targetBlock(directlyHoveredBlock: Block): Block? {
-        if (directlyHoveredBlock.pos.squaredDistance(physics.position) > Balance.BreakReach.squared()) return null
+        if (directlyHoveredBlock.pos.squaredDistance(physics.translation) > Balance.BreakReach.squared()) return null
         return firstBlockAlong(blockPos.to2D(), directlyHoveredBlock.pos.to2D())
     }
 
