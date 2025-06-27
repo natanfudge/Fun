@@ -12,7 +12,7 @@ object Balance {
 
     val BreakReach = 5
 
-    val PickaxeStrength = 5f
+    val PickaxeStrength = 1f
 }
 
 enum class BlockType {

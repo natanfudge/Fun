@@ -23,7 +23,7 @@ import java.util.function.IntFunction
  * @see funSet
  */
 inline fun <reified T> Fun.funList(name: String, vararg items: T): FunList<T> = funList(name, getFunSerializer(), mutableListOf(*items))
-inline fun <reified T> Fun.funList(name: String, items: List<T>): FunList<T> = funList(name, getFunSerializer(), items.toMutableList())
+inline fun <reified T> Fun.funList(name: String, items: MutableList<T>): FunList<T> = funList(name, getFunSerializer(), items)
 inline fun <reified T> Fun.funList(name: String, size: Int, init: (Int) -> T): FunList<T> = funList(name, getFunSerializer(), MutableList(size, init))
 
 /**

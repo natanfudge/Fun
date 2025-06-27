@@ -39,6 +39,10 @@ class WorldItem(val game: MineTheEarth, val item: Item, pos: Vec3f) : Fun(game.n
         }.closeWithThis()
     }
 
+    override fun cleanup() {
+        game.world.items.remove(this)
+    }
+
 }
 
 fun linearLoop(t: Float): Float {

@@ -20,6 +20,7 @@ import kotlin.io.path.toPath
 import kotlin.math.PI
 
 
+//SUS: gonna do this more robust and not global state when we have proper async model loading. 
 private val modelCache = mutableMapOf<String, Model>()
 
 fun clearModelCache() = modelCache.clear()

@@ -1,7 +1,9 @@
 package io.github.natanfudge.fn.mte
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.*
+import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
@@ -83,9 +85,19 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
             CreativeMovementMod(context, input),
             RestartButtonsMod(context)
         )
+    }
 
+    @Composable
+    override fun ComposePanelPlacer.gui() {
+        with(player.inventory) {
+            InventoryGUI()
+        }
     }
 }
+
+// TODO: current new API i'm thinking of, is exposing MutEventStreams for all the usual stuff, as  well as a special API for injecting GUI panels.
+// context.onFrame {}
+// context.addPanel { }
 
 
 fun main() {

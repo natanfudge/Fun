@@ -36,6 +36,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     val physics = physics(render, game.physics)
 
+    val inventory = Inventory(game)
+
     private val baseRotation = physics.rotation
 
     private val mineRateLimit = RateLimiter(game.context)
@@ -88,10 +90,18 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             val aRoot = a.getRootFun()
             val bRoot = b.getRootFun()
             if (aRoot is Player && bRoot is WorldItem) {
-                bRoot.close()
+                collectItem(aRoot, bRoot)
+            } else if(bRoot is Player && aRoot is WorldItem) {
+                collectItem(bRoot, aRoot)
             }
         }.closeWithThis()
     }
+
+    private fun collectItem(player: Player, item: WorldItem) {
+        player.inventory.items.add(item.item)
+        item.close()
+    }
+
 
     val blockPos get() = physics.position.toBlockPos()
 

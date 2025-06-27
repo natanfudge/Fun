@@ -27,5 +27,17 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
 
     init {
         spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
+        spawnItem(Item(ItemType.GoldOre, 1), game.player.physics.position + Vec3f(2f, 0f, 0f))
     }
 }

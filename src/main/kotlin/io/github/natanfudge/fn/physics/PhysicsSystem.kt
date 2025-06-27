@@ -56,13 +56,14 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 val yOverlap = other.boundingBox.overlap(body.boundingBox, 1)
 
                 // Check that the other is *below* the body and overlaps in X & Y
-                if (zOverlap >= -0.00001 && other.boundingBox.minZ <= body.boundingBox.maxZ && xOverlap > 0 && yOverlap > 0) {
+                if (zOverlap >= -0.0001 && other.boundingBox.minZ <= body.boundingBox.maxZ - 0.0001 && xOverlap > 0 && yOverlap > 0) {
                     return true
                 }
             }
         }
         return false
     }
+    // 0 -> 1,   7 -> 8
 
     private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox)
 

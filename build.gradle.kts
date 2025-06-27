@@ -97,6 +97,7 @@ dependencies {
     implementation("io.github.natanfudge:wgpu4k-matrix:0.5.0")
     implementation("com.soywiz:korlibs-image:6.0.0")
     implementation(libs.wgpu4k)
+    implementation("io.coil-kt.coil3:coil-compose:3.2.0")
     runtimeOnly(compose.desktop.windows_x64)
 
     testImplementation(libs.bundles.commonTest)
@@ -241,3 +242,39 @@ internal enum class Color(ansiCode: Int) {
     }
 }
 
+
+//tasks["processResources"].doLast {
+//    val composeResourcesDir = project.layout.buildDirectory.file("resources/main/composeResources")
+//
+//    val children = composeResourcesDir.get().asFile.listFiles()
+//    if (children.size != 1) {
+//        error("Expected only one directory under $composeResourcesDir, actual: $children")
+//    }
+//    val projectSpecificDir = children.single()
+//    val drawable = projectSpecificDir.resolve("drawable")
+//    val allNested = drawable.listFiles().filter { it.isDirectory }
+//
+//    for (nested in allNested) {
+//        nested.walkTopDown().forEach {
+//            if (it.isDirectory) return@forEach
+//            val relative = it.relativeTo(drawable)
+//            val flattened = relative.toString().replace(Regex("""[/\\]"""), "_")
+//            it.copyTo(drawable.resolve(flattened), overwrite = true)
+//        }
+//        nested.deleteRecursively()
+//    }
+//}
+
+
+// This task configuration will process files in `src/main/composeResources/drawable`
+//tasks.register<Copy>("flattenComposeResources") {
+//    val sourceDir = File(layout.projectDirectory.get().asFile, "ui_resources")
+//    val targetDir = File(layout.projectDirectory.get().asFile, "my-app/src/commonMain/composeResources/drawable")
+//
+//    from(sourceDir)
+//    into(targetDir)
+//
+
+//
+//    includeEmptyDirs = false
+//}
