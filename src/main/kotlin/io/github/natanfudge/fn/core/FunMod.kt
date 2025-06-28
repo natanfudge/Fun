@@ -23,6 +23,10 @@ interface FunMod {
 
     }
 
+    fun onGUIError(error: Throwable) {
+
+    }
+
     fun cleanup() {
 
     }

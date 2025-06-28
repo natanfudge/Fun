@@ -20,7 +20,6 @@ import korlibs.math.squared
 import kotlin.math.PI
 import kotlin.math.abs
 
-//TODO: better hierarchical organization in visual editor
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     companion object {

@@ -114,6 +114,7 @@ class ComposeGlfwWindow(
     private val density: Density,
 //    private val composeContent: @Composable () -> Unit,
     val config: ComposeConfig,
+    private val onError: (Throwable) -> Unit,
     private val onInvalidate: () -> Unit,
 ) : AutoCloseable {
 
@@ -128,6 +129,7 @@ class ComposeGlfwWindow(
         System.err.println("An error occurred inside an asynchronous Compose callback. The GUI will restart itself to recover.")
         throwable.printStackTrace()
         config.windowLifecycle.restart()
+        onError(throwable)
     }
     val dispatcher = GlfwCoroutineDispatcher()
     val frameDispatcher = FrameDispatcher(dispatcher) {
@@ -183,6 +185,7 @@ class ComposeConfig(
     host: GlfwWindowConfig,
 //    val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
+    onError: (Throwable) -> Unit
 ) {
     companion object {
         const val LifecycleLabel = "Compose Window"
@@ -197,7 +200,7 @@ class ComposeConfig(
             window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)), hostHandle = { host.windowLifecycle.assertValue.handle },
-                config = this@ComposeConfig
+                config = this@ComposeConfig, onError = onError
             ) {
                 // Invalidate Compose frame on change
                 window!!.invalid = true

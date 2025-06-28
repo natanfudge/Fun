@@ -141,8 +141,12 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
         fsWatcher = FileSystemWatcher()
 
-        val compose = ComposeWebGPURenderer(window, fsWatcher, show = false)
-        val appLifecycle: Lifecycle<*, FunApp> = funSurface.bind(AppLifecycleName) {
+        var appLifecycle: Lifecycle<*, FunApp>? = null
+
+        val compose = ComposeWebGPURenderer(window, fsWatcher, show = false, onError = {
+            appLifecycle?.value?.actualOnError(it)
+        })
+        appLifecycle = funSurface.bind(AppLifecycleName) {
             val context = FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
             val time = FunTime(context)
             context.time = time
@@ -200,6 +204,8 @@ abstract class FunApp : AutoCloseable {
 
     }
 
+//    fun onComposeE
+
     abstract val context: FunContext
 
     open fun cleanup() {
@@ -212,6 +218,16 @@ abstract class FunApp : AutoCloseable {
 //        context.close()
     }
 }
+
+internal fun FunApp.actualOnError(error: Throwable)  {
+//    gui()
+    mods.forEach {
+        with(it) {
+            onGUIError(error)
+        }
+    }
+}
+
 
 @Composable
 internal fun FunApp.actualGui() = context.panels.PanelSupport {

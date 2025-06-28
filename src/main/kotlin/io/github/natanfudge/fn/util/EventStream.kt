@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.util
 
+import io.github.natanfudge.fn.error.UnallowedFunException
 import java.util.function.Consumer
 
 
@@ -22,19 +23,24 @@ interface EventStream<T> {
     fun listen(onEvent: Consumer<T>): Listener<T>
 }
 
-
 /**
  * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method
  * to stop listening. This is typically returned by [EventStream.listen].
  * @see EventStream
  */
-class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : AutoCloseable {
-    companion object {
-        /**
-         * Listener that is never called
-         */
-        val Stub = Listener<Any?>({}, MutEventStream())
+interface Listener<in T> : AutoCloseable {
+    /**
+     * Listener that is never called
+     */
+    object Stub : Listener<Any?> {
+        override fun close() {
+
+        }
     }
+}
+
+
+class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : Listener<T> {
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
@@ -63,7 +69,7 @@ class Listener<in T>(internal val callback: Consumer<@UnsafeVariance T>, private
  * @see EventStream
  */
 class MutEventStream<T> : EventStream<T> {
-    private val listeners = mutableListOf<Listener<T>>()
+    private val listeners = mutableListOf<ListenerImpl<T>>()
 
     fun clearListeners() {
         listeners.clear()
@@ -71,8 +77,7 @@ class MutEventStream<T> : EventStream<T> {
 
     /** @see EventStream */
     override fun listen(onEvent: Consumer<T>): Listener<T> {
-        val listener = Listener(onEvent, this)
-//        println("Adding listener: $onEvent")
+        val listener = ListenerImpl(onEvent, this)
         listeners.add(listener)
         return listener
     }
@@ -82,7 +87,9 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     fun emit(value: T) {
-        listeners.forEach { it.callback.accept(value) }
+        for (listener in listeners) {
+            listener.callback.accept(value)
+        }
     }
 
     /**
@@ -92,7 +99,10 @@ class MutEventStream<T> : EventStream<T> {
      */
     internal fun detach(listener: Listener<T>) {
         if (!listeners.remove(listener)) {
-            println("Warn: Detaching from MutEventStream failed as the listener with callback '${listener.callback}' was probably already detached")
+            if (listener is Listener.Stub) {
+                throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")
+            }
+            println("Warn: Detaching from MutEventStream failed as the listener with callback '${(listener as ListenerImpl).callback}' was probably already detached")
         }
     }
 }

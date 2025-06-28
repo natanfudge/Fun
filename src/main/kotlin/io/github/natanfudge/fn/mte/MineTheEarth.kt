@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.runtime.*
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
@@ -12,11 +11,7 @@ import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.math.abs
-import kotlin.math.max
-
-
-
+import kotlinx.coroutines.delay
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
@@ -62,7 +57,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         }
     }
 
-    val creativeMovement = CreativeMovementMod(context, input)
+    val creativeMovement = installMod(CreativeMovementMod(context, input))
 
     init {
         physics.system.earthGravityAcceleration = 20f
@@ -83,8 +78,8 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
 
         installMods(
-            creativeMovement,
-            RestartButtonsMod(context)
+            RestartButtonsMod(context),
+            ErrorNotificationMod()
         )
     }
 
@@ -95,10 +90,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         }
     }
 }
-
-// TODO: current new API i'm thinking of, is exposing MutEventStreams for all the usual stuff, as  well as a special API for injecting GUI panels.
-// context.onFrame {}
-// context.addPanel { }
 
 
 fun main() {

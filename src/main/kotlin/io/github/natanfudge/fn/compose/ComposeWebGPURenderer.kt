@@ -70,56 +70,13 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
     }
 }
 
-
-
-
-
-
-
-//private var texCtxIndex = 0
-
-//private class ComposeTextureContext(val device: GPUDevice, val texture: GPUTexture,val textureDim: WindowDimensions): Consumer<ComposeFrameEvent> {
-//    val index = texCtxIndex++
-//
-//    init {
-//        println("Creating ComposeTextureContext #$index")
-//    }
-//
-//    override fun accept(t: ComposeFrameEvent) {
-//        println("Writing compose texture for dimensions ${t.width}x${t.height}, with textureDim = $textureDim. I am #$index")
-//        device.copyExternalImageToTexture(
-//            source = t.bytes,
-//            texture = texture,
-//            width = t.width, height = t.height
-//        )
-//    }
-//
-//    override fun toString(): String {
-//        return "ComposeTextureContext #$index"
-//    }
-//}
-
-
 class ComposeWebGPURenderer(
     hostWindow: WebGPUWindow,
     fsWatcher: FileSystemWatcher,
+    onError: (Throwable) -> Unit,
     show: Boolean = false
 ) {
-     val compose = ComposeConfig(hostWindow.window,  show = show)
-
-
-//    val BackgroundWindowLifecycle = ProcessLifecycle.bind("Compose Background Window", early = true) {
-//        compose.show(config)
-//    }
-
-
-//    fun show() {
-//        compose.show(config)
-//    }
-
-//    init {
-//        compose.show(config)
-//    }
+     val compose = ComposeConfig(hostWindow.window,  show = show, onError)
 
     companion object {
         const val SurfaceLifecycleName = "Compose WebGPU Surface"
@@ -174,9 +131,6 @@ class ComposeWebGPURenderer(
         )
     }
 
-
-//    val fullscreenQuad by fullscreenQuadLifecycle
-
     val textureLifecycle = hostWindow.dimensionsLifecycle.bind(compose.windowLifecycle, "Compose Texture") {dim, bgWindow ->
         ComposeTexture(dim, bgWindow, dim.surface)
     }
@@ -205,7 +159,6 @@ class ComposeWebGPURenderer(
         )
         override fun close() {
             closeAll(resource, group)
-            val x = 2
         }
     }
 
@@ -237,30 +190,11 @@ class ComposeWebGPURenderer(
 
         // Create bind group for the sampler, and texture
         val pass = encoder.beginRenderPass(renderPassDescriptor)
-//        val pipeline = fullscreenQuadLifecycle.assertValue.pipeline
-//        println("Compose pipeline = $pipeline")
         pass.setPipeline(composeFrame.pipeline.pipeline)
-//        pass.setPipeline()
         pass.setBindGroup(0u, composeFrame.bindGroup.group)
         pass.draw(6u)
         pass.end()
     }
-
-
-//    fun frame(encoder: GPUCommandEncoder, drawTarget: GPUTextureView) {
-//
-//
-//    }
-
-
-
-
-    /**
-     * These callbacks should be called when these events occur to let Compose know what is happening
-     */
-    val callbacks = compose.callbacks
-
-//    fun restart() = compose.restart()
 }
 
 data class ComposeFrame(
