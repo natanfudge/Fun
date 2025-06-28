@@ -18,6 +18,9 @@ class FunPhysics(
 
     private val transform = FunTransform(this)
 
+    //TODO: having this public value that doesn't get updated asap is a big problem, we are using old values accidentally.
+    // Optimally we can just use one value and avoid doing too much work if we don't need to.
+
     override val translation: Vec3f get() = transform.translation
 
     override val rotation: Quatf get() = transform.rotation

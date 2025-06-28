@@ -197,6 +197,7 @@ private fun extractTransform(glb: GLTF2): Transform {
         Quatf(node.rotation!![0], node.rotation!![1], node.rotation!![2], node.rotation!![3])
     } else {
         Quatf.identity()
+        //TODO: this rotateX is kinda confusing
     }).rotateX(PI.toFloat() / 2) // GLTF uses Y-up, rotating the X axis by 90 degrees makes it match Z-up instead.
 
     // Extract scale
