@@ -126,8 +126,6 @@ class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
         }
     }
 
-    //TODO: one last thing - stack merging
-
     @Composable
     private fun DisplayItem(item: Item) {
         if (item.type == ItemType.Nothing) {

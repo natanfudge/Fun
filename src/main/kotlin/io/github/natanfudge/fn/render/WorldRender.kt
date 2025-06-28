@@ -81,6 +81,9 @@ class BoundModel(
 }
 
 
+/**
+ *   initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
+ */
 object GPUInstance : Struct5<Mat4f, Mat3f, Color, Float, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT)
 
 object WorldUniform : Struct5<Mat4f, Vec3f, Vec3f, UInt, UInt, WorldUniform>(
@@ -235,6 +238,10 @@ class WorldRender(
 
         var instanceIndex = 0u
         for ((i, model) in models.values.withIndex()) {
+            for (instance in model.instances) {
+                instance.value.updateGPU()
+            }
+
             pass.setBindGroup(1u, modelBindGroups[i])
             val instances = model.instances.size.toUInt()
             pass.drawIndexed(
@@ -286,7 +293,7 @@ class WorldRender(
         // The index is a pointer to the instance in the instanceBuffer array (wgpu indexes a struct of arrays, so it needs an index, not a pointer)
         val instanceIndex = (pointer.address / GPUInstance.size).toInt()
 
-        val instance = RenderInstance(pointer, instanceIndex, id, model, this, value)
+        val instance = RenderInstance(pointer, instanceIndex, id, initialTransform, tint, model, this, value)
         rayCasting.add(instance)
 
         indexBufferInvalid = true
@@ -349,6 +356,8 @@ class RenderInstance(
     @PublishedApi internal val pointer: GPUPointer<GPUInstance>,
     internal val renderId: Int,
     val funId: FunId,
+    initialTransform: Mat4f,
+    initialTint: Tint,
 //    val value: T,
     val model: BoundModel,
     @PublishedApi internal val world: WorldRender,
@@ -356,8 +365,15 @@ class RenderInstance(
 ) : Boundable {
     override val boundingBox: AxisAlignedBoundingBox
         get() = value.boundingBox
-//    override val data: Any?
-//        get() = value.data
+
+    private var gpuTransform: Mat4f = initialTransform
+    private var gpuTintColor: Color = initialTint.color
+    private var gpuTintStrength: Float = initialTint.strength
+
+    // Optimization: only update GPU once per frame, store requested changes in memory and update before frame.
+    private var requestedTransform: Mat4f? = null
+    private var requestedTintColor: Color? = null
+    private var requestedTintStrength: Float? = null
 
     var despawned = false
 
@@ -365,7 +381,7 @@ class RenderInstance(
      * Removes this instance from the world, cleaning up any held resources.
      * After despawning, attempting to transform this instance will fail.
      */
-     fun despawn() {
+    fun despawn() {
         world.remove(this)
         despawned = true
     }
@@ -374,21 +390,61 @@ class RenderInstance(
         if (despawned) throw IllegalStateException("Attempt to transform despawned object")
     }
 
-     fun setTransform(transform: Mat4f) {
-        checkDespawned()
-        GPUInstance.setFirst(world.instanceBuffer, pointer, transform)
-        // Update normal matrix, as the transform changed
-        GPUInstance.setSecond(world.instanceBuffer, pointer, Mat3f.normalMatrix(transform))
+    /**
+     * Called once per frame to apply any changes made to the instance values.
+     */
+    internal fun updateGPU() {
+        if (requestedTransform != null) {
+            // Setting all values at once is faster than setting two values individually
+            GPUInstance.set(
+                world.instanceBuffer, pointer,
+                requestedTransform!!, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
+                if (model.image == null) 0 else 1
+            )
+//            GPUInstance.setFirst(world.instanceBuffer, pointer, requestedTransform!!)
+//            // Update normal matrix, as the transform changed
+//            GPUInstance.setSecond(world.instanceBuffer, pointer, Mat3f.normalMatrix(requestedTransform!!))
+            gpuTransform = requestedTransform!!
+            requestedTransform = null
+        }
+        if (requestedTintColor != null) {
+            GPUInstance.setThird(world.instanceBuffer, pointer, requestedTintColor!!)
+            gpuTintColor = requestedTintColor!!
+            requestedTintColor = null
+        }
+        if (requestedTintStrength != null) {
+            GPUInstance.setFourth(world.instanceBuffer, pointer, requestedTintStrength!!)
+            gpuTintStrength = requestedTintStrength!!
+            requestedTintStrength = null
+        }
     }
 
-     fun setTintColor(color: Color) {
+    fun setTransform(transform: Mat4f) {
         checkDespawned()
-        GPUInstance.setThird(world.instanceBuffer, pointer, color)
+        if (transform != gpuTransform) {
+            this.requestedTransform = transform
+        } else {
+            // Want to go back to the initial value? just don't do anything!
+            this.requestedTransform = null
+        }
     }
 
-     fun setTintStrength(strength: Float) {
+    fun setTintColor(color: Color) {
         checkDespawned()
-        GPUInstance.setFourth(world.instanceBuffer, pointer, strength)
+        if (color != gpuTintColor) {
+            this.requestedTintColor = color
+        } else {
+            this.requestedTintColor = null
+        }
+    }
+
+    fun setTintStrength(strength: Float) {
+        checkDespawned()
+        if (strength != gpuTintStrength) {
+            this.requestedTintStrength = strength
+        } else {
+            this.requestedTintStrength = null
+        }
     }
 }
 

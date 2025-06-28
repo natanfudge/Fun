@@ -9,8 +9,8 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
-interface Transformable /*: IFun*/ {
-    object Root/*(val parentFun: IFun)*/ : Transformable {
+interface Transformable {
+    object Root : Transformable {
         override val translation: Vec3f = Vec3f.zero()
         override val rotation: Quatf = Quatf.identity()
         override val scale: Vec3f = Vec3f(1f, 1f, 1f)
@@ -63,12 +63,9 @@ abstract class HierarchicalTransformable(val parentTransform: Transformable, par
     private fun calculateRotation(
         parentRotation: Quatf = parentTransform.rotation, localRotation: Quatf = localTransform.rotation,
     ): Quatf {
-//        val res = parentRotation * localRotation
-//        val reversed = localRotation * parentRotation
         return parentRotation * localRotation
     }
 
-    //TODo: I should inline this somehow...
     private fun calculateScale(
         parentScale: Vec3f = parentTransform.scale, localScale: Vec3f = localTransform.scale,
     ) = parentScale * localScale

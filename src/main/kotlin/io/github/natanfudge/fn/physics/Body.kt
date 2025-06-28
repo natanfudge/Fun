@@ -24,11 +24,6 @@ interface Body {
 
     var isGrounded: Boolean // SLOW: Don't think if we need this for EVERYTHING
 
-
-    /**
-     * Apply the changes of state in the body to consumers of this body like renderers.
-     */
-    fun commit()
 }
 
 class SimpleBody(
@@ -49,6 +44,4 @@ class SimpleBody(
         Mat4f.translateRotateScale(position, orientation, scale)
     )
 
-    override fun commit() {
-    }
 }

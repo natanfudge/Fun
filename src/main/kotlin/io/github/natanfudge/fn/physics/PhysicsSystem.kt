@@ -41,11 +41,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
         bodies.remove(obj)
     }
 
-//    fun getTouching(body: Body): List<Body> {
-//        val intersections = bodies.filter { intersect(body, it) && it !== body }
-//        return intersections
-//    }
-
     private fun isGrounded(body: Body): Boolean {
         // Can't be grounded when going up
         if (body.velocity.z > 0f) return false
@@ -103,7 +98,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
         }
         val intersections = getIntersections()
         intersections.forEach { _collision.emit(it) }
-//        var pushedOut = false
+
         for ((a, b) in intersections) {
             // When a body encounters an immovable object, we "push out" the body from the immovable object.
             // We make sure to do this first, then we resolve whether we need to stop velocity as a result of hitting a floor/wall
@@ -140,7 +135,6 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 // Don't care about isGrounded for immovable stuff.
                 it.isGrounded = isGrounded(it)
             }
-            it.commit()
         }
     }
 
