@@ -4,7 +4,6 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.util.Listener
-import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -23,7 +22,8 @@ class FunPhysics(
 
     override val rotation: Quatf get() = transform.rotation
 
-    override var scale: Vec3f get() = transform.scale
+    override var scale: Vec3f
+        get() = transform.scale
         set(value) {
             transform.scale = value
         }
@@ -36,35 +36,44 @@ class FunPhysics(
         private set
 
 
-    private fun updateAABB(translation: Vec3f = this.translation, rotation: Quatf = this.orientation, scale: Vec3f = this.scale) {
+    private fun updateAABB(translation: Vec3f = this.position, rotation: Quatf = this.rotation, scale: Vec3f = this.scale) {
         val newMatrix = Mat4f.translateRotateScale(translation, rotation, scale)
         boundingBox = baseAABB.transformed(newMatrix)
+        val x = 2
     }
 
     init {
         onTranslationChanged {
-            updateAABB(translation = it)
+            position = it
         }
         onRotationChanged {
-            updateAABB(rotation = it)
+            orientation = it
         }
         onScaleChanged {
             updateAABB(scale = it)
         }
     }
 
-    //TODO: I should optimize WorldRender to only apply transform once per frame if invalidated, then i don't need commit()
+    //TODO: I should optimize WorldRender to only apply transform once per frame if invalidated, then i don't need commit() and the two extra variables
     // Optimization: only update translation and rotation of the FunTransform when we run commit(), because those updates can be quite slow
     // (for example we update the gpu transform)
     /**
      * For `Fun` that have physics, it's generally best to update [position] and not [translation], since those are only applied once each frame.
      */
     override var position: Vec3f = Vec3f()
+        set(value) {
+            updateAABB(translation = value)
+            field = value
+        }
 
     /**
      * For `Fun` that have physics, it's generally best to update [orientation] and not [rotation], since those are only applied once each frame.
      */
     override var orientation: Quatf = Quatf()
+        set(value) {
+            updateAABB(rotation = value)
+            field = value
+        }
 
     override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity")
     override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration")
@@ -80,8 +89,12 @@ class FunPhysics(
      * Apply changes from the physics system -> to the UI.
      */
     override fun commit() {
-        transform.translation = position
-        transform.rotation = orientation
+        if (position != transform.translation) {
+            transform.translation = position
+        }
+        if (orientation != transform.rotation) {
+            transform.rotation = orientation
+        }
     }
 
     init {
@@ -93,11 +106,10 @@ class FunPhysics(
     }
 
 
-
     override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = transform.onTranslationChanged(callback)
 
     override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> = transform.onRotationChanged(callback)
 
-    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f>  = transform.onScaleChanged(callback)
+    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = transform.onScaleChanged(callback)
 }
 

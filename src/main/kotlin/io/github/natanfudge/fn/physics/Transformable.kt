@@ -13,17 +13,19 @@ interface Transformable /*: IFun*/ {
     object Root/*(val parentFun: IFun)*/ : Transformable {
         override val translation: Vec3f = Vec3f.zero()
         override val rotation: Quatf = Quatf.identity()
-        override val scale: Vec3f = Vec3f(1f,1f,1f)
+        override val scale: Vec3f = Vec3f(1f, 1f, 1f)
 
         override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = Listener.Stub
 
         override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> = Listener.Stub
 
-        override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f>  = Listener.Stub
+        override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = Listener.Stub
     }
+
     companion object {
 
     }
+
     val translation: Vec3f
     val rotation: Quatf
     val scale: Vec3f
@@ -41,13 +43,16 @@ fun Transformable.calculateTransformMatrix(translation: Vec3f = this.translation
 abstract class HierarchicalTransformable(val parentTransform: Transformable, parentFun: Fun, name: String) : Fun(parentFun, name), Transformable {
     val localTransform = FunTransform(this)
 
-    final override val translation: Vec3f
-        get() = calculateTranslation()
+    final override var rotation = calculateRotation()
+        private set
 
-    final override val rotation: Quatf
-        get() = calculateRotation()
+    final override var translation: Vec3f = calculateTranslation()
+        private set
 
-    final override val scale: Vec3f get() = calculateScale()
+    final override var scale: Vec3f = calculateScale()
+        private set
+
+
 
     private fun calculateTranslation(
         parentTranslation: Vec3f = parentTransform.translation, parentRotation: Quatf = parentTransform.rotation, parentScale: Vec3f = parentTransform.scale,
@@ -57,7 +62,11 @@ abstract class HierarchicalTransformable(val parentTransform: Transformable, par
 
     private fun calculateRotation(
         parentRotation: Quatf = parentTransform.rotation, localRotation: Quatf = localTransform.rotation,
-    ) = parentRotation * localRotation
+    ): Quatf {
+//        val res = parentRotation * localRotation
+//        val reversed = localRotation * parentRotation
+        return parentRotation * localRotation
+    }
 
     //TODo: I should inline this somehow...
     private fun calculateScale(
@@ -83,34 +92,44 @@ abstract class HierarchicalTransformable(val parentTransform: Transformable, par
 
     init {
         localTransform.onTranslationChanged {
-            translationStream.emit(calculateTranslation(localTranslation = it))
+            translation = calculateTranslation(localTranslation = it)
+            translationStream.emit(translation)
         }
         parentTransform.onTranslationChanged {
-            translationStream.emit(calculateTranslation(parentTranslation = it))
+            translation = calculateTranslation(parentTranslation = it)
+            translationStream.emit(translation)
         }.closeWithThis()
 
         localTransform.onRotationChanged {
-            rotationStream.emit(calculateRotation(localRotation = it))
+            rotation = calculateRotation(localRotation = it)
+            rotationStream.emit(rotation)
         }
         parentTransform.onRotationChanged {
-            rotationStream.emit(calculateRotation(parentRotation = it))
-            translationStream.emit(calculateTranslation(parentRotation = it))
+            rotation = calculateRotation(parentRotation = it)
+            translation = calculateTranslation(parentRotation = it)
+            rotationStream.emit(rotation)
+            translationStream.emit(translation)
         }.closeWithThis()
 
         localTransform.onScaleChanged {
-            scaleStream.emit(calculateScale(localScale = it))
+            scale = calculateScale(localScale = it)
+            scaleStream.emit(scale)
         }
         parentTransform.onScaleChanged {
-            scaleStream.emit(calculateScale(parentScale = it))
-            translationStream.emit(calculateTranslation(parentScale = it))
+            scale = calculateScale(parentScale = it)
+            translation = calculateTranslation(parentScale = it)
+            scaleStream.emit(scale)
+            translationStream.emit(translation)
         }.closeWithThis()
     }
 }
 
 class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
     val translationState = funValue<Vec3f>(Vec3f.zero(), "translation")
-    val rotationState = funValue<Quatf>(Quatf.identity(), "rotation")
-    val scaleState = funValue<Vec3f>(Vec3f(1f,1f,1f), "scaling")
+    val rotationState = funValue<Quatf>(Quatf.identity(), "rotation") {
+        val x = 2
+    }
+    val scaleState = funValue<Vec3f>(Vec3f(1f, 1f, 1f), "scaling")
 
     override var translation by translationState
     override var rotation by rotationState

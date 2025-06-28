@@ -8,6 +8,7 @@ import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -15,10 +16,7 @@ import kotlin.math.abs
 import kotlin.math.max
 
 
-/**
- * Returns the distance between two [IntOffset]s, with diagonals only counting as one unit.
- */
-fun IntOffset.diagonalDistance(to: IntOffset): Int = max(abs(x - to.x), abs(y - to.y))
+
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
@@ -54,14 +52,17 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val world = World(this)
 
 
-
     var cameraDistance = 8f
 
     private fun repositionCamera(playerPos: Vec3f) {
-        context.camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
-        // This one is mostly for zooming in
-        context.camera.focus(playerPos, distance = cameraDistance)
+        if (creativeMovement.mode == CameraMode.Off) {
+            context.camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
+            // This one is mostly for zooming in
+            context.camera.focus(playerPos, distance = cameraDistance)
+        }
     }
+
+    val creativeMovement = CreativeMovementMod(context, input)
 
     init {
         physics.system.earthGravityAcceleration = 20f
@@ -82,7 +83,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
 
         installMods(
-            CreativeMovementMod(context, input),
+            creativeMovement,
             RestartButtonsMod(context)
         )
     }

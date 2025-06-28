@@ -393,7 +393,7 @@ class RenderInstance(
 }
 
 data class Transform(
-    val position: Vec3f = Vec3f.zero(),
+    val translation: Vec3f = Vec3f.zero(),
     val rotation: Quatf = Quatf.identity(),
     var scale: Vec3f = Vec3f(1f, 1f, 1f),
 )

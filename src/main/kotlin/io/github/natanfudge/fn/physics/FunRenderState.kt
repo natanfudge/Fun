@@ -13,6 +13,10 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
 fun Fun.render(model: Model, name: String = "render") = FunRenderState(name, this, Transformable.Root, model)
+fun Fun.render(model: Model, parent: Transformable, name: String = "render"): FunRenderState {
+    val render = FunRenderState(name, this, parent, model)
+    return render
+}
 fun Fun.render(model: Model, physics: FunPhysics, name: String = "render"): FunRenderState {
     val render = FunRenderState(name, this, physics, model)
     physics.baseAABB = render.baseAABB
@@ -59,8 +63,9 @@ class FunRenderState(
         onScaleChanged {
             updateTransform(scale = it)
         }
-        // Set initial transform
-//        updateTransform()
+        localTransform.translation = model.initialTransform.translation
+        localTransform.rotation = model.initialTransform.rotation
+        localTransform.scale = model.initialTransform.scale
     }
 
     private fun updateTransform(translation: Vec3f = this.translation, rotation: Quatf = this.rotation, scale: Vec3f = this.scale) {
@@ -89,6 +94,6 @@ class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : Fun(id,
 
 class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physicsSystem: PhysicsSystem) : Fun(id, context) {
     val physics = physics(physicsSystem)
-    val render = physics.render(model)
+    val render = render(model, physics)
 }
 

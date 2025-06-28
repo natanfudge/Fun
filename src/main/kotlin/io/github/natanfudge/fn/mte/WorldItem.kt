@@ -49,16 +49,17 @@ class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextF
     val physics = physics(game.physics.system)
     val render = render(models.getValue(item.type), physics)
 
+    //TODO: no gold :(
     init {
-        physics.scale = Vec3f(0.5f, 0.5f, 0.5f)
-        physics.position = pos.copy(z = pos.z - 0.2f)
+//        physics.scale = Vec3f(0.5f, 0.5f, 0.5f)
+        physics.position = pos
         physics.orientation = physics.orientation.rotateY(PI.toFloat() / 2)
 
-        game.animation.animateLoop(2.seconds) {
-            val down = spring(it)
-            //TODO: we did everything for this, lets hope it works
-            render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = physics.translation.z + down * 0.1f)
-        }.closeWithThis()
+//        game.animation.animateLoop(2.seconds) {
+//            val down = spring(it)
+//            //TODO: we did everything for this, lets hope it works
+//            render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = physics.translation.z + down * 0.1f)
+//        }.closeWithThis()
     }
 
     override fun cleanup() {

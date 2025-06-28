@@ -32,7 +32,7 @@ class TestBody(
     val render = physics.render(model)
 
     init {
-        physics.render(model)
+        render(model, physics)
         physics.position = translate
         physics.orientation = rotate
         physics.scale = scale

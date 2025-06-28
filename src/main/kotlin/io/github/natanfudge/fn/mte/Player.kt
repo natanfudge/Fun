@@ -20,6 +20,7 @@ import korlibs.math.squared
 import kotlin.math.PI
 import kotlin.math.abs
 
+//TODO: better hierarchical organization in visual editor
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     companion object {
@@ -29,12 +30,12 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
 
     val physics = physics(game.physics.system)
-    val render = render(model)
+    val render = render(model, physics)
 
 
     val inventory = Inventory(game)
 
-    private val baseRotation = physics.orientation
+    private val baseRotation = render.rotation
 
     private val mineRateLimit = RateLimiter(game.context)
 
@@ -49,22 +50,22 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
         game.input.registerHotkey(
             "Left", Key.A, onHold = {
-                physics.orientation = baseRotation.rotateZ(PI.toFloat() / 2)
+                render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
                 physics.position -= Vec3f(it * 3, 0f, 0f)
             },
             onRelease = {
-                physics.orientation = baseRotation
+                render.localTransform.rotation = baseRotation
             }
         )
 
         game.input.registerHotkey(
             "Right", Key.D,
             onHold = {
-                physics.orientation = baseRotation.rotateZ(PI.toFloat() / -2)
+                render.localTransform.rotation= baseRotation.rotateZ(PI.toFloat() / -2)
                 physics.position += Vec3f(it * 3, 0f, 0f)
             },
             onRelease = {
-                physics.orientation = baseRotation
+                render.localTransform.rotation = baseRotation
             }
         )
 
