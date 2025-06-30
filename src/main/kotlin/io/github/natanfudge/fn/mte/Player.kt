@@ -23,7 +23,7 @@ import kotlin.math.abs
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     companion object {
-        val model = Model.fromGlbResource("files/models/hedgie_lowres.glb")
+        val model = Model.fromGlbResource("files/models/joe.glb")
     }
 
 
@@ -40,16 +40,16 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     init {
         physics.baseAABB = AxisAlignedBoundingBox(
-            minX = -0.2f, maxX = 0.4f,
-            minZ = -0.45f, maxZ = 0.45f,
-            minY = -0.4f, maxY = 0.4f,
+            minX = -0.3f, maxX = 0.3f,
+            minZ = -0.4f, maxZ = 0.4f,
+            minY = -0.3f, maxY = 0.3f,
         )
 
         physics.position = Vec3f(0f, 0.5f, 11.5f)
 
         game.input.registerHotkey(
             "Left", Key.A, onHold = {
-                render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
+                render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(it * 3, 0f, 0f)
             },
             onRelease = {
@@ -60,7 +60,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         game.input.registerHotkey(
             "Right", Key.D,
             onHold = {
-                render.localTransform.rotation= baseRotation.rotateZ(PI.toFloat() / -2)
+                render.localTransform.rotation= baseRotation.rotateZ(PI.toFloat() / 2)
                 physics.position += Vec3f(it * 3, 0f, 0f)
             },
             onRelease = {

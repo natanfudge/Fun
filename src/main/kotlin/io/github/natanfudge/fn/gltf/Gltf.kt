@@ -33,7 +33,7 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }
 
-    val mesh = glb.meshes.singleOrNull() ?: error("Expected only one mesh in model at $url")
+    val mesh = glb.meshes.singleOrNull() ?: error("Expected exactly one mesh in model at $url (actual: ${glb.meshes.size})!")
 
     // We'll use the first primitive from the mesh
     val primitive = mesh.primitives.firstOrNull() ?: error("No primitives found in mesh at $url")
@@ -198,7 +198,7 @@ private fun extractTransform(glb: GLTF2): Transform {
     } else {
         Quatf.identity()
         //TODO: this rotateX is kinda confusing
-    }).rotateX(PI.toFloat() / 2) // GLTF uses Y-up, rotating the X axis by 90 degrees makes it match Z-up instead.
+    })/*.rotateX(PI.toFloat() / 2)*/ // GLTF uses Y-up, rotating the X axis by 90 degrees makes it match Z-up instead.
 
     // Extract scale
     val scale = if (node.scale != null && node.scale!!.size >= 3) {

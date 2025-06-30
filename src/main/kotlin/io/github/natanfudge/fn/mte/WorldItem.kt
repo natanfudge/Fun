@@ -28,6 +28,7 @@ data class Item(
         }
     }
 }
+//TODO: gold items need to be re-exported in blender to not have Y-up
 
 class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextFunId("Item-${item.type}"), game.context) {
     companion object {
