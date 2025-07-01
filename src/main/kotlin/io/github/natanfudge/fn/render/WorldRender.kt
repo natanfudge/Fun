@@ -84,7 +84,7 @@ class BoundModel(
 /**
  *   initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
  */
-object GPUInstance : Struct5<Mat4f, Mat3f, Color, Float, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT)
+object GPUInstance : Struct6<Mat4f, Mat3f, Color, Float, Int, Int, GPUInstance>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT, IntDT)
 
 object WorldUniform : Struct5<Mat4f, Vec3f, Vec3f, UInt, UInt, WorldUniform>(
     Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT
@@ -287,7 +287,8 @@ class WorldRender(
         // SLOW: should reconsider passing normal matrices always
         val normalMatrix = Mat3f.normalMatrix(initialTransform)
         val pointer = GPUInstance.new(
-            instanceBuffer, initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
+            instanceBuffer, initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1,
+            if (model.model.animations.isEmpty()) 0 else 1
         )
 
         // The index is a pointer to the instance in the instanceBuffer array (wgpu indexes a struct of arrays, so it needs an index, not a pointer)
@@ -399,7 +400,8 @@ class RenderInstance(
             GPUInstance.set(
                 world.instanceBuffer, pointer,
                 requestedTransform!!, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
-                if (model.image == null) 0 else 1
+                if (model.image == null) 0 else 1,
+                if (model.model.animations.isEmpty()) 0 else 1
             )
 //            GPUInstance.setFirst(world.instanceBuffer, pointer, requestedTransform!!)
 //            // Update normal matrix, as the transform changed
@@ -454,8 +456,16 @@ data class Transform(
     var scale: Vec3f = Vec3f(1f, 1f, 1f),
 )
 
+object Animation
 
-data class Model(val mesh: Mesh, val id: ModelId, val material: Material = Material(), val initialTransform: Transform = Transform()) {
+
+data class Model(
+    val mesh: Mesh,
+    val id: ModelId,
+    val material: Material = Material(),
+    val initialTransform: Transform = Transform(),
+    val animations: List<Animation> = listOf(),
+) {
     companion object;
 }
 

@@ -169,13 +169,14 @@ fun WebGPUWindow.bindFunLifecycles(
 //    }
 
 
+    //TODO: this should be part of WorldRender
     val objectLifecycle = createReloadingPipeline(
         "Object",
         surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("object"),
     ) { vertex, fragment ->
         pipelines++
-        println("Creating pipeline $pipelines")
+//        println("Creating pipeline $pipelines")
         RenderPipelineDescriptor(
             label = "Fun Object Pipeline #$pipelines",
             vertex = VertexState(
@@ -188,6 +189,8 @@ fun WebGPUWindow.bindFunLifecycles(
                             VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 0uL, shaderLocation = 0u), // Position
                             VertexAttribute(format = GPUVertexFormat.Float32x3, offset = 12uL, shaderLocation = 1u), // Normal
                             VertexAttribute(format = GPUVertexFormat.Float32x2, offset = 24uL, shaderLocation = 2u), // uv
+                            VertexAttribute(format = GPUVertexFormat.Float32x4, offset = 32uL, shaderLocation = 3u), // joints
+                            VertexAttribute(format = GPUVertexFormat.Float32x4, offset = 48uL, shaderLocation = 4u), // weights
                         )
                     ),
                 )

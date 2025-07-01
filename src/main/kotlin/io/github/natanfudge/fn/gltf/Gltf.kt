@@ -29,6 +29,8 @@ fun Model.Companion.fromGlbResource(path: String): Model = modelCache.getOrPut(p
     Model.fromGlbResourceImpl(path)
 }
 
+//TODO: last thing - change vba definition in webgpu code, then see if everything works the same way.
+
 fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }
@@ -77,9 +79,7 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
             )
         }
     } else {
-        // If normals are not provided, we'll create a list of zero vectors
-        // The Mesh.withNormals function will calculate proper normals
-        List(positions.size) { Vec3f(0f, 0f, 0f) }
+        Mesh.inferNormals(indices, positions)
     }
 
 
@@ -98,16 +98,10 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
         // If UVs are not provided, we'll create a list of zero UVs
         List(positions.size) { UV(0f, 0f) }
     }
-
     // Create the mesh
-    val resultMesh = if (normalAccessorIndex == null) {
-        // If normals were not provided, use withNormals to calculate them
-        Mesh.inferredNormals(indices, positions, uvs)
-    } else {
-        // If normals were provided, create the mesh directly
-        val vertexBuffer = VertexArrayBuffer.of(positions, normals, uvs)
-        Mesh(indices, vertexBuffer)
-    }
+    val vertexBuffer = VertexArrayBuffer.of(positions, normals, uvs, listOf(), listOf()) //TODO: joints/weights
+    val resultMesh = Mesh(indices, vertexBuffer)
+
     // Extract material and texture (if available)
     val material = primitive.material
     val texture = if (material != null) {

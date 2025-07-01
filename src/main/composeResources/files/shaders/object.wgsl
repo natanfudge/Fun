@@ -20,19 +20,18 @@ struct VertexOutput {
 @group(0) @binding(1) var samp: sampler;
 @group(0) @binding(2) var<storage, read> instances: array<Instance>;
 @group(0) @binding(3) var <storage,read> instance_indices: array<u32>;
-// SLOW: should have one large array we can index when we have bindless resources
+// SLOW: should have one large thing we can index when we have bindless resources, both for textures and skinning matrices.
 @group(1) @binding(0) var texture: texture_2d<f32>;
-// SLOW: should have big ssbo for all models, and if we can have a sort of model index we can index into it.
-// ATM it looks like we got rid of the model index. Model index is equivalent to MDI index, so maybe wait for tha.t
-@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
-@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
+//@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
+//@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
 
 struct Instance {
     model: mat4x4f,
     normalMat: mat3x3f,
     tintColor: vec4f,
     tintStrength: f32,
-    textured: u32
+    textured: u32, //SLOW won't need this with custom shaders
+    animated: u32
 }
 
 @vertex
@@ -44,28 +43,56 @@ fn vs_main(
   // We assume up to 4 joints affect the vertex, with a value from 0 to 1.
   // joints stores the index of the joints, and weights store how much that joint affects it.
   // Why 4 joints?  The nvidia gods said so.
-  @location(3) joints: vec4u,
+  @location(3) joints: vec4f, //SLOW: should pass in as an int but that's annoying, passing as float and converting for now.
   @location(4) weights: vec4f,
   @builtin(instance_index) iiid: u32,
 ) -> VertexOutput {
     let globalInstanceIndex = instance_indices[iiid];
     let instance = instances[globalInstanceIndex];
-    let worldPos = (instance.model * vec4f(position, 1.0)).xyz;
+    let worldPos = instance.model * vec4f(position, 1.0);
 
     let worldNormal = normalize(instance.normalMat * normal);
 
     return VertexOutput(
-        /* pos           */ uniforms.viewProjection * vec4f(worldPos, 1.0),
+        /* pos           */ uniforms.viewProjection * worldPos,
         /* tintColor     */ instance.tintColor,
         /* normal        */ worldNormal,
-        /* worldPos      */ worldPos,
+        /* worldPos      */ worldPos.xyz,
         /* uv            */ uv,
         /* iid           */ globalInstanceIndex,
         /* tintStrength  */ instance.tintStrength
     );
 }
 
-fn skin(pos: vec3f, joints: vec4f)
+struct SkinResult {
+    transformedPos: vec3f,
+    transformedNormal: vec3f
+}
+
+///**
+//* Transform the vertex according to the skeleton deformation
+//*/
+//fn skin(pos: vec3f, normal: vec3f, joints: vec4f, weights: vec4f) -> SkinResult {
+//      // Compute joint_matrices * inverse_bind_matrices
+//      let joint0 = joint_matrices[joints[0]] * inverse_bind_matrices[joints[0]];
+//      let joint1 = joint_matrices[joints[1]] * inverse_bind_matrices[joints[1]];
+//      let joint2 = joint_matrices[joints[2]] * inverse_bind_matrices[joints[2]];
+//      let joint3 = joint_matrices[joints[3]] * inverse_bind_matrices[joints[3]];
+//      // Compute influence of joint based on weight
+//      let skin_matrix =  joint0 * weights[0] +
+//                         joint1 * weights[1] +
+//                         joint2 * weights[2] +
+//                         joint3 * weights[3];
+//      // Position of the vertex relative to our world
+//      let world_position = vec4f(input.position.x, input.position.y, input.position.z, 1.0);
+//      // Vertex position with model rotation, skinning, and the mesh's node transformation applied.
+//      let skinned_position = skin_matrix * node_uniforms.world_matrix * world_position;
+//
+//    return SkinResult(
+//        skinned_position,
+//        normal
+//    );
+//}
 
 
 

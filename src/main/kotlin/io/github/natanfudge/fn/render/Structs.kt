@@ -173,6 +173,10 @@ abstract class Struct6<T1, T2, T3, T4, T5, T6, S : Struct6<T1, T2, T3, T4, T5, T
         return mem.new(toArray(a, b, c, d, e, f)) as GPUPointer<S>
     }
 
+    fun set(mem: ManagedGPUMemory, pointer: GPUPointer<S>, a: T1, b: T2, c: T3, d: T4, e: T5, f: T6) {
+        mem.write(toArray(a, b, c, d, e, f), pointer)
+    }
+
     fun setFirst(mem: ManagedGPUMemory, pointer: GPUPointer<S>, a: T1) {
         mem.write(t1.toArray(a), pointer)
     }

@@ -23,20 +23,21 @@ private val verifyMeshes = true
 
 class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
     init {
-        if(verifyMeshes) {
+        if (verifyMeshes) {
             val visitedIndices = BooleanArray(vertices.size) { false }
             indices.forEachTriangle { a, b, c ->
-                check(a < vertices.size) {"Triangle index $a is out of bounds of vertex array of size ${vertices.size}"}
-                check(b < vertices.size) {"Triangle index $b is out of bounds of vertex array of size ${vertices.size}"}
-                check(c < vertices.size) {"Triangle index $c is out of bounds of vertex array of size ${vertices.size}"}
+                check(a < vertices.size) { "Triangle index $a is out of bounds of vertex array of size ${vertices.size}" }
+                check(b < vertices.size) { "Triangle index $b is out of bounds of vertex array of size ${vertices.size}" }
+                check(c < vertices.size) { "Triangle index $c is out of bounds of vertex array of size ${vertices.size}" }
                 visitedIndices[a] = true
                 visitedIndices[b] = true
                 visitedIndices[c] = true
             }
             val unvisitedIndex = visitedIndices.indexOfFirst { !it }
-            check(unvisitedIndex == -1) {"Mesh contains unvisited index $unvisitedIndex"}
+            check(unvisitedIndex == -1) { "Mesh contains unvisited index $unvisitedIndex" }
         }
     }
+
     companion object {
         /**
          * Automatically infers normals for all vertices.
@@ -44,11 +45,10 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
          * If all indices use separate vertices, the shading will be flat.
          * If vertices share indices, the normal will be average out for that index, making the shading smooth.
          */
-        fun inferredNormals(
+        fun inferNormals(
             indices: TriangleIndexArray,
             positions: List<Point3f>,
-            uv: List<UV>,
-        ): Mesh {
+        ): List<Vec3f> {
             // one *distinct* accumulator per vertex
             val normals = MutableList(positions.size) { Vec3f() }
 
@@ -64,10 +64,9 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
             for (i in normals.indices) {
                 normals[i].normalize(normals[i])
             }
-
-            val vbo = VertexArrayBuffer.of(positions, normals, uv)
-            return Mesh(indices, vbo)
+            return normals
         }
+
 
         val HomogenousCube = unitCube(CubeUv.Repeat)
         val HeterogeneousCube = unitCube(CubeUv.Grid3x2)
@@ -77,8 +76,8 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         /**
          * Creates a cube that partially shares vertices, in a way that has the minimum amount of vertices, but allows for correct flat shading.
          */
-        private fun unitCube(uv: CubeUv = CubeUv.Repeat) = Mesh.inferredNormals(
-            positions = listOf(
+        private fun unitCube(uv: CubeUv = CubeUv.Repeat): Mesh {
+            val positions = listOf(
                 // top (Z = 1)
                 Vec3f(-0.5f, -0.5f, 0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(-0.5f, 0.5f, 0.5f),
                 // bottom (Z = 0)
@@ -91,41 +90,8 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 Vec3f(-0.5f, 0.5f, 0.5f), Vec3f(0.5f, 0.5f, 0.5f), Vec3f(0.5f, 0.5f, -0.5f), Vec3f(-0.5f, 0.5f, -0.5f),
                 // back (Y = 0)
                 Vec3f(-0.5f, -0.5f, -0.5f), Vec3f(0.5f, -0.5f, -0.5f), Vec3f(0.5f, -0.5f, 0.5f), Vec3f(-0.5f, -0.5f, 0.5f)
-            ),
-            uv = when (uv) {
-                CubeUv.Repeat -> listOf(
-                    // top (Z = 1)
-                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                    // bottom (Z = 0)
-                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                    // left (X = 0)
-                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                    // right (X = 1)
-                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                    // front (Y = 1)
-                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
-                    // back (Y = 0)
-                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f)
-                )
-
-                CubeUv.Grid3x2 -> listOf(
-
-
-                    // Top
-                    UV(0f, 0.5f), UV(1f / 3f, 0.5f), UV(1f / 3f, 0f), UV(0f, 0f),
-                    // Bottom
-                    UV(2f / 3f, 1f), UV(1f, 1f), UV(1f, 0.5f), UV(2f / 3f, 0.5f),
-                    // Left
-                    UV(0f, 1f), UV(1f / 3f, 1f), UV(1f / 3f, 0.5f), UV(0f, 0.5f),
-                    // Right
-                    UV(1f / 3f, 1f), UV(2f / 3f, 1f), UV(2f / 3f, 0.5f), UV(1f / 3f, 0.5f),
-                    // Front
-                    UV(1f / 3f, 0.5f), UV(2f / 3f, 0.5f), UV(2f / 3f, 0f), UV(1f / 3f, 0f),
-                    // Back
-                    UV(2f / 3f, 0.5f), UV(1f, 0.5f), UV(1f, 0f), UV(2f / 3f, 0f)
-                )
-            },
-            indices = TriangleIndexArray.of(
+            )
+            val indices = TriangleIndexArray.of(
                 0, 1, 2, 0, 2, 3,      // front
                 4, 5, 6, 4, 6, 7,      // back
                 8, 9, 10, 8, 10, 11,      // left
@@ -133,7 +99,47 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 16, 17, 18, 16, 18, 19,      // top
                 20, 21, 22, 20, 22, 23       // bottom
             )
-        )
+            val normals = inferNormals(indices, positions)
+            val vba = VertexArrayBuffer.of(
+                positions, normals,
+                uv = when (uv) {
+                    CubeUv.Repeat -> listOf(
+                        // top (Z = 1)
+                        UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                        // bottom (Z = 0)
+                        UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                        // left (X = 0)
+                        UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                        // right (X = 1)
+                        UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                        // front (Y = 1)
+                        UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                        // back (Y = 0)
+                        UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f)
+                    )
+
+                    CubeUv.Grid3x2 -> listOf(
+
+
+                        // Top
+                        UV(0f, 0.5f), UV(1f / 3f, 0.5f), UV(1f / 3f, 0f), UV(0f, 0f),
+                        // Bottom
+                        UV(2f / 3f, 1f), UV(1f, 1f), UV(1f, 0.5f), UV(2f / 3f, 0.5f),
+                        // Left
+                        UV(0f, 1f), UV(1f / 3f, 1f), UV(1f / 3f, 0.5f), UV(0f, 0.5f),
+                        // Right
+                        UV(1f / 3f, 1f), UV(2f / 3f, 1f), UV(2f / 3f, 0.5f), UV(1f / 3f, 0.5f),
+                        // Front
+                        UV(1f / 3f, 0.5f), UV(2f / 3f, 0.5f), UV(2f / 3f, 0f), UV(1f / 3f, 0f),
+                        // Back
+                        UV(2f / 3f, 0.5f), UV(1f, 0.5f), UV(1f, 0f), UV(2f / 3f, 0f)
+                    )
+                },
+                jointList = listOf(), //SLOW: should not need this
+                weightList = listOf()
+            )
+            return Mesh(indices, vba)
+        }
 
 
         /**
@@ -186,19 +192,26 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 }
             }
 
-            return Mesh.inferredNormals(
-                positions = vertices,
-                indices = TriangleIndexArray(indices.toIntArray()),
-                uv = buildList {
-                    for (i in 0..segments) {
-                        val v = i.toFloat() / segments
+            val indexArray = TriangleIndexArray(indices.toIntArray())
 
-                        for (j in 0 until segments) {
-                            val u = j.toFloat() / segments
-                            add(UV(u, v))
+            return Mesh(
+                indices = indexArray,
+                vertices = VertexArrayBuffer.of(
+                    vertices,
+                    normals = inferNormals(indexArray, vertices),
+                    uv = buildList {
+                        for (i in 0..segments) {
+                            val v = i.toFloat() / segments
+
+                            for (j in 0 until segments) {
+                                val u = j.toFloat() / segments
+                                add(UV(u, v))
+                            }
                         }
-                    }
-                }
+                    },
+                    jointList = listOf(), // slow: should not need to insert anything here, just disable joints / weights
+                    weightList = listOf()
+                )
             )
         }
     }
@@ -249,17 +262,11 @@ data class ModelTriangle(val a: Vertex, val b: Vertex, val c: Vertex) {
     }
 }
 
-data class Vertex(val pos: Point3f, val normal: Vec3f, val uv: UV) {
+class Vertex(val pos: Point3f, val normal: Vec3f, val uv: UV, val joints: VertexJoints, val weights: VertexWeights) {
     override fun toString(): String {
         return "pos=$pos,norm=$normal,uv=$uv"
     }
 }
-
-data class TriangleF(
-    val a: Point3f,
-    val b: Point3f,
-    val c: Point3f,
-)
 
 /**
  * Determine the direction of a face of a mesh (a  triangle [a], [b], [c])
@@ -267,11 +274,6 @@ data class TriangleF(
  */
 private fun inferNormal(a: Point3f, b: Point3f, c: Point3f): Vec3f {
     return (b - a).cross(c - a).normalize()
-//    val diff1 = b - a
-//    val diff2 = c - a
-//    val cross = diff1.cross(diff2, diff1)
-//    val normalized = cross.normalize(cross)
-//    return normalized
 }
 
 
@@ -281,15 +283,26 @@ data class UV(val u: Float, val v: Float) {
     }
 }
 
+typealias VertexJoints = Array<Int>
+typealias VertexWeights = Array<Float>
+
+
 class VertexArrayBuffer(val array: FloatArray) {
     companion object {
-        const val StrideFloats = 8
+        //SLOW: should have a way to turn on/off attributes of the vertex
+        const val StrideFloats = 16
         val StrideBytes = (StrideFloats * Float.SIZE_BYTES).toULong()
 
         //        fun of(vararg floats: Float) = VertexArrayBuffer(floats)
-        fun of(positions: List<Point3f>, normals: List<Vec3f>, uv: List<UV>): VertexArrayBuffer {
+        fun of(
+            positions: List<Point3f>,
+            normals: List<Vec3f>,
+            uv: List<UV>,
+            jointList: List<VertexJoints>,
+            weightList: List<VertexWeights>,
+        ): VertexArrayBuffer {
             require(normals.size == positions.size)
-            require(uv.size == positions.size) {"The amount of UVS (${uv.size}) doesn't match the amount of positions (${positions.size})"}
+            require(uv.size == positions.size) { "The amount of UVS (${uv.size}) doesn't match the amount of positions (${positions.size})" }
             val array = FloatArray(positions.size * StrideFloats)
             positions.forEachIndexed { i, pos ->
                 array[i * StrideFloats] = pos.x
@@ -305,6 +318,18 @@ class VertexArrayBuffer(val array: FloatArray) {
             uv.forEachIndexed { i, (u, v) ->
                 array[i * StrideFloats + 6] = u
                 array[i * StrideFloats + 7] = v
+            }
+            jointList.forEachIndexed { i, joints ->
+                array[i * StrideFloats + 8] = joints[0].toFloat() //SLOW: should pass in as an int but that's annoying, passing as float and converting for now.
+                array[i * StrideFloats + 9] = joints[1].toFloat()
+                array[i * StrideFloats + 10] = joints[2].toFloat()
+                array[i * StrideFloats + 11] = joints[3].toFloat()
+            }
+            weightList.forEachIndexed { i, weights ->
+                array[i * StrideFloats + 12] = weights[0]
+                array[i * StrideFloats + 13] = weights[1]
+                array[i * StrideFloats + 14] = weights[2]
+                array[i * StrideFloats + 15] = weights[3]
             }
             return VertexArrayBuffer(array)
         }
@@ -329,7 +354,9 @@ class VertexArrayBuffer(val array: FloatArray) {
         return Vertex(
             Point3f(array[i++], array[i++], array[i++]),
             Vec3f(array[i++], array[i++], array[i++]),
-            UV(array[i++], array[i])
+            UV(array[i++], array[i++]),
+            arrayOf(array[i++].toInt(), array[i++].toInt(), array[i++].toInt(), array[i++].toInt()),
+            arrayOf(array[i++], array[i++], array[i++], array[i++])
         )
     }
 
@@ -350,7 +377,9 @@ class VertexArrayBuffer(val array: FloatArray) {
                 Vertex(
                     Point3f(array[i++], array[i++], array[i++]),
                     Vec3f(array[i++], array[i++], array[i++]),
-                    UV(array[i++], array[i++])
+                    UV(array[i++], array[i++]),
+                    arrayOf(array[i++].toInt(), array[i++].toInt(), array[i++].toInt(), array[i++].toInt()),
+                    arrayOf(array[i++], array[i++], array[i++], array[i++])
                 )
             )
         }
