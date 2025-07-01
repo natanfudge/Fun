@@ -283,8 +283,13 @@ data class UV(val u: Float, val v: Float) {
     }
 }
 
-typealias VertexJoints = Array<Int>
-typealias VertexWeights = Array<Float>
+data class VertexJoints(
+    val a: Int, val b: Int, val c: Int, val d: Int
+)
+
+data class VertexWeights(
+    val a: Float, val b: Float, val c: Float, val d: Float
+)
 
 
 class VertexArrayBuffer(val array: FloatArray) {
@@ -320,16 +325,16 @@ class VertexArrayBuffer(val array: FloatArray) {
                 array[i * StrideFloats + 7] = v
             }
             jointList.forEachIndexed { i, joints ->
-                array[i * StrideFloats + 8] = joints[0].toFloat() //SLOW: should pass in as an int but that's annoying, passing as float and converting for now.
-                array[i * StrideFloats + 9] = joints[1].toFloat()
-                array[i * StrideFloats + 10] = joints[2].toFloat()
-                array[i * StrideFloats + 11] = joints[3].toFloat()
+                array[i * StrideFloats + 8] = joints.a.toFloat() //SLOW: should pass in as an int but that's annoying, passing as float and converting for now.
+                array[i * StrideFloats + 9] = joints.b.toFloat()
+                array[i * StrideFloats + 10] = joints.c.toFloat()
+                array[i * StrideFloats + 11] = joints.d.toFloat()
             }
             weightList.forEachIndexed { i, weights ->
-                array[i * StrideFloats + 12] = weights[0]
-                array[i * StrideFloats + 13] = weights[1]
-                array[i * StrideFloats + 14] = weights[2]
-                array[i * StrideFloats + 15] = weights[3]
+                array[i * StrideFloats + 12] = weights.a
+                array[i * StrideFloats + 13] = weights.b
+                array[i * StrideFloats + 14] = weights.c
+                array[i * StrideFloats + 15] = weights.d
             }
             return VertexArrayBuffer(array)
         }
@@ -355,8 +360,8 @@ class VertexArrayBuffer(val array: FloatArray) {
             Point3f(array[i++], array[i++], array[i++]),
             Vec3f(array[i++], array[i++], array[i++]),
             UV(array[i++], array[i++]),
-            arrayOf(array[i++].toInt(), array[i++].toInt(), array[i++].toInt(), array[i++].toInt()),
-            arrayOf(array[i++], array[i++], array[i++], array[i++])
+            VertexJoints(array[i++].toInt(), array[i++].toInt(), array[i++].toInt(), array[i++].toInt()),
+            VertexWeights(array[i++], array[i++], array[i++], array[i++])
         )
     }
 
@@ -378,8 +383,8 @@ class VertexArrayBuffer(val array: FloatArray) {
                     Point3f(array[i++], array[i++], array[i++]),
                     Vec3f(array[i++], array[i++], array[i++]),
                     UV(array[i++], array[i++]),
-                    arrayOf(array[i++].toInt(), array[i++].toInt(), array[i++].toInt(), array[i++].toInt()),
-                    arrayOf(array[i++], array[i++], array[i++], array[i++])
+                    VertexJoints(array[i++].toInt(), array[i++].toInt(), array[i++].toInt(), array[i++].toInt()),
+                    VertexWeights(array[i++], array[i++], array[i++], array[i++])
                 )
             )
         }

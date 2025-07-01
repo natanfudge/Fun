@@ -94,9 +94,6 @@ class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
 ) : AutoCloseable {
-
-//    private val instanceIndexProvider = ConsecutiveIndexProvider()
-
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
 
     val rayCasting = RayCastingCache<RenderInstance>()
