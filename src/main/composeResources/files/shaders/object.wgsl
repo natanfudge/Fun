@@ -6,9 +6,6 @@ struct Uniforms {
     height: u32
 }
 
-
-
-
 struct VertexOutput {
     @builtin(position) pos: vec4f,
     @location(0) tintColor: vec4f,
@@ -23,7 +20,12 @@ struct VertexOutput {
 @group(0) @binding(1) var samp: sampler;
 @group(0) @binding(2) var<storage, read> instances: array<Instance>;
 @group(0) @binding(3) var <storage,read> instance_indices: array<u32>;
+// SLOW: should have one large array we can index when we have bindless resources
 @group(1) @binding(0) var texture: texture_2d<f32>;
+// SLOW: should have big ssbo for all models, and if we can have a sort of model index we can index into it.
+// ATM it looks like we got rid of the model index. Model index is equivalent to MDI index, so maybe wait for tha.t
+@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
+@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
 
 struct Instance {
     model: mat4x4f,
@@ -38,6 +40,12 @@ fn vs_main(
   @location(0) position : vec3f,
   @location(1) normal: vec3f,
   @location(2) uv: vec2f,
+  // SLOW: We definitely don't need these 2 for non-animated meshes, optionally include this when we have macros
+  // We assume up to 4 joints affect the vertex, with a value from 0 to 1.
+  // joints stores the index of the joints, and weights store how much that joint affects it.
+  // Why 4 joints?  The nvidia gods said so.
+  @location(3) joints: vec4u,
+  @location(4) weights: vec4f,
   @builtin(instance_index) iiid: u32,
 ) -> VertexOutput {
     let globalInstanceIndex = instance_indices[iiid];
@@ -46,47 +54,31 @@ fn vs_main(
 
     let worldNormal = normalize(instance.normalMat * normal);
 
-    var output: VertexOutput;
-    output.pos = uniforms.viewProjection * vec4f(worldPos, 1);
-    output.tintColor = instance.tintColor;
-    output.tintStrength = instance.tintStrength;
-    output.normal = worldNormal;
-    output.worldPos = worldPos;
-    output.uv = uv;
-    output.iid = globalInstanceIndex;
-    return output;
+    return VertexOutput(
+        /* pos           */ uniforms.viewProjection * vec4f(worldPos, 1.0),
+        /* tintColor     */ instance.tintColor,
+        /* normal        */ worldNormal,
+        /* worldPos      */ worldPos,
+        /* uv            */ uv,
+        /* iid           */ globalInstanceIndex,
+        /* tintStrength  */ instance.tintStrength
+    );
 }
+
+fn skin(pos: vec3f, joints: vec4f)
 
 
 
 @fragment
-fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
-//    if (vertex.tintColor.r != -14241) {
-//        return textureSample(texture, samp, vertex.uv);
-//    }
-    var dims = vec2(uniforms.width, uniforms.height);
-    var view_coords = get_view_coords(vertex.pos.xy, dims);
+fn fs_main(vertex: VertexOutput) -> @location(0) vec4f {
+//    var dims = vec2(uniforms.width, uniforms.height);/**/
+//    var view_coords = get_view_coords(vertex.pos.xy, dims);
 
-    let N  = normalize(vertex.normal);
-    let L  = normalize(uniforms.lightPos - vertex.worldPos);
-    let V  = normalize(uniforms.cameraPos - vertex.worldPos);
-    let R  = reflect(-L, N);
-
-    // Phong terms
-    let ambient   = 0.1;
-    let diff      = max(dot(N, L), 0.0);
-    let specPower = 32.0;                  // shininess
-    let spec      = pow(max(dot(R, V), 0.0), specPower);
-
-    let lightRGB  = vec3f(1,1,1);
-    let phong = ambient +
-                diff * lightRGB
-                +
-                spec * lightRGB;
+    let lighting = light(vertex.worldPos, vertex.normal);
 
     // Final colour: light * albedo (only use texture if it exists, otherwise just use the tint color)
     let baseColor = select(vertex.tintColor, textureSample(texture, samp, vertex.uv), instances[vertex.iid].textured == 1u);
-    let litColor = vec4f(phong * baseColor.rgb, baseColor.a);
+    let litColor = vec4f(lighting * baseColor.rgb, baseColor.a);
 
     // Tint texture (if no texture is used this is a no-op)
     let finalColor = mix(litColor, vertex.tintColor,vertex.tintStrength);
@@ -107,6 +99,24 @@ fn fs_main(vertex: VertexOutput) -> @location(0) vec4<f32> {
     return finalColor;
 }
 
+fn light(pos: vec3f, normal: vec3f) -> vec3f {
+    let n  = normalize(normal);
+    let l  = normalize(uniforms.lightPos - pos);
+    let v  = normalize(uniforms.cameraPos - pos);
+    let r  = reflect(-l, n);
+
+    // Phong terms
+    let ambient   = 0.1;
+    let diff      = max(dot(n, l), 0.0);
+    let specPower = 2.0;                  // shininess
+    let spec      = pow(max(dot(r, v), 0.0), specPower);
+
+    let lightRGB  = vec3f(1,1,1);
+    return ambient +
+                diff * lightRGB
+                + spec * lightRGB;
+}
+
 const font = array(
     0xebfbe7fcu,
     0xa89b21b4u,
@@ -114,8 +124,8 @@ const font = array(
     0xaa1269a4u,
     0xebf3f9e4u
 );
-fn is_in_digit(frag_position: vec2<f32>, char: u32, position: vec2<u32>, scale: f32) -> bool {
-    let offset = char * 3u;
+fn is_in_digit(frag_position: vec2<f32>, chara: u32, position: vec2<u32>, scale: f32) -> bool {
+    let offset = chara * 3u;
     let rows = array(
         (font[0] >> (29 - offset)) & 0x07,
         (font[1] >> (29 - offset)) & 0x07,
