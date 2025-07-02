@@ -44,6 +44,20 @@ object ColorDT : DataType<Color> {
     override fun toArray(value: Color): Any = floatArrayOf(value.red, value.green, value.blue, value.alpha)
 }
 
+class Mat4fArrayDT(val arraySize: Int): DataType<List<Mat4f>> {
+    override val actualSize: UInt = Mat4f.SIZE_BYTES * arraySize.toUInt()
+    override fun toArray(value: List<Mat4f>): Any  = value.toFloatArray()
+}
+
+ fun List<Mat4f>.toFloatArray(): FloatArray {
+    val array = FloatArray(size * Mat4f.ELEMENT_COUNT.toInt())
+    forEachIndexed { i, matrix ->
+        val offset = i * Mat4f.ELEMENT_COUNT.toInt()
+        matrix.array.copyInto(array, offset)
+    }
+    return array
+}
+
 object IntDT : DataType<Int> {
     override val actualSize: UInt = Int.SIZE_BYTES.toUInt()
     override fun toArray(value: Int): Any {

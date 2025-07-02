@@ -29,8 +29,12 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val physics = installMod(PhysicsMod())
 
+
+    // TODO: different models are interfering
+
     val player = Player(this)
 
+    val whale = Whale(context)
 
     val hoverMod = installMod(HoverHighlightMod(context, redirectHover = {
         if (visualEditor.enabled) it
@@ -45,6 +49,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val visualEditor: VisualEditorMod = installMod(VisualEditorMod(hoverMod, input, enabled = false))
 
     val world = World(this)
+
 
 
     var cameraDistance = 8f

@@ -48,6 +48,72 @@ private fun layOut(vararg datatypes: DataType<*>): UIntArray {
     return layout
 }
 
+abstract class Struct1<T1, S : Struct1<T1, S>>(
+    val t1: DataType<T1>,
+) : GPUStructDescriptor {
+
+    val layout = layOut(t1)
+    override val size = (t1.alignSize).wgpuAlignInt()
+
+    private fun toArray(a: T1) = concatDifferentArrays(
+        size, layout, t1.toArray(a),
+    )
+
+    operator fun invoke(a: T1): GPUStructInstance<S> {
+        return GPUStructInstance(
+            toArray(a),
+            this
+        ) as GPUStructInstance<S>
+    }
+
+    fun new(mem: ManagedGPUMemory, a: T1): GPUPointer<S> {
+        return mem.new(toArray(a)) as GPUPointer<S>
+    }
+
+    fun setFirst(mem: ManagedGPUMemory, pointer: GPUPointer<S>, a: T1) {
+        mem.write(t1.toArray(a), pointer)
+    }
+
+
+}
+
+abstract class Struct2<T1, T2, S : Struct2<T1, T2, S>>(
+    val t1: DataType<T1>,
+    val t2: DataType<T2>,
+) : GPUStructDescriptor {
+
+    val layout = layOut(t1, t2)
+    override val size = (layout.last() + t2.alignSize).wgpuAlignInt()
+
+    private fun toArray(a: T1, b: T2) = concatDifferentArrays(
+        size, layout, t1.toArray(a), t2.toArray(b)
+    )
+
+    operator fun invoke(a: T1, b: T2): GPUStructInstance<S> {
+        return GPUStructInstance(
+            toArray(a, b),
+            this
+        ) as GPUStructInstance<S>
+    }
+
+    fun new(mem: ManagedGPUMemory, a: T1, b: T2): GPUPointer<S> {
+        return mem.new(toArray(a, b)) as GPUPointer<S>
+    }
+
+    fun set(mem: ManagedGPUMemory, pointer: GPUPointer<S>, a: T1, b: T2) {
+        mem.write(toArray(a, b), pointer)
+    }
+
+    fun setFirst(mem: ManagedGPUMemory, pointer: GPUPointer<S>, a: T1) {
+        mem.write(t1.toArray(a), pointer)
+    }
+
+    fun setSecond(mem: ManagedGPUMemory, pointer: GPUPointer<S>, b: T2) {
+        mem.write(t2.toArray(b), pointer + layout[1])
+    }
+}
+
+
 abstract class Struct4<T1, T2, T3, T4, S : Struct4<T1, T2, T3, T4, S>>(
     val t1: DataType<T1>,
     val t2: DataType<T2>,

@@ -23,7 +23,8 @@ value class GPUPointer<out T>(
 class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expandable: Boolean, vararg usage: GPUBufferUsage) : AutoCloseable {
     val fullBytes get() = _nextByte
     private var _nextByte = 0uL
-    private var currentMemoryLimit = initialSizeBytes.wgpuAlign()
+    // Buffer must be at least 64 bytes
+    private var currentMemoryLimit = (initialSizeBytes.coerceAtLeast(64u)).wgpuAlign()
     fun alloc(bytes: ULong): UntypedGPUPointer {
         val address = _nextByte
         if (address + bytes > currentMemoryLimit) {
@@ -89,7 +90,7 @@ class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expa
 
     val buffer = ctx.device.createBuffer(
         BufferDescriptor(
-            size = initialSizeBytes.wgpuAlign(),
+            size = currentMemoryLimit,
             usage = usage.toSet() + setOf(GPUBufferUsage.CopyDst)
         )
     )

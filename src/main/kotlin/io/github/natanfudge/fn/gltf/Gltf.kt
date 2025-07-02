@@ -1,23 +1,23 @@
 package io.github.natanfudge.fn.gltf
 
+import io.github.natanfudge.fn.compose.utils.TreeImpl
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.util.MutableTree
+import io.github.natanfudge.fn.util.MutableTreeImpl
+import io.github.natanfudge.fn.util.Tree
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.examples.helper.glb.GLTF2
-import io.ygdrasil.webgpu.examples.helper.glb.GLTF2AccessorVector
 import io.ygdrasil.webgpu.examples.helper.glb.readGLB
 import korlibs.image.awt.AwtNativeImage
 import korlibs.io.file.std.localVfs
-import korlibs.memory.Buffer
-import korlibs.memory.hex
 import kotlinx.coroutines.runBlocking
 import natan.`fun`.generated.resources.Res
 import java.awt.image.BufferedImage
 import java.net.URI
-import java.nio.ByteBuffer
 import kotlin.io.path.toPath
-import kotlin.math.PI
 
 
 //SUS: gonna do this more robust and not global state when we have proper async model loading. 
@@ -29,7 +29,7 @@ fun Model.Companion.fromGlbResource(path: String): Model = modelCache.getOrPut(p
     Model.fromGlbResourceImpl(path)
 }
 
-fun Model.Companion.fromGlbResourceImpl(path: String): Model {
+private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }
 
@@ -57,9 +57,9 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
 
     val positions = List(positionAccessor.count) { i ->
         Vec3f(
-            positionVector[i,0],
-            positionVector[i,1],
-            positionVector[i,2],
+            positionVector[i, 0],
+            positionVector[i, 1],
+            positionVector[i, 2],
         )
     }
 
@@ -90,7 +90,7 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
         val vector = uvAccessor.accessor(glb)
 
         List(uvAccessor.count) { i ->
-            UV(  vector[i, 0],  vector[i,1])
+            UV(vector[i, 0], vector[i, 1])
         }
     } else {
         // If UVs are not provided, we'll create a list of zero UVs
@@ -99,7 +99,7 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
 
     val jointsAccessorIndex = primitive.attributes.entries.find { it.key.str == "JOINTS_0" }?.value
 
-    val joints: List<VertexJoints> = if(jointsAccessorIndex != null) {
+    val joints: List<VertexJoints> = if (jointsAccessorIndex != null) {
         val accessor = glb.accessors[jointsAccessorIndex]
         val vector = accessor.accessor(glb)
         List(accessor.count) {
@@ -120,7 +120,7 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
         "Joints must exist together with weights - either both of them or none of them must be present"
     }
 
-    val weights : List<VertexWeights> = if(weightsAccessorIndex != null) {
+    val weights: List<VertexWeights> = if (weightsAccessorIndex != null) {
         val accessor = glb.accessors[weightsAccessorIndex]
         val vector = accessor.accessor(glb)
         List(accessor.count) {
@@ -134,7 +134,6 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     } else {
         listOf()
     }
-
 
 
     // Create the mesh
@@ -159,10 +158,17 @@ fun Model.Companion.fromGlbResourceImpl(path: String): Model {
         null
     }
 
-    // Extract transformation data from the node
-    val transform = extractTransform(glb)
+    // Find the first node that has a mesh
+    val meshNode = glb.nodes.firstOrNull { it.mesh != null }
 
-    return Model(resultMesh, url.toFile().nameWithoutExtension, Material(texture = texture), transform)
+
+    // Extract transformation data from the node
+    val transform = meshNode.extractTransform()
+
+    // Extract skeleton/joint information from skins
+    val skeleton = extractSkeleton(glb)
+
+    return Model(resultMesh, url.toFile().nameWithoutExtension, Material(texture = texture), transform, listOf(), skeleton)
 }
 
 
@@ -187,8 +193,8 @@ fun BufferedImage.toFunImage(): FunImage? {
         for (x in 0 until width) {
             val argb = getRGB(x, y)          // always delivered in default sRGB
             val r = (argb ushr 16) and 0xFF  // red
-            val g = (argb ushr 8)  and 0xFF  // green
-            val b =  argb         and 0xFF  // blue
+            val g = (argb ushr 8) and 0xFF  // green
+            val b = argb and 0xFF  // blue
             out[i++] = r.toByte()
             out[i++] = g.toByte()
             out[i++] = b.toByte()
@@ -212,33 +218,121 @@ private fun GLTF2.Image.toImage(): FunImage? {
  * Extracts transformation data from the GLTF2 model.
  * Looks for the first node that has a mesh and extracts its transformation data.
  */
-private fun extractTransform(glb: GLTF2): Transform {
-    // Find the first node that has a mesh
-    val node = glb.nodes.firstOrNull { it.mesh != null }
-
-    if (node == null) return Transform() // Default transform if no node with mesh is found
+private fun GLTF2.Node?.extractTransform(): Transform {
+    if (this == null) return Transform()
+    val nodeTranslation = translation
+    val nodeRotation = rotation
+    val nodeScale = scale
 
     // Extract position (translation)
-    val position = if (node.translation != null && node.translation!!.size >= 3) {
-        Vec3f(node.translation!![0], node.translation!![1], node.translation!![2])
+    val position = if (nodeTranslation != null && nodeTranslation.size >= 3) {
+        Vec3f(nodeTranslation[0], nodeTranslation[1], nodeTranslation[2])
     } else {
         Vec3f.zero()
     }
 
     // Extract rotation (quaternion)
-    val rotation = (if (node.rotation != null && node.rotation!!.size >= 4) {
-        Quatf(node.rotation!![0], node.rotation!![1], node.rotation!![2], node.rotation!![3])
+    val rotation = (if (nodeRotation != null && nodeRotation.size >= 4) {
+        Quatf(nodeRotation[0], nodeRotation[1], nodeRotation[2], nodeRotation[3])
     } else {
         Quatf.identity()
-        //TODO: this rotateX is kinda confusing
-    })/*.rotateX(PI.toFloat() / 2)*/ // GLTF uses Y-up, rotating the X axis by 90 degrees makes it match Z-up instead.
+    })
 
     // Extract scale
-    val scale = if (node.scale != null && node.scale!!.size >= 3) {
-        Vec3f(node.scale!![0], node.scale!![1], node.scale!![2])
+    val scale = if (nodeScale != null && nodeScale.size >= 3) {
+        Vec3f(nodeScale[0], nodeScale[1], nodeScale[2])
     } else {
         Vec3f(1f, 1f, 1f)
     }
 
     return Transform(position, rotation, scale)
+}
+
+/**
+ * Extracts skeleton/joint information from the GLTF2 model.
+ * Looks for skins in the model and extracts joint indices and inverse bind matrices.
+ */
+private fun extractSkeleton(glb: GLTF2): Skeleton? {
+    // Check if the model has any skins
+    val skins = glb.skins
+    if (skins.isEmpty()) {
+        return null
+    }
+
+    // Use the first skin (most models have only one skin)
+    val skin = skins.first()
+
+    // Extract joint information
+    val jointIndices = skin.joints.toList()
+    val joints = jointIndices.map { jointIndex ->
+        // Get the node for this joint to extract its base transform
+        val node = glb.nodes[jointIndex]
+        val matrix = node.matrix
+        val baseTransform = if (matrix != null && matrix.size >= 16) {
+            Mat4f(matrix)
+        } else {
+            node.extractTransform().toMatrix()
+        }
+
+        Joint(jointIndex, baseTransform)
+    }
+
+    // Extract inverse bind matrices
+    val inverseBindMatrices = if (skin.inverseBindMatrices != null) {
+        val accessorIndex = skin.inverseBindMatrices!!
+        val accessor = glb.accessors[accessorIndex]
+        val vector = accessor.accessor(glb)
+        List(accessor.count) { i ->
+            Mat4f(
+                vector[i, 0], vector[i, 1], vector[i, 2], vector[i, 3],
+                vector[i, 4], vector[i, 5], vector[i, 6], vector[i, 7],
+                vector[i, 8], vector[i, 9], vector[i, 10], vector[i, 11],
+                vector[i, 12], vector[i, 13], vector[i, 14], vector[i, 15]
+            )
+        }
+    } else {
+        // If no inverse bind matrices are provided, use identity matrices
+        List(joints.size) { Mat4f.identity() }
+    }
+
+    // Build the joint hierarchy tree
+    val hierarchy = buildJointHierarchy(glb, jointIndices)
+
+    return Skeleton(joints, inverseBindMatrices, hierarchy)
+}
+
+/**
+ * Builds a joint hierarchy tree from GLTF node structure.
+ * Returns a Tree<Int> where each node contains a joint's nodeIndex.
+ */
+private fun buildJointHierarchy(glb: GLTF2, jointIndices: List<Int>): Tree<Int> {
+    val jointIndexSet = jointIndices.toSet()
+
+    // A root joint is a joint that is not a child of any other joint in the same skin.
+    // We find all children of all joints in the skeleton.
+    val childJointIndices = jointIndices
+        .flatMap { jointIndex -> glb.nodes[jointIndex].children.toList() }
+        .toSet()
+
+    // The root joints are the ones that are not in the set of children.
+    val rootJoints = jointIndices.filter { it !in childJointIndices }
+
+    // A valid skeleton should have a single root. If we find more than one,
+    // the skeleton is disjointed. If we find none, there might be a cycle.
+    // We'll assume a single root for now.
+    val rootNodeIndex = rootJoints.singleOrNull()
+        ?: error("Could not determine a single root joint for the skeleton. Found roots: $rootJoints.")
+
+    return buildTreeRecursive(glb, jointIndexSet, rootNodeIndex)
+}
+
+// Build the tree recursively starting from the root.
+// The tree should only contain nodes that are part of this skeleton's joints.
+fun buildTreeRecursive(glb: GLTF2, jointIndexSet: Set<Int>, nodeIndex: Int): Tree<Int> {
+    val node = glb.nodes[nodeIndex]
+    val children = node.children
+        .filter { it in jointIndexSet } // Only include children that are also joints of this skin
+        .map { childIndex -> buildTreeRecursive(glb, jointIndexSet,childIndex) }
+
+    return TreeImpl(nodeIndex, children)
 }

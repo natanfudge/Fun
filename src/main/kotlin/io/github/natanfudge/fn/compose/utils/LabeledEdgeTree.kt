@@ -93,7 +93,11 @@ data class LabeledEdge<T, L>(
 fun <T> Tree<T>.toList() = buildList { visit { add(it) } }
 
 
-data class TreeImpl<T>(override val value: T, override val children: List<Tree<T>>) : Tree<T>
+data class TreeImpl<T>(override val value: T, override val children: List<Tree<T>>) : Tree<T> {
+    override fun toString(): String {
+        return super.toString()
+    }
+}
 
 data class LabeledEdgeTree<T, L>(val tree: Tree<T>, val labels: TreeEdgeLabeler<T, L>)
 

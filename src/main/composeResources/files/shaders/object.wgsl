@@ -22,8 +22,26 @@ struct VertexOutput {
 @group(0) @binding(3) var <storage,read> instance_indices: array<u32>;
 // SLOW: should have one large thing we can index when we have bindless resources, both for textures and skinning matrices.
 @group(1) @binding(0) var texture: texture_2d<f32>;
-//@group(2) @binding(0) var<storage, read> joint_matrices: array<mat4x4f>;
-//@group(2) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
+// Single array per instance, and this stores the joint matrices for the entire model, so this has multiple arrays
+@group(1) @binding(1) var<storage, read> joint_matrices: array<mat4x4f>;
+// Single array per model
+@group(1) @binding(2) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
+// The size of each element of the joint_matrices.
+// Each instance accesses his own joint matrix by calculating instance_index * joint_matrices_stride
+@group(1) @binding(3) var<uniform> modelUniforms: ModelUniforms;
+
+struct ModelUniforms {
+    joint_matrices_stride: u32,
+    // Because the passed instance index is global, we need to offset it by the model's starting index to access the joint matrix.
+    // SLOW: I won't need any of these 2 values (stride and start index) if I stored everything globally and then have a "instanceIndex -> joint matrix" buffer
+    model_start_index: u32
+}
+
+struct SkinResult {
+    transformedPos: vec4f,
+    transformedNormal: vec3f
+}
+
 
 struct Instance {
     model: mat4x4f,
@@ -31,7 +49,7 @@ struct Instance {
     tintColor: vec4f,
     tintStrength: f32,
     textured: u32, //SLOW won't need this with custom shaders
-    animated: u32
+    animated: u32,
 }
 
 @vertex
@@ -49,11 +67,24 @@ fn vs_main(
 ) -> VertexOutput {
     let globalInstanceIndex = instance_indices[iiid];
     let instance = instances[globalInstanceIndex];
-    let worldPos = instance.model * vec4f(position, 1.0);
 
-    let worldNormal = normalize(instance.normalMat * normal);
+    var skinning = false;
 
-    return VertexOutput(
+    var posNormal : SkinResult;
+    if (instance.animated == 1u) {
+         skinning = true;
+        posNormal = skin(position, normal, joints, weights, (iiid - modelUniforms.model_start_index) * modelUniforms.joint_matrices_stride);// Animated - skin
+//        posNormal = SkinResult(vec4f(position, 1.0), normal);
+    } else {
+        posNormal = SkinResult(vec4f(position, 1.0), normal);// Not animated - don't skin
+    }
+
+
+    let worldPos = instance.model * posNormal.transformedPos;
+
+    let worldNormal = normalize(instance.normalMat * posNormal.transformedNormal);
+
+    var output = VertexOutput(
         /* pos           */ uniforms.viewProjection * worldPos,
         /* tintColor     */ instance.tintColor,
         /* normal        */ worldNormal,
@@ -62,37 +93,46 @@ fn vs_main(
         /* iid           */ globalInstanceIndex,
         /* tintStrength  */ instance.tintStrength
     );
+
+//    if (skinning) {
+//        output.tintColor = vec4f(1,0,0,1);
+//        output.tintStrength = 1;
+//    }
+
+    return output;
 }
 
-struct SkinResult {
-    transformedPos: vec3f,
-    transformedNormal: vec3f
-}
 
-///**
-//* Transform the vertex according to the skeleton deformation
-//*/
-//fn skin(pos: vec3f, normal: vec3f, joints: vec4f, weights: vec4f) -> SkinResult {
-//      // Compute joint_matrices * inverse_bind_matrices
-//      let joint0 = joint_matrices[joints[0]] * inverse_bind_matrices[joints[0]];
-//      let joint1 = joint_matrices[joints[1]] * inverse_bind_matrices[joints[1]];
-//      let joint2 = joint_matrices[joints[2]] * inverse_bind_matrices[joints[2]];
-//      let joint3 = joint_matrices[joints[3]] * inverse_bind_matrices[joints[3]];
-//      // Compute influence of joint based on weight
-//      let skin_matrix =  joint0 * weights[0] +
-//                         joint1 * weights[1] +
-//                         joint2 * weights[2] +
-//                         joint3 * weights[3];
-//      // Position of the vertex relative to our world
-//      let world_position = vec4f(input.position.x, input.position.y, input.position.z, 1.0);
-//      // Vertex position with model rotation, skinning, and the mesh's node transformation applied.
-//      let skinned_position = skin_matrix * node_uniforms.world_matrix * world_position;
-//
-//    return SkinResult(
-//        skinned_position,
-//        normal
-//    );
-//}
+/**
+* Transform the vertex according to the skeleton deformation
+*/
+fn skin(pos: vec3f, normal: vec3f, joints: vec4f, weights: vec4f, instance_offset: u32) -> SkinResult {
+       let i0 = u32(joints[0]);
+       let i1 = u32(joints[1]);
+       let i2 = u32(joints[2]);
+       let i3 = u32(joints[3]);
+
+      // Compute joint_matrices * inverse_bind_matrices
+      // Every instance has its own joint matrix, but they all use the same inverse bind matrix.
+      let joint0 = joint_matrices[i0 + instance_offset] * inverse_bind_matrices[i0];
+      let joint1 = joint_matrices[i1+ instance_offset] * inverse_bind_matrices[i1];
+      let joint2 = joint_matrices[i2+ instance_offset] * inverse_bind_matrices[i2];
+      let joint3 = joint_matrices[i3+ instance_offset] * inverse_bind_matrices[i3];
+      // Compute influence of joint based on weight
+      let skin_matrix =  joint0 * weights[0] +
+                         joint1 * weights[1] +
+                         joint2 * weights[2] +
+                         joint3 * weights[3];
+      // Position of the vertex relative to our world
+      let world_position = vec4f(pos, 1.0);
+      // Vertex position with model rotation, skinning.
+      let skinned_position = skin_matrix * world_position;
+
+    return SkinResult(
+        skinned_position,
+        normal
+    );
+}
 
 
 
