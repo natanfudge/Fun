@@ -3,8 +3,6 @@ package io.github.natanfudge.fn.gltf
 import io.github.natanfudge.fn.compose.utils.TreeImpl
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.render.*
-import io.github.natanfudge.fn.util.MutableTree
-import io.github.natanfudge.fn.util.MutableTreeImpl
 import io.github.natanfudge.fn.util.Tree
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -13,6 +11,7 @@ import io.ygdrasil.webgpu.examples.helper.glb.GLTF2
 import io.ygdrasil.webgpu.examples.helper.glb.readGLB
 import korlibs.image.awt.AwtNativeImage
 import korlibs.io.file.std.localVfs
+import korlibs.time.seconds
 import kotlinx.coroutines.runBlocking
 import natan.`fun`.generated.resources.Res
 import java.awt.image.BufferedImage
@@ -167,8 +166,71 @@ private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
 
     // Extract skeleton/joint information from skins
     val skeleton = extractSkeleton(glb)
+    val animations = extractAnimations(glb)
+    return Model(resultMesh, url.toFile().nameWithoutExtension, Material(texture = texture), transform, animations, skeleton)
+}
 
-    return Model(resultMesh, url.toFile().nameWithoutExtension, Material(texture = texture), transform, listOf(), skeleton)
+/**
+ * Temporary object we use to gather around the transform parts specified in a gltf animation.
+ * In the end they are all combined to a transformation matrix.
+ */
+private data class TemporaryGltfTransformations(
+    var translation: Vec3f? = null,
+    var rotation: Quatf? = null,
+    var scale: Vec3f? = null,
+) {
+    fun build() = Mat4f.translateRotateScale(
+        translation ?: Vec3f(), rotation ?: Quatf.identity(), scale ?: Vec3f(1f, 1f, 1f)
+    )
+}
+
+private fun extractAnimations(glb: GLTF2): List<Animation> {
+    return glb.animations.map { animation ->
+        val name = animation.name ?: "animation_${glb.animations.indexOf(animation)}"
+
+        // Group channels by time, as a single keyframe can have multiple transformations (translation, rotation, scale)
+        val keyframesByTime = mutableMapOf<Float, MutableMap<Int, TemporaryGltfTransformations>>()
+
+        animation.channels.forEach { channel ->
+            val sampler = animation.samplers[channel.sampler]
+            val inputAccessor = glb.accessors[sampler.input]
+            val outputAccessor = glb.accessors[sampler.output]
+            val times = inputAccessor.accessor(glb)
+            val values = outputAccessor.accessor(glb)
+            val target = channel.target ?: return@forEach
+            val targetNode = target.node
+
+            for (i in 0 until inputAccessor.count) {
+                val time = times[i, 0]
+                val jointTransforms = keyframesByTime.getOrPut(time) { mutableMapOf() }
+                val transform = jointTransforms.getOrPut(targetNode) { TemporaryGltfTransformations() }
+
+                when (target.path) {
+                    GLTF2.Animation.Channel.TargetPath.TRANSLATION -> {
+                        transform.translation = Vec3f(values[i, 0], values[i, 1], values[i, 2])
+                    }
+
+                    GLTF2.Animation.Channel.TargetPath.ROTATION -> {
+                        transform.rotation = Quatf(values[i, 0], values[i, 1], values[i, 2], values[i, 3])
+                    }
+
+                    GLTF2.Animation.Channel.TargetPath.SCALE -> {
+                        transform.scale = Vec3f(values[i, 0], values[i, 1], values[i, 2])
+                    }
+
+                    else -> {
+                        // Unsupported path
+                    }
+                }
+            }
+        }
+
+        val keyFrames = keyframesByTime.entries.map { (time, transforms) ->
+            Pair(time.seconds, transforms.mapValues { (_, value) -> value.build() })
+        }.sortedBy { it.first }
+
+        Animation(name, keyFrames)
+    }
 }
 
 
@@ -332,7 +394,7 @@ fun buildTreeRecursive(glb: GLTF2, jointIndexSet: Set<Int>, nodeIndex: Int): Tre
     val node = glb.nodes[nodeIndex]
     val children = node.children
         .filter { it in jointIndexSet } // Only include children that are also joints of this skin
-        .map { childIndex -> buildTreeRecursive(glb, jointIndexSet,childIndex) }
+        .map { childIndex -> buildTreeRecursive(glb, jointIndexSet, childIndex) }
 
     return TreeImpl(nodeIndex, children)
 }

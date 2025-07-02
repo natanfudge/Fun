@@ -6,7 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.files.FunImage
+import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
@@ -15,7 +15,6 @@ import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
-import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
@@ -413,12 +412,13 @@ private class SkinManager(skeleton: Skeleton) {
     private val jointCount = skeleton.joints.size
 
     // SLOW: No need to calculate this one per instance
-    val nodeIndexToJoint = skeleton.joints.mapIndexed { i, joint ->
-        // Copy - don't fuck up the original model object's transform matrix
-        joint.nodeIndex to MovingJoint(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform.copy())
+    val nodeIndexToJointWithBaseTransform = skeleton.joints.mapIndexed { i, joint ->
+        joint.nodeIndex to MovingJoint(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform)
     }.toMap()
     val jointTree = skeleton.hierarchy.map {
-        nodeIndexToJoint.getValue(it) // The transform is gonna get overwritten so it doesn't matter
+        // The transform is gonna get overwritten so it doesn't matter
+        val joint =nodeIndexToJointWithBaseTransform.getValue(it)
+        joint.copy(transform = Mat4f.identity())
     }
 
     /**
@@ -434,17 +434,18 @@ private class SkinManager(skeleton: Skeleton) {
         return list as List<Mat4f>
     }
 
+    //TODO: apparently the problem is that I'm supposed to use the interoplated values, and the gltf sampler does the interpolation for you.
+
     /**
      * Replaces the local transformations of the joints with the ones in the given [jointTransforms].
      * Two important distinctions:
      * 1. This is in **local** space, meaning each bone relative to its parent
      * 2. This **overwrites** the transform, it does not multiply by the existing transform.
      */
-    // TODO: expose renderInstance API for this , don't do the manual whale thing, just parse the animation and apply it, it would be easier.
-    // for starters just apply the first frame and see what happens.
-    fun applyLocalTransforms(jointTransforms: Map<Int, Mat4f>) {
+    fun applyLocalTransforms(jointTransforms: SkeletalTransformation) {
         jointTree.visitWithParent { parent, node ->                     // level-order walk
-            val local = jointTransforms[node.nodeIndex] ?: Mat4f()
+            // Important: if no transform is specified, we use the base transform (the bind pose)
+            val local = jointTransforms[node.nodeIndex] ?: nodeIndexToJointWithBaseTransform.getValue(node.nodeIndex).transform
 
             if (parent == null) {
                 node.transform.set(local)               // root: M_model = M_local
@@ -455,13 +456,15 @@ private class SkinManager(skeleton: Skeleton) {
     }
 
     init {
-        // SLOW: No need to calculate this one per instance
-
         // Apply initial transform (bind pose)
-        val baseTransform = nodeIndexToJoint.mapValues { (_, value) -> value.transform }
-        applyLocalTransforms(baseTransform)
+        applyLocalTransforms(mutableMapOf())
     }
 }
+
+/**
+ * Map from node index to the local transform to apply to the node.
+ */
+typealias SkeletalTransformation = Map<Int, Mat4f>
 
 
 class RenderInstance(
@@ -524,6 +527,7 @@ class RenderInstance(
         if (despawned) throw IllegalStateException("Attempt to transform despawned object")
     }
 
+
     /**
      * Called once per frame to apply any changes made to the instance values.
      */
@@ -552,6 +556,18 @@ class RenderInstance(
             gpuTintStrength = requestedTintStrength!!
             requestedTintStrength = null
         }
+    }
+
+    fun setJointTransforms(transforms: SkeletalTransformation) {
+        checkDespawned()
+        val skin = skin ?: throw UnallowedFunException("setJointTransforms is not relevant for a model without a skin '${bound.model.id}'")
+        skin.applyLocalTransforms(transforms)
+        // Just apply it to the GPU right away, I don't think anyone will try to call this multiple times a frame.
+        bound.instanceStruct.setFirst(
+            bound.jointsMatricesBuffer,
+            jointMatricesPointer,
+            skin.getModelSpaceTransforms()
+        )
     }
 
     fun setTransform(transform: Mat4f) {
@@ -583,43 +599,3 @@ class RenderInstance(
     }
 }
 
-data class Transform(
-    val translation: Vec3f = Vec3f.zero(),
-    val rotation: Quatf = Quatf.identity(),
-    var scale: Vec3f = Vec3f(1f, 1f, 1f),
-) {
-    fun toMatrix() = Mat4f.translateRotateScale(translation, rotation, scale)
-}
-
-object Animation
-
-data class Joint(
-    /**
-     * An index associated with any animatable thing, such as a joint or the mesh itself.
-     */
-    val nodeIndex: Int,
-    val baseTransform: Mat4f,
-)
-
-
-data class Skeleton(
-    val joints: List<Joint>,
-    val inverseBindMatrices: List<Mat4f>,
-    /** References nodes by nodeIndex.  **/
-    val hierarchy: Tree<Int>,
-)
-
-data class Model(
-    val mesh: Mesh,
-    val id: ModelId,
-    val material: Material = Material(),
-    val initialTransform: Transform = Transform(),
-    val animations: List<Animation> = listOf(),
-    val skeleton: Skeleton? = null,
-) {
-    companion object;
-}
-
-typealias ModelId = String
-
-class Material(val texture: FunImage? = null)

@@ -94,8 +94,23 @@ fun <T> Tree<T>.toList() = buildList { visit { add(it) } }
 
 
 data class TreeImpl<T>(override val value: T, override val children: List<Tree<T>>) : Tree<T> {
-    override fun toString(): String {
-        return super.toString()
+
+    override fun toString(): String = buildString {
+        appendNode(this@TreeImpl, 0)
+    }
+
+    // ---- helpers ----
+    private fun StringBuilder.appendNode(node: Tree<T>, depth: Int) {
+        repeat(depth) { append("  ") }        // 2-space indent per level
+        append(node.value)
+
+        if (node.children.isNotEmpty()) {
+            append('\n')
+            node.children.forEachIndexed { idx, child ->
+                appendNode(child, depth + 1)
+                if (idx != node.children.lastIndex) append('\n')
+            }
+        }
     }
 }
 

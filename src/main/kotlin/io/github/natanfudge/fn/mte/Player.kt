@@ -97,6 +97,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 collectItem(bRoot, aRoot)
             }
         }.closeWithThis()
+
+
     }
 
     private fun collectItem(player: Player, item: WorldItem) {

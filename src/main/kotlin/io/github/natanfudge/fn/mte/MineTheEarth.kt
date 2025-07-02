@@ -34,7 +34,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val player = Player(this)
 
-    val whale = Whale(context)
+    val whale = Whale(this)
 
     val hoverMod = installMod(HoverHighlightMod(context, redirectHover = {
         if (visualEditor.enabled) it
