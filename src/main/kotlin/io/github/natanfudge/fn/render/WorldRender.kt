@@ -10,8 +10,7 @@ import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.util.Tree
-import io.github.natanfudge.fn.util.closeAll
+import io.github.natanfudge.fn.util.*
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
@@ -367,7 +366,7 @@ class WorldRender(
     }
 
     internal fun remove(renderInstance: RenderInstance) {
-        renderInstance.model.instances.remove(renderInstance.funId)
+        renderInstance.bound.instances.remove(renderInstance.funId)
         instanceBuffer.free(renderInstance.globalInstancePointer, GlobalInstance.size)
         rayCasting.remove(renderInstance)
         indexBufferInvalid = true
@@ -395,26 +394,99 @@ data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, v
 //    fun despawn()
 //}
 
+ data class MovingJoint(
+    /**
+     * The index relative to the list of joints
+     */
+    val jointIndex: Int,
+    /**
+     * The index relative to the list of nodes (includes all joints + the mesh + other possible nodes)
+     */
+    val nodeIndex: Int,
+    /**
+     * Changes over time
+     */
+    val transform: Mat4f,
+)
+
+private class SkinManager(skeleton: Skeleton) {
+    private val jointCount = skeleton.joints.size
+
+    // SLOW: No need to calculate this one per instance
+    val nodeIndexToJoint = skeleton.joints.mapIndexed { i, joint ->
+        // Copy - don't fuck up the original model object's transform matrix
+        joint.nodeIndex to MovingJoint(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform.copy())
+    }.toMap()
+    val jointTree = skeleton.hierarchy.map {
+        nodeIndexToJoint.getValue(it) // The transform is gonna get overwritten so it doesn't matter
+    }
+
+    /**
+     * Returns the joint transforms in model space to pass to the GPU.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun getModelSpaceTransforms(): List<Mat4f> {
+        val list = MutableList<Mat4f?>(jointCount) { null }
+        jointTree.visit { (jointIndex,_, transform) ->
+            list[jointIndex] = transform
+        }
+        // This process is supposed to fill up the list completely
+        return list as List<Mat4f>
+    }
+
+    /**
+     * Replaces the local transformations of the joints with the ones in the given [jointTransforms].
+     * Two important distinctions:
+     * 1. This is in **local** space, meaning each bone relative to its parent
+     * 2. This **overwrites** the transform, it does not multiply by the existing transform.
+     */
+    // TODO: expose renderInstance API for this , don't do the manual whale thing, just parse the animation and apply it, it would be easier.
+    // for starters just apply the first frame and see what happens.
+    fun applyLocalTransforms(jointTransforms: Map<Int, Mat4f>) {
+        jointTree.visitWithParent { parent, node ->                     // level-order walk
+            val local = jointTransforms[node.nodeIndex] ?: Mat4f()
+
+            if (parent == null) {
+                node.transform.set(local)               // root: M_model = M_local
+            } else {
+                parent.transform.mul(local, node.transform)
+            }
+        }
+    }
+
+    init {
+        // SLOW: No need to calculate this one per instance
+
+        // Apply initial transform (bind pose)
+        val baseTransform = nodeIndexToJoint.mapValues { (_, value) -> value.transform }
+        applyLocalTransforms(baseTransform)
+    }
+}
+
+
 class RenderInstance(
 //    internal val renderId: Int,
     val funId: FunId,
     initialTransform: Mat4f,
     initialTint: Tint,
 //    val value: T,
-    val model: BoundModel,
+    val bound: BoundModel,
     @PublishedApi internal val world: WorldRender,
     var value: Boundable,
 ) : Boundable {
     // SLOW: should reconsider passing normal matrices always
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
     internal val globalInstancePointer = GlobalInstance.new(
-        world.instanceBuffer, initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (model.image == null) 0 else 1,
-        if (model.model.skeleton == null) 0 else 1
+        world.instanceBuffer, initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (bound.image == null) 0 else 1,
+        if (bound.model.skeleton == null) 0 else 1
     )
 
-    private val jointMatricesPointer = model.instanceStruct.new(
-        model.jointsMatricesBuffer,
-        model.model.skeleton?.joints?.map { it.baseTransform }
+    private val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton)
+
+
+    private val jointMatricesPointer = bound.instanceStruct.new(
+        bound.jointsMatricesBuffer,
+        skin?.getModelSpaceTransforms()
         // Note: don't need this when we have proper feature separation
             ?: listOf()
     )
@@ -461,8 +533,8 @@ class RenderInstance(
             GlobalInstance.set(
                 world.instanceBuffer, globalInstancePointer,
                 requestedTransform!!, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
-                if (model.image == null) 0 else 1,
-                if (model.model.skeleton == null) 0 else 1
+                if (bound.image == null) 0 else 1,
+                if (bound.model.skeleton == null) 0 else 1
             )
 //            GPUInstance.setFirst(world.instanceBuffer, pointer, requestedTransform!!)
 //            // Update normal matrix, as the transform changed

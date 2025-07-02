@@ -2,6 +2,7 @@
 
 package io.github.natanfudge.fn.util
 
+import io.github.natanfudge.fn.compose.utils.TreeImpl
 import java.util.LinkedList
 import java.util.Queue
 import kotlin.collections.ArrayDeque
@@ -12,22 +13,29 @@ interface Tree<out T> {
 }
 
 
+fun <T, R> Tree<T>.map(transform: (T) -> R): Tree<R> {
+    return TreeImpl(transform(value), children.map { it.map(transform) })
+}
+
+
 /*
  * Helper records
  * ──────────────
  */
 data class NodeParent<T>(
-    /** parent.value                      */ val value: T,
-    /** index of the child in parent.children */ val childIndex: Int
+    /** parent.value                      */
+    val value: T,
+    /** index of the child in parent.children */
+    val childIndex: Int,
 )
 
 /** A node plus *all* of its parents (root ⇒ parents == emptyList()) */
 data class TreeEdge<T>(
     val parents: List<NodeParent<T>>,
-    val child: T
+    val child: T,
 )
 
-private fun <T>dfs(node: Tree<T>, allNodes: MutableSet<Tree<T>>, parents: MutableMap<Tree<T>,MutableList<NodeParent<T>>>) {
+private fun <T> dfs(node: Tree<T>, allNodes: MutableSet<Tree<T>>, parents: MutableMap<Tree<T>, MutableList<NodeParent<T>>>) {
     if (!allNodes.add(node)) return            // already seen
     node.children.forEachIndexed { idx, child ->
         parents.getOrPut(child) { mutableListOf() }
@@ -40,7 +48,7 @@ private fun <T>dfs(node: Tree<T>, allNodes: MutableSet<Tree<T>>, parents: Mutabl
 fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
     /* STEP 1 – DFS reachability & parent collection */
     val allNodes = mutableSetOf<Tree<T>>()
-    val parents  = mutableMapOf<Tree<T>, MutableList<NodeParent<T>>>()
+    val parents = mutableMapOf<Tree<T>, MutableList<NodeParent<T>>>()
 
 
     dfs(this, allNodes, parents)                                     // start from the receiver
@@ -51,7 +59,7 @@ fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
     allNodes.forEach { inDeg.putIfAbsent(it, 0) } // roots default to 0
 
     /* STEP 3 – Kahn’s queue seeded with every zero-in-degree node */
-    val queue  = ArrayDeque(allNodes.filter { inDeg.getValue(it) == 0 })
+    val queue = ArrayDeque(allNodes.filter { inDeg.getValue(it) == 0 })
     val result = mutableListOf<TreeEdge<T>>()
 
     /* STEP 4 – main loop */
@@ -70,7 +78,6 @@ fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
     check(result.size == allNodes.size) { "Graph contains a cycle" }
     return result
 }
-
 
 
 interface MutableTree<T> : Tree<T> {
@@ -127,9 +134,20 @@ inline fun <T> Tree<T>.visit(visitor: (T) -> Unit) {
 }
 
 /**
+ * Visits the tree breadth-first, passing the parent as well as the currently visited node.
+ */
+fun <T> Tree<T>.visitWithParent(parent: T? = null, visitor: (parent: T?, current: T) -> Unit) {
+    visitor(parent, value)
+    for (child in children) {
+        child.visitWithParent(parent = value, visitor)
+    }
+}
+
+
+/**
  * Visits the tree breadth-first.
  */
-inline fun <T, M :Tree<T>> M.visitSubtrees(visitor: (M) -> Unit) {
+inline fun <T, M : Tree<T>> M.visitSubtrees(visitor: (M) -> Unit) {
     // Neat trick to have a recursion-less tree visitor - populate a queue as you iterate through the tree
     val queue: Queue<M> = LinkedList()
     queue.add(this)
@@ -193,9 +211,9 @@ private fun <T> visitConnectionsRecur(node: Tree<T>, parentValue: T?, visitor: (
 data class Edge<T>(val parent: T, val child: T)
 
 fun <T> Tree<T>.collectEdges(): List<Edge<T>> = buildList {
-    visitConnections {parent, child ->
-        if(parent != null) {
-            add(Edge(parent ,child))
+    visitConnections { parent, child ->
+        if (parent != null) {
+            add(Edge(parent, child))
         }
     }
 //    visitEdgePaths(depth) {

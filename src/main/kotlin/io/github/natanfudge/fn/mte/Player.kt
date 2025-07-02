@@ -41,7 +41,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     init {
         physics.baseAABB = AxisAlignedBoundingBox(
             minX = -0.3f, maxX = 0.3f,
-            minZ = -0.4f, maxZ = 0.4f,
+            minZ = -0.5f, maxZ = 0.5f,
             minY = -0.3f, maxY = 0.3f,
         )
 

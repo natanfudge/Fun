@@ -7,6 +7,7 @@ import io.github.natanfudge.fn.physics.render
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.PI
 
 //TODO: test 2 different whale instances
 class Whale(context: FunContext) : Fun("whale", context) {
@@ -50,6 +51,7 @@ class Whale(context: FunContext) : Fun("whale", context) {
 
     init {
         render.localTransform.translation = Vec3f(-2f, 0.5f, 12f)
+        render.localTransform.rotation = render.localTransform.rotation.rotateX(PI.toFloat() / -2)
     }
 
 }
