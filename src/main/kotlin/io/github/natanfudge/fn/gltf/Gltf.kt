@@ -172,17 +172,23 @@ private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
 
 /**
  * Temporary object we use to gather around the transform parts specified in a gltf animation.
- * In the end they are all combined to a transformation matrix.
+ * In the end they are all combined to a [Transform] matrix and just before rendering they become a matrix after interpolation.
  */
 private data class TemporaryGltfTransformations(
     var translation: Vec3f? = null,
     var rotation: Quatf? = null,
     var scale: Vec3f? = null,
 ) {
-    fun build() = Mat4f.translateRotateScale(
-        translation ?: Vec3f(), rotation ?: Quatf.identity(), scale ?: Vec3f(1f, 1f, 1f)
+    fun build() = PartialTransform(
+        translation, rotation, scale
     )
 }
+
+data class PartialTransform(
+    val translation: Vec3f?,
+    val rotation: Quatf?,
+    val scale: Vec3f?,
+)
 
 private fun extractAnimations(glb: GLTF2): List<Animation> {
     return glb.animations.map { animation ->
@@ -331,9 +337,9 @@ private fun extractSkeleton(glb: GLTF2): Skeleton? {
         val node = glb.nodes[jointIndex]
         val matrix = node.matrix
         val baseTransform = if (matrix != null && matrix.size >= 16) {
-            Mat4f(matrix)
+            Transform.fromMatrix(Mat4f(matrix))
         } else {
-            node.extractTransform().toMatrix()
+            node.extractTransform()
         }
 
         Joint(jointIndex, baseTransform)

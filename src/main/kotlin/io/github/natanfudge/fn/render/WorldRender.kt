@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.error.UnallowedFunException
+import io.github.natanfudge.fn.gltf.PartialTransform
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
@@ -413,11 +414,11 @@ private class SkinManager(skeleton: Skeleton) {
 
     // SLOW: No need to calculate this one per instance
     val nodeIndexToJointWithBaseTransform = skeleton.joints.mapIndexed { i, joint ->
-        joint.nodeIndex to MovingJoint(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform)
+        joint.nodeIndex to MovingJoint(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform.toMatrix())
     }.toMap()
     val jointTree = skeleton.hierarchy.map {
         // The transform is gonna get overwritten so it doesn't matter
-        val joint =nodeIndexToJointWithBaseTransform.getValue(it)
+        val joint =nodeIndexToJointWithBaseTransform.getValue(it).copy(transform = Mat4f.identity())
         joint.copy(transform = Mat4f.identity())
     }
 
@@ -445,7 +446,9 @@ private class SkinManager(skeleton: Skeleton) {
     fun applyLocalTransforms(jointTransforms: SkeletalTransformation) {
         jointTree.visitWithParent { parent, node ->                     // level-order walk
             // Important: if no transform is specified, we use the base transform (the bind pose)
-            val local = jointTransforms[node.nodeIndex] ?: nodeIndexToJointWithBaseTransform.getValue(node.nodeIndex).transform
+            val local = jointTransforms[node.nodeIndex] ?:
+            error("applyLocalTransforms should be passed a transform for ALL $jointCount joints, (${jointTransforms.size} specified), either specifying the bind pose transform or an interpolated transform")
+
 
             if (parent == null) {
                 node.transform.set(local)               // root: M_model = M_local
@@ -457,14 +460,16 @@ private class SkinManager(skeleton: Skeleton) {
 
     init {
         // Apply initial transform (bind pose)
-        applyLocalTransforms(mutableMapOf())
+        applyLocalTransforms(nodeIndexToJointWithBaseTransform.mapValues { it.value.transform })
     }
 }
 
 /**
  * Map from node index to the local transform to apply to the node.
+ * Specifies the interpolated values
  */
 typealias SkeletalTransformation = Map<Int, Mat4f>
+
 
 
 class RenderInstance(

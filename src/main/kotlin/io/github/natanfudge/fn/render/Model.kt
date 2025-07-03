@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.files.FunImage
+import io.github.natanfudge.fn.gltf.PartialTransform
 import io.github.natanfudge.fn.util.Tree
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -23,13 +24,26 @@ data class Transform(
     val rotation: Quatf = Quatf.identity(),
     var scale: Vec3f = Vec3f(1f, 1f, 1f),
 ) {
+    companion object {
+        fun fromMatrix(matrix: Mat4f): Transform {
+            return Transform(matrix.getTranslation(), TODO(), TODO())
+        }
+    }
     fun toMatrix() = Mat4f.translateRotateScale(translation, rotation, scale)
 }
+
+/**
+ * Does not specify interpolated values, it assumes you will infer them from other keyframes
+ */
+typealias PartialSkeletonTransform = Map<Int, PartialTransform>
 
 
 data class Animation(
     val name: String,
-    val keyFrames: List<Pair<Duration, SkeletalTransformation>>
+    /**
+     * Sorted by time
+     */
+    val keyFrames: List<Pair<Duration, PartialSkeletonTransform>>
 )
 
 data class Joint(
@@ -37,7 +51,7 @@ data class Joint(
      * An index associated with any animatable thing, such as a joint or the mesh itself.
      */
     val nodeIndex: Int,
-    val baseTransform: Mat4f,
+    val baseTransform: Transform,
 )
 
 
