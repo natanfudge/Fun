@@ -7,11 +7,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.error.UnallowedFunException
-import io.github.natanfudge.fn.gltf.PartialTransform
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.util.*
+import io.github.natanfudge.fn.util.closeAll
+import io.github.natanfudge.fn.util.map
+import io.github.natanfudge.fn.util.visit
+import io.github.natanfudge.fn.util.visitWithParent
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
@@ -394,11 +396,11 @@ data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, v
 //    fun despawn()
 //}
 
- data class MovingJoint(
-    /**
-     * The index relative to the list of joints
-     */
-    val jointIndex: Int,
+data class MovingNode(
+//    /**
+//     * The index relative to the list of joints, if this is a joint
+//     */
+//    val jointIndex: Int?,
     /**
      * The index relative to the list of nodes (includes all joints + the mesh + other possible nodes)
      */
@@ -409,27 +411,48 @@ data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, v
     val transform: Mat4f,
 )
 
-private class SkinManager(skeleton: Skeleton) {
+private class SkinManager(skeleton: Skeleton, model: Model) {
     private val jointCount = skeleton.joints.size
 
+
     // SLOW: No need to calculate this one per instance
-    val nodeIndexToJointWithBaseTransform = skeleton.joints.mapIndexed { i, joint ->
-        joint.nodeIndex to MovingJoint(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform.toMatrix())
-    }.toMap()
-    val jointTree = skeleton.hierarchy.map {
-        // The transform is gonna get overwritten so it doesn't matter
-        val joint =nodeIndexToJointWithBaseTransform.getValue(it).copy(transform = Mat4f.identity())
-        joint.copy(transform = Mat4f.identity())
+
+//    val nodeIndexToNode = buildMap {
+//        model.nodeHierarchy.visit { (id, baseTransform) ->
+//            put(id, MovingNode(id, Mat4f()))
+//        }
+//    }
+
+    private val nodeIndexToJointIndex = buildMap {
+        skeleton.joints.forEachIndexed { jointIndex, nodeIndex ->
+            put(nodeIndex, jointIndex)
+        }
     }
+
+
+    //    val nodeIndexToNode = skeleton.joints.mapIndexed { i, joint ->
+//        joint.nodeIndex to MovingNode(jointIndex = i, nodeIndex = joint.nodeIndex, transform = joint.baseTransform.toMatrix())
+//    }.toMap() + (model.nodeIndex to MovingNode(jointIndex = null, nodeIndex = model.nodeIndex, transform = model.initialTransform.toMatrix()))
+    val nodeTree = model.nodeHierarchy.map {
+        MovingNode(it.id, Mat4f())
+    }
+//        .hierarchy.map {
+//        // The transform is gonna get overwritten so it doesn't matter
+//        val joint = nodeIndexToNode.getValue(it).copy(transform = Mat4f.identity())
+//        joint.copy(transform = Mat4f.identity())
+//    }
 
     /**
      * Returns the joint transforms in model space to pass to the GPU.
      */
     @Suppress("UNCHECKED_CAST")
-    fun getModelSpaceTransforms(): List<Mat4f> {
+    fun getModelSpaceJointTransforms(): List<Mat4f> {
         val list = MutableList<Mat4f?>(jointCount) { null }
-        jointTree.visit { (jointIndex,_, transform) ->
-            list[jointIndex] = transform
+        nodeTree.visit { (nodeIndex, transform) ->
+            val jointIndex = nodeIndexToJointIndex[nodeIndex]
+            if (jointIndex != null) {
+                list[jointIndex] = transform
+            }
         }
         // This process is supposed to fill up the list completely
         return list as List<Mat4f>
@@ -444,10 +467,10 @@ private class SkinManager(skeleton: Skeleton) {
      * 2. This **overwrites** the transform, it does not multiply by the existing transform.
      */
     fun applyLocalTransforms(jointTransforms: SkeletalTransformation) {
-        jointTree.visitWithParent { parent, node ->                     // level-order walk
+        nodeTree.visitWithParent { parent, node ->                     // level-order walk
             // Important: if no transform is specified, we use the base transform (the bind pose)
-            val local = jointTransforms[node.nodeIndex] ?:
-            error("applyLocalTransforms should be passed a transform for ALL $jointCount joints, (${jointTransforms.size} specified), either specifying the bind pose transform or an interpolated transform")
+            val local = jointTransforms[node.nodeIndex]
+                ?: error("applyLocalTransforms should be passed a transform for ALL $jointCount joints, (${jointTransforms.size} specified), either specifying the bind pose transform or an interpolated transform")
 
 
             if (parent == null) {
@@ -459,8 +482,14 @@ private class SkinManager(skeleton: Skeleton) {
     }
 
     init {
+        val initialTransform = buildMap {
+            model.nodeHierarchy.visit { (id, baseTransform) ->
+                put(id, baseTransform.toMatrix())
+            }
+        }
+//    }
         // Apply initial transform (bind pose)
-        applyLocalTransforms(nodeIndexToJointWithBaseTransform.mapValues { it.value.transform })
+        applyLocalTransforms(initialTransform)
     }
 }
 
@@ -469,7 +498,6 @@ private class SkinManager(skeleton: Skeleton) {
  * Specifies the interpolated values
  */
 typealias SkeletalTransformation = Map<Int, Mat4f>
-
 
 
 class RenderInstance(
@@ -489,12 +517,12 @@ class RenderInstance(
         if (bound.model.skeleton == null) 0 else 1
     )
 
-    private val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton)
+    private val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton, bound.model)
 
 
     private val jointMatricesPointer = bound.instanceStruct.new(
         bound.jointsMatricesBuffer,
-        skin?.getModelSpaceTransforms()
+        skin?.getModelSpaceJointTransforms()
         // Note: don't need this when we have proper feature separation
             ?: listOf()
     )
@@ -506,7 +534,7 @@ class RenderInstance(
     override val boundingBox: AxisAlignedBoundingBox
         get() = value.boundingBox
 
-    private var gpuTransform: Mat4f = initialTransform
+    private var setTransform: Mat4f = initialTransform
     private var gpuTintColor: Color = initialTint.color
     private var gpuTintStrength: Float = initialTint.strength
 
@@ -538,17 +566,20 @@ class RenderInstance(
      */
     internal fun updateGPU() {
         if (requestedTransform != null) {
+            // Without a skin, we just apply the model's root transform directly here, and with a skin the root transform is applied by the skin matrix,
+            // since the joints are considered children nodes of the root node.
+            val gpuTransform = if (skin == null) requestedTransform!! * bound.model.baseRootTransform else requestedTransform!!
             // Setting all values at once is faster than setting two values individually
             GlobalInstance.set(
                 world.instanceBuffer, globalInstancePointer,
-                requestedTransform!!, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
+                gpuTransform, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
                 if (bound.image == null) 0 else 1,
                 if (bound.model.skeleton == null) 0 else 1
             )
 //            GPUInstance.setFirst(world.instanceBuffer, pointer, requestedTransform!!)
 //            // Update normal matrix, as the transform changed
 //            GPUInstance.setSecond(world.instanceBuffer, pointer, Mat3f.normalMatrix(requestedTransform!!))
-            gpuTransform = requestedTransform!!
+            setTransform = requestedTransform!!
             requestedTransform = null
         }
         if (requestedTintColor != null) {
@@ -571,13 +602,13 @@ class RenderInstance(
         bound.instanceStruct.setFirst(
             bound.jointsMatricesBuffer,
             jointMatricesPointer,
-            skin.getModelSpaceTransforms()
+            skin.getModelSpaceJointTransforms()
         )
     }
 
     fun setTransform(transform: Mat4f) {
         checkDespawned()
-        if (transform != gpuTransform) {
+        if (transform != setTransform) {
             this.requestedTransform = transform
         } else {
             // Want to go back to the initial value? just don't do anything!

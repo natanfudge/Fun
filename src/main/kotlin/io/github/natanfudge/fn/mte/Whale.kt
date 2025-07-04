@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.mte
 
+import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.gltf.PartialTransform
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.Fun
@@ -8,6 +9,7 @@ import io.github.natanfudge.fn.render.Animation
 import io.github.natanfudge.fn.render.Joint
 import io.github.natanfudge.fn.render.PartialSkeletonTransform
 import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.ModelNode
 import io.github.natanfudge.fn.render.SkeletalTransformation
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
@@ -60,35 +62,17 @@ class Whale(game: MineTheEarth) : Fun("whale", game.context) {
 
     init {
         render.localTransform.translation = Vec3f(-2f, 0.5f, 12f)
-        render.localTransform.rotation = render.localTransform.rotation.rotateX(PI.toFloat() / -2)
 
         //TODO:
-        // 1. Interpolation - that should fix the animation issue, the interoplated value is the correct one, not the bind pose.
-        // 2. Proper animation API, where you select with a string
-        // 3. Fix the joe animation (not related to code)
+        // 2. Proper animation API, where you select with a string, you start/stop, and it interpolates between animations.
+        //  It should also work by registering FunContext.onRender{}, which will be a new API
 
-        // present node indices : 0 1 2 5
-        // Tree:
-        // 5        - Head
-        //  2       - Spine
-        //    1     - Lower body
-        //      0   - Tail
-        //  3       - Left Fin
-        //  4       - Right Fin
-
-        val animation = model.animations[0]
-        val joints = model.skeleton!!.joints
-//        render.renderInstance.setJointTransforms(
-//            animation.sample(125.milliseconds, joints)
-////            keyFrames[1].second
-//        )
-//
-//
-        val duration = animation.keyFrames.last().first
-//
+        val animation = model.animations[1]
+        val nodes = model.nodeHierarchy.toList()
+        val duration = animation.keyFrames .last().first
         game.animation.animateLoop(duration) {
             render.renderInstance.setJointTransforms(
-                animation.sample(duration * it, joints)
+                animation.sample(duration * it, nodes)
             )
         }.closeWithThis()
     }
@@ -104,9 +88,9 @@ class Whale(game: MineTheEarth) : Fun("whale", game.context) {
  */
 fun Animation.sample(
     time: Duration,
-    joints: List<Joint>,
+    nodes: List<ModelNode>,
 ): SkeletalTransformation {
-    if (keyFrames.isEmpty() || joints.isEmpty()) return emptyMap()
+    if (keyFrames.isEmpty() || nodes.isEmpty()) return emptyMap()
 
     /* ------------------------------------------------------------------ *
      * 0.  Locate the two bracketing key-frames (prev ≤ time ≤ next)       *
@@ -128,10 +112,10 @@ fun Animation.sample(
     /* ------------------------------------------------------------------ *
      * 1.  Build pose                                                     *
      * ------------------------------------------------------------------ */
-    val pose = HashMap<Int, Mat4f>(joints.size)
+    val pose = HashMap<Int, Mat4f>(nodes.size)
 
-    joints.forEach { joint ->
-        val node = joint.nodeIndex
+    nodes.forEach { joint ->
+        val node = joint.id
         val base = joint.baseTransform                   // bind pose
 
         /* ---- pull nearest keyed values on each side (if any) ---- */

@@ -63,9 +63,6 @@ class FunRenderState(
         onScaleChanged {
             updateTransform(scale = it)
         }
-        localTransform.translation = model.initialTransform.translation
-        localTransform.rotation = model.initialTransform.rotation
-        localTransform.scale = model.initialTransform.scale
     }
 
     private fun updateTransform(translation: Vec3f = this.translation, rotation: Quatf = this.rotation, scale: Vec3f = this.scale) {

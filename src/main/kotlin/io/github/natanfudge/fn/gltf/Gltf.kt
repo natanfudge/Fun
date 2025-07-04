@@ -19,7 +19,7 @@ import java.net.URI
 import kotlin.io.path.toPath
 
 
-//SUS: gonna do this more robust and not global state when we have proper async model loading. 
+//SUS: gonna do this more robust and not global state when we have proper async model loading.
 private val modelCache = mutableMapOf<String, Model>()
 
 fun clearModelCache() = modelCache.clear()
@@ -157,17 +157,18 @@ private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
         null
     }
 
-    // Find the first node that has a mesh
-    val meshNode = glb.nodes.firstOrNull { it.mesh != null }
-
-
-    // Extract transformation data from the node
-    val transform = meshNode.extractTransform()
-
     // Extract skeleton/joint information from skins
     val skeleton = extractSkeleton(glb)
     val animations = extractAnimations(glb)
-    return Model(resultMesh, url.toFile().nameWithoutExtension, Material(texture = texture), transform, animations, skeleton)
+    val nodeHierarchy = buildNodeHierarchy(glb)
+    return Model(
+        mesh = resultMesh,
+        id = url.toFile().nameWithoutExtension,
+        material = Material(texture = texture),
+        animations = animations,
+        nodeHierarchy = nodeHierarchy,
+        skeleton = skeleton
+    )
 }
 
 /**
@@ -286,8 +287,8 @@ private fun GLTF2.Image.toImage(): FunImage? {
  * Extracts transformation data from the GLTF2 model.
  * Looks for the first node that has a mesh and extracts its transformation data.
  */
-private fun GLTF2.Node?.extractTransform(): Transform {
-    if (this == null) return Transform()
+private fun GLTF2.Node.extractTransform(): Transform {
+    if (matrix != null) error("No matrix import support yet")
     val nodeTranslation = translation
     val nodeRotation = rotation
     val nodeScale = scale
@@ -331,19 +332,19 @@ private fun extractSkeleton(glb: GLTF2): Skeleton? {
     val skin = skins.first()
 
     // Extract joint information
-    val jointIndices = skin.joints.toList()
-    val joints = jointIndices.map { jointIndex ->
-        // Get the node for this joint to extract its base transform
-        val node = glb.nodes[jointIndex]
-        val matrix = node.matrix
-        val baseTransform = if (matrix != null && matrix.size >= 16) {
-            Transform.fromMatrix(Mat4f(matrix))
-        } else {
-            node.extractTransform()
-        }
-
-        Joint(jointIndex, baseTransform)
-    }
+//    val jointIndices = skin.joints.toList()
+//    val joints = jointIndices.map { jointIndex ->
+//        // Get the node for this joint to extract its base transform
+//        val node = glb.nodes[jointIndex]
+//        val matrix = node.matrix
+//        val baseTransform = if (matrix != null && matrix.size >= 16) {
+//            Transform.fromMatrix(Mat4f(matrix))
+//        } else {
+//            node.extractTransform()
+//        }
+//
+//        Joint(jointIndex, baseTransform)
+//    }
 
     // Extract inverse bind matrices
     val inverseBindMatrices = if (skin.inverseBindMatrices != null) {
@@ -360,13 +361,48 @@ private fun extractSkeleton(glb: GLTF2): Skeleton? {
         }
     } else {
         // If no inverse bind matrices are provided, use identity matrices
-        List(joints.size) { Mat4f.identity() }
+        List(skin.joints.size) { Mat4f.identity() }
     }
 
     // Build the joint hierarchy tree
-    val hierarchy = buildJointHierarchy(glb, jointIndices)
+//    val hierarchy = buildJointHierarchy(glb, jointIndices)
 
-    return Skeleton(joints, inverseBindMatrices, hierarchy)
+    return Skeleton(skin.joints.toList(), inverseBindMatrices)
+}
+
+private fun buildNodeHierarchy(glb: GLTF2): Tree<ModelNode> {
+    val scene = glb.scenes[glb.scene]
+    //TODo: this only specifies root nodes? need to check this
+    val rootNodeIndices = scene.nodes
+
+    val tree = rootNodeIndices.map { nodeIndex ->
+        buildNodeTreeRecursive(glb, nodeIndex)
+    }
+
+
+    return if (tree.size == 1) {
+        tree.single()
+    } else {
+        // TODO: fix gold having 2 roots apparently
+        TODO("We do not support multiple root nodes yet")
+        // If there is only one root node, we can use it directly.
+        // Otherwise, we create a virtual root node to hold all root nodes from the scene.
+//        val virtualRootNode = ModelNode(id = -1, baseTransform = Transform())
+//        TreeImpl(virtualRootNode, children)
+    }
+}
+
+private fun buildNodeTreeRecursive(glb: GLTF2, nodeIndex: Int): Tree<ModelNode> {
+    val node = glb.nodes[nodeIndex]
+    val modelNode = ModelNode(
+        id = nodeIndex,
+        baseTransform = node.extractTransform()
+    )
+    val children = node.children.map { childIndex ->
+        buildNodeTreeRecursive(glb, childIndex)
+    }
+
+    return TreeImpl(modelNode, children)
 }
 
 /**

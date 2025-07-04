@@ -118,11 +118,14 @@ fn skin(pos: vec3f, normal: vec3f, joints: vec4f, weights: vec4f, instance_offse
       let joint1 = joint_matrices[i1+ instance_offset] * inverse_bind_matrices[i1];
       let joint2 = joint_matrices[i2+ instance_offset] * inverse_bind_matrices[i2];
       let joint3 = joint_matrices[i3+ instance_offset] * inverse_bind_matrices[i3];
+
+      let w = renormalize(weights);
+
       // Compute influence of joint based on weight
-      let skin_matrix =  joint0 * weights[0] +
-                         joint1 * weights[1] +
-                         joint2 * weights[2] +
-                         joint3 * weights[3];
+      let skin_matrix =  joint0 * w[0] +
+                         joint1 * w[1] +
+                         joint2 * w[2] +
+                         joint3 * w[3];
       // Position of the vertex relative to our world
       let world_position = vec4f(pos, 1.0);
       // Vertex position with model rotation, skinning.
@@ -134,6 +137,10 @@ fn skin(pos: vec3f, normal: vec3f, joints: vec4f, weights: vec4f, instance_offse
     );
 }
 
+fn renormalize(w : vec4f) -> vec4f {
+    let s = max(0.0001, w.x + w.y + w.z + w.w); // avoid /0
+    return w / s;
+}
 
 
 @fragment

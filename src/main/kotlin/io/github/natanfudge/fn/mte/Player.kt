@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.RateLimiter
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
+import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.mte.Balance.MineInterval
 import io.github.natanfudge.fn.mte.Balance.PickaxeStrength
@@ -17,6 +18,7 @@ import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
+import korlibs.time.times
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -39,6 +41,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     private val mineRateLimit = RateLimiter(game.context)
 
     init {
+        render.localTransform.translation = Vec3f(0f,0f,-0.5f)
         physics.baseAABB = AxisAlignedBoundingBox(
             minX = -0.3f, maxX = 0.3f,
             minZ = -0.5f, maxZ = 0.5f,
@@ -97,8 +100,19 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 collectItem(bRoot, aRoot)
             }
         }.closeWithThis()
+        //TODO: introduce model transform i think. Stop putting it in the render transform object, and it would fix animations as well. 
 
 
+        val animation = model.animations[0]
+        val joints = model.skeleton!!.joints
+        // Went with the keyframe before last because the first and last frame are identical so it kinda lags otherwise
+        val duration = animation.keyFrames[animation.keyFrames.size - 2].first
+        val nodes = model.nodeHierarchy.toList()
+        game.animation.animateLoop(duration) {
+            render.renderInstance.setJointTransforms(
+                animation.sample(duration * it, nodes)
+            )
+        }.closeWithThis()
     }
 
     private fun collectItem(player: Player, item: WorldItem) {
