@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.network
 
+import io.github.natanfudge.fn.base.FunResource
 import io.github.natanfudge.fn.core.FunContext
 
 
@@ -28,9 +29,9 @@ abstract class Fun(
      * will synchronize their state.
      */
     /*override*/ val id: FunId,
-    /*override*/ val context: FunContext,
+    override val context: FunContext,
     val parent: Fun? = null,
-) : AutoCloseable, Taggable{
+) : AutoCloseable, Taggable, FunResource {
     val isRoot: Boolean = parent == null
 
     constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context, parent) {
@@ -70,6 +71,10 @@ abstract class Fun(
     }
 
     private val childCloseables = mutableSetOf<AutoCloseable>()
+
+    override fun alsoClose(closeable: AutoCloseable) {
+        childCloseables.add(closeable)
+    }
 
     /**
      * `this` will be closed when this Fun is closed.

@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.mte
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.RateLimiter
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
@@ -32,13 +33,19 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     val physics = physics(game.physics.system)
     val render = render(model, physics)
+    val animation = ModelAnimator(render)
 
 
+    //TODO: reloading models breaks animations, and also doesn't reload animations
+    // TODO: blend animations
     val inventory = Inventory(game)
 
     private val baseRotation = render.rotation
 
     private val mineRateLimit = RateLimiter(game.context)
+
+//    private var runningLeft = false
+//    private var runningRight = false
 
     init {
         render.localTransform.translation = Vec3f(0f,0f,-0.5f)
@@ -54,9 +61,13 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             "Left", Key.A, onHold = {
                 render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(it * 3, 0f, 0f)
+                animation.play("walk")
+//                runningLeft = true
             },
             onRelease = {
                 render.localTransform.rotation = baseRotation
+                animation.play("active-idle")
+//                runningLeft = false
             }
         )
 
@@ -65,9 +76,13 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             onHold = {
                 render.localTransform.rotation= baseRotation.rotateZ(PI.toFloat() / 2)
                 physics.position += Vec3f(it * 3, 0f, 0f)
+                animation.play("walk")
+//                runningRight = true
             },
             onRelease = {
                 render.localTransform.rotation = baseRotation
+                animation.play("active-idle")
+//                runningLeft = false
             }
         )
 
@@ -100,19 +115,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 collectItem(bRoot, aRoot)
             }
         }.closeWithThis()
-        //TODO: introduce model transform i think. Stop putting it in the render transform object, and it would fix animations as well. 
+        //TODO: introduce model transform i think. Stop putting it in the render transform object, and it would fix animations as well.
 
-
-        val animation = model.animations[0]
-        val joints = model.skeleton!!.joints
-        // Went with the keyframe before last because the first and last frame are identical so it kinda lags otherwise
-        val duration = animation.keyFrames[animation.keyFrames.size - 2].first
-        val nodes = model.nodeHierarchy.toList()
-        game.animation.animateLoop(duration) {
-            render.renderInstance.setJointTransforms(
-                animation.sample(duration * it, nodes)
-            )
-        }.closeWithThis()
+        animation.play("active-idle")
     }
 
     private fun collectItem(player: Player, item: WorldItem) {

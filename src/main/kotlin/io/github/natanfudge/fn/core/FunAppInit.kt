@@ -16,10 +16,12 @@ import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
+import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
+import korlibs.time.milliseconds
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -250,6 +252,7 @@ internal fun FunApp.actualHandleInput(input: InputEvent) {
 
 
 internal fun FunApp.actualFrame(deltaMs: Double) {
+    context.events.frame.emit(deltaMs.milliseconds)
     mods.forEach { it.frame(deltaMs) }
     frame(deltaMs)
 }
@@ -260,11 +263,16 @@ internal fun FunApp.actualPhysics(delta: Duration) {
     mods.forEach { it.postPhysics(delta) }
 }
 
+class BaseFunEvents {
+    val frame = MutEventStream<Duration>()
+}
 
 class FunContext(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
     private val stateContext: FunStateContext,
 ) : FunStateContext by stateContext {
+
+    val events = BaseFunEvents()
 
     lateinit var time: FunTime
 
