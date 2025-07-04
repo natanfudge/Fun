@@ -1,4 +1,4 @@
-package io.github.natanfudge.fn.render
+package io.github.natanfudge.fn.render.utils
 
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.wgpu4k.matrix.Mat3f

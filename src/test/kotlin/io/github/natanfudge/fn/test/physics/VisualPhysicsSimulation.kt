@@ -21,7 +21,7 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.*
-import io.github.natanfudge.fn.render.InputManagerMod
+import io.github.natanfudge.fn.base.InputManagerMod
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Tint

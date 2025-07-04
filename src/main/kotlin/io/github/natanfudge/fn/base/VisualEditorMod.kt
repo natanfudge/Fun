@@ -25,8 +25,6 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.collectAsState
 import io.github.natanfudge.fn.physics.FunRenderState
-import io.github.natanfudge.fn.render.Boundable
-import io.github.natanfudge.fn.render.InputManagerMod
 import io.github.natanfudge.fn.render.Tint
 
 @Composable

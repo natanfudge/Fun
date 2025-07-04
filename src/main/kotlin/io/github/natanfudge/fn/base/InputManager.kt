@@ -1,4 +1,4 @@
-package io.github.natanfudge.fn.render
+package io.github.natanfudge.fn.base
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key

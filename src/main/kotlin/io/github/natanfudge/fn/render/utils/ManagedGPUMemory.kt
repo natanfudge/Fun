@@ -1,7 +1,8 @@
 @file:Suppress("UNCHECKED_CAST")
 
-package io.github.natanfudge.fn.render
+package io.github.natanfudge.fn.render.utils
 
+import io.github.natanfudge.fn.render.wgpuAlign
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.ygdrasil.webgpu.BufferDescriptor
 import io.ygdrasil.webgpu.GPUBufferUsage
@@ -51,7 +52,7 @@ class ManagedGPUMemory(val ctx: WebGPUContext, val initialSizeBytes: ULong, expa
     }
 
     fun new(data: Any): UntypedGPUPointer {
-        val pointer = alloc(data.arrayByteSize().toULong())
+        val pointer = alloc(arrayByteSize(data).toULong())
         write(data, pointer)
         return pointer
     }
@@ -115,10 +116,10 @@ typealias KByteBuffer = ByteBuffer
 
 
 
- private fun Any.arrayByteSize() = when (this) {
-    is IntArray -> size * 4
-    is ByteArray -> size
-    is FloatArray -> size * 4
-    else -> error("Unsupported array type $this")
+ internal fun arrayByteSize(array: Any) = when (array) {
+    is IntArray -> array.size * 4
+    is ByteArray -> array.size
+    is FloatArray -> array.size * 4
+    else -> error("Unsupported array type $array")
 }
 

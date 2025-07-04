@@ -8,10 +8,9 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.render.CameraMode
-import io.github.natanfudge.fn.render.InputManagerMod
-import io.github.natanfudge.fn.render.ScrollDirection
+import io.github.natanfudge.fn.base.InputManagerMod
+import io.github.natanfudge.fn.base.ScrollDirection
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlinx.coroutines.delay
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {

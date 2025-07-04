@@ -23,8 +23,6 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.render.CameraMode
-import io.github.natanfudge.fn.render.FunKey
-import io.github.natanfudge.fn.render.InputManagerMod
 
 class CreativeMovementMod(private val context: FunContext, private val inputManager: InputManagerMod) : FunMod {
     private val camera = context.camera

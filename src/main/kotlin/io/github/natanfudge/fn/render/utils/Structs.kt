@@ -1,8 +1,9 @@
 @file:Suppress("UNCHECKED_CAST")
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
-package io.github.natanfudge.fn.render
+package io.github.natanfudge.fn.render.utils
 
+import io.github.natanfudge.fn.render.wgpuAlignInt
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.ygdrasil.webgpu.GPUBufferUsage
 import java.nio.ByteBuffer
@@ -55,7 +56,7 @@ abstract class Struct1<T1, S : Struct1<T1, S>>(
     val layout = layOut(t1)
     override val size = (t1.alignSize).wgpuAlignInt()
 
-    private fun toArray(a: T1) = concatDifferentArrays(
+     fun toArray(a: T1) = concatDifferentArrays(
         size, layout, t1.toArray(a),
     )
 
@@ -223,7 +224,7 @@ abstract class Struct6<T1, T2, T3, T4, T5, T6, S : Struct6<T1, T2, T3, T4, T5, T
     val layout = layOut(t1, t2, t3, t4, t5, t6)
     override val size = (layout.last() + t6.alignSize).wgpuAlignInt()
 
-    private fun toArray(a: T1, b: T2, c: T3, d: T4, e: T5, f: T6) = concatDifferentArrays(
+     fun toArray(a: T1, b: T2, c: T3, d: T4, e: T5, f: T6) = concatDifferentArrays(
         size, layout, t1.toArray(a), t2.toArray(b), t3.toArray(c),
         t4.toArray(d), t5.toArray(e), t6.toArray(f),
     )

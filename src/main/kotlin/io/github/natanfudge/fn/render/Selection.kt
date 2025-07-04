@@ -13,9 +13,7 @@ import kotlin.math.min
 data class Ray(
     val start: Vec3f,
     val direction: Vec3f,
-//    val end: Vec3f,
 ) {
-//    val direction = (end - start)
 }
 
 @Serializable
