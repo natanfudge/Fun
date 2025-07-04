@@ -136,7 +136,7 @@ private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
 
 
     // Create the mesh
-    val vertexBuffer = VertexArrayBuffer.of(positions, normals, uvs, joints, weights) //TODO: joints/weights
+    val vertexBuffer = VertexArrayBuffer.of(positions, normals, uvs, joints, weights)
     val resultMesh = Mesh(indices, vertexBuffer)
 
     // Extract material and texture (if available)
@@ -372,7 +372,6 @@ private fun extractSkeleton(glb: GLTF2): Skeleton? {
 
 private fun buildNodeHierarchy(glb: GLTF2): Tree<ModelNode> {
     val scene = glb.scenes[glb.scene]
-    //TODo: this only specifies root nodes? need to check this
     val rootNodeIndices = scene.nodes
 
     val tree = rootNodeIndices.map { nodeIndex ->
@@ -383,8 +382,7 @@ private fun buildNodeHierarchy(glb: GLTF2): Tree<ModelNode> {
     return if (tree.size == 1) {
         tree.single()
     } else {
-        // TODO: fix gold having 2 roots apparently
-        TODO("We do not support multiple root nodes yet")
+        error("We do not support multiple root nodes yet")
         // If there is only one root node, we can use it directly.
         // Otherwise, we create a virtual root node to hold all root nodes from the scene.
 //        val virtualRootNode = ModelNode(id = -1, baseTransform = Transform())

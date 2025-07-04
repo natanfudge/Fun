@@ -29,8 +29,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val physics = installMod(PhysicsMod())
 
 
-    // TODO: different models are interfering
-
     val player = Player(this)
 
     val whale = Whale(this)

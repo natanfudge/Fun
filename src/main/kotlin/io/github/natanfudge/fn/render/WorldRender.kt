@@ -6,16 +6,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.render.utils.*
 import io.github.natanfudge.fn.util.closeAll
-import io.github.natanfudge.fn.util.map
-import io.github.natanfudge.fn.util.visit
-import io.github.natanfudge.fn.util.visitWithParent
 import io.github.natanfudge.fn.webgpu.WebGPUContext
-import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -23,132 +19,20 @@ import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
 
 
-//interface BoundModel {
-//    fun spawn(id: FunId, value: Renderable, tint: Tint): RenderInstance
-//}
-
-/**
- * Stores GPU information about all instances of a [Model].
- */
-class BoundModel(
-    val model: Model, ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
-    val world: WorldRender,
-) : AutoCloseable {
-    val image = model.material.texture
-
-    val texture = ctx.device.createTexture(
-        TextureDescriptor(
-            size = if (image != null) Extent3D(
-                image.width.toUInt(),
-                image.height.toUInt(),
-                1u
-            ) else Extent3D(1u, 1u),
-            // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
-            format = GPUTextureFormat.RGBA8UnormSrgb,
-            usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst),
-            label = "Model Texture"
-        )
-    )
-
-    val jointCount = if (model.skeleton == null) 0uL else model.skeleton.joints.size.toULong()
-
-    val instanceStruct = JointMatrix(jointCount.toInt())
-
-    val maxInstanceCount = 1000u
-
-    //SLOW: should have one huge buffer, not one buffer per model.
-//    /** Single array per instance, and this stores the joint matrices for the entire model, so this has multiple arrays */
-//    val jointsMatricesBuffer = instanceStruct.createBuffer(ctx, maxInstanceCount, expandable = false, GPUBufferUsage.Storage)
-
-    /**
-     * Single array per model
-     */
-    val inverseBindMatricesBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Mat4f.SIZE_BYTES * jointCount, expandable = false, GPUBufferUsage.Storage)
-
-//    val uniformBuffer = ModelUniform.createBuffer(ctx, initialSize = 1u, expandable = false, GPUBufferUsage.Uniform)
-
-
-    //TODO: initialize joint matrices with initial transform: hierarchical based on transform value
-
-    init {
-        if (image != null) {
-            ctx.device.copyExternalImageToTexture(
-                source = image.bytes,
-                texture = texture,
-                width = image.width, height = image.height
-            )
-        }
-        if (model.skeleton != null) {
-            inverseBindMatricesBuffer.write(
-                model.skeleton.inverseBindMatrices.toFloatArray()
-            )
-        }
-    }
-
-
-    val textureView = texture.createView()
-
-    val instances = mutableMapOf<FunId, RenderInstance>()
-
-
-    fun spawn(id: FunId, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
-        check(id !in instances) { "Instance with id $id already exists" }
-        val instance = world.spawn(id, this, value, initialTransform, tint)
-        instances[id] = instance
-//        val instance = instances.computeIfAbsent(id) {
-        return instance
-//        }
-//        instance.value = value
-//        return instance
-    }
-
-    internal fun createBindGroup(pipeline: GPURenderPipeline) = world.ctx.device.createBindGroup(
-        BindGroupDescriptor(
-            layout = pipeline.getBindGroupLayout(1u),
-            entries = listOf(
-                BindGroupEntry(
-                    binding = 0u,
-                    resource = textureView
-                ),
-//                BindGroupEntry(
-//                    binding = 1u,
-//                    resource = BufferBinding(jointsMatricesBuffer.buffer)
-//                ),
-                BindGroupEntry(
-                    binding = 1u,
-                    resource = BufferBinding(inverseBindMatricesBuffer.buffer)
-                ),
-//                BindGroupEntry(
-//                    binding = 3u,
-//                    resource = BufferBinding(uniformBuffer.buffer)
-//                )
-            )
-        )
-    )
-
-
-    override fun close() {
-        closeAll(texture, textureView, inverseBindMatricesBuffer)
-    }
-}
-
-
 /**
  *   initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
  */
-object GlobalInstance : Struct6<Mat4f, Mat3f, Color, Float, Int, Int, GlobalInstance>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT, IntDT)
+object BaseInstanceData : Struct6<Mat4f, Mat3f, Color, Float, Int, Int, BaseInstanceData>(Mat4fDT, Mat3fDT, ColorDT, FloatDT, IntDT, IntDT)
 
 /**
  * Stores the information specific to an instance, with a size that changes between each model
  *
- * In contrast, [GlobalInstance] stores information per instance that is constant in size
+ * In contrast, [BaseInstanceData] stores information per instance that is constant in size
  *
  *  */
 /////////////////                       joint_matrices
 class JointMatrix(jointCount: Int) : Struct1<List<Mat4f>, JointMatrix>(Mat4fArrayDT(jointCount))
 
-//                      joint_matrices_stride
-object ModelUniform : Struct2<Int, Int, ModelUniform>(IntDT, IntDT)
 
 object WorldUniform : Struct5<Mat4f, Vec3f, Vec3f, UInt, UInt, WorldUniform>(
     Mat4fDT, Vec3fDT, Vec3fDT, UIntDT, UIntDT
@@ -168,33 +52,15 @@ class WorldRender(
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
 
-    // SUS: I made this humongously big because I didn't implement freeing yet, so when we restart the app the instance buffer keeps filling up.
-    // We should strive to make this smaller afterwards, to identify memory leaks (obv now we have a mega memory leak)
-    private val maxIndices = 50000u
+    internal val baseInstanceData: IndirectInstanceBuffer = IndirectInstanceBuffer(
+        this, maxInstances = 50_000, expectedElementSize = BaseInstanceData.size
+    ) { it.renderId }
+    internal val jointMatrixData: IndirectInstanceBuffer = IndirectInstanceBuffer(this, maxInstances = 1_000, expectedElementSize = Mat4f.SIZE_BYTES * 50u) {
+        (it.jointMatricesPointer.address / Mat4f.SIZE_BYTES).toInt()
+    }
 
-    //TODO: clean up, put BoundModel and RenderInstance in their own file, put instance + index and joint + index buffers and handling in their own files.
-
-    val instanceBuffer = GlobalInstance.createBuffer(ctx, maxIndices, expandable = false, GPUBufferUsage.Storage)
-
-    /**
-     * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
-     * to its correct location in the instance buffer.
-     */
-    val instanceIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Int.SIZE_BYTES.toULong() * maxIndices, expandable = false, GPUBufferUsage.Storage)
-
-    val jointMatrixBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = false, GPUBufferUsage.Storage)
-
-    /**
-     * Like how [instanceIndexBuffer] points an instance index to its data in [instanceBuffer],
-     * [instanceIndexToJointIndexBuffer] points an instance index to its joint matrix in [jointMatrixBuffer]
-     */
-    val instanceIndexToJointIndexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = Mat4f.SIZE_BYTES * 50_000uL, expandable = false, GPUBufferUsage.Storage)
-
-
-    //    val models = mutableListOf<BoundModel>()
     val models = mutableMapOf<ModelId, BoundModel>()
 
-    //    var bindGroup =
     val modelBindGroups = mutableMapOf<ModelId, GPUBindGroup>()
 
 
@@ -204,10 +70,10 @@ class WorldRender(
             entries = listOf(
                 BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = uniformBuffer.buffer)),
                 BindGroupEntry(binding = 1u, resource = surface.sampler),
-                BindGroupEntry(binding = 2u, resource = BufferBinding(instanceBuffer.buffer)),
-                BindGroupEntry(binding = 3u, resource = BufferBinding(instanceIndexBuffer.buffer)),
-                BindGroupEntry(binding = 4u, resource = BufferBinding(jointMatrixBuffer.buffer)),
-                BindGroupEntry(binding = 5u, resource = BufferBinding(instanceIndexToJointIndexBuffer.buffer)),
+                BindGroupEntry(binding = 2u, resource = BufferBinding(baseInstanceData.instanceBuffer.buffer)),
+                BindGroupEntry(binding = 3u, resource = BufferBinding(baseInstanceData.instanceIndexBuffer.buffer)),
+                BindGroupEntry(binding = 4u, resource = BufferBinding(jointMatrixData.instanceBuffer.buffer)),
+                BindGroupEntry(binding = 5u, resource = BufferBinding(jointMatrixData.instanceIndexBuffer.buffer)),
             )
         )
     )
@@ -289,8 +155,8 @@ class WorldRender(
 
         val pass = encoder.beginRenderPass(renderPassDescriptor)
 
-        rebuildInstanceIndexBuffer()
-        rebuildJointsIndexBuffer()
+        baseInstanceData.rebuild()
+        jointMatrixData.rebuild()
         pass.setPipeline(pipeline)
         pass.setBindGroup(0u, worldBindGroup)
         pass.setVertexBuffer(0u, vertexBuffer.buffer)
@@ -298,10 +164,6 @@ class WorldRender(
 
         var instanceIndex = 0u
         for (model in models.values) {
-            // SLOW: This should be replaced by an index buffer similar to the one used for the fixed size data
-
-//            ModelUniform.set(model.uniformBuffer, GPUPointer(0u), model.jointCount.toInt(), instanceIndex.toInt())
-
             for (instance in model.instances) {
                 instance.value.updateGPU()
             }
@@ -342,7 +204,6 @@ class WorldRender(
         return bound
     }
 
-//    private val instanceBufferElementCount get() = GlobalInstance.fullElements(instanceBuffer).toInt()
 
     /**
      * Note: `model.instances` is updated by [VisibleBoundModel.spawn]
@@ -351,64 +212,16 @@ class WorldRender(
         val instance = RenderInstance(id, initialTransform, tint, model, this, value)
         rayCasting.add(instance)
 
-        indexBufferInvalid = true
-        if (model.model.skeleton != null) jointIndexBufferInvalid = true
-
         return instance
-    }
-
-    /**
-     * The index buffer is invalid when new instances are added or removed. This is usually not every frame,
-     * so we recreate the index buffer only when that happens (we set this to true, and on render we recreate the buffer and set this to false)
-     */
-    private var indexBufferInvalid = true
-
-    private fun rebuildInstanceIndexBuffer() {
-        if (indexBufferInvalid) {
-            indexBufferInvalid = false
-            val indices = IntArray(countInstances())
-            var globalI = 0
-            for (model in models) {
-                // For each model we have a contiguous block of pointers to the instance index
-                for (instance in model.value.instances) {
-                    indices[globalI++] = instance.value.renderId
-                }
-            }
-            instanceIndexBuffer.write(indices)
-        }
-
-    }
-
-    private var jointIndexBufferInvalid = true
-
-    private fun countInstances() = models.values.sumOf { it.instances.size }
-
-    private fun rebuildJointsIndexBuffer() {
-        if (jointIndexBufferInvalid) {
-            jointIndexBufferInvalid = false
-            val indices = IntArray(countInstances())
-            var globalI = 0
-            for (model in models) {
-                // For each model we have a contiguous block of pointers to the joint index
-                for (instance in model.value.instances) {
-                    indices[globalI++] = (instance.value.jointMatricesPointer.address / Mat4f.SIZE_BYTES).toInt()
-                }
-            }
-            instanceIndexToJointIndexBuffer.write(indices)
-        }
-
     }
 
     internal fun remove(renderInstance: RenderInstance) {
         renderInstance.bound.instances.remove(renderInstance.funId)
-        instanceBuffer.free(renderInstance.globalInstancePointer, GlobalInstance.size)
         rayCasting.remove(renderInstance)
-        indexBufferInvalid = true
-        if (renderInstance.bound.model.skeleton != null) jointIndexBufferInvalid = true
     }
 
     override fun close() {
-        closeAll(vertexBuffer, indexBuffer, instanceBuffer, instanceIndexBuffer, uniformBuffer)
+        closeAll(vertexBuffer, indexBuffer,  uniformBuffer, baseInstanceData, jointMatrixData)
         modelBindGroups.values.forEach { it.close() }
         models.forEach { it.value.close() }
     }
@@ -418,238 +231,61 @@ class WorldRender(
 data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, val strength: Float = 0.5f)
 
 
-//interface RenderInstance {
-//
-//    fun setTransform(transform: Mat4f)
-//
-//    fun setTintColor(color: Color)
-//
-//    fun setTintStrength(strength: Float)
-//
-//    fun despawn()
-//}
-
-data class MovingNode(
-//    /**
-//     * The index relative to the list of joints, if this is a joint
-//     */
-//    val jointIndex: Int?,
-    /**
-     * The index relative to the list of nodes (includes all joints + the mesh + other possible nodes)
-     */
-    val nodeIndex: Int,
-    /**
-     * Changes over time
-     */
-    val transform: Mat4f,
-)
-
-private class SkinManager(skeleton: Skeleton, model: Model) {
-    private val jointCount = skeleton.joints.size
-
-
-    private val nodeIndexToJointIndex = buildMap {
-        skeleton.joints.forEachIndexed { jointIndex, nodeIndex ->
-            put(nodeIndex, jointIndex)
-        }
-    }
-
-    val nodeTree = model.nodeHierarchy.map {
-        MovingNode(it.id, Mat4f())
-    }
-
-
-    /**
-     * Returns the joint transforms in model space to pass to the GPU.
-     */
-    @Suppress("UNCHECKED_CAST")
-    fun getModelSpaceJointTransforms(): List<Mat4f> {
-        val list = MutableList<Mat4f?>(jointCount) { null }
-        nodeTree.visit { (nodeIndex, transform) ->
-            val jointIndex = nodeIndexToJointIndex[nodeIndex]
-            if (jointIndex != null) {
-                list[jointIndex] = transform
-            }
-        }
-        // This process is supposed to fill up the list completely
-        return list as List<Mat4f>
-    }
-
-    //TODO: apparently the problem is that I'm supposed to use the interoplated values, and the gltf sampler does the interpolation for you.
-
-    /**
-     * Replaces the local transformations of the joints with the ones in the given [jointTransforms].
-     * Two important distinctions:
-     * 1. This is in **local** space, meaning each bone relative to its parent
-     * 2. This **overwrites** the transform, it does not multiply by the existing transform.
-     */
-    fun applyLocalTransforms(jointTransforms: SkeletalTransformation) {
-        nodeTree.visitWithParent { parent, node ->                     // level-order walk
-            // Important: if no transform is specified, we use the base transform (the bind pose)
-            val local = jointTransforms[node.nodeIndex]
-                ?: error("applyLocalTransforms should be passed a transform for ALL $jointCount joints, (${jointTransforms.size} specified), either specifying the bind pose transform or an interpolated transform")
-
-
-            if (parent == null) {
-                node.transform.set(local)               // root: M_model = M_local
-            } else {
-                parent.transform.mul(local, node.transform)
-            }
-        }
-    }
-
-    init {
-        val initialTransform = buildMap {
-            model.nodeHierarchy.visit { (id, baseTransform) ->
-                put(id, baseTransform.toMatrix())
-            }
-        }
-//    }
-        // Apply initial transform (bind pose)
-        applyLocalTransforms(initialTransform)
-    }
-}
-
 /**
- * Map from node index to the local transform to apply to the node.
- * Specifies the interpolated values
+ * Stores instance information in one buffer and then a map from each instance index to its instance information in another buffer.
+ * @param instanceIndexGetter Gets the index of instance data of the given [RenderInstance].
  */
-typealias SkeletalTransformation = Map<Int, Mat4f>
-
-
-class RenderInstance(
-    val funId: FunId,
-    initialTransform: Mat4f,
-    initialTint: Tint,
-    val bound: BoundModel,
-    @PublishedApi internal val world: WorldRender,
-    var value: Boundable,
-) : Boundable {
-    // SLOW: should reconsider passing normal matrices always
-    private val normalMatrix = Mat3f.normalMatrix(initialTransform)
-    internal val globalInstancePointer = GlobalInstance.new(
-        world.instanceBuffer, initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (bound.image == null) 0 else 1,
-        if (bound.model.skeleton == null) 0 else 1
-    )
-
-    private val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton, bound.model)
-
-
-    internal val jointMatricesPointer = bound.instanceStruct.new(
-        world.jointMatrixBuffer,
-        skin?.getModelSpaceJointTransforms()
-        // Note: don't need this when we have proper feature separation
-            ?: listOf()
-    )
-
-    init {
-        val x = 2
+internal class IndirectInstanceBuffer(private val world: WorldRender, maxInstances: Int, expectedElementSize: UInt,
+                                      private val instanceIndexGetter: (RenderInstance) -> Int): AutoCloseable {
+    override fun close() {
+        closeAll(instanceBuffer, instanceIndexBuffer)
     }
-
-
-    // The index is a pointer to the instance in the instanceBuffer array (wgpu indexes a struct of arrays, so it needs an index, not a pointer)
-    val renderId = (globalInstancePointer.address / GlobalInstance.size).toInt()
-
-    override val boundingBox: AxisAlignedBoundingBox
-        get() = value.boundingBox
-
-    private var setTransform: Mat4f = initialTransform
-    private var gpuTintColor: Color = initialTint.color
-    private var gpuTintStrength: Float = initialTint.strength
-
-    // Optimization: only update GPU once per frame, store requested changes in memory and update before frame.
-    private var requestedTransform: Mat4f? = null
-    private var requestedTintColor: Color? = null
-    private var requestedTintStrength: Float? = null
-
-    var despawned = false
+    val instanceBuffer =
+        ManagedGPUMemory(world.ctx, initialSizeBytes = (maxInstances * expectedElementSize.toInt()).toULong(), expandable = false, GPUBufferUsage.Storage)
 
     /**
-     * Removes this instance from the world, cleaning up any held resources.
-     * After despawning, attempting to transform this instance will fail.
+     * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
+     * to its correct location in the instance buffer.
      */
-    fun despawn() {
-        world.remove(this)
-        despawned = true
+    val instanceIndexBuffer =
+        ManagedGPUMemory(world.ctx, initialSizeBytes = (maxInstances * Int.SIZE_BYTES).toULong(), expandable = false, GPUBufferUsage.Storage)
+
+    fun newInstance(array: Any): GPUPointer<*> {
+        if (arrayByteSize(array) > 0) {
+            dirty = true
+        }
+        return instanceBuffer.new(array)
     }
 
-//    fun setAnimationFrame()
 
-    private fun checkDespawned() {
-        if (despawned) throw IllegalStateException("Attempt to transform despawned object")
+    fun free(pointer: GPUPointer<*>, elementSize: UInt) {
+        instanceBuffer.free(pointer, elementSize)
+        if (elementSize > 0u) {
+            dirty = true
+        }
     }
-
 
     /**
-     * Called once per frame to apply any changes made to the instance values.
+     * The index buffer is invalid when new instances are added or removed. This is usually not every frame,
+     * so we recreate the index buffer only when that happens (we set this to true, and on render we recreate the buffer and set this to false)
      */
-    internal fun updateGPU() {
-        if (requestedTransform != null) {
-            // Without a skin, we just apply the model's root transform directly here, and with a skin the root transform is applied by the skin matrix,
-            // since the joints are considered children nodes of the root node.
-            val gpuTransform = if (skin == null) requestedTransform!! * bound.model.baseRootTransform else requestedTransform!!
-            // Setting all values at once is faster than setting two values individually
-            GlobalInstance.set(
-                world.instanceBuffer, globalInstancePointer,
-                gpuTransform, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
-                if (bound.image == null) 0 else 1,
-                if (bound.model.skeleton == null) 0 else 1
-            )
-//            GPUInstance.setFirst(world.instanceBuffer, pointer, requestedTransform!!)
-//            // Update normal matrix, as the transform changed
-//            GPUInstance.setSecond(world.instanceBuffer, pointer, Mat3f.normalMatrix(requestedTransform!!))
-            setTransform = requestedTransform!!
-            requestedTransform = null
-        }
-        if (requestedTintColor != null) {
-            GlobalInstance.setThird(world.instanceBuffer, globalInstancePointer, requestedTintColor!!)
-            gpuTintColor = requestedTintColor!!
-            requestedTintColor = null
-        }
-        if (requestedTintStrength != null) {
-            GlobalInstance.setFourth(world.instanceBuffer, globalInstancePointer, requestedTintStrength!!)
-            gpuTintStrength = requestedTintStrength!!
-            requestedTintStrength = null
-        }
-    }
+    private var dirty = false
 
-    fun setJointTransforms(transforms: SkeletalTransformation) {
-        checkDespawned()
-        val skin = skin ?: throw UnallowedFunException("setJointTransforms is not relevant for a model without a skin '${bound.model.id}'")
-        skin.applyLocalTransforms(transforms)
-        // Just apply it to the GPU right away, I don't think anyone will try to call this multiple times a frame.
-        bound.instanceStruct.setFirst(
-            world.jointMatrixBuffer,
-            jointMatricesPointer,
-            skin.getModelSpaceJointTransforms()
-        )
-    }
+    private fun countInstances() = world.models.values.sumOf { it.instances.size }
 
-    fun setTransform(transform: Mat4f) {
-        checkDespawned()
-        if (transform != setTransform) {
-            this.requestedTransform = transform
-        } else {
-            // Want to go back to the initial value? just don't do anything!
-            this.requestedTransform = null
-        }
-    }
 
-    fun setTintColor(color: Color) {
-        checkDespawned()
-        if (color != gpuTintColor) {
-            this.requestedTintColor = color
-        } else {
-            this.requestedTintColor = null
-        }
-    }
-
-    fun setTintStrength(strength: Float) {
-        checkDespawned()
-        if (strength != gpuTintStrength) {
-            this.requestedTintStrength = strength
-        } else {
-            this.requestedTintStrength = null
+    fun rebuild() {
+        if (dirty) {
+            dirty = false
+            val indices = IntArray(countInstances())
+            var globalI = 0
+            for (model in world.models) {
+                // For each model we have a contiguous block of pointers to the instance index
+                for (instance in model.value.instances) {
+                    indices[globalI++] = instanceIndexGetter(instance.value)
+                }
+            }
+            instanceIndexBuffer.write(indices)
         }
     }
 }

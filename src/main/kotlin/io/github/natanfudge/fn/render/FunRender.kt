@@ -158,16 +158,6 @@ fun WebGPUWindow.bindFunLifecycles(
     funSurface: Lifecycle<*, FunSurface>,
     funDimLifecycle: Lifecycle<*, FunWindow>,
 ) {
-//    val appLifecycle = ProcessLifecycle.bind("App") {
-//        AppState(this@bindFunLifecycles, compose)
-//    }
-
-//    val appSurface = funSurface.bind(appLifecycle, "App<->Surface Binding") { surface, app ->
-//        surface.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
-////        app.renderInit(surface.world)
-//        AppSurfaceBinding(app,surface)
-//    }
-
 
     //TODO: this should be part of WorldRender
     val objectLifecycle = createReloadingPipeline(
@@ -176,7 +166,6 @@ fun WebGPUWindow.bindFunLifecycles(
         vertexShader = ShaderSource.HotFile("object"),
     ) { vertex, fragment ->
         pipelines++
-//        println("Creating pipeline $pipelines")
         RenderPipelineDescriptor(
             label = "Fun Object Pipeline #$pipelines",
             vertex = VertexState(
@@ -247,9 +236,6 @@ fun WebGPUWindow.bindFunLifecycles(
             fsWatcher.poll()
         }
         app.context.time._poll()
-
-
-//        app.preFrame()
     }
 
 

@@ -31,16 +31,11 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     val animation = ModelAnimator(render)
 
 
-    //TODO: reloading models breaks animations, and also doesn't reload animations
-    // TODO: blend animations
     val inventory = Inventory(game)
 
     private val baseRotation = render.rotation
 
     private val mineRateLimit = RateLimiter(game.context)
-
-//    private var runningLeft = false
-//    private var runningRight = false
 
     init {
         render.localTransform.translation = Vec3f(0f,0f,-0.5f)
@@ -110,7 +105,6 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 collectItem(bRoot, aRoot)
             }
         }.closeWithThis()
-        //TODO: introduce model transform i think. Stop putting it in the render transform object, and it would fix animations as well.
 
         animation.play("active-idle")
     }

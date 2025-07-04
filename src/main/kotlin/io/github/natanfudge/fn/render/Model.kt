@@ -35,7 +35,7 @@ data class Transform(
 ) {
     companion object {
         fun fromMatrix(matrix: Mat4f): Transform {
-            return Transform(matrix.getTranslation(), TODO(), TODO())
+            return Transform(matrix.getTranslation(), error(" to do"), error(""))
         }
     }
     fun toMatrix() = Mat4f.translateRotateScale(translation, rotation, scale)
