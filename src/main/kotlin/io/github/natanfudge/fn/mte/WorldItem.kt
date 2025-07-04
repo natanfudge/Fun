@@ -28,7 +28,6 @@ data class Item(
         }
     }
 }
-//TODO: gold items need to be re-exported in blender to not have Y-up
 
 class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextFunId("Item-${item.type}"), game.context) {
     companion object {
@@ -54,12 +53,12 @@ class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextF
         physics.scale = Vec3f(0.5f, 0.5f, 0.5f)
         physics.position = pos
 
-        render.localTransform.rotation = render.localTransform.rotation.rotateY(PI.toFloat() / 2)
+        render.localTransform.rotation = render.localTransform.rotation.rotateZ(PI.toFloat() / 2)
 
 
         game.animation.animateLoop(2.seconds) {
             val down = spring(it)
-            render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = down * 0.15f - 0.1f)
+            render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = down * 0.15f)
         }.closeWithThis()
     }
 

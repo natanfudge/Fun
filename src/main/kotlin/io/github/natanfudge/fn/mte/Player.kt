@@ -25,12 +25,7 @@ import kotlin.math.abs
 
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
-    companion object {
-        val model = Model.fromGlbResource("files/models/joe.glb")
-    }
-
-
-
+    val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
     val animation = ModelAnimator(render)
