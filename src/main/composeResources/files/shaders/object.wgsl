@@ -134,9 +134,23 @@ fn skin(pos: vec3f, normal: vec3f, joints: vec4f, weights: vec4f, instance_offse
       // Vertex position with model rotation, skinning.
       let skinned_position = skin_matrix * world_position;
 
+      let normalVec4 = vec4f(normal, 0.0);
+
+
+    let n0 = (joint0 * normalVec4).xyz;
+    let n1 = (joint1 * normalVec4).xyz;
+    let n2 = (joint2 * normalVec4).xyz;
+    let n3 = (joint3 * normalVec4).xyz;
+
+    let skinned_normal = normalize(
+          n0 * w.x +
+          n1 * w.y +
+          n2 * w.z +
+          n3 * w.w );
+
     return SkinResult(
         skinned_position,
-        normal
+        skinned_normal
     );
 }
 
