@@ -28,6 +28,8 @@ fun Model.Companion.fromGlbResource(path: String): Model = modelCache.getOrPut(p
     Model.fromGlbResourceImpl(path)
 }
 
+
+
 private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }
