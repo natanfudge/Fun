@@ -39,6 +39,9 @@ interface Listener<in T> : AutoCloseable {
     }
 }
 
+@Suppress("UNCHECKED_CAST")
+fun <T,R> Listener<T>.cast() = this as Listener<R>
+
 
 class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : Listener<T> {
     /**

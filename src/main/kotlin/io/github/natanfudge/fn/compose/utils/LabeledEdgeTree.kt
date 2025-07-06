@@ -3,19 +3,8 @@ package io.github.natanfudge.fn.compose.utils
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import io.github.natanfudge.fn.util.CollapsibleTree
-import io.github.natanfudge.fn.util.Tree
-import io.github.natanfudge.fn.util.TreePath
-import io.github.natanfudge.fn.util.hasContent
-import io.github.natanfudge.fn.util.visit
-import io.github.natanfudge.fn.util.visitConnections
+import io.github.natanfudge.fn.util.*
 import java.util.*
-import kotlin.collections.flatMap
-import kotlin.collections.indices
-import kotlin.collections.isNotEmpty
-import kotlin.collections.map
-import kotlin.collections.mapIndexed
-import kotlin.to
 
 
 data class CollectedVertex<T>(val value: T, val path: TreePath, val hasContent: Boolean)
@@ -69,6 +58,12 @@ data class LabeledEdge<T, L>(
 //    val child: T,
 )
 
+fun <T> Tree<T>.find(predicate: (T) -> Boolean): T? {
+    visit { // Possible because of awesome recursionless inline visit algorithm
+        if (predicate(it)) return it
+    }
+    return null
+}
 
 
 /**
@@ -76,7 +71,7 @@ data class LabeledEdge<T, L>(
  * If [travelDirections] returns null, it means the desired node has been found and it will be returned.
  * This function assumes the thing can be found every time, not returning null ever.
  */
- fun <T> Tree<T>.find(travelDirections: (T, children: List<Tree<T>>) -> Int?): T {
+fun <T> Tree<T>.findDirected(travelDirections: (T, children: List<Tree<T>>) -> Int?): T {
     val child = travelDirections(value, children)
     if (child == null) return value
     else {
@@ -84,10 +79,9 @@ data class LabeledEdge<T, L>(
         require(child in children.indices) {
             "Given child index $child, but only ${children.size} children exist"
         }
-        return children[child].find(travelDirections)
+        return children[child].findDirected(travelDirections)
     }
 }
-
 
 
 fun <T> Tree<T>.toList() = buildList { visit { add(it) } }
@@ -125,7 +119,6 @@ fun <T, L> LabeledEdgeTree<T, L>.collectEdgePaths(depth: Int): List<LabeledEdge<
         add(it)
     }
 }
-
 
 
 //inline fun <T, L> LabeledEdgeTree<T, L>.visitChildrenPaths(
@@ -180,8 +173,6 @@ inline fun <T, L> LabeledEdgeTree<T, L>.visitEdgePaths(
 
     }
 }
-
-
 
 
 fun <T> Tree<T>.toPartial(initiallyShowChildren: Boolean): PartialTree<T> {
