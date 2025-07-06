@@ -66,7 +66,7 @@ class ModelAnimator(val render: FunRenderState) {
     /**
      * @param trimLastKeyframe Some animation loops have an identical last frame that causes some small lag at the end, so we can trim it.
      */
-    fun play(animation: String, trimLastKeyframe: Boolean = true, loop: Boolean = true) {
+    fun play(animation: String,  loop: Boolean = true, trimLastKeyframe: Boolean = loop) {
         if (this.animation?.animation?.name == animation) return
         val animation = model.animations.find { it.name == animation }
             ?: error("Model ${model.id} does not contain animation '${animation}': existing animations: ${model.animations.map { it.name }}")

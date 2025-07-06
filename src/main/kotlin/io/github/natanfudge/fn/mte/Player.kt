@@ -7,7 +7,6 @@ import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.RateLimiter
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
-import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.mte.Balance.MineInterval
 import io.github.natanfudge.fn.mte.Balance.PickaxeStrength
@@ -19,7 +18,6 @@ import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
-import korlibs.time.times
 import kotlin.math.PI
 import kotlin.math.abs
 
@@ -39,7 +37,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     private val mineRateLimit = RateLimiter(game.context)
 
     init {
-        render.localTransform.translation = Vec3f(0f,0f,-0.5f)
+        render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
         physics.baseAABB = AxisAlignedBoundingBox(
             minX = -0.3f, maxX = 0.3f,
             minZ = -0.5f, maxZ = 0.5f,
@@ -52,12 +50,16 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             "Left", Key.A, onHold = {
                 render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(it * 3, 0f, 0f)
-                animation.play("walk")
+                if (physics.isGrounded) {
+                    animation.play("walk")
+                }
 //                runningLeft = true
             },
             onRelease = {
                 render.localTransform.rotation = baseRotation
-                animation.play("active-idle")
+                if(physics.isGrounded) {
+                    animation.play("active-idle")
+                }
 //                runningLeft = false
             }
         )
@@ -65,21 +67,26 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         game.input.registerHotkey(
             "Right", Key.D,
             onHold = {
-                render.localTransform.rotation= baseRotation.rotateZ(PI.toFloat() / 2)
+                render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
                 physics.position += Vec3f(it * 3, 0f, 0f)
-                animation.play("walk")
+                if (physics.isGrounded) {
+                    animation.play("walk")
+                }
 //                runningRight = true
             },
             onRelease = {
                 render.localTransform.rotation = baseRotation
-                animation.play("active-idle")
+                if(physics.isGrounded) {
+                    animation.play("active-idle")
+                }
 //                runningLeft = false
             }
         )
 
-
         game.input.registerHotkey("Jump", Key.Spacebar, onHold = {
             if (physics.isGrounded) {
+                airborne = true
+                animation.play("jump", loop = false)
                 physics.velocity += Vec3f(0f, 0f, 8f)
             }
         })
@@ -98,20 +105,29 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         })
 
         game.physics.system.collision.listen { (a, b) ->
-            val aRoot = a.getRootFun()
-            val bRoot = b.getRootFun()
-            if (aRoot is Player && bRoot is WorldItem) {
-                collectItem(aRoot, bRoot)
-            } else if (bRoot is Player && aRoot is WorldItem) {
-                collectItem(bRoot, aRoot)
+            whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
+                player.collectItem(item)
             }
+
+            if (airborne) {
+                whenRootFunsTyped<Player, Block>(a, b) { player, block ->
+                    if (player.physics.isGrounded) {
+                        animation.play("land", loop = false)
+                        airborne = false
+                    }
+                }
+
+            }
+
         }.closeWithThis()
 
         animation.play("active-idle")
     }
 
-    private fun collectItem(player: Player, item: WorldItem) {
-        val remainder = player.inventory.insert(item.item)
+    private var airborne = false
+
+    private fun collectItem(item: WorldItem) {
+        val remainder = inventory.insert(item.item)
         if (remainder == 0) {
             // Only destroy the item if there is nothing left
             item.close()
@@ -171,6 +187,18 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             }
         }
         return null
+    }
+}
+
+inline fun <reified R1, reified R2> whenRootFunsTyped(a: Body, b: Body, callback: (R1, R2) -> Unit) {
+    val aRoot = a.getRootFun()
+    val bRoot = b.getRootFun()
+
+    // Collect item
+    if (aRoot is R1 && bRoot is R2) {
+        callback(aRoot, bRoot)
+    } else if (aRoot is R2 && bRoot is R1) {
+        callback(bRoot, aRoot)
     }
 }
 
