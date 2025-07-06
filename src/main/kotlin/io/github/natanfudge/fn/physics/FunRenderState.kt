@@ -1,7 +1,10 @@
 package io.github.natanfudge.fn.physics
 
 import androidx.compose.ui.graphics.Color
+import io.github.natanfudge.fn.compose.utils.find
+import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.ClientFunValue
@@ -73,6 +76,10 @@ class FunRenderState(
     }
 
 
+    fun joint(name: String): Transformable {
+        val nodeId = model.nodeHierarchy.find { it.name == name }?.id ?: throw IllegalArgumentException("No joint with name $name (actual: ${model.nodeHierarchy.toList().map { it.name }})")
+        return renderInstance.jointTransform(nodeId)
+    }
 
 
 

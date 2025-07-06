@@ -3,97 +3,17 @@
 package io.github.natanfudge.fn.render
 
 import androidx.compose.ui.graphics.Color
+import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.physics.Transformable
 import io.github.natanfudge.fn.render.utils.GPUPointer
-import io.github.natanfudge.fn.util.map
-import io.github.natanfudge.fn.util.visit
-import io.github.natanfudge.fn.util.visitWithParent
+import io.github.natanfudge.fn.util.Listener
+import io.github.natanfudge.fn.util.cast
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
-
-
-data class MovingNode(
-    /**
-     * The index relative to the list of nodes (includes all joints + the mesh + other possible nodes)
-     */
-    val nodeIndex: Int,
-    /**
-     * Changes over time
-     */
-    val transform: Mat4f,
-)
-
-private class SkinManager(skeleton: Skeleton, model: Model) {
-    private val jointCount = skeleton.joints.size
-
-    val jointMatrixSize = jointCount.toUInt() * Mat4f.SIZE_BYTES
-
-
-    private val nodeIndexToJointIndex = buildMap {
-        skeleton.joints.forEachIndexed { jointIndex, nodeIndex ->
-            put(nodeIndex, jointIndex)
-        }
-    }
-
-    val nodeTree = model.nodeHierarchy.map {
-        MovingNode(it.id, Mat4f())
-    }
-
-
-    /**
-     * Returns the joint transforms in model space to pass to the GPU.
-     */
-    @Suppress("UNCHECKED_CAST")
-    fun getModelSpaceJointTransforms(): List<Mat4f> {
-        val list = MutableList<Mat4f?>(jointCount) { null }
-        nodeTree.visit { (nodeIndex, transform) ->
-            val jointIndex = nodeIndexToJointIndex[nodeIndex]
-            if (jointIndex != null) {
-                list[jointIndex] = transform
-            }
-        }
-        // This process is supposed to fill up the list completely
-        return list as List<Mat4f>
-    }
-
-    /**
-     * Replaces the local transformations of the joints with the ones in the given [jointTransforms].
-     * Two important distinctions:
-     * 1. This is in **local** space, meaning each bone relative to its parent
-     * 2. This **overwrites** the transform, it does not multiply by the existing transform.
-     */
-    fun applyLocalTransforms(jointTransforms: SkeletalTransformation) {
-        nodeTree.visitWithParent { parent, node ->                     // level-order walk
-            // Important: if no transform is specified, we use the base transform (the bind pose)
-            val local = jointTransforms[node.nodeIndex]
-                ?: error("applyLocalTransforms should be passed a transform for ALL $jointCount joints, (${jointTransforms.size} specified), either specifying the bind pose transform or an interpolated transform")
-
-
-            if (parent == null) {
-                node.transform.set(local)               // root: M_model = M_local
-            } else {
-                parent.transform.mul(local, node.transform)
-            }
-        }
-    }
-
-    init {
-        val initialTransform = buildMap {
-            model.nodeHierarchy.visit { (id, baseTransform) ->
-                put(id, baseTransform.toMatrix())
-            }
-        }
-        // Apply initial transform (bind pose)
-        applyLocalTransforms(initialTransform)
-    }
-}
-
-/**
- * Map from node index to the local transform to apply to the node.
- * Specifies the interpolated values
- */
-typealias SkeletalTransformation = Map<Int, Mat4f>
+import io.github.natanfudge.wgpu4k.matrix.Quatf
+import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
 class RenderInstance(
@@ -113,8 +33,19 @@ class RenderInstance(
         )
     ) as GPUPointer<BaseInstanceData>
 
+//    fun j
+
 
     private val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton, bound.model)
+
+    /**
+     * Allows following the transform of the given node [jointNodeId]
+     */
+    fun jointTransform(jointNodeId: NodeId): Transformable {
+        return JointTransform(
+            jointNodeId, skin ?: throw UnallowedFunException("jointTransform must only be called for models with a skeleton!")
+        )
+    }
 
     internal val jointMatricesPointer = world.jointMatrixData.newInstance(
         bound.instanceStruct.toArray(
@@ -229,5 +160,41 @@ class RenderInstance(
         } else {
             this.requestedTintStrength = null
         }
+    }
+}
+
+
+//TODO: think how to parent the joint transform to the world transform
+// I should implement a FatherChild Transformable that combines two transformables, and then I could also implement HierarchicalTransformable
+// by doing FatherChildTransformable(child = FunTransform(), parent = parent)
+
+/**
+ * Follows the transformation of a specific joint
+ */
+private class JointTransform(val jointId: Int, val skinManager: SkinManager, val worldTransform: Transformable) : Transformable {
+    private val node = skinManager.nodeTree.find { it.nodeIndex == jointId } ?: error("Cannot find joint with id ${jointId} in node tree")
+    override val translation: Vec3f
+        get() = node.transform.translation
+    override val rotation: Quatf
+        get() = node.transform.rotation
+    override val scale: Vec3f
+        get() = node.transform.scale
+
+    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> {
+        return skinManager.jointTransformEvent.listen {
+            if (it.joint == jointId) callback(it.transform.translation)
+        }.cast()
+    }
+
+    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> {
+        return skinManager.jointTransformEvent.listen {
+            if (it.joint == jointId) callback(it.transform.rotation)
+        }.cast()
+    }
+
+    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> {
+        return skinManager.jointTransformEvent.listen {
+            if (it.joint == jointId) callback(it.transform.scale)
+        }.cast()
     }
 }

@@ -113,7 +113,7 @@ fun Animation.sample(
     /* ------------------------------------------------------------------ *
      * 1.  Build pose                                                     *
      * ------------------------------------------------------------------ */
-    val pose = HashMap<Int, Mat4f>(nodes.size)
+    val pose = HashMap<Int, Transform>(nodes.size)
 
     nodes.forEach { joint ->
         val node = joint.id
@@ -170,7 +170,7 @@ fun Animation.sample(
             else             -> base.scale
         }
 
-        pose[node] = Transform(tr, rot, sc).toMatrix()
+        pose[node] = Transform(tr, rot, sc)
     }
 
     return pose

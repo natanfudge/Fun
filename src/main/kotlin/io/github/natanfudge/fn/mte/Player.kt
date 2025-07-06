@@ -26,17 +26,16 @@ val PIf = PI.toFloat()
 
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
-    //TODO: model still not being restarted
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
-    val pickaxe = render(Model.fromGlbResource("files/models/items/pickaxe.glb"), render, "pickaxe")
+    val pickaxe = render(Model.fromGlbResource("files/models/items/pickaxe.glb"), render.joint("mixamorig:RightHand"), "pickaxe")
     val animation = ModelAnimator(render)
 
     init {
-        pickaxe.localTransform.translation = Vec3f(-0.15f, -0.2f, 0.35f)
-        pickaxe.localTransform.scale = Vec3f(0.3f,0.3f,0.3f)
-        pickaxe.localTransform.rotation = Quatf.identity().rotateX(PIf / 1.5f).rotateY(PIf / 2).rotateZ(PIf / 2)
+//        pickaxe.localTransform.translation = Vec3f(-0.15f, -0.2f, 0.35f)
+//        pickaxe.localTransform.scale = Vec3f(0.3f,0.3f,0.3f)
+//        pickaxe.localTransform.rotation = Quatf.identity().rotateX(PIf / 1.5f).rotateY(PIf / 2).rotateZ(PIf / 2)
     }
 
     val inventory = Inventory(game)

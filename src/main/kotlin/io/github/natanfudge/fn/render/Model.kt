@@ -11,34 +11,69 @@ import kotlin.time.Duration
 
 data class ModelNode(
     val id: Int,
-    val baseTransform: Transform
+    val name: String,
+    val baseTransform: Transform,
 )
 
 data class Model(
     val mesh: Mesh,
     val id: ModelId,
     val material: Material = Material(),
-//    val initialTransform: Transform = Transform(),
     val animations: List<Animation> = listOf(),
     /** References nodes by nodeIndex.  **/
-    val nodeHierarchy: Tree<ModelNode> = TreeImpl(ModelNode(0, baseTransform = Transform()),listOf()),
+    val nodeHierarchy: Tree<ModelNode> = TreeImpl(ModelNode(0,"", baseTransform = Transform()), listOf()),
     val skeleton: Skeleton? = null,
 ) {
     val baseRootTransform = nodeHierarchy.value.baseTransform.toMatrix()
+
     companion object;
 }
+
 
 data class Transform(
     val translation: Vec3f = Vec3f.zero(),
     val rotation: Quatf = Quatf.identity(),
-    var scale: Vec3f = Vec3f(1f, 1f, 1f),
+    val scale: Vec3f = Vec3f(1f, 1f, 1f),
 ) {
+
+    /**
+     * Important note: [dst] should be different from `this` and [other]!
+     */
+    fun mul(other: Transform, dst: Transform = Transform()): Transform {
+        require(dst !== this && dst !== other)
+
+        // 1️⃣ combined scale
+        scale.mul(other.scale, dst.scale)
+
+
+        // 2️⃣ combined rotation (apply `other` then `this`)
+        rotation.mul(other.rotation, dst.rotation)
+
+
+        // 3️⃣ combined translation
+        //    step A: scale `other`’s translation by this scale
+        val scaledTb = other.translation.mul(scale, dst.translation)
+        //    step B: rotate it by this rotation
+        val rotatedScaledTb = rotation.rotate(scaledTb, dst.translation)      // assumes Quatf.times(Vec3f)
+        //    step C: finally add this translation
+       rotatedScaledTb.add(translation, dst.translation)
+        return dst
+    }
+
     companion object {
         fun fromMatrix(matrix: Mat4f): Transform {
             return Transform(matrix.getTranslation(), error(" to do"), error(""))
         }
     }
+
     fun toMatrix() = Mat4f.translateRotateScale(translation, rotation, scale)
+    fun set(transform: Transform) {
+        translation.set(transform.translation)
+        rotation.set(transform.rotation)
+        scale.set(transform.scale)
+    }
+
+
 }
 
 /**
@@ -52,7 +87,7 @@ data class Animation(
     /**
      * Sorted by time
      */
-    val keyFrames: List<Pair<Duration, PartialSkeletonTransform>>
+    val keyFrames: List<Pair<Duration, PartialSkeletonTransform>>,
 )
 
 data class Joint(
@@ -71,7 +106,6 @@ data class Skeleton(
     val joints: List<Int>,
     val inverseBindMatrices: List<Mat4f>,
 )
-
 
 
 typealias ModelId = String

@@ -396,6 +396,7 @@ private fun buildNodeTreeRecursive(glb: GLTF2, nodeIndex: Int): Tree<ModelNode> 
     val node = glb.nodes[nodeIndex]
     val modelNode = ModelNode(
         id = nodeIndex,
+        name = node.name ?: "node_$nodeIndex",
         baseTransform = node.extractTransform()
     )
     val children = node.children.map { childIndex ->
@@ -404,39 +405,39 @@ private fun buildNodeTreeRecursive(glb: GLTF2, nodeIndex: Int): Tree<ModelNode> 
 
     return TreeImpl(modelNode, children)
 }
+//
+///**
+// * Builds a joint hierarchy tree from GLTF node structure.
+// * Returns a Tree<Int> where each node contains a joint's nodeIndex.
+// */
+//private fun buildJointHierarchy(glb: GLTF2, jointIndices: List<Int>): Tree<Int> {
+//    val jointIndexSet = jointIndices.toSet()
+//
+//    // A root joint is a joint that is not a child of any other joint in the same skin.
+//    // We find all children of all joints in the skeleton.
+//    val childJointIndices = jointIndices
+//        .flatMap { jointIndex -> glb.nodes[jointIndex].children.toList() }
+//        .toSet()
+//
+//    // The root joints are the ones that are not in the set of children.
+//    val rootJoints = jointIndices.filter { it !in childJointIndices }
+//
+//    // A valid skeleton should have a single root. If we find more than one,
+//    // the skeleton is disjointed. If we find none, there might be a cycle.
+//    // We'll assume a single root for now.
+//    val rootNodeIndex = rootJoints.singleOrNull()
+//        ?: error("Could not determine a single root joint for the skeleton. Found roots: $rootJoints.")
+//
+//    return buildTreeRecursive(glb, jointIndexSet, rootNodeIndex)
+//}
 
-/**
- * Builds a joint hierarchy tree from GLTF node structure.
- * Returns a Tree<Int> where each node contains a joint's nodeIndex.
- */
-private fun buildJointHierarchy(glb: GLTF2, jointIndices: List<Int>): Tree<Int> {
-    val jointIndexSet = jointIndices.toSet()
-
-    // A root joint is a joint that is not a child of any other joint in the same skin.
-    // We find all children of all joints in the skeleton.
-    val childJointIndices = jointIndices
-        .flatMap { jointIndex -> glb.nodes[jointIndex].children.toList() }
-        .toSet()
-
-    // The root joints are the ones that are not in the set of children.
-    val rootJoints = jointIndices.filter { it !in childJointIndices }
-
-    // A valid skeleton should have a single root. If we find more than one,
-    // the skeleton is disjointed. If we find none, there might be a cycle.
-    // We'll assume a single root for now.
-    val rootNodeIndex = rootJoints.singleOrNull()
-        ?: error("Could not determine a single root joint for the skeleton. Found roots: $rootJoints.")
-
-    return buildTreeRecursive(glb, jointIndexSet, rootNodeIndex)
-}
-
-// Build the tree recursively starting from the root.
-// The tree should only contain nodes that are part of this skeleton's joints.
-fun buildTreeRecursive(glb: GLTF2, jointIndexSet: Set<Int>, nodeIndex: Int): Tree<Int> {
-    val node = glb.nodes[nodeIndex]
-    val children = node.children
-        .filter { it in jointIndexSet } // Only include children that are also joints of this skin
-        .map { childIndex -> buildTreeRecursive(glb, jointIndexSet, childIndex) }
-
-    return TreeImpl(nodeIndex, children)
-}
+//// Build the tree recursively starting from the root.
+//// The tree should only contain nodes that are part of this skeleton's joints.
+//fun buildTreeRecursive(glb: GLTF2, jointIndexSet: Set<Int>, nodeIndex: Int): Tree<Int> {
+//    val node = glb.nodes[nodeIndex]
+//    val children = node.children
+//        .filter { it in jointIndexSet } // Only include children that are also joints of this skin
+//        .map { childIndex -> buildTreeRecursive(glb, jointIndexSet, childIndex) }
+//
+//    return TreeImpl(nodeIndex, children)
+//}
