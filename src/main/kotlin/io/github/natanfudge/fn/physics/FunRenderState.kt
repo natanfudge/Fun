@@ -56,15 +56,6 @@ class FunRenderState(
         onTransformChange {
             updateTransform(it)
         }
-//        onTranslationChanged {
-//            updateTransform(translation = it)
-//        }
-//        onRotationChanged {
-//            updateTransform(rotation = it)
-//        }
-//        onScaleChanged {
-//            updateTransform(scale = it)
-//        }
     }
 
     private fun updateTransform(transform: Transform) {
@@ -79,8 +70,6 @@ class FunRenderState(
         val nodeId = model.nodeHierarchy.find { it.name == name }?.id ?: throw IllegalArgumentException("No joint with name $name (actual: ${model.nodeHierarchy.toList().map { it.name }})")
         return renderInstance.jointTransform(this, nodeId)
     }
-
-
 
     var despawned = false
 

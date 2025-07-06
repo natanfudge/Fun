@@ -35,9 +35,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     val animation = ModelAnimator(render)
 
     init {
-//        pickaxe.localTransform.translation = Vec3f(-0.15f, -0.2f, 0.35f)
-//        pickaxe.localTransform.scale = Vec3f(0.3f,0.3f,0.3f)
-//        pickaxe.localTransform.rotation = Quatf.identity().rotateX(PIf / 1.5f).rotateY(PIf / 2).rotateZ(PIf / 2)
+        pickaxe.localTransform.translation = Vec3f(0.07f, 0.11f, 0.01f)
+        pickaxe.localTransform.scale = Vec3f(0.5f,0.5f,0.5f)
+        pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
 
     val inventory = Inventory(game)

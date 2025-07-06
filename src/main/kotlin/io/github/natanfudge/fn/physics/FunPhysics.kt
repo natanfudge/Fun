@@ -25,9 +25,6 @@ class FunPhysics(
         return physicsTransform.onTransformChange(callback)
     }
 
-//    override val translation: Vec3f get() = transform.translation
-//
-//    override val rotation: Quatf get() = transform.rotation
 
     /**
      * For `Fun` that have physics, it's generally best to update [position] and not [translation], since those are only applied once each frame.
@@ -69,15 +66,6 @@ class FunPhysics(
         onTransformChange {
             updateAABB(it)
         }
-//        onTranslationChanged {
-//            updateAABB(translation = it)
-//        }
-//        onRotationChanged {
-//            updateAABB(rotation = it)
-//        }
-//        onScaleChanged {
-//            updateAABB(scale = it)
-//        }
     }
 
     override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity")
@@ -98,10 +86,3 @@ class FunPhysics(
     }
 
 }
-
-//    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = physicsTransform.onTranslationChanged(callback)
-//
-//    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> = physicsTransform.onRotationChanged(callback)
-//
-//    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = physicsTransform.onScaleChanged(callback)
-//}

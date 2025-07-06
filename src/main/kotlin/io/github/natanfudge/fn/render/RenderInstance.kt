@@ -10,10 +10,9 @@ import io.github.natanfudge.fn.physics.Transformable
 import io.github.natanfudge.fn.render.utils.GPUPointer
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.fn.util.cast
+import io.github.natanfudge.fn.util.compose
 import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
-import io.github.natanfudge.wgpu4k.matrix.Quatf
-import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
 class RenderInstance(
@@ -164,22 +163,33 @@ class RenderInstance(
     }
 }
 
-
-//TODO: think how to parent the joint transform to the world transform
-// I should implement a FatherChild Transformable that combines two transformables, and then I could also implement HierarchicalTransformable
-// by doing FatherChildTransformable(child = FunTransform(), parent = parent)
-
 /**
  * Follows the transformation of a specific joint
  */
 private class JointTransform(val jointId: Int, val skinManager: SkinManager, val worldTransform: Transformable) : Transformable {
     private val node = skinManager.nodeTree.find { it.nodeIndex == jointId } ?: error("Cannot find joint with id ${jointId} in node tree")
 
-    override val transform: Transform = Transform() //TODo
+    override var transform: Transform = worldTransform.transform.mul(node.transform)
+
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        // TODo
-        return Listener.Stub
+        val localListener = skinManager.jointTransformEvent.listen {
+            if (it.joint == jointId) {
+                transform = worldTransform.transform.mul(it.transform)
+                callback(transform)
+            }
+        }
+        val parentListener = worldTransform.onTransformChange {
+            transform = it.mul(node.transform)
+            callback(transform)
+        }
+        return localListener.compose(parentListener).cast()
     }
+
+//    override val transform: Transform = Transform() //TODo
+//    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+//        // TODo
+//        return Listener.Stub
+//    }
 //    override val translation: Vec3f
 //        get() = node.transform.translation
 //    override val rotation: Quatf
