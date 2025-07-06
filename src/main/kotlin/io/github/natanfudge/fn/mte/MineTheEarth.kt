@@ -31,7 +31,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val player = Player(this)
 
-    val whale = Whale(this)
+//    val whale = Whale(this)
 
     val hoverMod = installMod(HoverHighlightMod(context, redirectHover = {
         if (visualEditor.enabled) it
@@ -49,7 +49,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
 
 
-    var cameraDistance = 8f
+    var cameraDistance = 2f
 
     private fun repositionCamera(playerPos: Vec3f) {
         if (creativeMovement.mode == CameraMode.Off) {

@@ -79,12 +79,20 @@ fun <T> Tree<T>.topologicalSort(): List<TreeEdge<T>> {
     return result
 }
 
+fun <T> Tree<T>.toMutableTree(): MutableTree<T> {
+    return MutableTreeImpl(
+        value,
+        children.map { it.toMutableTree() }.toMutableList()
+    )
+}
+
 
 interface MutableTree<T> : Tree<T> {
+    override var value: T
     override val children: MutableList<MutableTree<T>>
 }
 
-data class MutableTreeImpl<T>(override val value: T, override val children: MutableList<MutableTree<T>>) : MutableTree<T>
+data class MutableTreeImpl<T>(override var value: T, override val children: MutableList<MutableTree<T>>) : MutableTree<T>
 
 /**
  * Represents the path from the root to a certain node, assuming the list of children is accessed by the given [index] at each layer.

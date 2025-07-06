@@ -16,10 +16,13 @@ import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
 import kotlin.math.PI
 import kotlin.math.abs
+
+val PIf = PI.toFloat()
 
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
@@ -27,8 +30,14 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
+    val pickaxe = render(Model.fromGlbResource("files/models/items/pickaxe.glb"), render, "pickaxe")
     val animation = ModelAnimator(render)
 
+    init {
+        pickaxe.localTransform.translation = Vec3f(-0.15f, -0.2f, 0.35f)
+        pickaxe.localTransform.scale = Vec3f(0.3f,0.3f,0.3f)
+        pickaxe.localTransform.rotation = Quatf.identity().rotateX(PIf / 1.5f).rotateY(PIf / 2).rotateZ(PIf / 2)
+    }
 
     val inventory = Inventory(game)
 
@@ -135,6 +144,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             item.itemCount = remainder
         }
     }
+
+    // mixamorig:RightHand
 
 
     val blockPos get() = physics.translation.toBlockPos()

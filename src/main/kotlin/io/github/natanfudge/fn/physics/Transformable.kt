@@ -22,10 +22,6 @@ interface Transformable {
         override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = Listener.Stub
     }
 
-    companion object {
-
-    }
-
     val translation: Vec3f
     val rotation: Quatf
     val scale: Vec3f
