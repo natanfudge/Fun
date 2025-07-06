@@ -70,6 +70,7 @@ abstract class HierarchicalTransformable(val parentTransform: Transformable, par
         }
         val parentListener = parentTransform.onTransformChange {
             transform = calculateTransform(parentTransform = it, localTransform = localTransform.transform)
+            callback(transform)
         }
         return localListener.compose(parentListener).cast()
     }
@@ -170,10 +171,11 @@ class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
     override var transform: Transform get() = _transform
         set(value) {
             _transform = value
-            translation = transform.translation
-            rotation = transform.rotation
-            scale = transform.scale
+            translationState.value = value.translation
+            rotationState.value = value.rotation
+            scaleState.value = value.scale
         }
+
 
     val translationState = funValue<Vec3f>(Vec3f.zero(), "translation") {
         _transform = _transform.copy(translation = it)
