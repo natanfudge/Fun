@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.physics
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
+import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -13,57 +14,70 @@ class FunPhysics(
     baseAABB: AxisAlignedBoundingBox,
     private val physics: PhysicsSystem,
 ) : Fun(funParent, "physics"), Body, Transformable {
-    private val transform = FunTransform(this)
+    private val physicsTransform = FunTransform(this)
 
-    override val translation: Vec3f get() = transform.translation
+    override var transform: Transform get() = physicsTransform.transform
+        set(value) {
+            physicsTransform.transform = value
+        }
 
-    override val rotation: Quatf get() = transform.rotation
+    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        return physicsTransform.onTransformChange(callback)
+    }
+
+//    override val translation: Vec3f get() = transform.translation
+//
+//    override val rotation: Quatf get() = transform.rotation
 
     /**
      * For `Fun` that have physics, it's generally best to update [position] and not [translation], since those are only applied once each frame.
      */
-    override var position: Vec3f  get() = translation
-        set(value)  {
-            transform.translation = value
+    override var position: Vec3f
+        get() = translation
+        set(value) {
+            physicsTransform.translation = value
         }
 
     /**
      * For `Fun` that have physics, it's generally best to update [orientation] and not [rotation], since those are only applied once each frame.
      */
-    override var orientation: Quatf get() = rotation
+    override var orientation: Quatf
+        get() = rotation
         set(value) {
-            transform.rotation = value
+            physicsTransform.rotation = value
         }
 
-    override var scale: Vec3f
-        get() = transform.scale
+    var scale: Vec3f
+        get() = physicsTransform.scale
         set(value) {
-            transform.scale = value
+            physicsTransform.scale = value
         }
 
     var baseAABB by funValue(baseAABB, "baseAABB") {
-        this.boundingBox = it.transformed(calculateTransformMatrix())
+        this.boundingBox = it.transformed(transform.toMatrix())
     }
 
-    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(calculateTransformMatrix())
+    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
 
 
-    private fun updateAABB(translation: Vec3f = this.position, rotation: Quatf = this.rotation, scale: Vec3f = this.scale) {
-        val newMatrix = Mat4f.translateRotateScale(translation, rotation, scale)
-        boundingBox = baseAABB.transformed(newMatrix)
+    private fun updateAABB(transform: Transform) {
+        boundingBox = baseAABB.transformed(transform.toMatrix())
     }
 
     init {
-        onTranslationChanged {
-            updateAABB(translation = it)
+        onTransformChange {
+            updateAABB(it)
         }
-        onRotationChanged {
-            updateAABB(rotation = it)
-        }
-        onScaleChanged {
-            updateAABB(scale = it)
-        }
+//        onTranslationChanged {
+//            updateAABB(translation = it)
+//        }
+//        onRotationChanged {
+//            updateAABB(rotation = it)
+//        }
+//        onScaleChanged {
+//            updateAABB(scale = it)
+//        }
     }
 
     override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity")
@@ -83,10 +97,11 @@ class FunPhysics(
         physics.remove(this)
     }
 
-
-    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = transform.onTranslationChanged(callback)
-
-    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> = transform.onRotationChanged(callback)
-
-    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = transform.onScaleChanged(callback)
 }
+
+//    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = physicsTransform.onTranslationChanged(callback)
+//
+//    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> = physicsTransform.onRotationChanged(callback)
+//
+//    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = physicsTransform.onScaleChanged(callback)
+//}

@@ -10,6 +10,7 @@ import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.fn.base.InputManagerMod
 import io.github.natanfudge.fn.base.ScrollDirection
+import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
@@ -64,8 +65,8 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     init {
         physics.system.earthGravityAcceleration = 20f
 
-        player.render.onTranslationChanged {
-            repositionCamera(it)
+        player.render.onTransformChange {
+            repositionCamera(it.translation)
         }
 
         input.registerHotkey("Zoom Out", ScrollDirection.Down, ctrl = true) {

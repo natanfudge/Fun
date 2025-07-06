@@ -4,18 +4,14 @@ import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
-import io.github.natanfudge.wgpu4k.matrix.Mat4f
-import io.github.natanfudge.wgpu4k.matrix.Quatf
-import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
-fun Fun.render(model: Model, name: String = "render") = FunRenderState(name, this, Transformable.Root, model)
+fun Fun.render(model: Model, name: String = "render") = FunRenderState(name, this, RootTransformable, model)
 fun Fun.render(model: Model, parent: Transformable, name: String = "render"): FunRenderState {
     val render = FunRenderState(name, this, parent, model)
     return render
@@ -39,10 +35,10 @@ class FunRenderState(
 ) : HierarchicalTransformable(parentTransform, parentFun, name), Boundable {
 
     var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB") {
-        this.boundingBox = it.transformed(calculateTransformMatrix())
+        this.boundingBox = it.transformed(transform.toMatrix())
     }
 
-    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(calculateTransformMatrix())
+    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
 
     val tintState: ClientFunValue<Tint> = funValue<Tint>(Tint(Color.White, 0f), "tint") {
@@ -54,23 +50,26 @@ class FunRenderState(
     var tint by tintState
 
     val renderInstance: RenderInstance = context.world.getOrBindModel(model).spawn(
-        id, this, initialTransform = parentTransform.calculateTransformMatrix(), tint
+        id, this, initialTransform = parentTransform.transform.toMatrix(), tint
     )
     init {
-        onTranslationChanged {
-            updateTransform(translation = it)
+        onTransformChange {
+            updateTransform(it)
         }
-        onRotationChanged {
-            updateTransform(rotation = it)
-        }
-        onScaleChanged {
-            updateTransform(scale = it)
-        }
+//        onTranslationChanged {
+//            updateTransform(translation = it)
+//        }
+//        onRotationChanged {
+//            updateTransform(rotation = it)
+//        }
+//        onScaleChanged {
+//            updateTransform(scale = it)
+//        }
     }
 
-    private fun updateTransform(translation: Vec3f = this.translation, rotation: Quatf = this.rotation, scale: Vec3f = this.scale) {
+    private fun updateTransform(transform: Transform) {
         if (despawned) return
-        val matrix = Mat4f.translateRotateScale(translation, rotation, scale)
+        val matrix = transform.toMatrix()
         this.boundingBox = baseAABB.transformed(matrix)
         renderInstance.setTransform(matrix)
     }
@@ -78,7 +77,7 @@ class FunRenderState(
 
     fun joint(name: String): Transformable {
         val nodeId = model.nodeHierarchy.find { it.name == name }?.id ?: throw IllegalArgumentException("No joint with name $name (actual: ${model.nodeHierarchy.toList().map { it.name }})")
-        return renderInstance.jointTransform(nodeId)
+        return renderInstance.jointTransform(this, nodeId)
     }
 
 

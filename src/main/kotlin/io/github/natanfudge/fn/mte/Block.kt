@@ -6,6 +6,7 @@ import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.FunRenderState
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
+import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.Material
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model

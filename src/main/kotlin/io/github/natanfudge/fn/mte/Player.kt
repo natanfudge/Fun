@@ -14,6 +14,8 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
+import io.github.natanfudge.fn.physics.rotation
+import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Quatf

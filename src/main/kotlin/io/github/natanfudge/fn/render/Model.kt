@@ -52,11 +52,12 @@ data class Transform(
 
         // 3️⃣ combined translation
         //    step A: scale `other`’s translation by this scale
-        val scaledTb = other.translation.mul(scale, dst.translation)
+        val temp = Vec3f()
+        other.translation.mul(scale, temp)
         //    step B: rotate it by this rotation
-        val rotatedScaledTb = rotation.rotate(scaledTb, dst.translation)      // assumes Quatf.times(Vec3f)
+        rotation.rotate(temp, temp)
         //    step C: finally add this translation
-       rotatedScaledTb.add(translation, dst.translation)
+        temp.add(translation, dst.translation)
         return dst
     }
 

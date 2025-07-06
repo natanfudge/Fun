@@ -41,9 +41,10 @@ class RenderInstance(
     /**
      * Allows following the transform of the given node [jointNodeId]
      */
-    fun jointTransform(jointNodeId: NodeId): Transformable {
+    fun jointTransform(worldTransform: Transformable, jointNodeId: NodeId): Transformable {
         return JointTransform(
-            jointNodeId, skin ?: throw UnallowedFunException("jointTransform must only be called for models with a skeleton!")
+            jointNodeId, skin ?: throw UnallowedFunException("jointTransform must only be called for models with a skeleton!"),
+            worldTransform
         )
     }
 
@@ -173,28 +174,34 @@ class RenderInstance(
  */
 private class JointTransform(val jointId: Int, val skinManager: SkinManager, val worldTransform: Transformable) : Transformable {
     private val node = skinManager.nodeTree.find { it.nodeIndex == jointId } ?: error("Cannot find joint with id ${jointId} in node tree")
-    override val translation: Vec3f
-        get() = node.transform.translation
-    override val rotation: Quatf
-        get() = node.transform.rotation
-    override val scale: Vec3f
-        get() = node.transform.scale
 
-    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> {
-        return skinManager.jointTransformEvent.listen {
-            if (it.joint == jointId) callback(it.transform.translation)
-        }.cast()
+    override val transform: Transform = Transform() //TODo
+    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        // TODo
+        return Listener.Stub
     }
-
-    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> {
-        return skinManager.jointTransformEvent.listen {
-            if (it.joint == jointId) callback(it.transform.rotation)
-        }.cast()
-    }
-
-    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> {
-        return skinManager.jointTransformEvent.listen {
-            if (it.joint == jointId) callback(it.transform.scale)
-        }.cast()
-    }
+//    override val translation: Vec3f
+//        get() = node.transform.translation
+//    override val rotation: Quatf
+//        get() = node.transform.rotation
+//    override val scale: Vec3f
+//        get() = node.transform.scale
+//
+//    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> {
+//        return skinManager.jointTransformEvent.listen {
+//            if (it.joint == jointId) callback(it.transform.translation)
+//        }.cast()
+//    }
+//
+//    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> {
+//        return skinManager.jointTransformEvent.listen {
+//            if (it.joint == jointId) callback(it.transform.rotation)
+//        }.cast()
+//    }
+//
+//    override fun onScaleChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> {
+//        return skinManager.jointTransformEvent.listen {
+//            if (it.joint == jointId) callback(it.transform.scale)
+//        }.cast()
+//    }
 }

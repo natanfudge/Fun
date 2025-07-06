@@ -39,6 +39,15 @@ interface Listener<in T> : AutoCloseable {
     }
 }
 
+class ComposedListener<T>(private val first: Listener<T>, private val second: Listener<T>) : Listener<T> {
+    override fun close() {
+        first.close()
+        second.close()
+    }
+}
+
+fun Listener<*>.compose(other: Listener<*>): Listener<*>  = ComposedListener(this, other)
+
 @Suppress("UNCHECKED_CAST")
 fun <T,R> Listener<T>.cast() = this as Listener<R>
 
