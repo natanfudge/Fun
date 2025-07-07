@@ -94,7 +94,7 @@ dependencies {
     implementation(project.dependencies.platform("io.insert-koin:koin-bom:$koin_version"))
     implementation("io.insert-koin:koin-core")
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
-    implementation("io.github.natanfudge:wgpu4k-matrix:0.5.1")
+    implementation("io.github.natanfudge:wgpu4k-matrix:0.5.2")
     implementation("com.soywiz:korlibs-image:6.0.0")
     implementation(libs.wgpu4k)
     implementation("io.coil-kt.coil3:coil-compose:3.2.0")
