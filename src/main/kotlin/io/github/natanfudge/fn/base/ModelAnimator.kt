@@ -38,6 +38,7 @@ private class ActiveAnimation(
 
 class ModelAnimator(val render: FunRenderState) {
     private var animation: ActiveAnimation? = null
+    private var lastAnimation: ActiveAnimation? = null
     private val model = render.model
     private val nodes = model.nodeHierarchy.toList()
 
@@ -74,7 +75,12 @@ class ModelAnimator(val render: FunRenderState) {
         val minTime = Duration.ZERO
         val currentTime = minTime
         val maxTime = if (trimLastKeyframe) animation.keyFrames[animation.keyFrames.size - 2].first else animation.keyFrames.last().first
+        this.lastAnimation = this.animation
         this.animation = ActiveAnimation(animation, currentTime, minTime, maxTime, loop)
+    }
+
+    fun playLastAnimation() {
+        this.animation = lastAnimation
     }
 }
 

@@ -11,11 +11,7 @@ import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.mte.Balance.MineInterval
 import io.github.natanfudge.fn.mte.Balance.PickaxeStrength
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.physics.Body
-import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.render
-import io.github.natanfudge.fn.physics.rotation
-import io.github.natanfudge.fn.physics.translation
+import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -31,12 +27,14 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
-    val pickaxe = render(Model.fromGlbResource("files/models/items/pickaxe.glb"), render.joint("mixamorig:RightHand"), "pickaxe")
+    val pickaxe = render(
+        Model.fromGlbResource("files/models/items/pickaxe.glb"), parent = render.joint("mixamorig:RightHand"), "pickaxe"
+    )
     val animation = ModelAnimator(render)
 
     init {
         pickaxe.localTransform.translation = Vec3f(0.07f, 0.11f, 0.01f)
-        pickaxe.localTransform.scale = Vec3f(0.5f,0.5f,0.5f)
+        pickaxe.localTransform.scale = Vec3f(0.5f, 0.5f, 0.5f)
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
 
@@ -63,14 +61,12 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 if (physics.isGrounded) {
                     animation.play("walk")
                 }
-//                runningLeft = true
             },
             onRelease = {
                 render.localTransform.rotation = baseRotation
-                if(physics.isGrounded) {
+                if (physics.isGrounded) {
                     animation.play("active-idle")
                 }
-//                runningLeft = false
             }
         )
 
@@ -82,14 +78,12 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 if (physics.isGrounded) {
                     animation.play("walk")
                 }
-//                runningRight = true
             },
             onRelease = {
                 render.localTransform.rotation = baseRotation
-                if(physics.isGrounded) {
+                if (physics.isGrounded) {
                     animation.play("active-idle")
                 }
-//                runningLeft = false
             }
         )
 
@@ -101,7 +95,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             }
         })
 
-        game.input.registerHotkey("Break", PointerButton.Primary, onHold = {
+        game.input.registerHotkey("Break", PointerButton.Primary, onPress = {
+            animation.play("dig")
+        }, onHold = {
             if (game.visualEditor.enabled) return@registerHotkey
             mineRateLimit.run(MineInterval) {
                 val selectedBlock = context.getHoveredRoot()
@@ -112,7 +108,11 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                     }
                 }
             }
-        })
+
+        }, onRelease = {
+            animation.playLastAnimation()
+        }
+        )
 
         game.physics.system.collision.listen { (a, b) ->
             whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
@@ -145,8 +145,6 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             item.itemCount = remainder
         }
     }
-
-    // mixamorig:RightHand
 
 
     val blockPos get() = physics.translation.toBlockPos()
