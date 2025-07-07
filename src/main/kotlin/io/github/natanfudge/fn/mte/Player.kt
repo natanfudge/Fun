@@ -17,8 +17,11 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
+import korlibs.time.seconds
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.sqrt
 
 val PIf = PI.toFloat()
 
@@ -40,9 +43,23 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     val inventory = Inventory(game)
 
+//    private var running = false
+
     private val baseRotation = render.rotation
 
     private val mineRateLimit = RateLimiter(game.context)
+
+//    private inline fun ifNotWalking(callback: () -> Unit) {
+//        if (animation.animation?.animation?.name != "walk") callback()
+//    }
+
+    private val left = game.input.registerHotkey("Left", Key.A)
+    private val right = game.input.registerHotkey("Right", Key.D)
+    private val jump = game.input.registerHotkey("Jump", Key.Spacebar)
+    private val breakKey = game.input.registerHotkey("Break", PointerButton.Primary)
+
+    private var wasInAirLastFrame = false
+
 
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
@@ -52,89 +69,115 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             minY = -0.3f, maxY = 0.3f,
         )
 
-        physics.position = Vec3f(0f, 0.5f, 11.5f)
+        game.context.events.frame.listen {
+            val deltaSecs = it.seconds.toFloat()
+            val grounded = physics.isGrounded
+            val isJumping = jump.isPressed && grounded
 
-        game.input.registerHotkey(
-            "Left", Key.A, onHold = {
+            if (left.isPressed) {
                 render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
-                physics.position -= Vec3f(it * 3, 0f, 0f)
-                if (physics.isGrounded) {
-                    animation.play("walk")
-                }
-            },
-            onRelease = {
-                render.localTransform.rotation = baseRotation
-                if (physics.isGrounded) {
-                    animation.play("active-idle")
-                }
-            }
-        )
-
-        game.input.registerHotkey(
-            "Right", Key.D,
-            onHold = {
+                physics.position -= Vec3f(deltaSecs * 3, 0f, 0f)
+            } else if (right.isPressed) {
                 render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
-                physics.position += Vec3f(it * 3, 0f, 0f)
-                if (physics.isGrounded) {
-                    animation.play("walk")
-                }
-            },
-            onRelease = {
-                render.localTransform.rotation = baseRotation
-                if (physics.isGrounded) {
-                    animation.play("active-idle")
-                }
+                physics.position += Vec3f(deltaSecs * 3, 0f, 0f)
             }
-        )
-
-        game.input.registerHotkey("Jump", Key.Spacebar, onHold = {
-            if (physics.isGrounded) {
-                airborne = true
-                animation.play("jump", loop = false)
+            if (isJumping) {
                 physics.velocity += Vec3f(0f, 0f, 8f)
             }
-        })
 
-        game.input.registerHotkey("Break", PointerButton.Primary, onPress = {
-            animation.play("dig")
-        }, onHold = {
-            if (game.visualEditor.enabled) return@registerHotkey
-            mineRateLimit.run(MineInterval) {
+            var digging = false
+            val running = left.isPressed || right.isPressed
+
+            if (breakKey.isPressed && !game.visualEditor.enabled) {
                 val selectedBlock = context.getHoveredRoot()
                 if (selectedBlock is Block) {
                     val target = targetBlock(selectedBlock)
                     if (target != null) {
-                        target.health -= PickaxeStrength
+                        digging = true
+                        if (!running) {
+                            val targetOrientation = getRotationTo(render.translation, Quatf(), target.pos.toVec3())
+                            render.localTransform.rotation = targetOrientation
+                        }
+                        mineRateLimit.run(MineInterval) {
+                            target.health -= PickaxeStrength
+                        }
                     }
                 }
             }
 
-        }, onRelease = {
-            animation.playLastAnimation()
+            val landing = wasInAirLastFrame && !grounded
+            wasInAirLastFrame = grounded
+
+
+            if (landing) {
+                animation.play("land", loop = false)
+            } else if (isJumping) {
+                animation.play("jump", loop = false)
+            } else if (running) {
+                animation.play("walk")
+            } else if (!digging) {
+                animation.play("active-idle")
+            }
+            if (digging) {
+                //TODO: this will look better once dig happens concurrently with other stuff
+                animation.play("dig")
+            }
+
+
         }
-        )
+
+        physics.position = Vec3f(0f, 0.5f, 11.5f)
 
         game.physics.system.collision.listen { (a, b) ->
             whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
                 player.collectItem(item)
             }
-
-            if (airborne) {
-                whenRootFunsTyped<Player, Block>(a, b) { player, block ->
-                    if (player.physics.isGrounded) {
-                        animation.play("land", loop = false)
-                        airborne = false
-                    }
-                }
-
-            }
-
         }.closeWithThis()
 
-        animation.play("active-idle")
     }
 
-    private var airborne = false
+    /**
+     * Z-up world, canonical forward = –Y.
+     * Returns a quaternion that rotates *around the global Z axis only* so the
+     * forward direction of [initialRotation] points horizontally toward [targetPoint].
+     *
+     * The vertical difference between the points is ignored: the result minimises
+     * the angle in the X-Y plane.
+     */
+    private fun getRotationTo(
+        point: Vec3f,
+        initialRotation: Quatf,
+        targetPoint: Vec3f
+    ): Quatf {
+
+        // ── 1. Current forward in world space ───────────────────────────────────────
+        val fwdWorld = initialRotation.transform(Vec3f(0f, -1f, 0f))
+
+        // ── 2. Desired direction (point → target) ───────────────────────────────────
+        val toTarget = targetPoint - point
+        // Quick outs: no distance or purely vertical target
+        val toTargetXYlen2 = toTarget.x * toTarget.x + toTarget.y * toTarget.y
+        if (toTargetXYlen2 < 1e-8f) return Quatf()   // same spot or vertical above/below
+
+        // ── 3. Project both vectors onto X-Y plane and normalise ────────────────────
+        val fwdLen2 = fwdWorld.x * fwdWorld.x + fwdWorld.y * fwdWorld.y
+        if (fwdLen2 < 1e-8f) return Quatf()          // forward almost vertical
+        val invFwdLen = 1f / sqrt(fwdLen2)
+        val invTarLen = 1f / sqrt(toTargetXYlen2)
+
+        val fx = fwdWorld.x * invFwdLen
+        val fy = fwdWorld.y * invFwdLen
+        val tx = toTarget.x * invTarLen
+        val ty = toTarget.y * invTarLen
+
+        // ── 4. Signed angle between the two 2-D unit vectors ───────────────────────
+        val dot   = fx * tx + fy * ty                   // cos θ
+        val cross = fx * ty - fy * tx                   // sin θ   (Z component of 2-D cross)
+        val yaw   = atan2(cross, dot)                   // range −π … π
+
+        // ── 5. Quaternion that yaws by that angle ──────────────────────────────────
+        return Quatf.fromAxisAngle(Vec3f(0f, 0f, 1f), yaw).normalized()
+    }
 
     private fun collectItem(item: WorldItem) {
         val remainder = inventory.insert(item.item)

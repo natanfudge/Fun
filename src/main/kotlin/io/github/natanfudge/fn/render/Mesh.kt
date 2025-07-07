@@ -396,7 +396,7 @@ class VertexArrayBuffer(val array: FloatArray) {
             iter(
                 Point3f(array[i++], array[i++], array[i++])
             )
-            i += 5 // Skip normal and uv
+            i += StrideFloats - 3 // Skip others
         }
     }
 }

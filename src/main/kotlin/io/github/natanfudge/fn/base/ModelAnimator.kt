@@ -25,7 +25,7 @@ fun <T> EventStream<T>.listen(resource: FunResource, callback: (T) -> Unit) {
     resource.alsoClose(listener)
 }
 
-private class ActiveAnimation(
+ class ActiveAnimation(
     val animation: Animation,
     var currentTime: Duration,
     /**
@@ -36,8 +36,9 @@ private class ActiveAnimation(
     val loop: Boolean,
 )
 
-class ModelAnimator(val render: FunRenderState) {
-    private var animation: ActiveAnimation? = null
+class ModelAnimator(private val render: FunRenderState) {
+     var animation: ActiveAnimation? = null
+         private set
     private var lastAnimation: ActiveAnimation? = null
     private val model = render.model
     private val nodes = model.nodeHierarchy.toList()

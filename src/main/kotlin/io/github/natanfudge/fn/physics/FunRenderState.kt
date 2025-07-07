@@ -34,6 +34,7 @@ class FunRenderState(
     val model: Model,
 ) : HierarchicalTransformable(parentTransform, parentFun, name), Boundable {
 
+
     var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB") {
         this.boundingBox = it.transformed(transform.toMatrix())
     }
