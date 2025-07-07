@@ -50,7 +50,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
 
 
-    var cameraDistance = 2f
+    var cameraDistance = 15f
 
     private fun repositionCamera(playerPos: Vec3f) {
         if (creativeMovement.mode == CameraMode.Off) {
