@@ -8,8 +8,6 @@ import io.github.natanfudge.fn.base.RateLimiter
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.mte.Balance.MineInterval
-import io.github.natanfudge.fn.mte.Balance.PickaxeStrength
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
@@ -78,7 +76,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             minY = -0.3f, maxY = 0.3f,
         )
 
-        game.context.events.frame.listen {
+        game.context.events.beforePhysics.listen {
             val deltaSecs = it.seconds.toFloat()
             val grounded = physics.isGrounded
             val isJumping = jump.isPressed && grounded
@@ -107,15 +105,15 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                             val targetOrientation = getRotationTo(render.translation, Quatf(), target.pos.toVec3())
                             render.localTransform.rotation = targetOrientation
                         }
-                        mineRateLimit.run(MineInterval) {
-                            target.health -= PickaxeStrength
+                        mineRateLimit.run(GameBalance.mineInterval) {
+                            target.health -= GameBalance.pickaxeStrength
                         }
                     }
                 }
             }
 
-            val landing = wasInAirLastFrame && !grounded
-            wasInAirLastFrame = grounded
+            val landing = wasInAirLastFrame && grounded
+            wasInAirLastFrame = !grounded
 
 
             if (landing) {
@@ -124,7 +122,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 animation.play("jump", loop = false)
             } else if (running) {
                 animation.play("walk")
-            } else if (!digging) {
+            } else if (!digging && grounded && animation.animation?.animation?.name != "land") {
+                // Don't play idle while landing, to let the landing animation finish.
                 animation.play("active-idle")
             }
             if (digging) {
@@ -212,7 +211,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
      * We target the first block near the player, because the selected block might be "covered" by the perspective of the player character.
      */
     fun targetBlock(directlyHoveredBlock: Block): Block? {
-        if (directlyHoveredBlock.pos.squaredDistance(physics.translation) > Balance.BreakReach.squared()) return null
+        if (directlyHoveredBlock.pos.squaredDistance(physics.translation) > GameBalance.breakReach.squared()) return null
         return firstBlockAlong(blockPos.to2D(), directlyHoveredBlock.pos.to2D())
     }
 

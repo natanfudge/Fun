@@ -27,7 +27,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val input = installMod(InputManagerMod())
 
-    val physics = installMod(PhysicsMod())
+    val physics = FunPhysics(context)
 
 
     val player = Player(this)
@@ -84,13 +84,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
             RestartButtonsMod(context),
             ErrorNotificationMod()
         )
-    }
-
-    @Composable
-    override fun ComposePanelPlacer.gui() {
-        with(player.inventory) {
-            InventoryGUI()
-        }
     }
 }
 

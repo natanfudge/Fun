@@ -7,17 +7,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
-import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.MutEventStream
-import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
@@ -117,7 +112,8 @@ class FunTime(context: FunContext) : Fun("time", context) {
         app.actualPhysics(time)
     }
 
-    var stopped by funValue(false, "stopped")
+    val stoppedState = funValue(false, "stopped")
+    var stopped by stoppedState
 
     fun stop() {
         stopped = true
@@ -177,7 +173,8 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
             val app = initFunc(context)
             time.app = app
-            it.ctx.window.callbacks["Fun"] = FunInputAdapter(app)
+            it.ctx.window.callbacks["Fun"] = FunInputAdapter(app, context)
+            //TODO: when we remove dependance on FunApp overrides, we should replace usages of FunApp with FunContext.
             app
         }
         compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, app ->
@@ -201,29 +198,31 @@ abstract class FunApp : AutoCloseable {
 
     internal val mods = mutableListOf<FunMod>()
 
+    @Deprecated("")
     fun <T : FunMod> installMod(mod: T): T {
         mods.add(mod)
         return mod
     }
-
+    @Deprecated("")
     fun installMods(vararg mods: FunMod) {
         mods.forEach { installMod(it) }
     }
 
 
     @Composable
+    @Deprecated("")
     open fun ComposePanelPlacer.gui() {
 
     }
-
+    @Deprecated("")
     open fun handleInput(input: InputEvent) {
 
     }
-
+    @Deprecated("")
     open fun frame(delta: Double) {
 
     }
-
+    @Deprecated("")
     open fun physics(delta: Duration) {
 
     }
@@ -232,19 +231,15 @@ abstract class FunApp : AutoCloseable {
 
     abstract val context: FunContext
 
-    open fun cleanup() {
-
-    }
 
     final override fun close() {
-        mods.forEach { it.cleanup() }
-        cleanup()
-//        context.close()
+        context.events.appClose.emit(Unit)
     }
 }
 
 internal fun FunApp.actualOnError(error: Throwable)  {
 //    gui()
+    context.events.guiError.emit(error)
     mods.forEach {
         with(it) {
             onGUIError(error)
@@ -254,7 +249,7 @@ internal fun FunApp.actualOnError(error: Throwable)  {
 
 
 @Composable
-internal fun FunApp.actualGui() = context.panels.PanelSupport {
+internal fun FunApp.actualGui() = context.gui.PanelSupport {
     gui()
     mods.forEach {
         with(it) {
@@ -262,10 +257,9 @@ internal fun FunApp.actualGui() = context.panels.PanelSupport {
         }
     }
 }
-
+@Deprecated("")
 internal fun FunApp.actualHandleInput(input: InputEvent) {
-    // No need to block input with a null cursor position
-    if (context.world.cursorPosition != null && input is InputEvent.PointerEvent && !context.panels.acceptMouseEvents) return
+
     for (mod in mods) {
         mod.handleInput(input)
     }
@@ -281,80 +275,13 @@ internal fun FunApp.actualFrame(deltaMs: Double) {
 
 internal fun FunApp.actualPhysics(delta: Duration) {
     mods.forEach { it.prePhysics(delta) }
+    context.events.beforePhysics.emit(delta)
     physics(delta)
+    context.events.afterPhysics.emit(delta)
     mods.forEach { it.postPhysics(delta) }
 }
 
-class BaseFunEvents {
-    val frame = MutEventStream<Duration>()
-}
 
-class FunContext(
-    private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
-    private val stateContext: FunStateContext,
-) : FunStateContext by stateContext {
-
-    val events = BaseFunEvents()
-
-    lateinit var time: FunTime
-
-    val isClient = true
-
-
-    val window by dims
-
-    val world = surface.world
-
-    var camera = DefaultCamera()
-
-    val rootFuns = mutableMapOf<FunId, Fun>()
-    private var restarting = false
-
-
-    fun restartApp() {
-        restarting = true
-        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false) }
-
-        ProcessLifecycle.restartByLabel(AppLifecycleName)
-    }
-
-    fun register(fn: Fun) {
-        if (restarting) throw UnallowedFunException("Don't spawn Funs during cleanup of a Fun.")
-        if (fn.isRoot) {
-            rootFuns[fn.id] = fn
-        }
-        stateContext.stateManager.register(fn)
-    }
-
-    fun unregister(fn: Fun) {
-        // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
-        if (restarting) return
-        if (fn.isRoot) {
-            rootFuns.remove(fn.id)
-        }
-        stateContext.stateManager.unregister(fn)
-    }
-
-//    override fun onAppRestarted(callback: () -> Unit) {
-//        super.onAppRestarted(callback)
-//    }
-
-    val panels: Panels = Panels()
-
-
-    fun setCursorLocked(locked: Boolean) {
-        surface.ctx.window.cursorLocked = locked
-        if (locked) world.cursorPosition = (null)
-    }
-
-    fun setGUIFocused(focused: Boolean) {
-        compose.compose.windowLifecycle.assertValue.focused = focused
-    }
-
-//    override fun close() {
-//        appRestarted.clearListeners()
-//    }
-}
 
 
 typealias FunAppInit<T> = FunAppBuilder.() -> ((context: FunContext) -> T)

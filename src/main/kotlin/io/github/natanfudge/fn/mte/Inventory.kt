@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.natanfudge.fn.base.FunPanel
+import io.github.natanfudge.fn.base.addFunPanel
 import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.funList
@@ -24,7 +25,6 @@ import java.net.URI
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
 import kotlin.io.path.toPath
-import kotlin.math.max
 import kotlin.math.min
 
 
@@ -86,9 +86,8 @@ class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
     val itemsPerRow = 10
     private val slotWidth = 60.dp
 
-    @Composable
-    fun ComposePanelPlacer.InventoryGUI() {
-        FunPanel(Modifier.align(Alignment.BottomCenter)) {
+    init {
+        game.context.addFunPanel({ Modifier.align(Alignment.BottomCenter) }) {
             val slotBorder = 2.dp
             val totalSlotWidth = slotWidth
             val inventoryWidth = (slotBorder + totalSlotWidth) * itemsPerRow - slotBorder // We have one less border
@@ -99,28 +98,12 @@ class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
                             HorizontalDivider()
                         }
                         Row(Modifier.height(IntrinsicSize.Min)) {
-                            for ((col, item) in row.withIndex()) {
-//                                if (col > 0) {
-//
-//                                }
+                            for (item in row) {
                                 DisplayItem(item)
                                 VerticalDivider(thickness = 2.dp)
                             }
-//                            repeat(itemsPerRow - row.size) {
-//                                VerticalDivider(thickness = 2.dp)
-//                                Box(modifier = Modifier.size(totalSlotWidth))
-//                            }
                         }
-
                     }
-//                    if (items.isEmpty()) {
-//                        Row(Modifier.height(IntrinsicSize.Min)) {
-//                            repeat(itemsPerRow) {
-//                                if (it > 0) VerticalDivider(thickness = 2.dp)
-//                                Box(modifier = Modifier.size(totalSlotWidth))
-//                            }
-//                        }
-//                    }
                 }
             }
         }

@@ -13,7 +13,7 @@ fun main() {
     }
     application {
         Window(::exitApplication) {
-            Text("Half3")
+            Text("Hal2f3")
         }
     }
 }

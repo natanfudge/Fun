@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.core.FunApp
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.actualFrame
@@ -137,8 +138,14 @@ var pipelines = 0
 //    val input = InputManager(this, window, compose)
 //}
 
-class FunInputAdapter(private val app: FunApp) : WindowCallbacks {
+//TODo: stop passing FunApp, FunContext is enough (once we remove FunApp overrides)
+class FunInputAdapter(private val app: FunApp, private val context: FunContext) : WindowCallbacks {
     override fun onInput(input: InputEvent) {
+        // No need to block input with a null cursor position
+        if (context.world.cursorPosition != null && input is InputEvent.PointerEvent &&
+            // Allow blocking input by setting acceptMouseEvents to false
+            !context.gui.acceptMouseEvents) return
+        context.events.input.emit(input)
         app.actualHandleInput(input)
     }
 }

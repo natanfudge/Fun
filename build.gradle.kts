@@ -20,7 +20,8 @@ repositories {
     maven("https://packages.jetbrains.team/maven/p/firework/dev")
 }
 
-val mainclass = "io.github.natanfudge.fn.GuiMain"
+//val mainclass = "io.github.natanfudge.fn.GuiMainKt"
+val mainclass = "io.github.natanfudge.fn.mte.MineTheEarthKt"
 graalvmNative {
     binaries {
         all {
@@ -53,8 +54,10 @@ graalvmNative {
     }
 }
 
+
 tasks.withType<ComposeHotRun>().configureEach {
-    mainClass.set("io.github.natanfudge.fn.mte.MineTheEarthKt")
+    mainClass.set(mainclass)
+
 }
 
 //tasks.withType<ComposeHotRun>().configureEach {

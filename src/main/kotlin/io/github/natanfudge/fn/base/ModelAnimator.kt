@@ -47,6 +47,7 @@ class ModelAnimator(private val render: FunRenderState) {
         render.context.events.frame.listen(render) {
             val anim = animation
             if (anim != null) {
+//                println("Animation = ${anim.animation.name}")
                 anim.currentTime = anim.currentTime + it
                 if (anim.currentTime > anim.maxTime) {
                     if (anim.loop) {

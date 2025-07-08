@@ -12,10 +12,18 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 
+data class ComposePanel(val modifier:  BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit)
 
 class Panels {
-//    var blockMouseEventsOnPanel = true
+    private val panelList = mutableListOf<ComposePanel>()
+
+    fun addPanel(modifier: BoxScope. () -> Modifier, content: @Composable BoxScope.() -> Unit) {
+        panelList.add(ComposePanel(modifier, content))
+    }
+
+    //    var blockMouseEventsOnPanel = true
     var acceptMouseEvents = true
+
     /**
      * Allows placing "Panels", which block clicks from reaching the game when they are clicked.
      */
@@ -31,6 +39,20 @@ class Panels {
                 acceptMouseEvents = true
             }
             )
+
+            for (panel in panelList) {
+                Box(
+                    panel.modifier(this)
+                        .onPointerEvent(PointerEventType.Press, pass = PointerEventPass.Initial) {
+                            // Block clicks
+                            acceptMouseEvents = false
+                        }.onPointerEvent(PointerEventType.Enter) {
+                            acceptMouseEvents = false
+                        }
+                ) {
+                    panel.content(this)
+                }
+            }
 
             panels(ComposePanelPlacerWithBoxScope(this) { modifier, panel ->
                 Box(

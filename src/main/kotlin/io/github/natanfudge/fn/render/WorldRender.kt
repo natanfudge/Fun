@@ -6,7 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.lightPos
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.render.utils.*
@@ -18,7 +17,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
 
-
+val lightPos get() = Vec3f(0f, -2f, 12f)
 /**
  *   initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
  */

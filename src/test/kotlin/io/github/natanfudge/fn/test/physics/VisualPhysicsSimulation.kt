@@ -113,7 +113,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
 }
 
 class PhysicsSimulationApp(override val context: FunContext, private val simulation: PhysicsTest, val throwOnFailure: Boolean) : FunApp() {
-    val physics = PhysicsMod()
+    val physics = FunPhysics()
     val scheduler = installMod(VisibleSimulationTickerMod(context, physics.system))
 
     val input = installMod(InputManagerMod())

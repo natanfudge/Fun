@@ -4,6 +4,7 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.funList
 import io.github.natanfudge.fn.network.state.funMap
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 private data class PositionedBlock(
@@ -40,7 +41,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
             }
         }
         val weightedBlocksList = validBlocks.flatMap { block ->
-            val weight = (block.spawnPrec * 10000).coerceAtLeast(1)
+            val weight = (block.spawnPrec * 10000).roundToInt().coerceAtLeast(1)
             List(weight) { block }
         }
 
@@ -49,7 +50,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
             for (x in 0 until mapWidth) {
                 roll(10.0f) {
                     val block = weightedBlocksList.random()
-                    val veinSize = block.veinSize.random()
+                    val veinSize = (block.veinSizeMin..block.veinSizeMax).random()
                     val placed = mutableSetOf<Pair<Int, Int>>()
                     placed.add(Pair(x, z))
                     while (placed.size < veinSize) {

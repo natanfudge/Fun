@@ -1,0 +1,21 @@
+{
+  mineIntervalMs: 500,
+  breakReach: 5,
+  pickaxeStrength: 1,
+  blocks: {
+    Dirt: {
+      hardness: 2,
+      zHeight: 1,
+      spawnPrec : 1,
+      veinSizeMin: 1,
+      veinSizeMax : 4
+    },
+    Gold: {
+      hardness: 6,
+      zHeight: 1,
+      spawnPrec : 2,
+      veinSizeMin: 2,
+      veinSizeMax : 3
+    }
+  }
+}

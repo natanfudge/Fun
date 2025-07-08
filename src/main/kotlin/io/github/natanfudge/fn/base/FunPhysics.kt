@@ -1,12 +1,17 @@
 package io.github.natanfudge.fn.base
 
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.physics.PhysicsSystem
 import kotlin.time.Duration
 
-class PhysicsMod: FunMod {
+
+class FunPhysics(context: FunContext) {
     val system = PhysicsSystem()
-    override fun postPhysics(delta: Duration) {
-        system.tick(delta)
+
+    init {
+        context.events.afterPhysics.listen {
+            system.tick(it)
+        }
     }
 }
