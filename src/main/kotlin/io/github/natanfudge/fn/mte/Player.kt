@@ -18,13 +18,25 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
 import korlibs.time.seconds
+import java.lang.management.ManagementFactory
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+
 
 val PIf = PI.toFloat()
 
+private fun timeSinceStartup(): Duration {
+    val mxBean = ManagementFactory.getRuntimeMXBean()
+
+    // 2. Elapsed time since startup (updated on every call)
+    val upMillis = mxBean.uptime // <-- most convenient
+
+    return upMillis .milliseconds
+}
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     val model = Model.fromGlbResource("files/models/joe.glb")
@@ -43,15 +55,10 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     val inventory = Inventory(game)
 
-//    private var running = false
-
     private val baseRotation = render.rotation
 
     private val mineRateLimit = RateLimiter(game.context)
 
-//    private inline fun ifNotWalking(callback: () -> Unit) {
-//        if (animation.animation?.animation?.name != "walk") callback()
-//    }
 
     private val left = game.input.registerHotkey("Left", Key.A)
     private val right = game.input.registerHotkey("Right", Key.D)
@@ -60,6 +67,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     private var wasInAirLastFrame = false
 
+
+    private var printedStartupTime = false
 
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
@@ -124,7 +133,13 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             }
 
 
+            if (!printedStartupTime) {
+                println("App started in ${timeSinceStartup()}")
+                printedStartupTime = true
+            }
         }
+
+
 
         physics.position = Vec3f(0f, 0.5f, 11.5f)
 
@@ -147,7 +162,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     private fun getRotationTo(
         point: Vec3f,
         initialRotation: Quatf,
-        targetPoint: Vec3f
+        targetPoint: Vec3f,
     ): Quatf {
 
         // ── 1. Current forward in world space ───────────────────────────────────────
@@ -171,9 +186,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
         val ty = toTarget.y * invTarLen
 
         // ── 4. Signed angle between the two 2-D unit vectors ───────────────────────
-        val dot   = fx * tx + fy * ty                   // cos θ
+        val dot = fx * tx + fy * ty                   // cos θ
         val cross = fx * ty - fy * tx                   // sin θ   (Z component of 2-D cross)
-        val yaw   = atan2(cross, dot)                   // range −π … π
+        val yaw = atan2(cross, dot)                   // range −π … π
 
         // ── 5. Quaternion that yaws by that angle ──────────────────────────────────
         return Quatf.fromAxisAngle(Vec3f(0f, 0f, 1f), yaw).normalized()

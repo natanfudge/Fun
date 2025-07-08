@@ -2,7 +2,7 @@
 
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
-import org.jetbrains.compose.reload.ComposeHotRun
+import org.jetbrains.compose.reload.gradle.ComposeHotRun
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 
@@ -13,14 +13,14 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("com.google.osdetector") version "1.7.3"
-    id("org.jetbrains.compose.hot-reload") version "1.0.0-alpha10"
+    id("org.jetbrains.compose.hot-reload") version "1.0.0-beta03"
 }
 
 repositories {
     maven("https://packages.jetbrains.team/maven/p/firework/dev")
 }
 
-val mainclass = "io.github.natanfudge.fn.MainKt"
+val mainclass = "io.github.natanfudge.fn.GuiMain"
 graalvmNative {
     binaries {
         all {
@@ -54,10 +54,14 @@ graalvmNative {
 }
 
 tasks.withType<ComposeHotRun>().configureEach {
-    mainClass.set("io.github.natanfudge.fn.MainKt")
-//    mainClass.set("io.github.natanfudge.fn.compose.utils.FloatFieldKt")
-
+    mainClass.set("io.github.natanfudge.fn.mte.MineTheEarthKt")
 }
+
+//tasks.withType<ComposeHotRun>().configureEach {
+//    mainClass.set("io.github.natanfudge.fn.MainKt")
+////    mainClass.set("io.github.natanfudge.fn.compose.utils.FloatFieldKt")
+//
+//}
 
 group = "natan"
 version = "1.0-SNAPSHOT"
@@ -78,6 +82,7 @@ dependencies {
     implementation(libs.bundles.commonMain)
 
     compileOnly(libs.bundles.jvmMainCompileOnly)
+    implementation("org.jetbrains.compose.hot-reload:hot-reload-runtime-api:1.0.0-beta03")
 
     implementation(libs.bundles.lwjgl)
     runtimeOnly(libs.bundles.lwjgl) {

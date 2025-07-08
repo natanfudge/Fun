@@ -359,14 +359,14 @@ class GlfwGameLoop(val window: GlfwWindowConfig) {
 
 
     private fun checkForReloads() {
-        while (locked) {
+//        while (locked) {
             if (reloadCallback != null) {
                 reloadCallback!!()
                 reloadCallback = null
-                locked = false
+//                locked = false
             }
-            Thread.sleep(10)
-        }
+//            Thread.sleep(10)
+//        }
     }
 }
 

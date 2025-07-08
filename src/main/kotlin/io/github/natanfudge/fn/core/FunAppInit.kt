@@ -22,6 +22,7 @@ import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
+import org.jetbrains.compose.reload.staticHotReloadScope
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -54,16 +55,14 @@ private fun run(app: FunAppInitializer<*>) {
 
     ProcessLifecycle.start(Unit)
 
-    FunHotReload.reloadStarted.listen {
-        println("Reload started: pausing app")
+//    FunHotReload.reloadStarted.listen {
+//        println("Reload started: pausing app")
+//
+//        loop.locked = true
+//    }
 
-        loop.locked = true
-    }
 
-
-
-    FunHotReload.reloadEnded.listen {
-        // This has has special handling because it needs to run while the gameloop is locked
+    staticHotReloadScope.invokeAfterHotReload {
         loop.reloadCallback = {
             hotReloadIndex++
             println("Reloading app")
@@ -80,10 +79,33 @@ private fun run(app: FunAppInitializer<*>) {
                 e.printStackTrace()
                 ProcessLifecycle.restart()
             }
-            println("Reload19")
+            println("Reload done2")
 
         }
     }
+
+//    FunHotReload.reloadEnded.listen {
+//        // This has has special handling because it needs to run while the gameloop is locked
+//        loop.reloadCallback = {
+//            hotReloadIndex++
+//            println("Reloading app")
+//
+//            ProcessLifecycle.removeChildren()
+//
+//            app.close()
+//            app.init()
+//
+//            try {
+//                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel, ComposeWebGPURenderer.SurfaceLifecycleName))
+//            } catch (e: Throwable) {
+//                println("Failed to perform a granular restart, trying to restart the app entirely")
+//                e.printStackTrace()
+//                ProcessLifecycle.restart()
+//            }
+//            println("Reload19")
+//
+//        }
+//    }
     loop.loop()
     exitProcess(0)
 }
