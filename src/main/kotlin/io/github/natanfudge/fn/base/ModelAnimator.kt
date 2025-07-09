@@ -11,6 +11,7 @@ import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.visit
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import korlibs.time.times
 import kotlin.time.Duration
 
 interface FunResource {
@@ -34,6 +35,7 @@ class ActiveAnimation(
      */
     val minTime: Duration,
     val maxTime: Duration,
+    val speed: Float,
     val loop: Boolean,
     val jointMask: JointMask?,
 ) {
@@ -46,9 +48,6 @@ class ActiveAnimation(
     }
 }
 
-//class AnimationGraph(
-//
-//)
 
 class ModelAnimator(private val render: FunRenderState) {
     /**
@@ -74,7 +73,7 @@ class ModelAnimator(private val render: FunRenderState) {
         render.context.events.frame.listen(render) { delta ->
             // Copy list to avoid ConcurrentModificationException
             for (animation in activeAnimations.toList()) {
-                animation.currentTime = animation.currentTime + delta
+                animation.currentTime = animation.currentTime + (delta * animation.speed)
                 if (animation.currentTime > animation.maxTime) {
                     if (animation.loop) {
                         // We've reached the end - slide back to the start
@@ -125,7 +124,7 @@ class ModelAnimator(private val render: FunRenderState) {
      * Remaining joint transformations will be used according to order - the last animation's transforms will be used.
      * Important: if [specificallyAffectsJoints] is set, it is likely you will need to [stop] it manually.
      */
-    fun play(animation: String, loop: Boolean = true, trimLastKeyframe: Boolean = loop, specificallyAffectsJoints: Set<String>? = null) {
+    fun play(animation: String, loop: Boolean = true, trimLastKeyframe: Boolean = loop, specificallyAffectsJoints: Set<String>? = null, speed: Float = 1f) {
         if (activeAnimations.any { it.animation.name == animation }) return
         // We assume (and enforce) that if there is an animation with no joint mask, it is the only animation.
         if (activeAnimations.isNotEmpty() && activeAnimations.first().jointMask == null) {
@@ -150,7 +149,7 @@ class ModelAnimator(private val render: FunRenderState) {
         val minTime = Duration.ZERO
         val currentTime = minTime
         val maxTime = if (trimLastKeyframe) animationObj.keyFrames[animationObj.keyFrames.size - 2].time else animationObj.keyFrames.last().time
-        val activeAnimation = ActiveAnimation(animationObj, currentTime, minTime, maxTime, loop, intJointMask)
+        val activeAnimation = ActiveAnimation(animationObj, currentTime, minTime, maxTime, speed, loop, intJointMask)
         for (joint in affectedJoints) {
             animationsByJoint[joint] = activeAnimation
         }

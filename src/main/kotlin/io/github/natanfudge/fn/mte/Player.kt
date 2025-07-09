@@ -15,6 +15,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
+import korlibs.time.div
 import korlibs.time.seconds
 import java.lang.management.ManagementFactory
 import kotlin.math.PI
@@ -56,11 +57,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     private val baseRotation = render.rotation
 
-    private val mineDelay = DelayedStrike(this, strikeDelay = 200.milliseconds, strikeInterval = model.getAnimationLength("dig", withLastFrameTrimmed = true))
 
-    init {
-        println("Interval: ${mineDelay.strikeInterval}")
-    }
+    private val mineDelay = DelayedStrike(this, )
 
     private val left = game.input.registerHotkey("Left", Key.A)
     private val right = game.input.registerHotkey("Right", Key.D)
@@ -101,7 +99,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
             var digging = false
             val running = left.isPressed || right.isPressed
-
+            val strikeInterval = game.balance.mineInterval
+            // Adapt dig animation speed to actual dig speed
+            val digAnimationSpeed = (model.getAnimationLength("dig", withLastFrameTrimmed = true) / strikeInterval).toFloat()
             if (breakKey.isPressed && !game.visualEditor.enabled) {
                 val selectedBlock = context.getHoveredRoot()
                 if (selectedBlock is Block) {
@@ -112,14 +112,16 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                             val targetOrientation = getRotationTo(render.translation, Quatf(), target.pos.toVec3())
                             render.localTransform.rotation = targetOrientation
                         }
-                        mineDelay.run(true, ) {
+                        // 200 millseconds because that's the point in the animation where the character strikes. We must divide it by the multiplier of dig
+                        // speed relative to the base animation speed, so the strike delay will match the animation's strike delay.
+                        mineDelay.strike(strikeDelay = 200.milliseconds / digAnimationSpeed,  strikeInterval) {
                             target.health -= game.balance.pickaxeStrength
                         }
                     }
                 }
             }
-            if(!digging) {
-                mineDelay.run(false){}
+            if (!digging) {
+                mineDelay.stopStriking()
             }
 
             val landing = wasInAirLastFrame && grounded
@@ -132,7 +134,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             } else if (running && grounded) {
                 animation.play(
                     "walk",
-                    specificallyAffectsJoints =legBones
+                    specificallyAffectsJoints = legBones
                 )
             } else if (!digging && grounded && !animation.animationIsRunning("land")) {
                 // Don't play idle while landing, to let the landing animation finish.
@@ -141,7 +143,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             if (digging) {
                 animation.play(
                     "dig",
-                    specificallyAffectsJoints = upperBodyBones
+                    specificallyAffectsJoints = upperBodyBones,
+
+                    speed = digAnimationSpeed
                 )
             }
 
@@ -275,9 +279,11 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     }
 }
 
-private class DelayedStrike(parent: Fun,
-                            private val strikeDelay: Duration, val strikeInterval: Duration,
-                            name: String = "RateLimit") : Fun(parent, name) {
+private class DelayedStrike(
+    parent: Fun,
+
+    name: String = "RateLimit",
+) : Fun(parent, name) {
     private var strikeStart: Duration? by funValue(null, "strikeStart")
     private var lastStrike: Duration? by funValue(null, "lastStrike")
 
@@ -287,32 +293,31 @@ private class DelayedStrike(parent: Fun,
      * If less time has passed, [strike] will not be invoked at all.
      *
      */
-    fun run(striking: Boolean,  strike: () -> Unit) {
-        if (striking) {
-            if (strikeStart == null) strikeStart = context.time.gameTime
-            else {
-                val time = context.time.gameTime
-                if (lastStrike == null) {
-                    // First strike - happens after strikeDelay
-                    if (time - strikeStart!! >= strikeDelay) {
-                        lastStrike = time
-                        strike()
-                    }
-                    return
-                } else {
-                    // Subsequent strikes - happens after strikeInterval
-                    if (context.time.gameTime - lastStrike!! >= strikeInterval) {
-                        lastStrike = time
-                        strike()
-                    }
+    fun strike(strikeDelay: Duration, strikeInterval: Duration, strike: () -> Unit) {
+        if (strikeStart == null) strikeStart = context.time.gameTime
+        else {
+            val time = context.time.gameTime
+            if (lastStrike == null) {
+                // First strike - happens after strikeDelay
+                if (time - strikeStart!! >= strikeDelay) {
+                    lastStrike = time
+                    strike()
                 }
-
+                return
+            } else {
+                // Subsequent strikes - happens after strikeInterval
+                if (context.time.gameTime - lastStrike!! >= strikeInterval) {
+                    lastStrike = time
+                    strike()
+                }
             }
 
-        } else {
-            strikeStart = null
-            lastStrike = null
         }
+    }
+
+    fun stopStriking() {
+        strikeStart = null
+        lastStrike = null
     }
 }
 
