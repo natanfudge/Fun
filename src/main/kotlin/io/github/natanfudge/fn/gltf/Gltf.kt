@@ -235,8 +235,8 @@ private fun extractAnimations(glb: GLTF2): List<Animation> {
         }
 
         val keyFrames = keyframesByTime.entries.map { (time, transforms) ->
-            Pair(time.seconds, transforms.mapValues { (_, value) -> value.build() })
-        }.sortedBy { it.first }
+            KeyFrame(time.seconds, transforms.mapValues { (_, value) -> value.build() })
+        }.sortedBy { it.time }
 
         Animation(name, keyFrames)
     }

@@ -5,10 +5,8 @@ import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import kotlin.time.Duration
 
-/**
- * This doesn't require closing so there's no need to parent it to any Fun
- */
-class RateLimiter(context: FunContext, name: String = "RateLimit") : Fun(name, context) {
+
+class RateLimiter(parent: Fun, name: String = "RateLimit") : Fun(parent, name) {
     private var lastInvocation: Duration by funValue(Duration.ZERO, "lastInvocation")
 
 

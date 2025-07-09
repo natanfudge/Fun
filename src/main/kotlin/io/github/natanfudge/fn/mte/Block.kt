@@ -30,12 +30,12 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockP
 
     var breakOverlay: FunRenderState? = null
 
-    var health by funValue(type.hardness, "health") {
+    var health by funValue(type.hardness(game), "health") {
         updateBreakOverlay(it)
     }
 
     private fun updateBreakOverlay(newHealth: Float) {
-        val missingHpFraction = (1 - (newHealth / type.hardness)).coerceIn(0f, 1f)
+        val missingHpFraction = (1 - (newHealth / type.hardness(game))).coerceIn(0f, 1f)
         if (missingHpFraction == 1f) {
             destroy()
             return

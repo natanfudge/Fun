@@ -15,6 +15,12 @@ data class Balance(
     val breakReach: Int,
     val pickaxeStrength: Float,
 ) {
+    companion object {
+        fun create() : Balance {
+            val balanceFile = URI(Res.getUri("files/balance.json5")).toPath().readText()
+            return json.decodeFromString<Balance>(balanceFile)
+        }
+    }
 
     val mineInterval get() = mineIntervalMs.milliseconds
 }
@@ -38,16 +44,12 @@ private val json = Json {
     ignoreUnknownKeys = true
     isLenient = true
 }
-val GameBalance by lazy(LazyThreadSafetyMode.PUBLICATION) {
-    val balanceFile = URI(Res.getUri("files/balance.json5")).toPath().readText()
-    json.decodeFromString<Balance>(balanceFile)
-}
 
-val BlockType.hardness: Float get() = GameBalance.blocks[this]?.hardness ?: 1f
-val BlockType.zHeight: Int get() = GameBalance.blocks[this]?.zHeight ?: 0
-val BlockType.spawnPrec: Float get() = GameBalance.blocks[this]?.spawnPrec ?: 0f
-val BlockType.veinSizeMin: Int get() = GameBalance.blocks[this]?.veinSizeMin ?: 0
-val BlockType.veinSizeMax: Int get() = GameBalance.blocks[this]?.veinSizeMax ?: 0
+fun BlockType.hardness(game: MineTheEarth): Float = game.balance.blocks[this]?.hardness ?: 1f
+fun BlockType.zHeight(game: MineTheEarth): Int = game.balance.blocks[this]?.zHeight ?: 0
+fun BlockType.spawnPrec(game: MineTheEarth): Float= game.balance.blocks[this]?.spawnPrec ?: 0f
+fun BlockType.veinSizeMin(game: MineTheEarth): Int = game.balance.blocks[this]?.veinSizeMin ?: 0
+fun BlockType.veinSizeMax(game: MineTheEarth): Int = game.balance.blocks[this]?.veinSizeMax ?: 0
 
 //object Balance {
 //    fun blockHardness(type: BlockType): Float = when (type) {

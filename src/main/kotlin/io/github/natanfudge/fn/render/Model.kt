@@ -1,6 +1,9 @@
 package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.compose.utils.TreeImpl
+import io.github.natanfudge.fn.compose.utils.find
+import io.github.natanfudge.fn.compose.utils.findNode
+import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.gltf.PartialTransform
 import io.github.natanfudge.fn.util.Tree
@@ -21,9 +24,27 @@ data class Model(
     val material: Material = Material(),
     val animations: List<Animation> = listOf(),
     /** References nodes by nodeIndex.  **/
-    val nodeHierarchy: Tree<ModelNode> = TreeImpl(ModelNode(0,"", baseTransform = Transform()), listOf()),
+    val nodeHierarchy: Tree<ModelNode> = TreeImpl(ModelNode(0, "", baseTransform = Transform()), listOf()),
     val skeleton: Skeleton? = null,
 ) {
+
+    fun getAnimationLength(name: String, withLastFrameTrimmed: Boolean): Duration {
+        val animation = animations.find { it.name == name } ?: error("Cannot find animation with name '$name'")
+        if(withLastFrameTrimmed) {
+            return animation.keyFrames[animation.keyFrames.size - 2].time
+        } else {
+            return animation.keyFrames.last().time
+        }
+    }
+
+    fun nodeAndChildren(nodeName: String): List<String> {
+        val parentNode = nodeHierarchy.findNode { it.name == nodeName } ?: error("Cannot find node with name '$nodeName'")
+        return parentNode.toList().map { it.name }
+    }
+
+
+    fun nodesAndTheirChildren(vararg nodeNames: String): List<String>  = nodeNames.flatMap { nodeAndChildren(it) }
+
     val baseRootTransform = nodeHierarchy.value.baseTransform.toMatrix()
 
     companion object;
@@ -82,14 +103,26 @@ data class Transform(
  */
 typealias PartialSkeletonTransform = Map<Int, PartialTransform>
 
+data class KeyFrame(
+    val time: Duration,
+    val transform: PartialSkeletonTransform,
+)
 
 data class Animation(
     val name: String,
     /**
      * Sorted by time
      */
-    val keyFrames: List<Pair<Duration, PartialSkeletonTransform>>,
-)
+    val keyFrames: List<KeyFrame>,
+) {
+    val affectedJoints by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val joints = mutableSetOf<Int>()
+        for (keyFrame in keyFrames) {
+            joints.addAll(keyFrame.transform.keys)
+        }
+        joints
+    }
+}
 
 data class Joint(
     /**

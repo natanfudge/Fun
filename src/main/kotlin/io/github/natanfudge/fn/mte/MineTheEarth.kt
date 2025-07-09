@@ -12,9 +12,17 @@ import io.github.natanfudge.fn.base.InputManagerMod
 import io.github.natanfudge.fn.base.ScrollDirection
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import natan.`fun`.generated.resources.Res
+import java.net.URI
+import kotlin.io.path.readText
+import kotlin.io.path.toPath
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
+    val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        Balance.create()
+    }
+
     val animation = installMod(AnimationMod())
 
     private val indices = mutableMapOf<String, Int>()
@@ -28,8 +36,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val input = installMod(InputManagerMod())
 
     val physics = FunPhysics(context)
-
-
     val player = Player(this)
 
 //    val whale = Whale(this)
@@ -47,7 +53,6 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val visualEditor: VisualEditorMod = installMod(VisualEditorMod(hoverMod, input, enabled = false))
 
     val world = World(this)
-
 
 
     var cameraDistance = 15f

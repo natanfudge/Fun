@@ -58,12 +58,15 @@ data class LabeledEdge<T, L>(
 //    val child: T,
 )
 
-fun <T> Tree<T>.find(predicate: (T) -> Boolean): T? {
-    visit { // Possible because of awesome recursionless inline visit algorithm
-        if (predicate(it)) return it
+inline fun <T> Tree<T>.find(predicate: (T) -> Boolean): T?  = findNode(predicate)?.value
+
+inline fun <T> Tree<T>.findNode(predicate: (T) -> Boolean): Tree<T>? {
+    visitNodes { // Possible because of awesome recursionless inline visit algorithm
+        if (predicate(it.value)) return it
     }
     return null
 }
+
 
 
 /**

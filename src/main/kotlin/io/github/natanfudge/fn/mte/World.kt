@@ -25,7 +25,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
     fun worldgen(mapWidth: Int, zLevelStart: Int, zLevelEnd: Int): List<Block> {
         val blocksList = BlockType.entries
 
-        val validBlocks = blocksList.filter { it.zHeight in zLevelStart until zLevelEnd }
+        val validBlocks = blocksList.filter { it.zHeight(game) in zLevelStart until zLevelEnd }
         val height = zLevelEnd - zLevelStart
         var fillerBlock: BlockType = BlockType.Dirt
 //        if (zLevelStart == 0) {
@@ -41,7 +41,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
             }
         }
         val weightedBlocksList = validBlocks.flatMap { block ->
-            val weight = (block.spawnPrec * 10000).roundToInt().coerceAtLeast(1)
+            val weight = (block.spawnPrec(game) * 10000).roundToInt().coerceAtLeast(1)
             List(weight) { block }
         }
 
@@ -50,7 +50,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
             for (x in 0 until mapWidth) {
                 roll(10.0f) {
                     val block = weightedBlocksList.random()
-                    val veinSize = (block.veinSizeMin..block.veinSizeMax).random()
+                    val veinSize = (block.veinSizeMin(game)..block.veinSizeMax(game)).random()
                     val placed = mutableSetOf<Pair<Int, Int>>()
                     placed.add(Pair(x, z))
                     while (placed.size < veinSize) {

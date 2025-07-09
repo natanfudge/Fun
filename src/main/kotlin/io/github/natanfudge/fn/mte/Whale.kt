@@ -21,7 +21,7 @@ class Whale(game: MineTheEarth) : Fun("whale", game.context) {
         physics.position = Vec3f(-2f, 0.5f, 12f)
         val animation = model.animations[1]
         val nodes = model.nodeHierarchy.toList()
-        val duration = animation.keyFrames.last().first
+        val duration = animation.keyFrames.last().time
         game.animation.animateLoop(duration) {
             render.renderInstance.setJointTransforms(
                 animation.sample(duration * it, nodes)

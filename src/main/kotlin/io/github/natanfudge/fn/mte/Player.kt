@@ -4,11 +4,11 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.ModelAnimator
-import io.github.natanfudge.fn.base.RateLimiter
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
@@ -33,8 +33,9 @@ private fun timeSinceStartup(): Duration {
     // 2. Elapsed time since startup (updated on every call)
     val upMillis = mxBean.uptime // <-- most convenient
 
-    return upMillis .milliseconds
+    return upMillis.milliseconds
 }
+
 
 class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
     val model = Model.fromGlbResource("files/models/joe.glb")
@@ -55,8 +56,11 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     private val baseRotation = render.rotation
 
-    private val mineRateLimit = RateLimiter(game.context)
+    private val mineDelay = DelayedStrike(this, strikeDelay = 200.milliseconds, strikeInterval = model.getAnimationLength("dig", withLastFrameTrimmed = true))
 
+    init {
+        println("Interval: ${mineDelay.strikeInterval}")
+    }
 
     private val left = game.input.registerHotkey("Left", Key.A)
     private val right = game.input.registerHotkey("Right", Key.D)
@@ -67,6 +71,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
 
     private var printedStartupTime = false
+
+    private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()
+    private val upperBodyBones = model.nodesAndTheirChildren("mixamorig:Spine1").toSet()
 
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
@@ -105,30 +112,41 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                             val targetOrientation = getRotationTo(render.translation, Quatf(), target.pos.toVec3())
                             render.localTransform.rotation = targetOrientation
                         }
-                        mineRateLimit.run(GameBalance.mineInterval) {
-                            target.health -= GameBalance.pickaxeStrength
+                        mineDelay.run(true, ) {
+                            target.health -= game.balance.pickaxeStrength
                         }
                     }
                 }
+            }
+            if(!digging) {
+                mineDelay.run(false){}
             }
 
             val landing = wasInAirLastFrame && grounded
             wasInAirLastFrame = !grounded
 
-
             if (landing) {
                 animation.play("land", loop = false)
             } else if (isJumping) {
                 animation.play("jump", loop = false)
-            } else if (running) {
-                animation.play("walk")
-            } else if (!digging && grounded && animation.animation?.animation?.name != "land") {
+            } else if (running && grounded) {
+                animation.play(
+                    "walk",
+                    specificallyAffectsJoints =legBones
+                )
+            } else if (!digging && grounded && !animation.animationIsRunning("land")) {
                 // Don't play idle while landing, to let the landing animation finish.
                 animation.play("active-idle")
             }
             if (digging) {
-                //TODO: this will look better once dig happens concurrently with other stuff
-                animation.play("dig")
+                animation.play(
+                    "dig",
+                    specificallyAffectsJoints = upperBodyBones
+                )
+            }
+
+            if (!running) {
+                animation.stop("walk")
             }
 
 
@@ -211,7 +229,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
      * We target the first block near the player, because the selected block might be "covered" by the perspective of the player character.
      */
     fun targetBlock(directlyHoveredBlock: Block): Block? {
-        if (directlyHoveredBlock.pos.squaredDistance(physics.translation) > GameBalance.breakReach.squared()) return null
+        if (directlyHoveredBlock.pos.squaredDistance(physics.translation) > game.balance.breakReach.squared()) return null
         return firstBlockAlong(blockPos.to2D(), directlyHoveredBlock.pos.to2D())
     }
 
@@ -254,6 +272,47 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             }
         }
         return null
+    }
+}
+
+private class DelayedStrike(parent: Fun,
+                            private val strikeDelay: Duration, val strikeInterval: Duration,
+                            name: String = "RateLimit") : Fun(parent, name) {
+    private var strikeStart: Duration? by funValue(null, "strikeStart")
+    private var lastStrike: Duration? by funValue(null, "lastStrike")
+
+
+    /**
+     * Will run [strike], but ONLY if [strikeDelay] has passed since the last time [strike] was successfully invoked.
+     * If less time has passed, [strike] will not be invoked at all.
+     *
+     */
+    fun run(striking: Boolean,  strike: () -> Unit) {
+        if (striking) {
+            if (strikeStart == null) strikeStart = context.time.gameTime
+            else {
+                val time = context.time.gameTime
+                if (lastStrike == null) {
+                    // First strike - happens after strikeDelay
+                    if (time - strikeStart!! >= strikeDelay) {
+                        lastStrike = time
+                        strike()
+                    }
+                    return
+                } else {
+                    // Subsequent strikes - happens after strikeInterval
+                    if (context.time.gameTime - lastStrike!! >= strikeInterval) {
+                        lastStrike = time
+                        strike()
+                    }
+                }
+
+            }
+
+        } else {
+            strikeStart = null
+            lastStrike = null
+        }
     }
 }
 

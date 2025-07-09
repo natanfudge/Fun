@@ -130,14 +130,21 @@ data class TreePath(val index: Int, val prev: TreePath?) {
 /**
  * Visits the tree breadth-first.
  */
-inline fun <T> Tree<T>.visit(visitor: (T) -> Unit) {
+inline fun <T> Tree<T>.visit(visitor: (T) -> Unit)  = visitNodes {
+    visitor(it.value)
+}
+
+/**
+ * Visits the tree breadth-first.
+ */
+inline fun <T> Tree<T>.visitNodes(visitor: (Tree<T>) -> Unit) {
     // Neat trick to have a recursion-less tree visitor - populate a queue as you iterate through the tree
     val queue: Queue<Tree<T>> = LinkedList()
     queue.add(this)
     while (queue.isNotEmpty()) {
         val next = queue.poll()
         queue.addAll(next.children)
-        visitor(next.value)
+        visitor(next)
     }
 }
 
