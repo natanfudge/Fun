@@ -27,7 +27,7 @@ import io.github.natanfudge.fn.network.state.collectAsState
 import io.github.natanfudge.fn.physics.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
-fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier, content: @Composable BoxScope.() -> Unit) {
+fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
     gui.addPanel(modifier) {
         MaterialTheme(darkColorScheme()) {
             content()

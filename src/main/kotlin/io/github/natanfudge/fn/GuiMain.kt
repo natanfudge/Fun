@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn
 
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
@@ -13,7 +14,9 @@ fun main() {
     }
     application {
         Window(::exitApplication) {
-            Text("Hal2f3")
+            Button({}) {
+                Text("Foo")
+            }
         }
     }
 }

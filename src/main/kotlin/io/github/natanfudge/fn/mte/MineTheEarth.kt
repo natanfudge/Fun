@@ -1,21 +1,30 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.runtime.*
 import io.github.natanfudge.fn.base.*
-import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.mte.gui.MainMenu
+import io.github.natanfudge.fn.mte.gui.addDsPanel
 import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.render.CameraMode
-import io.github.natanfudge.fn.base.InputManagerMod
-import io.github.natanfudge.fn.base.ScrollDirection
 import io.github.natanfudge.fn.physics.translation
+import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import natan.`fun`.generated.resources.Res
-import java.net.URI
-import kotlin.io.path.readText
-import kotlin.io.path.toPath
+import org.jetbrains.compose.reload.staticHotReloadScope
+import java.awt.BorderLayout
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.SwingUtilities
+
+
+
+class MineTheEarthMainMenu(override val context: FunContext): FunApp() {
+    init {
+        context.addDsPanel {
+            MainMenu()
+        }
+    }
+}
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
@@ -68,6 +77,8 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
     val creativeMovement = installMod(CreativeMovementMod(context, input))
 
     init {
+
+
         physics.system.earthGravityAcceleration = 20f
 
         player.render.onTransformChange {
@@ -95,6 +106,9 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
 fun main() {
     startTheFun {
-        { MineTheEarth(it) }
+        {
+            MineTheEarthMainMenu(it)
+//            MineTheEarth(it)
+        }
     }
 }
