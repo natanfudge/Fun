@@ -21,7 +21,7 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.physics.*
-import io.github.natanfudge.fn.base.InputManagerMod
+import io.github.natanfudge.fn.base.InputManager
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Tint
@@ -116,7 +116,7 @@ class PhysicsSimulationApp(override val context: FunContext, private val simulat
     val physics = FunPhysics()
     val scheduler = installMod(VisibleSimulationTickerMod(context, physics.system))
 
-    val input = installMod(InputManagerMod())
+    val input = installMod(InputManager())
 
     val simulationRunner = VisualPhysicsSimulation(this)
 
@@ -127,7 +127,7 @@ class PhysicsSimulationApp(override val context: FunContext, private val simulat
     }
 
     init {
-        installMods(VisualEditorMod(this, input), CreativeMovementMod(context, installMod(input)))
+        installMods(VisualEditor(this, input), CreativeMovement(context, installMod(input)))
         runSimulation()
     }
 

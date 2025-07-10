@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -12,13 +13,24 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 
-data class ComposePanel(val modifier:  BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit)
+data class ComposePanel(val modifier:  BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: Panels): AutoCloseable {
+    override fun close() {
+        panels.closePanel(this)
+    }
+}
+
 
 class Panels {
-    private val panelList = mutableListOf<ComposePanel>()
+    private val panelList = mutableStateListOf<ComposePanel>()
 
-    fun addPanel(modifier: BoxScope. () -> Modifier, content: @Composable BoxScope.() -> Unit) {
-        panelList.add(ComposePanel(modifier, content))
+    fun addPanel(modifier: BoxScope. () -> Modifier = {Modifier}, content: @Composable BoxScope.() -> Unit): ComposePanel {
+        val panel = ComposePanel(modifier, content, this)
+        panelList.add(panel)
+        return panel
+    }
+
+    fun closePanel(panel: ComposePanel) {
+        panelList.remove(panel)
     }
 
     //    var blockMouseEventsOnPanel = true
@@ -36,6 +48,7 @@ class Panels {
                 acceptMouseEvents = true
                 // The clickable thing is just for it to draw focus
             }.clickableWithNoIndication { }.onPointerEvent(PointerEventType.Enter) {
+//                println("Will accept mouse events")
                 acceptMouseEvents = true
             }
             )
@@ -47,6 +60,7 @@ class Panels {
                             // Block clicks
                             acceptMouseEvents = false
                         }.onPointerEvent(PointerEventType.Enter) {
+//                            println("Will not accept mouse events")
                             acceptMouseEvents = false
                         }
                 ) {

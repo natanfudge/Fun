@@ -46,17 +46,17 @@ fun ComposePanelPlacer.FunPanel(modifier: Modifier = Modifier, content: @Composa
 }
 
 /**
- * If you use [HoverHighlightMod], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditorMod].
+ * If you use [HoverHighlight], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditor].
  */
-class VisualEditorMod(
-    private val hoverMod: HoverHighlightMod, private val inputManagerMod: InputManagerMod,
+class VisualEditor(
+    private val hoverMod: HoverHighlight, private val inputManagerMod: InputManager,
     /**
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
      var enabled: Boolean = true,
-) : FunMod {
-    constructor(app: FunApp, inputManagerMod: InputManagerMod, enabled: Boolean = true) : this(
-        app.installMod(HoverHighlightMod(app.context)), inputManagerMod, enabled
+)  {
+    constructor(app: FunApp, inputManagerMod: InputManager, enabled: Boolean = true) : this(
+        HoverHighlight(app.context), inputManagerMod, enabled
     )
 
     init {
@@ -71,6 +71,27 @@ class VisualEditorMod(
                 mouseDownPos = null
             }
         })
+        hoverMod.context.addFunPanel({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
+                val root = selectedObject?.getRoot()
+                if (root != null) {
+                    Column(
+                        Modifier.padding(5.dp).width(IntrinsicSize.Max)
+                            .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        FunEditor(root)
+                    }
+                }
+            }
+        }
+        hoverMod.context.events.input.listen { input ->
+            if (input is InputEvent.PointerEvent && enabled) {
+                if (input.eventType == PointerEventType.Press) {
+                    mouseDownPos = input.position
+                }
+                captureSelectedObject(input)
+            }
+        }
     }
 
     private val context = hoverMod.context
@@ -101,32 +122,6 @@ class VisualEditorMod(
         }
     }
 
-    @Composable
-    override fun ComposePanelPlacer.gui() {
-        FunPanel(Modifier.align(Alignment.CenterEnd).padding(5.dp)) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
-                val root = selectedObject?.getRoot()
-                if (root != null) {
-                    Column(
-                        Modifier.padding(5.dp).width(IntrinsicSize.Max)
-                            .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        FunEditor(root)
-                    }
-                }
-            }
-        }
-    }
-
-    override fun handleInput(input: InputEvent) {
-        if (input is InputEvent.PointerEvent && enabled) {
-            if (input.eventType == PointerEventType.Press) {
-                mouseDownPos = input.position
-            }
-            captureSelectedObject(input)
-        }
-    }
-
     private fun restoreOldTint() {
         selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
     }
@@ -141,14 +136,14 @@ class VisualEditorMod(
                     // Restore the old color
                     restoreOldTint()
                     // We can hover-highlight again
-                    selectedObject?.removeTag(HoverHighlightMod.DoNotHighlightTag)
+                    selectedObject?.removeTag(HoverHighlight.DoNotHighlightTag)
                     selectedObject = selected
                     // Save color to restore later
-                    selectedObjectOldTint = selected?.getTag(HoverHighlightMod.PreHoverTintTag) ?: selected?.tint
+                    selectedObjectOldTint = selected?.getTag(HoverHighlight.PreHoverTintTag) ?: selected?.tint
                     val oldTint = selectedObjectOldTint
                     if (selected != null) {
                         // Don't hover-highlight when selecting
-                        selected.setTag(HoverHighlightMod.DoNotHighlightTag, true)
+                        selected.setTag(HoverHighlight.DoNotHighlightTag, true)
                         selected.tint = Tint(
                             lerp(
                                 oldTint!!.color,

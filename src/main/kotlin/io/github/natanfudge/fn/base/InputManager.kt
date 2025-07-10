@@ -7,14 +7,13 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
-import io.github.natanfudge.fn.core.FunMod
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.util.EventStream
 import korlibs.time.seconds
-import kotlin.time.Duration
 
 
-class InputManagerMod : FunMod {
+class InputManager(context: FunContext)  {
     val heldKeys = mutableSetOf<FunKey>()
 
     var prevCursorPos: Offset? = null
@@ -86,14 +85,6 @@ class InputManagerMod : FunMod {
         return hotkey
     }
 
-    override fun prePhysics(delta: Duration) {
-        if (focused) {
-            for (hotkey in hotkeys) {
-                if (hotkey.key in heldKeys && hotkey.modifiersPressed()) hotkey.onHold?.invoke(delta.seconds.toFloat())
-            }
-        }
-    }
-
     //SLOW: make sure we stop creating FunKey instances constantly
 
     private fun Hotkey.modifiersPressed(): Boolean {
@@ -103,109 +94,117 @@ class InputManagerMod : FunMod {
         return true
     }
 
-
-    override fun handleInput(input: InputEvent) {
-        when (input) {
-            is InputEvent.KeyEvent -> {
-                val event = input.event
-                when (event.type) {
-                    KeyEventType.KeyDown -> {
-                        for (hotkey in hotkeys) {
-                            if (hotkey.key.isKey(event.key) && !hotkey.isPressed && hotkey.modifiersPressed()) {
-                                hotkey.isPressed = true
-                                hotkey.onPress?.invoke()
-                            }
-                        }
-                        heldKeys.add(FunKey.Keyboard(event.key))
-                    }
-
-                    KeyEventType.KeyUp -> {
-                        for (hotkey in hotkeys) {
-                            if (hotkey.key.isKey(event.key) && hotkey.modifiersPressed()) {
-                                hotkey.isPressed = false
-                                hotkey.onRelease?.invoke()
-                            }
-                        }
-                        heldKeys.remove(FunKey.Keyboard(event.key))
-                    }
+    init {
+        context.events.beforePhysics.listen { delta ->
+            if (focused) {
+                for (hotkey in hotkeys) {
+                    if (hotkey.key in heldKeys && hotkey.modifiersPressed()) hotkey.onHold?.invoke(delta.seconds.toFloat())
                 }
             }
-
-            is InputEvent.PointerEvent -> {
-                when (input.eventType) {
-                    PointerEventType.Exit -> {
-                        prevCursorPos = null
-                    }
-
-                    PointerEventType.Enter -> {
-                        prevCursorPos = input.position
-                    }
-
-                    PointerEventType.Move -> {
-                        val prev = prevCursorPos ?: run {
-                            prevCursorPos = input.position
-                            return
-                        }
-                        prevCursorPos = input.position
-                        val delta = prev - input.position
-                        mouseMoved.emit(delta)
-                    }
-
-                    PointerEventType.Press -> {
-                        if (input.button != null && focused) {
-                            heldKeys.add(FunKey.Mouse(input.button))
-
+        }
+        context.events.input.listen { input ->
+            when (input) {
+                is InputEvent.KeyEvent -> {
+                    val event = input.event
+                    when (event.type) {
+                        KeyEventType.KeyDown -> {
                             for (hotkey in hotkeys) {
-                                if (hotkey.key.isMouseButton(input.button) && !hotkey.isPressed && hotkey.modifiersPressed()) {
+                                if (hotkey.key.isKey(event.key) && !hotkey.isPressed && hotkey.modifiersPressed()) {
                                     hotkey.isPressed = true
                                     hotkey.onPress?.invoke()
                                 }
                             }
+                            heldKeys.add(FunKey.Keyboard(event.key))
                         }
-                    }
 
-                    PointerEventType.Release -> {
-                        if (input.button != null && focused) {
-                            heldKeys.remove(FunKey.Mouse(input.button))
-
+                        KeyEventType.KeyUp -> {
                             for (hotkey in hotkeys) {
-                                if (hotkey.key.isMouseButton(input.button) && hotkey.modifiersPressed()) {
+                                if (hotkey.key.isKey(event.key) && hotkey.modifiersPressed()) {
                                     hotkey.isPressed = false
                                     hotkey.onRelease?.invoke()
                                 }
                             }
+                            heldKeys.remove(FunKey.Keyboard(event.key))
                         }
                     }
+                }
 
-                    PointerEventType.Scroll -> {
-                        // SLOW we shouldn't go over all hotkeys each frame
-                        for (hotkey in hotkeys) {
-                            val key = hotkey.key
-                            if (key is FunKey.ScrollKey) {
-                                val (deltaX, deltaY) = input.scrollDelta
-                                if (key.direction == ScrollDirection.Right && deltaX > 0) {
-                                    hotkey.unconsumedScrollDistance += deltaX
+                is InputEvent.PointerEvent -> {
+                    when (input.eventType) {
+                        PointerEventType.Exit -> {
+                            prevCursorPos = null
+                        }
+
+                        PointerEventType.Enter -> {
+                            prevCursorPos = input.position
+                        }
+
+                        PointerEventType.Move -> {
+                            val prev = prevCursorPos ?: run {
+                                prevCursorPos = input.position
+                                return@listen
+                            }
+                            prevCursorPos = input.position
+                            val delta = prev - input.position
+                            mouseMoved.emit(delta)
+                        }
+
+                        PointerEventType.Press -> {
+                            if (input.button != null && focused) {
+                                heldKeys.add(FunKey.Mouse(input.button))
+
+                                for (hotkey in hotkeys) {
+                                    if (hotkey.key.isMouseButton(input.button) && !hotkey.isPressed && hotkey.modifiersPressed()) {
+                                        hotkey.isPressed = true
+                                        hotkey.onPress?.invoke()
+                                    }
                                 }
-                                if (key.direction == ScrollDirection.Left && deltaX < 0) {
-                                    hotkey.unconsumedScrollDistance -= deltaX // Negate the delta
+                            }
+                        }
+
+                        PointerEventType.Release -> {
+                            if (input.button != null && focused) {
+                                heldKeys.remove(FunKey.Mouse(input.button))
+
+                                for (hotkey in hotkeys) {
+                                    if (hotkey.key.isMouseButton(input.button) && hotkey.modifiersPressed()) {
+                                        hotkey.isPressed = false
+                                        hotkey.onRelease?.invoke()
+                                    }
                                 }
-                                if (key.direction == ScrollDirection.Down && deltaY > 0.0) {
-                                    hotkey.unconsumedScrollDistance += deltaY
-                                }
-                                if (key.direction == ScrollDirection.Up && deltaY < 0.0) {
-                                    hotkey.unconsumedScrollDistance -= deltaY // Negate the delta
-                                }
-                                if (hotkey.unconsumedScrollDistance >= significantScrollDelta) {
-                                    hotkey.unconsumedScrollDistance = 0f
-                                    hotkey.onPress?.invoke()
+                            }
+                        }
+
+                        PointerEventType.Scroll -> {
+                            // SLOW we shouldn't go over all hotkeys each frame
+                            for (hotkey in hotkeys) {
+                                val key = hotkey.key
+                                if (key is FunKey.ScrollKey) {
+                                    val (deltaX, deltaY) = input.scrollDelta
+                                    if (key.direction == ScrollDirection.Right && deltaX > 0) {
+                                        hotkey.unconsumedScrollDistance += deltaX
+                                    }
+                                    if (key.direction == ScrollDirection.Left && deltaX < 0) {
+                                        hotkey.unconsumedScrollDistance -= deltaX // Negate the delta
+                                    }
+                                    if (key.direction == ScrollDirection.Down && deltaY > 0.0) {
+                                        hotkey.unconsumedScrollDistance += deltaY
+                                    }
+                                    if (key.direction == ScrollDirection.Up && deltaY < 0.0) {
+                                        hotkey.unconsumedScrollDistance -= deltaY // Negate the delta
+                                    }
+                                    if (hotkey.unconsumedScrollDistance >= significantScrollDelta) {
+                                        hotkey.unconsumedScrollDistance = 0f
+                                        hotkey.onPress?.invoke()
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            else -> {}
+                else -> {}
+            }
         }
     }
 }

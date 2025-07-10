@@ -145,6 +145,7 @@ class FunInputAdapter(private val app: FunApp, private val context: FunContext) 
         if (context.world.cursorPosition != null && input is InputEvent.PointerEvent &&
             // Allow blocking input by setting acceptMouseEvents to false
             !context.gui.acceptMouseEvents) return
+//        println("Emitting input event, accept: ${context.gui.acceptMouseEvents}")
         context.events.input.emit(input)
         app.actualHandleInput(input)
     }
@@ -298,9 +299,9 @@ private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     if (deltaMs > normalFrameTimeMs * 1.8f) {
         val missingFrames = (deltaMs / normalFrameTimeMs).roundToInt() - 1
         val plural = missingFrames > 1
-        println(
-            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
-                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
-        )
+//        println(
+//            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
+//                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
+//        )
     }
 }

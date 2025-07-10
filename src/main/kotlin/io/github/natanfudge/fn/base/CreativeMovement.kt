@@ -20,11 +20,10 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.render.CameraMode
 
-class CreativeMovementMod(private val context: FunContext, private val inputManager: InputManagerMod) : FunMod {
+class CreativeMovement(private val context: FunContext, private val inputManager: InputManager) {
     private val camera = context.camera
 
     var mode: CameraMode by mutableStateOf(CameraMode.Off)
@@ -107,45 +106,46 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
             block()
         }
     }
-
-    @Composable
-    override fun ComposePanelPlacer.gui() {
-        if (mode == CameraMode.Fly) {
-            Box(Modifier.fillMaxSize().background(Color.Transparent)) {
-                Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
-                Box(Modifier.size(20.dp, 2.dp).background(Color.Black).align(Alignment.Center))
+    init {
+        context.gui.addPanel {
+            if (mode == CameraMode.Fly) {
+                Box(Modifier.fillMaxSize().background(Color.Transparent)) {
+                    Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
+                    Box(Modifier.size(20.dp, 2.dp).background(Color.Black).align(Alignment.Center))
+                }
             }
         }
-    }
+        context.events.input.listen { input ->
+            with(camera) {
+                when (input) {
+                    is InputEvent.PointerEvent -> {
+                        if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
+                            context.world.cursorPosition = (input.position)
+                        }
 
-    override fun handleInput(input: InputEvent) = with(camera) {
-        when (input) {
-            is InputEvent.PointerEvent -> {
-                if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
-                    context.world.cursorPosition = (input.position)
+                        if (input.eventType == PointerEventType.Scroll
+                            && inputManager.focused && mode == CameraMode.Orbital
+                        ) {
+                            val zoom = 1 + input.scrollDelta.y / 10
+                            zoom(zoom)
+                        }
+
+                    }
+
+                    is InputEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {
+                        setCameraMode(
+                            when (input.event.key) {
+                                Key.Escape -> CameraMode.Off
+                                Key.O, Key.Grave -> CameraMode.Orbital
+                                Key.F -> CameraMode.Fly
+                                else -> mode // Keep existing
+                            }, context
+                        )
+                    }
+
+                    else -> {}
                 }
-
-                if (input.eventType == PointerEventType.Scroll
-                    && inputManager.focused && mode == CameraMode.Orbital
-                ) {
-                    val zoom = 1 + input.scrollDelta.y / 10
-                    zoom(zoom)
-                }
-
             }
-
-            is InputEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {
-                setCameraMode(
-                    when (input.event.key) {
-                        Key.Escape -> CameraMode.Off
-                        Key.O, Key.Grave -> CameraMode.Orbital
-                        Key.F -> CameraMode.Fly
-                        else -> mode // Keep existing
-                    }, context
-                )
-            }
-
-            else -> {}
         }
     }
 
@@ -154,7 +154,6 @@ class CreativeMovementMod(private val context: FunContext, private val inputMana
 
         context.setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
         context.setCursorLocked(mode == CameraMode.Fly)
-
     }
 }
 

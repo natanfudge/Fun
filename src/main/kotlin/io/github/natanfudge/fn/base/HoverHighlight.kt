@@ -3,13 +3,12 @@ package io.github.natanfudge.fn.base
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.Tag
 import io.github.natanfudge.fn.physics.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
-class HoverHighlightMod(
+class HoverHighlight(
     val context: FunContext,
     /**
      * Allows making another Fun be hovered instead of the one the cursor is pointing at.
@@ -21,7 +20,7 @@ class HoverHighlightMod(
      * Note that [redirectHover] must still return non-null for this to matter.
      */
     private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
-) : FunMod {
+) {
     companion object {
         /**
          * Add this tag to an object to prevent it from being highlighted when hovered.
@@ -35,8 +34,10 @@ class HoverHighlightMod(
         val PostHoverTintTag = Tag<Tint>("HoverHighlightMod-PostHoverTint")
     }
 
-    override fun frame(deltaMs: Double) {
-        colorHoveredObject()
+    init {
+        context.events.frame.listen {
+            colorHoveredObject()
+        }
     }
 
     var hoveredObjectRoot: Fun? = null

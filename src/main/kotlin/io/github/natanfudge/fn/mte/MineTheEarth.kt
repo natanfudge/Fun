@@ -10,29 +10,24 @@ import io.github.natanfudge.fn.network.FunId
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import org.jetbrains.compose.reload.staticHotReloadScope
-import java.awt.BorderLayout
-import javax.swing.JFrame
-import javax.swing.JLabel
-import javax.swing.SwingUtilities
 
 
-
-class MineTheEarthMainMenu(override val context: FunContext): FunApp() {
+class MineTheEarthMainMenu(override val context: FunContext) : FunApp() {
     init {
         context.addDsPanel {
-            MainMenu()
+            MainMenu(context)
         }
     }
 }
 
 
 class MineTheEarth(override val context: FunContext) : FunApp() {
+
     val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
         Balance.create()
     }
 
-    val animation = installMod(AnimationMod())
+    val animation = FunAnimation(context)
 
     private val indices = mutableMapOf<String, Int>()
     fun nextFunId(name: String): FunId {
@@ -42,14 +37,14 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         return "$name-$nextIndex"
     }
 
-    val input = installMod(InputManagerMod())
+    val input = InputManager(context)
 
     val physics = FunPhysics(context)
     val player = Player(this)
 
 //    val whale = Whale(this)
 
-    val hoverMod = installMod(HoverHighlightMod(context, redirectHover = {
+    val hoverMod = HoverHighlight(context, redirectHover = {
         if (visualEditor.enabled) it
         else if (it is Block) player.targetBlock(it)
         else null
@@ -57,9 +52,9 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         if (visualEditor.enabled) true
         // Don't highlight the break overlay
         else !it.id.endsWith(Block.BreakRenderId)
-    }))
+    })
 
-    val visualEditor: VisualEditorMod = installMod(VisualEditorMod(hoverMod, input, enabled = false))
+    val visualEditor: VisualEditor = VisualEditor(hoverMod, input, enabled = false)
 
     val world = World(this)
 
@@ -74,7 +69,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
         }
     }
 
-    val creativeMovement = installMod(CreativeMovementMod(context, input))
+    val creativeMovement = CreativeMovement(context, input)
 
     init {
 
@@ -95,11 +90,8 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
             repositionCamera(player.render.translation)
         }
 
-
-        installMods(
-            RestartButtonsMod(context),
-            ErrorNotificationMod()
-        )
+        RestartButtons(context)
+        ErrorNotifications(context)
     }
 }
 

@@ -1,6 +1,5 @@
 package io.github.natanfudge.fn.base
 
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
@@ -19,24 +18,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.ComposePanelPlacer
-import io.github.natanfudge.fn.core.FunMod
+import io.github.natanfudge.fn.core.FunContext
 
-class ErrorNotificationMod : FunMod {
+class ErrorNotifications(context: FunContext) {
     private var error: Throwable? by mutableStateOf(null)
-    override fun onGUIError(error: Throwable) {
-        this.error = error
-    }
 
-    @Composable
-    override fun ComposePanelPlacer.gui() {
-        if (error != null) {
-            FunPanel(Modifier.align(Alignment.Center)) {
+    init {
+        context.events.guiError.listen {
+            this.error = it
+        }
+        context.addFunPanel {
+            if (error != null) {
                 Card {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Error, "error", tint = Color.Red, modifier = Modifier.padding(10.dp).size(50.dp))
                         Column(Modifier.verticalScroll(rememberScrollState())) {
                             Text(
-                                text = "Error: "  + (error!!.message ?: "Unknown error"),
+                                text = "Error: " + (error!!.message ?: "Unknown error"),
                                 modifier = Modifier.align(Alignment.CenterHorizontally),
                                 fontSize = MaterialTheme.typography.titleLarge.fontSize,
                                 color = Color.Red
@@ -51,5 +49,4 @@ class ErrorNotificationMod : FunMod {
             }
         }
     }
-
 }

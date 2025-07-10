@@ -219,7 +219,7 @@ fun <T> FunState<T>.collectAsState(): State<T> {
     val state = remember(this) { mutableStateOf(value) }
     DisposableEffect(this) {
         val listener = beforeChange {
-            println("New value: $it")
+//            println("New value: $it")
             state.value = it
         }
         onDispose {

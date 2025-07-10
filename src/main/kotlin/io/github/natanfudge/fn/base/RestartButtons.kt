@@ -17,11 +17,9 @@ import io.github.natanfudge.fn.gltf.clearModelCache
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.collectAsState
 
-class RestartButtonsMod(val context: FunContext) : FunMod {
-    @Suppress("UNCHECKED_CAST")
-    @Composable
-    override fun ComposePanelPlacer.gui() {
-        FunPanel(Modifier.align(Alignment.CenterStart)) {
+class RestartButtons(val context: FunContext){
+    init {
+        context.addFunPanel({Modifier.align(Alignment.CenterStart)}) {
             Surface(color = Color.Transparent) {
                 Column {
                     Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {

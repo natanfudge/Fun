@@ -21,6 +21,15 @@ class BaseFunEvents {
     val appClose = MutEventStream<Unit>()
 }
 
+internal object FunContextRegistry {
+    private lateinit var context: FunContext
+    fun setContext(context: FunContext) {
+        this.context = context
+    }
+
+    fun getContext() = context
+}
+
 class FunContext(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
     private val stateContext: FunStateContext,

@@ -11,13 +11,16 @@ import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.render.FunInputAdapter
+import io.github.natanfudge.fn.render.FunSurface
+import io.github.natanfudge.fn.render.FunWindow
+import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
-import org.jetbrains.compose.reload.staticHotReloadScope
+import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
@@ -57,8 +60,23 @@ private fun run(app: FunAppInitializer<*>) {
 //    }
 
 
-    staticHotReloadScope.invokeAfterHotReload {
+
+    invokeAfterHotReload { id, result ->
+        val reload = result.leftOrNull() ?: return@invokeAfterHotReload
+//        println("Full reload information: " + reload)
+//        println("redefined classes: ${reload.dirtyRuntime.redefinedClasses}")
+//        println("")
+//        reload.dirtyRuntime
+//        reload.definitions.forEach {
+//            println("Reloaded class: ${it.definitionClass}")
+//        }
         loop.reloadCallback = {
+            val redefinedClasses = reload.definitions.map { it.definitionClass }
+            val context = FunContextRegistry.getContext()
+            println("Root classes: ${context.rootFuns.keys}")
+
+            println("Reload data:" + reload)
+
             hotReloadIndex++
             println("Reloading app")
 
@@ -78,6 +96,28 @@ private fun run(app: FunAppInitializer<*>) {
 
         }
     }
+
+//    staticHotReloadScope.invokeAfterHotReload {
+//        loop.reloadCallback = {
+//            hotReloadIndex++
+//            println("Reloading app")
+//
+//            ProcessLifecycle.removeChildren()
+//
+//            app.close()
+//            app.init()
+//
+//            try {
+//                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel, ComposeWebGPURenderer.SurfaceLifecycleName))
+//            } catch (e: Throwable) {
+//                println("Failed to perform a granular restart, trying to restart the app entirely")
+//                e.printStackTrace()
+//                ProcessLifecycle.restart()
+//            }
+//            println("Reload done2")
+//
+//        }
+//    }
 
 //    FunHotReload.reloadEnded.listen {
 //        // This has has special handling because it needs to run while the gameloop is locked
@@ -168,6 +208,7 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
         })
         appLifecycle = funSurface.bind(AppLifecycleName) {
             val context = FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
+            FunContextRegistry.setContext(context)
             val time = FunTime(context)
             context.time = time
 
@@ -203,6 +244,7 @@ abstract class FunApp : AutoCloseable {
         mods.add(mod)
         return mod
     }
+
     @Deprecated("")
     fun installMods(vararg mods: FunMod) {
         mods.forEach { installMod(it) }
@@ -214,14 +256,17 @@ abstract class FunApp : AutoCloseable {
     open fun ComposePanelPlacer.gui() {
 
     }
+
     @Deprecated("")
     open fun handleInput(input: InputEvent) {
 
     }
+
     @Deprecated("")
     open fun frame(delta: Double) {
 
     }
+
     @Deprecated("")
     open fun physics(delta: Duration) {
 
@@ -237,7 +282,7 @@ abstract class FunApp : AutoCloseable {
     }
 }
 
-internal fun FunApp.actualOnError(error: Throwable)  {
+internal fun FunApp.actualOnError(error: Throwable) {
 //    gui()
     context.events.guiError.emit(error)
     mods.forEach {
@@ -257,6 +302,7 @@ internal fun FunApp.actualGui() = context.gui.PanelSupport {
         }
     }
 }
+
 @Deprecated("")
 internal fun FunApp.actualHandleInput(input: InputEvent) {
 
@@ -280,8 +326,6 @@ internal fun FunApp.actualPhysics(delta: Duration) {
     context.events.afterPhysics.emit(delta)
     mods.forEach { it.postPhysics(delta) }
 }
-
-
 
 
 typealias FunAppInit<T> = FunAppBuilder.() -> ((context: FunContext) -> T)

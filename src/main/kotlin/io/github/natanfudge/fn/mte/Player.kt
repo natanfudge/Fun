@@ -86,6 +86,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             val grounded = physics.isGrounded
             val isJumping = jump.isPressed && grounded
 
+//            println("Pressed: ${left.isPressed}")
             if (left.isPressed) {
                 render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(deltaSecs * 3, 0f, 0f)
@@ -127,9 +128,9 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
             val landing = wasInAirLastFrame && grounded
             wasInAirLastFrame = !grounded
 
-            if (landing) {
+            if (!digging && landing) {
                 animation.play("land", loop = false)
-            } else if (isJumping) {
+            } else if (!digging&& isJumping) {
                 animation.play("jump", loop = false)
             } else if (running && grounded) {
                 animation.play(
@@ -140,6 +141,10 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
                 // Don't play idle while landing, to let the landing animation finish.
                 animation.play("active-idle")
             }
+
+
+//            println("halo??")
+
             if (digging) {
                 animation.play(
                     "dig",
@@ -227,6 +232,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
 
     val blockPos get() = physics.translation.toBlockPos()
+
 
 
     /**
