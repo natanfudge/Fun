@@ -20,7 +20,7 @@ class MineTheEarthMainMenuTemp(override val context: FunContext) : FunApp() {
     }
 }
 
-class DeepSouls(context: FunContext) : Fun(context, "DeepSouls") {
+class DeepSouls(context: FunContext) : FunOld(context, "DeepSouls") {
     val inMainMenuState = funValue(true, "inMainMenu")
     var inMainMenu by inMainMenuState
 

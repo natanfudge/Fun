@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.test.physics
 
 import io.github.natanfudge.fn.physics.Body
-import io.github.natanfudge.fn.physics.SimplePhysicsObject
 import io.github.natanfudge.fn.test.util.shouldRoughlyEqual
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 

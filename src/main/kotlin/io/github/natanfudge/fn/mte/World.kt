@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.mte
 
-import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.state.funList
 import io.github.natanfudge.fn.network.state.funMap
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -8,10 +8,10 @@ import kotlin.math.roundToInt
 
 private data class PositionedBlock(
     val type: BlockType,
-    val pos: BlockPos
+    val pos: BlockPos,
 )
 
-class World(val game: MineTheEarthGame) : Fun( game.context, "World") {
+class World(val game: MineTheEarthGame) : FunOld(game.context, "World") {
     private val width = 21
     private val height = 21
 
@@ -58,7 +58,7 @@ class World(val game: MineTheEarthGame) : Fun( game.context, "World") {
                         val vz = vblock.second + (-1..1).random()
                         if (vx in 0 until mapWidth && vz in 0 until height && Pair(vx, vz) !in placed) {
                             placed.add(Pair(vx, vz))
-                            val list =  matrix[vz]
+                            val list = matrix[vz]
                             list[vx] = PositionedBlock(
                                 block, BlockPos(x = vx, z = vz, y = 0)
                             )
@@ -68,7 +68,7 @@ class World(val game: MineTheEarthGame) : Fun( game.context, "World") {
             }
         }
 
-        return matrix.flatten().map { Block(game,it.type,  it.pos.copy(x = it.pos.x - 10, z = it.pos.z - 10)) }
+        return matrix.flatten().map { Block(game, it.type, it.pos.copy(x = it.pos.x - 10, z = it.pos.z - 10)) }
     }
 
     val blocks = funMap<BlockPos, Block>(
@@ -86,7 +86,9 @@ class World(val game: MineTheEarthGame) : Fun( game.context, "World") {
     val items = funList<WorldItem>("items")
 
     fun spawnItem(item: Item, pos: Vec3f) {
-        items.add(WorldItem(game, item, pos))
+        items.add(WorldItem(game, item).apply {
+            physics.position = pos
+        })
     }
 
     fun initialize() {

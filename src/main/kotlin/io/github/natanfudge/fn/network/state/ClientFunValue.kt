@@ -4,8 +4,10 @@ package io.github.natanfudge.fn.network.state
 
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
-import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.core.FunStateContext
+import io.github.natanfudge.fn.core.StateId
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.EventStream
@@ -23,7 +25,7 @@ import kotlin.reflect.typeOf
  * Without hot reload, this just returns [initialValue]
  */
 @PublishedApi
-internal inline fun <reified T> Fun.useOldStateIfPossible(initialValue: T, parentId: FunId, stateId: FunId): T {
+internal inline fun <reified T> FunOld.useOldStateIfPossible(initialValue: T, parentId: FunId, stateId: FunId): T {
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
     if(parentId.contains("Player")) {
         println("Old value for $parentId:$stateId is $oldState")
@@ -34,13 +36,13 @@ internal inline fun <reified T> Fun.useOldStateIfPossible(initialValue: T, paren
 /**
  * Creates a property delegate that automatically synchronizes its value across all clients.
  *
- * This function is used to create properties in [Fun] components that will be automatically
+ * This function is used to create properties in [FunOld] components that will be automatically
  * synchronized when their value changes.
  *
  * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
- * @see Fun
+ * @see FunOld
  */
-inline fun <reified T> Fun.funValue(
+inline fun <reified T> FunOld.funValue(
     initialValue: T,
     id: FunId,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
@@ -51,7 +53,8 @@ inline fun <reified T> Fun.funValue(
 ): ClientFunValue<T> {
     // SLOW: too much code in inline function
     val funValue = ClientFunValue(
-        useOldStateIfPossible(initialValue, this.id, id), getFunSerializer<T>(), id, this, editor
+        useOldStateIfPossible(initialValue, this.id, id),
+        getFunSerializer<T>(), id, this.id,this.context, editor
     )
     if (onSetValue != null) {
         funValue.beforeChange(onSetValue)
@@ -80,12 +83,14 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
  * Similarly, when another client modifies the property, the change is automatically applied locally.
  *
  * @see funValue
- * @see Fun
+ * @see FunOld
  */
 class ClientFunValue<T>(
-    value: T, private val serializer: KSerializer<T>, private val id: FunId, private val owner: Fun,
+    value: T, private val serializer: KSerializer<T>, private val id: StateId,
+    private val ownerId: FunId,
+    private val context: FunStateContext,
     override val editor: ValueEditor<T>,
-) : ReadWriteProperty<Fun, T>, FunState<T> {
+) : ReadWriteProperty<Any?, T>, FunState<T> {
 
 //    private var composeValue
 //    private var registered: Boolean = false
@@ -94,8 +99,8 @@ class ClientFunValue<T>(
 
 
     init {
-        owner.context.stateManager.registerState(
-            holderKey = owner.id,
+        context.stateManager.registerState(
+            holderKey = ownerId,
             propertyKey = id,
             state = this as ClientFunValue<Any?>
         )
@@ -140,7 +145,7 @@ class ClientFunValue<T>(
      * On first access, the property is registered with the client and any pending
      * updates are applied.
      */
-    override fun getValue(thisRef: Fun, property: KProperty<*>): T {
+    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
 //        capturePropertyValues(thisRef, property)
         return value
     }
@@ -150,7 +155,7 @@ class ClientFunValue<T>(
      *
      * On first access, the property is registered with the client.
      */
-    override fun setValue(thisRef: Fun, property: KProperty<*>, value: T) {
+    override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
         this.value = value
 //        capturePropertyValues(thisRef, property)
 //        _setValue(value)

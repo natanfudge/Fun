@@ -8,8 +8,8 @@
 //import io.github.natanfudge.fn.files.readImage
 //import io.github.natanfudge.fn.gltf.fromGlbResource
 //import io.github.natanfudge.fn.core.Fun
-//import io.github.natanfudge.fn.physics.render
-//import io.github.natanfudge.fn.physics.physics
+//import io.github.natanfudge.fn.render.render
+//import io.github.natanfudge.fn.render.physics
 //import io.github.natanfudge.fn.render.*
 //import io.github.natanfudge.wgpu4k.matrix.Quatf
 //import io.github.natanfudge.wgpu4k.matrix.Vec3f

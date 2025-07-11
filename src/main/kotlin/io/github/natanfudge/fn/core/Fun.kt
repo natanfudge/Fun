@@ -1,131 +1,88 @@
 package io.github.natanfudge.fn.core
 
-import io.github.natanfudge.fn.base.FunResource
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
+import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.network.state.chooseEditor
+import io.github.natanfudge.fn.network.state.getFunSerializer
+import kotlinx.serialization.Serializable
+import kotlin.reflect.KClass
+import kotlin.reflect.typeOf
 
 
-//interface IFun {
-//    val id: FunId
-//
-//    val context: FunContext
-//
-//    fun registerChild(child: Fun)
-//
-//    fun unregisterChild(child: Fun)
-//}
+@Serializable
+abstract class Fun() {
+    abstract val id: FunId
 
-/**
- * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
- *
- * Fun components automatically register themselves with a [FunStateManager] and use [funValue] properties
- * to synchronize state changes across all clients.
- *
- * @sample io.github.natanfudge.fn.example.network.NetworkExamples.networkStateExample
- */
-abstract class Fun(
-    override val context: FunContext,
-    /**
-     * Unique identifier for this component. Components with the same ID across different clients
-     * will synchronize their state.
-     */
-    /*override*/ val id: FunId,
-    val parent: Fun? = null,
-) : AutoCloseable, Taggable, FunResource {
-    val isRoot: Boolean = parent == null
+    // TODO: need to think how to properly scope this, a ThreadLocal sounds cool (for FunContextRegistry.getContext()).
+    val context: FunStateContext = FunContextRegistry.getContext()
 
-    constructor(parent: Fun, name: String) : this(parent.context, parent.id.child(name), parent) {
-        parent.registerChild(this)
-    }
+    private var registered = false
 
-    private val tags = mutableMapOf<String, Any?>()
-
-    override fun <T> getTag(tag: Tag<T>): T? {
-        return tags[tag.name] as T?
-    }
-
-    override fun removeTag(tag: Tag<*>) {
-        tags.remove(tag.name)
-    }
-
-    override fun <T> setTag(tag: Tag<T>, value: T?) {
-        tags[tag.name] = value
-    }
-
-    override fun hasTag(tag: Tag<*>): Boolean {
-        return tag.name in tags
-    }
-
-//    val closeEvent: EventStream<Unit>
-//        field = MutEventStream<Unit>()
+    @PublishedApi
+    internal fun registerIfNeeded() {
+        if (!registered) {
+            // OLD COMMENT:
+            // We're gonna allow reregistering the fun state in case we hot reloaded, in order to reuse the state.
+            // Before hot reload, there is no excuse to register the same Fun state twice.
+            // After hot reload, the line gets blurry and there's no way to know whether a state is "before hot reload state" or "previous app state"
+            // In the future we might seperate those, but this is good enough for now.
 
 
-    val children = mutableListOf<Fun>()
-
-     fun registerChild(child: Fun) {
-        children.add(child)
-    }
-
-      fun unregisterChild(child: Fun) {
-        children.remove(child)
-    }
-
-    private val childCloseables = mutableSetOf<AutoCloseable>()
-
-    override fun alsoClose(closeable: AutoCloseable) {
-        childCloseables.add(closeable)
-    }
-
-    /**
-     * `this` will be closed when this Fun is closed.
-     * @return `this`.
-     */
-    fun AutoCloseable.closeWithThis() = apply { childCloseables.add(this) }
-
-    init {
-        context.register(this)
-    }
-
-//    private val closeEvent = MutEventStream<Unit>()
-//    override fun onClose(callback: () -> Unit): Listener<Unit> = closeEvent.listen { callback() }
-
-    override fun toString(): String {
-        return id
-    }
-
-    final override fun close() {
-        close(unregisterFromParent = true, deleteState = true)
-    }
-
-    /**
-     * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
-     * @param deleteState If true, the state of this Fun will be deleted.
-     * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state and its place in rootFuns if it had one.
-     */
-    internal fun close(unregisterFromParent: Boolean,  deleteState: Boolean, unregisterFromContext: Boolean = true,) {
-        if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
-        childCloseables.forEach { it.close() }
-        cleanup()
-        // No need to unregister when this is getting closed anyway
-        children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext, deleteState = deleteState) }
-        if (unregisterFromParent) {
-            parent?.unregisterChild(this)
+            // NEW COMMENT:
+            // Just allow reregister for now to simplify
+            context.stateManager.register(id, allowReregister = true)
+            registered = true
         }
     }
 
-    protected open fun cleanup() {
+//    inline fun <reified T> fromConstructor(
+//        id: StateId,
+//        editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
+//        /**
+//         * If not null, a listener will be automatically registered for [onSetValue].
+//         */
+//        noinline onSetValue: ((value: T) -> Unit)? = null,
+//    ) = funValue(unsafeNull(), id, editor, onSetValue)
 
+    @Suppress("UNCHECKED_CAST")
+    fun <T> lateInit(): T = null as T
+
+    inline fun <reified T> funValue(
+        initialValue: T,
+        id: StateId,
+        editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
+        /**
+         * If not null, a listener will be automatically registered for [onSetValue].
+         */
+        noinline onSetValue: ((value: T) -> Unit)? = null,
+    ): ClientFunValue<T> {
+        registerIfNeeded()
+        val funValue = ClientFunValue(
+            useOldStateIfPossible(initialValue, parentId = this.id, stateId = id),
+            getFunSerializer<T>(), id, this.id, context, editor
+        )
+        if (onSetValue != null) {
+            funValue.beforeChange(onSetValue)
+        }
+        return funValue
     }
 
+
+    fun child(childId: FunId) = id.child(childId)
+
+    /**
+     * When hot reload occurs, the state is not deleted, so when this function is called the state will be retained from before the reload.
+     * Without hot reload, this just returns [initialValue]
+     */
+    @PublishedApi
+    internal inline fun <reified T> useOldStateIfPossible(initialValue: T, parentId: FunId, stateId: StateId): T {
+        val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
+        if (parentId.contains("Player")) {
+            println("Old value for $parentId:$stateId is $oldState")
+        }
+        return if (oldState is T) oldState else initialValue
+    }
 }
 
-interface Taggable {
-    fun <T> getTag(tag: Tag<T>): T?
-    fun <T> setTag(tag: Tag<T>, value: T?)
-    fun removeTag(tag: Tag<*>)
-    fun hasTag(tag: Tag<*>): Boolean
-}
-
-data class Tag<T>(val name: String)
-
-typealias FunId = String
-
-fun FunId.child(name: String) = "$this/$name"
+//// TODO: in the future, we need to think about a mechanism where the server decide on the one true ID and gives it to the client.
+//fun uniqueId(prefix: String = "") = prefix + UUID.randomUUID()

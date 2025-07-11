@@ -21,10 +21,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.*
-import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.listenAsState
-import io.github.natanfudge.fn.physics.FunRenderStateOld
+import io.github.natanfudge.fn.render.FunRenderObject
+import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
 fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
@@ -96,11 +97,11 @@ class VisualEditor(
 
     private val context = hoverMod.context
     private var mouseDownPos: Offset? = null
-    var selectedObject: FunRenderStateOld? by mutableStateOf(null)
+    var selectedObject: FunRenderObject? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
 
     @Composable
-    fun FunEditor(fn: Fun) {
+    fun FunEditor(fn: FunOld) {
         val values = context.stateManager.getState(fn.id)
         if (values != null) {
             Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
@@ -131,7 +132,7 @@ class VisualEditor(
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.world.hoveredObject as? FunRenderStateOld
+                val selected = context.world.hoveredObject as? FunRenderObject
                 if (selectedObject != selected) {
                     // Restore the old color
                     restoreOldTint()

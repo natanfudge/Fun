@@ -2,7 +2,7 @@
 
 package io.github.natanfudge.fn.network.state
 
-import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.util.ImmutableCollection
@@ -26,11 +26,11 @@ import kotlinx.serialization.builtins.MapSerializer
  * @see funSet
  * @see funList
  */
-inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
+inline fun <reified K, reified V> FunOld.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
     funMap(name, getFunSerializer(), getFunSerializer(), mutableMapOf(*items))
 
 
-inline fun <reified K, reified V> Fun.funMap(name: String,  items: Map<K,V>): FunMap<K, V> =
+inline fun <reified K, reified V> FunOld.funMap(name: String, items: Map<K,V>): FunMap<K, V> =
     funMap(name, getFunSerializer(), getFunSerializer(), items.toMutableMap())
 
 /**
@@ -45,7 +45,7 @@ inline fun <reified K, reified V> Fun.funMap(name: String,  items: Map<K,V>): Fu
  * @see funSet
  * @see funList
  */
-fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
+fun <K, V> FunOld.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
     val map = FunMap(useOldStateIfPossible(items,this.id,name), name, this, keySerializer, valueSerializer)
     context.stateManager.registerState(id, name, map)
     return map
@@ -59,7 +59,7 @@ fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializ
  * like any other map. However, any modifications to the map (putting, removing entries)
  * are automatically synchronized across all clients in the multiplayer environment.
  * 
- * Create instances using the [funMap] extension function on [Fun].
+ * Create instances using the [funMap] extension function on [FunOld].
  * 
  * Example usage:
  * ```
@@ -77,7 +77,7 @@ fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializ
 class FunMap<K, V> @PublishedApi internal constructor(
     @InternalFunApi val _items: MutableMap<K, V>,
     private val name: String,
-    private val owner: Fun,
+    private val owner: FunOld,
     private val keySerializer: KSerializer<K>,
     private val valueSerializer: KSerializer<V>,
 ) : MutableMap<K, V> , FunState<Map<K,V>> {

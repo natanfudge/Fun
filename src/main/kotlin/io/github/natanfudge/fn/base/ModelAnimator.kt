@@ -2,8 +2,8 @@ package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.physics.FunRenderStateOld
 import io.github.natanfudge.fn.render.Animation
+import io.github.natanfudge.fn.render.FunRenderObject
 import io.github.natanfudge.fn.render.ModelNode
 import io.github.natanfudge.fn.render.SkeletalTransformation
 import io.github.natanfudge.fn.render.Transform
@@ -55,7 +55,7 @@ class ActiveAnimation(
 }
 
 
-class ModelAnimator(private val render: FunRenderStateOld) {
+class ModelAnimator(private val render: FunRenderObject) {
     /**
      * Used to track which animations affect which bones, so we need which animations to run when multiply animations try to run at the same time.
      */

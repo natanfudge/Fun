@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
-import io.github.natanfudge.fn.base.listen
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
@@ -156,7 +155,7 @@ private fun run(app: FunAppInitializer<*>) {
     exitProcess(0)
 }
 
-class FunTime(context: FunContext) : Fun(context, "time") {
+class FunTime(context: FunContext) : FunOld(context, "time") {
     var speed by funValue(1f, "speed")
     internal lateinit var app: FunApp
     fun advance(time: Duration) {

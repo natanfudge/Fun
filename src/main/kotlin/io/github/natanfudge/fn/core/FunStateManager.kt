@@ -19,7 +19,7 @@ import kotlinx.serialization.KSerializer
  * Implementations of this interface handle the communication between clients,
  * serializing values and ensuring they reach the appropriate destinations.
  *
- * @see Fun
+ * @see FunOld
  */
 interface FunStateSynchronizer {
     /**
@@ -186,7 +186,7 @@ interface FunCommunication {
  * - Sending state updates to other clients
  * - Receiving and applying state updates from other clients
  *
- * @see Fun
+ * @see FunOld
  */
 class FunStateManager(
 //    val synchronizer: FunStateSynchronizer,
@@ -205,18 +205,18 @@ class FunStateManager(
     /**
      * Registers a Fun component with this client, allowing it to send and receive state updates.
      */
-    internal fun register(fn: Fun, allowReregister: Boolean) {
-        if (fn.id in stateHolders) {
+    internal fun register(fn: FunId, allowReregister: Boolean) {
+        if (fn in stateHolders) {
             if (allowReregister) {
                 return
             } else {
-                throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give Fun components unique IDs. ")
+                throw IllegalArgumentException("A state holder with the id '${fn}' was registered twice. Make sure to give Fun components unique IDs. ")
             }
         }
-        stateHolders[fn.id] = MapStateHolder()
+        stateHolders[fn] = MapStateHolder()
     }
 
-    internal fun unregister(fn: Fun) {
+    internal fun unregister(fn: FunOld) {
         stateHolders.remove(fn.id)
     }
 

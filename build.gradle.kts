@@ -90,6 +90,7 @@ dependencies {
     implementation("org.jetbrains.compose.hot-reload:hot-reload-core:1.0.0-beta03")
     implementation("org.jetbrains.compose.hot-reload:hot-reload-orchestration:1.0.0-beta03")
     implementation("org.jetbrains.compose.hot-reload:hot-reload-analysis:1.0.0-beta03")
+    implementation(kotlin("reflect"))
 
     implementation(libs.bundles.lwjgl)
     runtimeOnly(libs.bundles.lwjgl) {
@@ -125,9 +126,9 @@ kotlin {
 
 //        vendor = JvmVendorSpec.JETBRAINS
     }
-    sourceSets.all {
-        languageSettings.enableLanguageFeature("ExplicitBackingFields")
-    }
+//    sourceSets.all {
+//        languageSettings.enableLanguageFeature("ExplicitBackingFields")
+//    }
     compilerOptions {
         freeCompilerArgs.addAll("-Xcontext-parameters", "-Xwhen-guards")
     }

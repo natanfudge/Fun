@@ -54,7 +54,7 @@ class FunContext(
 
     var camera = DefaultCamera()
 
-    val rootFuns = mutableMapOf<FunId, Fun>()
+    val rootFuns = mutableMapOf<FunId, FunOld>()
     private var restarting = false
 
     /**
@@ -71,7 +71,7 @@ class FunContext(
     }
 
 
-    fun register(fn: Fun) {
+    fun register(fn: FunOld) {
         if (restarting) throw UnallowedFunException("Don't spawn Funs during cleanup of a Fun.")
         if (fn.isRoot) {
             rootFuns[fn.id] = fn
@@ -80,10 +80,10 @@ class FunContext(
         // Before hot reload, there is no excuse to register the same Fun state twice.
         // After hot reload, the line gets blurry and there's no way to know whether a state is "before hot reload state" or "previous app state"
         // In the future we might seperate those, but this is good enough for now.
-        stateContext.stateManager.register(fn, allowReregister = hotReloaded)
+        stateContext.stateManager.register(fn.id, allowReregister = hotReloaded)
     }
 
-    fun unregister(fn: Fun, deleteState: Boolean) {
+    fun unregister(fn: FunOld, deleteState: Boolean) {
         // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
         if (restarting) return
         if (fn.isRoot) {

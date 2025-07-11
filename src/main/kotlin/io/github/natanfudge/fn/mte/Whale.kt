@@ -4,8 +4,8 @@
 //import io.github.natanfudge.fn.compose.utils.toList
 //import io.github.natanfudge.fn.gltf.fromGlbResource
 //import io.github.natanfudge.fn.core.Fun
-//import io.github.natanfudge.fn.physics.physics
-//import io.github.natanfudge.fn.physics.render
+//import io.github.natanfudge.fn.render.physics
+//import io.github.natanfudge.fn.render.render
 //import io.github.natanfudge.fn.render.Model
 //import io.github.natanfudge.wgpu4k.matrix.Vec3f
 //import korlibs.time.times

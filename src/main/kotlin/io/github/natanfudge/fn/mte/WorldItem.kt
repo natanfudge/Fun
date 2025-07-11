@@ -1,13 +1,25 @@
 package io.github.natanfudge.fn.mte
 
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.gltf.fromGlbResource
+import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.render
+import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.physics
+import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.seconds
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.json.Json
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -29,7 +41,85 @@ data class Item(
     }
 }
 
-class WorldItem(val game: MineTheEarthGame, item: Item, pos: Vec3f) : Fun(game.context, game.nextFunId("Item-${item.type}")) {
+class XD
+
+class Box<T>(
+    var value: T,
+    val exists: Boolean
+)
+
+class FakeNullabilityMutableState<T>: MutableState<T> {
+    private var _value: T? = null
+
+    override var value: T
+        get() = _value as T
+        set(value) {
+            _value = value
+        }
+
+    override fun component1(): T {
+        return value
+    }
+
+    override fun component2(): (T) -> Unit {
+        return {
+            value = it
+        }
+    }
+
+}
+
+//TODO: employ this type gymnastic for
+@Serializable
+class Foo {
+    var x by FakeNullabilityMutableState<Int?>()
+
+    constructor(x: Int) {
+        this.x = x
+    }
+
+    fun x(): Int? {
+        return x
+    }
+}
+
+//@Serializable
+//class Bar(x: Int) {
+//    @Transient
+//    val x: MutableState<Int> = mutableStateOf(x)
+//}
+
+fun main() {
+    val foo = Foo(1)
+    println(foo.x())
+    val json = Json.encodeToString(foo)
+    val back = Json.decodeFromString<Foo>(json)
+    println(json)
+    print(back)
+}
+
+//@Serializable
+class WorldItemState private constructor(override val id: String, val itemType: ItemType) : Fun() {
+    var itemCount by funValue<Int>(lateInit(),"itemCount")
+    constructor(item: Item, id: String) : this(id, item.type) {
+        itemCount = item.count
+    }
+}
+
+//@Serializable
+//class WorldItemState2(override val id: String, val itemType: ItemType) : Fun() {
+//    @Transient
+//    lateinit var itemCount: ClientFunValue<Int>
+//    constructor(item: Item, id: String) : this(id, item.type) {
+//        this.itemCount = funValue<Int>(item.count,"itemCount")
+//    }
+//}
+
+fun <T> funValueFromConstructor(id: String): ClientFunValue<T> {
+    TODO()
+}
+
+class WorldItem(val game: MineTheEarthGame, item: Item) : FunOld(game.context, game.nextFunId("Item-${item.type}")) {
     companion object {
         val models = ItemType.entries.filter { it != ItemType.Nothing }.associateWith {
             Model.fromGlbResource("files/models/items/${it.name.lowercase()}.glb")
@@ -47,11 +137,11 @@ class WorldItem(val game: MineTheEarthGame, item: Item, pos: Vec3f) : Fun(game.c
 
 
     val physics = physics(game.physics.system)
+    val renderState = FunRenderState(id.child("render"))
     val render = render(models.getValue(item.type), physics)
 
     init {
         physics.scale = Vec3f(0.5f, 0.5f, 0.5f)
-        physics.position = pos
 
         render.localTransform.rotation = render.localTransform.rotation.rotateZ(PI.toFloat() / 2)
 

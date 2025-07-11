@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.network.state
 
-import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.util.Listener
@@ -21,7 +21,7 @@ import java.util.function.IntFunction
  * @see funMap
  * @see funList
  */
-inline fun <reified T> Fun.funSet(name: String, vararg items: T): FunSet<T> = funSet(name, getFunSerializer(), mutableSetOf(*items))
+inline fun <reified T> FunOld.funSet(name: String, vararg items: T): FunSet<T> = funSet(name, getFunSerializer(), mutableSetOf(*items))
 
 /**
  * Creates a synchronized set that automatically propagates changes to all clients.
@@ -35,7 +35,7 @@ inline fun <reified T> Fun.funSet(name: String, vararg items: T): FunSet<T> = fu
  * @see funMap
  * @see funList
  */
-fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>): FunSet<T> {
+fun <T> FunOld.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>): FunSet<T> {
     val list = FunSet(useOldStateIfPossible(items,this.id,name), name, this, serializer)
     context.stateManager.registerState(id, name, list)
     return list
@@ -48,7 +48,7 @@ fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T
  * like any other set. However, any modifications to the set (adding, removing elements)
  * are automatically synchronized across all clients in the multiplayer environment.
  * 
- * Create instances using the [funSet] extension function on [Fun].
+ * Create instances using the [funSet] extension function on [FunOld].
  * 
  * Example usage:
  * ```
@@ -63,7 +63,7 @@ fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T
 class FunSet<T> @PublishedApi internal constructor(
     @InternalFunApi val _items: MutableSet<T>,
     private val name: String,
-    private val owner: Fun,
+    private val owner: FunOld,
     private val serializer: KSerializer<T>,
 ) : MutableSet<T>, FunState<Set<T>> {
 

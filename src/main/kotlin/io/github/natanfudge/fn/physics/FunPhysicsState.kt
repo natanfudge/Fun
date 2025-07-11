@@ -1,71 +1,33 @@
 package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.network.state.funValue
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
-import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.setValue
 
-class FunPhysicsState(
-    funParent: Fun,
-    baseAABB: AxisAlignedBoundingBox,
-    private val physics: PhysicsSystem,
-) : Fun(funParent, "physics"), Body, Transformable {
-    private val physicsTransform = FunTransform(this)
-
-    override var transform: Transform get() = physicsTransform.transform
-        set(value) {
-            physicsTransform.transform = value
-        }
-
+//TODO: remove placeholder Funid, FunOld shouldn't want this
+class FunPhysicsState(override val id: String) : Fun(), Body, Transformable {
+    val physicsTransform = FunTransform(child("transform"))
+    override var transform by physicsTransform::transform
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
         return physicsTransform.onTransformChange(callback)
     }
 
+    override val boundingBox: AxisAlignedBoundingBox
+        //TODO: optimize
+        get() = baseAABB.transformed(transform.toMatrix())
 
-    /**
-     * For `Fun` that have physics, it's generally best to update [position] and not [translation], since those are only applied once each frame.
-     */
-    override var position: Vec3f
-        get() = translation
-        set(value) {
-            physicsTransform.translation = value
-        }
+//    onTransformChange {
+//        boundingBox = baseAABB.transformed(transform.toMatrix())
+//    }
+//    state::baseAABB.getBackingState().beforeChange {
+//        this.boundingBox = it.transformed(transform.toMatrix())
+//    }
 
-    /**
-     * For `Fun` that have physics, it's generally best to update [orientation] and not [rotation], since those are only applied once each frame.
-     */
-    override var orientation: Quatf
-        get() = rotation
-        set(value) {
-            physicsTransform.rotation = value
-        }
-
-    var scale: Vec3f
-        get() = physicsTransform.scale
-        set(value) {
-            physicsTransform.scale = value
-        }
-
-    var baseAABB by funValue(baseAABB, "baseAABB") {
-        this.boundingBox = it.transformed(transform.toMatrix())
-    }
-
-    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
-        private set
-
-
-    private fun updateAABB(transform: Transform) {
-        boundingBox = baseAABB.transformed(transform.toMatrix())
-    }
-
-    init {
-        onTransformChange {
-            updateAABB(it)
-        }
-    }
+    var baseAABB by funValue(AxisAlignedBoundingBox.UnitAABB, "baseAABB")
 
     override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity")
     override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration")
@@ -76,12 +38,35 @@ class FunPhysicsState(
     override var isImmovable: Boolean by funValue(false, "isImmovable")
     override var collisionGroup: Int by funValue(0, "collisionGroup")
 
+    override var position by physicsTransform::translation
+
+    override var orientation by physicsTransform::rotation
+}
+
+//
+
+
+class FunBody(
+    funParent: FunOld,
+    private val physics: PhysicsSystem,
+    val state: FunPhysicsState,
+) : FunOld(funParent, "physics-placeholder"), Body by state, Transformable by state {
     init {
         physics.add(this)
     }
 
+    var baseAABB by state::baseAABB
+    var scale: Vec3f by state.physicsTransform::scale
+    override var velocity: Vec3f by state::velocity
+    override var acceleration: Vec3f by state::acceleration
+    override var affectedByGravity: Boolean by state::affectedByGravity
+    override var mass: Float by  state::mass
+    override var isImmovable: Boolean by state::isImmovable
+    override var collisionGroup: Int by state::collisionGroup
+    override var position by state::position
+    override var orientation by state::orientation
+
     override fun cleanup() {
         physics.remove(this)
     }
-
 }

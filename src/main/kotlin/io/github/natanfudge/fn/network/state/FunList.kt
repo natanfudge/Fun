@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.network.state
 
-import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.util.Listener
@@ -21,9 +21,9 @@ import java.util.function.IntFunction
  * @see funMap
  * @see funSet
  */
-inline fun <reified T> Fun.funList(name: String, vararg items: T): FunList<T> = funList(name, getFunSerializer(), mutableListOf(*items))
-inline fun <reified T> Fun.funList(name: String, items: MutableList<T>): FunList<T> = funList(name, getFunSerializer(), items)
-inline fun <reified T> Fun.funList(name: String, size: Int, init: (Int) -> T): FunList<T> = funList(name, getFunSerializer(), MutableList(size, init))
+inline fun <reified T> FunOld.funList(name: String, vararg items: T): FunList<T> = funList(name, getFunSerializer(), mutableListOf(*items))
+inline fun <reified T> FunOld.funList(name: String, items: MutableList<T>): FunList<T> = funList(name, getFunSerializer(), items)
+inline fun <reified T> FunOld.funList(name: String, size: Int, init: (Int) -> T): FunList<T> = funList(name, getFunSerializer(), MutableList(size, init))
 
 /**
  * Creates a synchronized list that automatically propagates changes to all clients.
@@ -37,7 +37,7 @@ inline fun <reified T> Fun.funList(name: String, size: Int, init: (Int) -> T): F
  * @see funMap
  * @see funSet
  */
-fun <T> Fun.funList(name: String, serializer: KSerializer<T>, items: MutableList<T>): FunList<T> {
+fun <T> FunOld.funList(name: String, serializer: KSerializer<T>, items: MutableList<T>): FunList<T> {
     val list = FunList(useOldStateIfPossible(items,this.id,name), name, this, serializer)
     context.stateManager.registerState(id, name, list)
     return list
@@ -50,7 +50,7 @@ fun <T> Fun.funList(name: String, serializer: KSerializer<T>, items: MutableList
  * like any other list. However, any modifications to the list (adding, removing, setting elements)
  * are automatically synchronized across all clients in the multiplayer environment.
  * 
- * Create instances using the [funList] extension function on [Fun].
+ * Create instances using the [funList] extension function on [FunOld].
  * 
  * Example usage:
  * ```
@@ -69,7 +69,7 @@ fun <T> Fun.funList(name: String, serializer: KSerializer<T>, items: MutableList
 class FunList<T> @PublishedApi internal constructor(
     @InternalFunApi val _items: MutableList<T>,
     private val name: String,
-    private val owner: Fun,
+    private val owner: FunOld,
     private val serializer: KSerializer<T>,
 ) : MutableList<T>, FunState<List<T>> {
 
