@@ -5,7 +5,7 @@ package io.github.natanfudge.fn.render
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.error.UnallowedFunException
-import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.physics.Transformable
 import io.github.natanfudge.fn.render.utils.GPUPointer
 import io.github.natanfudge.fn.util.Listener
@@ -172,7 +172,7 @@ private class JointTransform(val jointId: Int, val skinManager: SkinManager, val
     override var transform: Transform = worldTransform.transform.mul(node.transform)
 
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        val localListener = skinManager.jointTransformEvent.listen {
+        val localListener = skinManager.jointTransformEvent.listenPermanently {
             if (it.joint == jointId) {
                 transform = worldTransform.transform.mul(it.transform)
                 callback(transform)

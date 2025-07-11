@@ -5,8 +5,8 @@ import java.util.function.Consumer
 
 
 /**
- * Allows listening to changes of an object via the [listen] method.
- * Usually, another object owns an [MutEventStream] implementation of this interface, and emits values to it, which are received by the callback passed to [listen].
+ * Allows listening to changes of an object via the [listenPermanently] method.
+ * Usually, another object owns an [MutEventStream] implementation of this interface, and emits values to it, which are received by the callback passed to [listenPermanently].
  * @sample io.github.natanfudge.fn.test.example.util.ObservableExamples.observableExample
  */
 interface EventStream<T> {
@@ -14,18 +14,19 @@ interface EventStream<T> {
         fun <T> create() = MutEventStream<T>()
     }
 
-    /**
-     * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [MutEventStream]).
-     * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks
-     * and unnecessary processing.
-     * @see EventStream
-     */
-    fun listen(onEvent: Consumer<T>): Listener<T>
+    @Deprecated("use scoped listen", replaceWith = ReplaceWith("listen(onEvent)"))
+            /**
+             * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [MutEventStream]).
+             * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks
+             * and unnecessary processing.
+             * @see EventStream
+             */
+    fun listenPermanently(onEvent: Consumer<T>): Listener<T>
 }
 
 /**
  * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method
- * to stop listening. This is typically returned by [EventStream.listen].
+ * to stop listening. This is typically returned by [EventStream.listenPermanently].
  * @see EventStream
  */
 interface Listener<in T> : AutoCloseable {
@@ -46,10 +47,10 @@ class ComposedListener<T>(private val first: Listener<T>, private val second: Li
     }
 }
 
-fun Listener<*>.compose(other: Listener<*>): Listener<*>  = ComposedListener(this, other)
+fun Listener<*>.compose(other: Listener<*>): Listener<*> = ComposedListener(this, other)
 
 @Suppress("UNCHECKED_CAST")
-fun <T,R> Listener<T>.cast() = this as Listener<R>
+fun <T, R> Listener<T>.cast() = this as Listener<R>
 
 
 class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : Listener<T> {
@@ -83,12 +84,16 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
 class MutEventStream<T> : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
+    private val pendingDetachments = mutableSetOf<Listener<T>>()
+    private var emitting = false
+
     fun clearListeners() {
         listeners.clear()
     }
 
     /** @see EventStream */
-    override fun listen(onEvent: Consumer<T>): Listener<T> {
+    @Deprecated("use scoped listen", replaceWith = ReplaceWith("listen(onEvent)"))
+    override fun listenPermanently(onEvent: Consumer<T>): Listener<T> {
         val listener = ListenerImpl(onEvent, this)
         listeners.add(listener)
         return listener
@@ -99,9 +104,15 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     fun emit(value: T) {
+        emitting = true
         for (listener in listeners) {
             listener.callback.accept(value)
         }
+        emitting = false
+        pendingDetachments.forEach {
+            detach(it)
+        }
+        pendingDetachments.clear()
     }
 
     /**
@@ -110,6 +121,11 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     internal fun detach(listener: Listener<T>) {
+        // Allow detach() to work without a CME during an emit, by waiting until the emit is done and only then detaching.
+        if (emitting) {
+            pendingDetachments.add(listener)
+            return
+        }
         if (!listeners.remove(listener)) {
             if (listener is Listener.Stub) {
                 throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")

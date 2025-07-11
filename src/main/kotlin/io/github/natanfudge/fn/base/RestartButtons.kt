@@ -4,18 +4,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.gltf.clearModelCache
 import io.github.natanfudge.fn.hotreload.FunHotReload
-import io.github.natanfudge.fn.network.state.collectAsState
+import io.github.natanfudge.fn.network.state.listenAsState
 
 class RestartButtons(val context: FunContext){
     init {
@@ -41,7 +38,7 @@ class RestartButtons(val context: FunContext){
                         if (context.time.stopped) context.time.resume()
                         else context.time.stop()
                     }) {
-                        val stopped by context.time.stoppedState.collectAsState()
+                        val stopped by context.time.stoppedState.listenAsState()
                         Text("${if (stopped) "Resume" else "Stop"} Game")
                     }
                     Button(onClick = {
@@ -52,7 +49,7 @@ class RestartButtons(val context: FunContext){
 
                     Button(onClick = {
                         FunHotReload.reloadStarted.emit(Unit)
-                        FunHotReload.reloadEnded.emit(Unit)
+                        FunHotReload.reloadEnded.emit(null)
                     }) {
                         Text("Emulate Hot Reload")
                     }

@@ -2,7 +2,7 @@ package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.physics.FunRenderState
+import io.github.natanfudge.fn.physics.FunRenderStateOld
 import io.github.natanfudge.fn.render.Animation
 import io.github.natanfudge.fn.render.ModelNode
 import io.github.natanfudge.fn.render.SkeletalTransformation
@@ -20,7 +20,13 @@ interface FunResource {
 }
 
 fun <T> EventStream<T>.listen(resource: FunResource, callback: (T) -> Unit) {
-    val listener = listen(callback)
+    val listener = listenPermanently(callback)
+    resource.alsoClose(listener)
+}
+
+context(resource: FunResource)
+fun <T> EventStream<T>.listen(callback: (T) -> Unit) {
+    val listener = listenPermanently(callback)
     resource.alsoClose(listener)
 }
 
@@ -49,7 +55,7 @@ class ActiveAnimation(
 }
 
 
-class ModelAnimator(private val render: FunRenderState) {
+class ModelAnimator(private val render: FunRenderStateOld) {
     /**
      * Used to track which animations affect which bones, so we need which animations to run when multiply animations try to run at the same time.
      */

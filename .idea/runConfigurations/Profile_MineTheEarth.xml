@@ -2,7 +2,7 @@
   <configuration default="false" name="Profile MineTheEarth" type="JetRunConfigurationType">
     <option name="ALTERNATIVE_JRE_PATH" value="temurin-22" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
-    <option name="MAIN_CLASS_NAME" value="io.github.natanfudge.fn.mte.MineTheEarthKt" />
+    <option name="MAIN_CLASS_NAME" value="io.github.natanfudge.fn.mte.DeepSoulsKt" />
     <module name="Fun.main" />
     <shortenClasspath name="NONE" />
     <method v="2">

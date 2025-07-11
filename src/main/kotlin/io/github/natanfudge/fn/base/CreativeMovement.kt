@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,7 +17,6 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
-import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.render.CameraMode
@@ -35,7 +33,7 @@ class CreativeMovement(private val context: FunContext, private val inputManager
 
     init {
         with(camera) {
-            inputManager.mouseMoved.listen { delta ->
+            inputManager.mouseMoved.listenPermanently { delta ->
                 val normalizedDeltaX = delta.x / context.window.width
                 val normalizedDeltaY = delta.y / context.window.height
 
@@ -115,7 +113,7 @@ class CreativeMovement(private val context: FunContext, private val inputManager
                 }
             }
         }
-        context.events.input.listen { input ->
+        context.events.input.listenPermanently { input ->
             with(camera) {
                 when (input) {
                     is InputEvent.PointerEvent -> {

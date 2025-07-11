@@ -158,6 +158,6 @@ object ReloadClassService {
      */
     @JvmStatic
     fun reloadEnded(className: String?) {
-        FunHotReload.reloadEnded.emit(Unit)
+        FunHotReload.reloadEnded.emit(null)
     }
 }

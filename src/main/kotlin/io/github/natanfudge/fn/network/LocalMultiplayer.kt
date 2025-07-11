@@ -1,5 +1,10 @@
 package io.github.natanfudge.fn.network
 
+import io.github.natanfudge.fn.core.ClientHandle
+import io.github.natanfudge.fn.core.FunClient
+import io.github.natanfudge.fn.core.FunCommunication
+import io.github.natanfudge.fn.core.FunServer
+import io.github.natanfudge.fn.core.StateSyncPolicy
 import io.github.natanfudge.fn.network.state.NetworkValue
 import io.github.natanfudge.fn.network.state.StateChangeValue
 
@@ -41,9 +46,9 @@ data class StateChange(val key: StateKey, val value: StateChangeValue, val polic
 /**
  * Creates a local multiplayer environment where multiple clients can communicate with each other.
  *
- * Contains multiple [FunStateManager] instances that send and receive state updates without network connections.
+ * Contains multiple [io.github.natanfudge.fn.core.FunStateManager] instances that send and receive state updates without network connections.
  *
- * @see Fun
+ * @see io.github.natanfudge.fn.core.Fun
  */
 class LocalMultiplayer(
     /**
@@ -58,7 +63,7 @@ class LocalMultiplayer(
     }
 
     /**
-     * List of clients that can be used to connect [Fun] components.
+     * List of clients that can be used to connect [io.github.natanfudge.fn.core.Fun] components.
      * Each client has its own communication channel to other clients.
      */
     val clients: List<FunClient> = List(playerCount) { clientNum ->

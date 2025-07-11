@@ -2,9 +2,6 @@ package io.github.natanfudge.fn.core
 
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.error.UnallowedFunException
-import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunId
-import io.github.natanfudge.fn.network.FunStateContext
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.FunSurface
 import io.github.natanfudge.fn.render.FunWindow
@@ -19,6 +16,15 @@ class BaseFunEvents {
     val input = MutEventStream<InputEvent>()
     val guiError = MutEventStream<Throwable>()
     val appClose = MutEventStream<Unit>()
+
+    internal fun clearListeners() {
+        frame.clearListeners()
+        beforePhysics.clearListeners()
+        afterPhysics.clearListeners()
+        input.clearListeners()
+        guiError.clearListeners()
+        appClose.clearListeners()
+    }
 }
 
 internal object FunContextRegistry {
@@ -51,29 +57,41 @@ class FunContext(
     val rootFuns = mutableMapOf<FunId, Fun>()
     private var restarting = false
 
+    /**
+     * Whether the app has hot reloaded at least once
+     */
+    var hotReloaded = false
+
 
     fun restartApp() {
         restarting = true
-        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false) }
+        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false, deleteState = true) }
 
-        ProcessLifecycle.restartByLabel(AppLifecycleName)
+        ProcessLifecycle.restartByLabels(AppLifecycleName)
     }
+
 
     fun register(fn: Fun) {
         if (restarting) throw UnallowedFunException("Don't spawn Funs during cleanup of a Fun.")
         if (fn.isRoot) {
             rootFuns[fn.id] = fn
         }
-        stateContext.stateManager.register(fn)
+        // We're gonna allow reregistering the fun state in case we hot reloaded, in order to reuse the state.
+        // Before hot reload, there is no excuse to register the same Fun state twice.
+        // After hot reload, the line gets blurry and there's no way to know whether a state is "before hot reload state" or "previous app state"
+        // In the future we might seperate those, but this is good enough for now.
+        stateContext.stateManager.register(fn, allowReregister = hotReloaded)
     }
 
-    fun unregister(fn: Fun) {
+    fun unregister(fn: Fun, deleteState: Boolean) {
         // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
         if (restarting) return
         if (fn.isRoot) {
             rootFuns.remove(fn.id)
         }
-        stateContext.stateManager.unregister(fn)
+        if (deleteState) {
+            stateContext.stateManager.unregister(fn)
+        }
     }
 
     val gui: Panels = Panels()
@@ -86,5 +104,12 @@ class FunContext(
 
     fun setGUIFocused(focused: Boolean) {
         compose.compose.windowLifecycle.assertValue.focused = focused
+    }
+
+    internal fun clean() {
+        // Note that we don't clear the state context, we actually want to keep that around in order to preserver state.
+        events.clearListeners()
+        rootFuns.clear()
+        gui.clearPanels()
     }
 }

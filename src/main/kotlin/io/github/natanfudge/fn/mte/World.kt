@@ -1,18 +1,17 @@
 package io.github.natanfudge.fn.mte
 
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funList
 import io.github.natanfudge.fn.network.state.funMap
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.roundToInt
-import kotlin.random.Random
 
 private data class PositionedBlock(
     val type: BlockType,
     val pos: BlockPos
 )
 
-class World(val game: MineTheEarth) : Fun("World", game.context) {
+class World(val game: MineTheEarthGame) : Fun( game.context, "World") {
     private val width = 21
     private val height = 21
 
@@ -90,7 +89,7 @@ class World(val game: MineTheEarth) : Fun("World", game.context) {
         items.add(WorldItem(game, item, pos))
     }
 
-    init {
+    fun initialize() {
         repeat(10) {
             spawnItem(Item(ItemType.GoldOre, (it + 1) * 4), game.player.physics.position + Vec3f(2f + it, 0f, 0f))
         }

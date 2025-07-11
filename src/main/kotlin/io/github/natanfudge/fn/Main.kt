@@ -7,7 +7,7 @@
 //import io.github.natanfudge.fn.core.startTheFun
 //import io.github.natanfudge.fn.files.readImage
 //import io.github.natanfudge.fn.gltf.fromGlbResource
-//import io.github.natanfudge.fn.network.Fun
+//import io.github.natanfudge.fn.core.Fun
 //import io.github.natanfudge.fn.physics.render
 //import io.github.natanfudge.fn.physics.physics
 //import io.github.natanfudge.fn.render.*

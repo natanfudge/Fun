@@ -1,12 +1,11 @@
 package io.github.natanfudge.fn.network.state
 
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.StateKey
-import io.github.natanfudge.fn.network.sendStateChange
+import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.serializer
 import java.util.function.IntFunction
 
 /**
@@ -39,7 +38,7 @@ inline fun <reified T> Fun.funList(name: String, size: Int, init: (Int) -> T): F
  * @see funSet
  */
 fun <T> Fun.funList(name: String, serializer: KSerializer<T>, items: MutableList<T>): FunList<T> {
-    val list = FunList(items, name, this, serializer)
+    val list = FunList(useOldStateIfPossible(items,this.id,name), name, this, serializer)
     context.stateManager.registerState(id, name, list)
     return list
 }

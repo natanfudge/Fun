@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.physics
 
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
@@ -29,30 +29,27 @@ object RootTransformable : Transformable {
 
 
 
-abstract class HierarchicalTransformable(val parentTransform: Transformable, parentFun: Fun, name: String) : Fun(parentFun, name), Transformable {
-    val localTransform = FunTransform(this)
-
-    override var transform: Transform = parentTransform.transform.mul(localTransform.transform)
-
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        val localListener = localTransform.onTransformChange {
-            transform = parentTransform.transform.mul(it)
-            callback(transform)
-        }
-        val parentListener = parentTransform.onTransformChange {
-            transform = it.mul(localTransform.transform)
-            callback(transform)
-        }
-        return localListener.compose(parentListener).cast()
-    }
-}
+//abstract class HierarchicalTransformable(val parentTransform: Transformable, parentFun: Fun, name: String) : Fun(parentFun, name), Transformable {
+//    val localTransform = FunTransform(this)
+//
+//    override var transform: Transform = parentTransform.transform.mul(localTransform.transform)
+//
+//    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+//        val localListener = localTransform.onTransformChange {
+//            transform = parentTransform.transform.mul(it)
+//            callback(transform)
+//        }
+//        val parentListener = parentTransform.onTransformChange {
+//            transform = it.mul(localTransform.transform)
+//            callback(transform)
+//        }
+//        return localListener.compose(parentListener).cast()
+//    }
+//}
 
 
 class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
-    /**
-     * Cached object to avoid allocating on every access to the transform
-     */
-    private var _transform: Transform = Transform()
+
 
 
     override var transform: Transform
@@ -75,6 +72,16 @@ class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
         _transform = _transform.copy(scale = it)
     }
 
+    var translation by translationState
+    var rotation by rotationState
+    var scale by scaleState
+
+
+    /**
+     * Cached object to avoid allocating on every access to the transform
+     */
+    private var _transform: Transform = Transform(translation, rotation, scale)
+
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
         val translationListener = translationState.beforeChange {
             callback(transform.copy(translation = it))
@@ -89,9 +96,6 @@ class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
     }
 
 
-    var translation by translationState
-    var rotation by rotationState
-    var scale by scaleState
 
 //    override fun onTranslationChanged(callback: (Vec3f) -> Unit): Listener<Vec3f> = translationState.beforeChange(callback)
 //    override fun onRotationChanged(callback: (Quatf) -> Unit): Listener<Quatf> = rotationState.beforeChange(callback)

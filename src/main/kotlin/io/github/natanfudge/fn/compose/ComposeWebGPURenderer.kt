@@ -1,13 +1,10 @@
 package io.github.natanfudge.fn.compose
 
-import androidx.compose.runtime.Composable
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer.ComposeBindGroup
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
-import io.github.natanfudge.fn.window.WindowDimensions
 import io.ygdrasil.webgpu.*
-import java.util.function.Consumer
 
 private var samplerIndex = 0
 class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
@@ -50,7 +47,7 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
     }
 
 
-    val listener = bgWindow.frameStream.listen { (bytes, width, height) ->
+    val listener = bgWindow.frameStream.listenPermanently { (bytes, width, height) ->
         dimensions.surface.device.copyExternalImageToTexture(
             source = bytes,
             texture = composeTexture,

@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import java.util.LinkedList
 
 /**

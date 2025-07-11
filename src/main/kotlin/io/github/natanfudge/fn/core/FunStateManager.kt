@@ -1,16 +1,16 @@
-package io.github.natanfudge.fn.network
+package io.github.natanfudge.fn.core
 
 import androidx.compose.runtime.mutableStateMapOf
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.error.UnfunStateException
+import io.github.natanfudge.fn.network.StateChange
+import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.state.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.KSerializer
-
-
 
 
 /**
@@ -67,14 +67,16 @@ interface FunStateContext {
     companion object {
         fun isolatedClient() = FunClient.isolated()
     }
+
     fun sendStateChange(
-        change: StateChange
+        change: StateChange,
     )
 
     fun sendMessageToServer(function: String, parameters: List<SerializableValue<*>>)
     fun sendMessageToServer(function: String, vararg parameters: SerializableValue<*>) {
         sendMessageToServer(function, parameters.toList())
     }
+
     val stateManager: FunStateManager
 }
 
@@ -84,7 +86,7 @@ interface FunStateContext {
 
 data class SerializableValue<T>(
     val value: T,
-    val serializer: KSerializer<T>
+    val serializer: KSerializer<T>,
 )
 
 
@@ -131,6 +133,7 @@ class FunClient(internal val comm: FunCommunication) : FunStateContext {
             }
         })
     }
+
     override fun sendStateChange(
         change: StateChange,
     ) {
@@ -160,7 +163,7 @@ class FunClient(internal val comm: FunCommunication) : FunStateContext {
 
 internal data class Rpc(
     val function: String,
-    val parameters: List<Any?>
+    val parameters: List<Any?>,
 ) {
     companion object {
         fun serializer(parameterSerializers: List<KSerializer<*>>): KSerializer<Rpc> {
@@ -199,14 +202,16 @@ class FunStateManager(
      */
 
 
-
-
     /**
      * Registers a Fun component with this client, allowing it to send and receive state updates.
      */
-    internal fun register(fn: Fun) {
+    internal fun register(fn: Fun, allowReregister: Boolean) {
         if (fn.id in stateHolders) {
-            throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give Fun components unique IDs. ")
+            if (allowReregister) {
+                return
+            } else {
+                throw IllegalArgumentException("A state holder with the id '${fn.id}' was registered twice. Make sure to give Fun components unique IDs. ")
+            }
         }
         stateHolders[fn.id] = MapStateHolder()
     }

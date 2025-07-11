@@ -23,6 +23,10 @@ data class ComposePanel(val modifier:  BoxScope. () -> Modifier, val content: @C
 class Panels {
     private val panelList = mutableStateListOf<ComposePanel>()
 
+    internal fun clearPanels() {
+        panelList.clear()
+    }
+
     fun addPanel(modifier: BoxScope. () -> Modifier = {Modifier}, content: @Composable BoxScope.() -> Unit): ComposePanel {
         val panel = ComposePanel(modifier, content, this)
         panelList.add(panel)

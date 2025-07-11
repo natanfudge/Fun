@@ -7,7 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.network.ColorSerializer
-import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.render.utils.*
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext

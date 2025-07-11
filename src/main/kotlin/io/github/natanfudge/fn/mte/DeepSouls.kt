@@ -1,27 +1,38 @@
 package io.github.natanfudge.fn.mte
 
 import io.github.natanfudge.fn.base.*
-import io.github.natanfudge.fn.core.FunApp
-import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.mte.gui.MainMenu
 import io.github.natanfudge.fn.mte.gui.addDsPanel
-import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
-class MineTheEarthMainMenu(override val context: FunContext) : FunApp() {
+class MineTheEarthMainMenuTemp(override val context: FunContext) : FunApp() {
+    val ds = DeepSouls(context)
+
     init {
         context.addDsPanel {
-            MainMenu(context)
+            MainMenu(ds)
+        }
+    }
+}
+
+class DeepSouls(context: FunContext) : Fun(context, "DeepSouls") {
+    val inMainMenuState = funValue(true, "inMainMenu")
+    var inMainMenu by inMainMenuState
+
+    init {
+        if (!inMainMenu) {
+            MineTheEarthGame(context)
         }
     }
 }
 
 
-class MineTheEarth(override val context: FunContext) : FunApp() {
+class MineTheEarthGame(override val context: FunContext) : FunApp() {
 
     val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
         Balance.create()
@@ -41,6 +52,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val physics = FunPhysics(context)
     val player = Player(this)
+
 
 //    val whale = Whale(this)
 
@@ -71,6 +83,10 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 
     val creativeMovement = CreativeMovement(context, input)
 
+    fun initialize() {
+        player.physics.position = Vec3f(0f, 0.5f, 11.5f)
+        world.initialize()
+    }
     init {
 
 
@@ -99,7 +115,7 @@ class MineTheEarth(override val context: FunContext) : FunApp() {
 fun main() {
     startTheFun {
         {
-            MineTheEarthMainMenu(it)
+            MineTheEarthMainMenuTemp(it)
 //            MineTheEarth(it)
         }
     }

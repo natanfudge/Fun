@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.render
 
-import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.render.utils.ManagedGPUMemory
 import io.github.natanfudge.fn.render.utils.toFloatArray
 import io.github.natanfudge.fn.util.closeAll

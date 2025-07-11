@@ -13,10 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import io.github.natanfudge.fn.base.FunPanel
 import io.github.natanfudge.fn.base.addFunPanel
-import io.github.natanfudge.fn.core.ComposePanelPlacer
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,7 +26,7 @@ import kotlin.io.path.toPath
 import kotlin.math.min
 
 
-class Inventory(val game: MineTheEarth) : Fun("Inventory", game.context) {
+class Inventory(val game: MineTheEarthGame) : Fun(game.context, "Inventory") {
     val maxSlots = 15
 
     private val items = funList<Item>("items", List(maxSlots) {

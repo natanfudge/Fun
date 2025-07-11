@@ -6,8 +6,9 @@ import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
+import io.github.natanfudge.fn.base.listen
 import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
@@ -38,7 +39,7 @@ private fun timeSinceStartup(): Duration {
 }
 
 
-class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
+class Player(private val game: MineTheEarthGame) : Fun( game.context, "Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
@@ -49,7 +50,7 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
     init {
         pickaxe.localTransform.translation = Vec3f(0.07f, 0.11f, 0.01f)
-        pickaxe.localTransform.scale = Vec3f(0.5f, 0.5f, 0.5f)
+        pickaxe.localTransform.scale = Vec3f(5f, 5f, 5f)
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
 
@@ -167,9 +168,8 @@ class Player(private val game: MineTheEarth) : Fun("Player", game.context) {
 
 
 
-        physics.position = Vec3f(0f, 0.5f, 11.5f)
 
-        game.physics.system.collision.listen { (a, b) ->
+        game.physics.system.collision.listenPermanently { (a, b) ->
             whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
                 player.collectItem(item)
             }

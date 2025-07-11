@@ -4,20 +4,24 @@ import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.util.Listener
+import io.github.natanfudge.fn.util.cast
+import io.github.natanfudge.fn.util.compose
+import kotlinx.serialization.Serializable
 
 
-fun Fun.render(model: Model, name: String = "render") = FunRenderState(name, this, RootTransformable, model)
-fun Fun.render(model: Model, parent: Transformable, name: String = "render"): FunRenderState {
-    val render = FunRenderState(name, this, parent, model)
+fun Fun.render(model: Model, name: String = "render") = FunRenderStateOld(name, this, RootTransformable, model)
+fun Fun.render(model: Model, parent: Transformable, name: String = "render"): FunRenderStateOld {
+    val render = FunRenderStateOld(name, this, parent, model)
     return render
 }
-fun Fun.render(model: Model, physics: FunPhysics, name: String = "render"): FunRenderState {
-    val render = FunRenderState(name, this, physics, model)
+fun Fun.render(model: Model, physics: FunPhysicsState, name: String = "render"): FunRenderStateOld {
+    val render = FunRenderStateOld(name, this, physics, model)
     physics.baseAABB = render.baseAABB
     return render
 }
@@ -25,15 +29,37 @@ fun Fun.render(model: Model, physics: FunPhysics, name: String = "render"): FunR
 fun Fun.physics(
     physics: PhysicsSystem,
     baseAABB: AxisAlignedBoundingBox = AxisAlignedBoundingBox.UnitAABB,
-) = FunPhysics(this, baseAABB, physics)
+) = FunPhysicsState(this, baseAABB, physics)
 
-class FunRenderState(
+class FunRender(state: FunTransform, val parentTransform: Transformable, val model: Model)
+
+//@Serializable class FunRenderState(
+//    val name: String,
+//    val parentFun: FunId
+//)
+
+class FunRenderStateOld(
     name: String,
     parentFun: Fun,
-    parentTransform: Transformable,
+    val parentTransform: Transformable,
     val model: Model,
-) : HierarchicalTransformable(parentTransform, parentFun, name), Boundable {
+) : Fun(parentFun, name), Boundable, Transformable {
 
+    val localTransform = FunTransform(this)
+
+    override var transform: Transform = parentTransform.transform.mul(localTransform.transform)
+
+    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        val localListener = localTransform.onTransformChange {
+            transform = parentTransform.transform.mul(it)
+            callback(transform)
+        }
+        val parentListener = parentTransform.onTransformChange {
+            transform = it.mul(localTransform.transform)
+            callback(transform)
+        }
+        return localListener.compose(parentListener).cast()
+    }
 
     var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB") {
         this.boundingBox = it.transformed(transform.toMatrix())
@@ -81,11 +107,11 @@ class FunRenderState(
 }
 
 
-class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : Fun(id, context) {
+class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : Fun(context, id) {
     val render = render(model)
 }
 
-class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physicsSystem: PhysicsSystem) : Fun(id, context) {
+class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physicsSystem: PhysicsSystem) : Fun( context, id) {
     val physics = physics(physicsSystem)
     val render = render(model, physics)
 }

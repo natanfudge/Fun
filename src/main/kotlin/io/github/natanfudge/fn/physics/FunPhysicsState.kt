@@ -1,15 +1,14 @@
 package io.github.natanfudge.fn.physics
 
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
-import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class FunPhysics(
+class FunPhysicsState(
     funParent: Fun,
     baseAABB: AxisAlignedBoundingBox,
     private val physics: PhysicsSystem,

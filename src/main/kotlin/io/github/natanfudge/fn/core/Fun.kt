@@ -1,8 +1,6 @@
-package io.github.natanfudge.fn.network
+package io.github.natanfudge.fn.core
 
 import io.github.natanfudge.fn.base.FunResource
-import io.github.natanfudge.fn.core.FunContext
-
 
 
 //interface IFun {
@@ -24,17 +22,17 @@ import io.github.natanfudge.fn.core.FunContext
  * @sample io.github.natanfudge.fn.example.network.NetworkExamples.networkStateExample
  */
 abstract class Fun(
+    override val context: FunContext,
     /**
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
     /*override*/ val id: FunId,
-    override val context: FunContext,
     val parent: Fun? = null,
 ) : AutoCloseable, Taggable, FunResource {
     val isRoot: Boolean = parent == null
 
-    constructor(parent: Fun, name: String) : this(parent.id.child(name), parent.context, parent) {
+    constructor(parent: Fun, name: String) : this(parent.context, parent.id.child(name), parent) {
         parent.registerChild(this)
     }
 
@@ -94,15 +92,20 @@ abstract class Fun(
     }
 
     final override fun close() {
-        close(unregisterFromParent = true)
+        close(unregisterFromParent = true, deleteState = true)
     }
 
-    internal fun close(unregisterFromParent: Boolean, unregisterFromContext: Boolean = true) {
-        if (unregisterFromContext) context.unregister(this)
+    /**
+     * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
+     * @param deleteState If true, the state of this Fun will be deleted.
+     * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state and its place in rootFuns if it had one.
+     */
+    internal fun close(unregisterFromParent: Boolean,  deleteState: Boolean, unregisterFromContext: Boolean = true,) {
+        if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
         childCloseables.forEach { it.close() }
         cleanup()
         // No need to unregister when this is getting closed anyway
-        children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext) }
+        children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext, deleteState = deleteState) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }

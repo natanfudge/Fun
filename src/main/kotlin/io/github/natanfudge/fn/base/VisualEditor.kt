@@ -21,10 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.*
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.FunState
-import io.github.natanfudge.fn.network.state.collectAsState
-import io.github.natanfudge.fn.physics.FunRenderState
+import io.github.natanfudge.fn.network.state.listenAsState
+import io.github.natanfudge.fn.physics.FunRenderStateOld
 import io.github.natanfudge.fn.render.Tint
 
 fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
@@ -84,7 +84,7 @@ class VisualEditor(
                 }
             }
         }
-        hoverMod.context.events.input.listen { input ->
+        hoverMod.context.events.input.listenPermanently { input ->
             if (input is InputEvent.PointerEvent && enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position
@@ -96,7 +96,7 @@ class VisualEditor(
 
     private val context = hoverMod.context
     private var mouseDownPos: Offset? = null
-    var selectedObject: FunRenderState? by mutableStateOf(null)
+    var selectedObject: FunRenderStateOld? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
 
     @Composable
@@ -106,7 +106,7 @@ class VisualEditor(
             Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
             for ((key, state) in values.getCurrentState()) {
                 state as FunState<Any?>
-                val value by state.collectAsState()
+                val value by state.listenAsState()
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Box(Modifier.weight(1f))
@@ -131,7 +131,7 @@ class VisualEditor(
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.world.hoveredObject as? FunRenderState
+                val selected = context.world.hoveredObject as? FunRenderStateOld
                 if (selectedObject != selected) {
                     // Restore the old color
                     restoreOldTint()

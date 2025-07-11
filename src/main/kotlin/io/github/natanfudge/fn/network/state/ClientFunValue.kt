@@ -4,8 +4,8 @@ package io.github.natanfudge.fn.network.state
 
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
-import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunId
+import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.EventStream
@@ -18,6 +18,18 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 import kotlin.reflect.typeOf
 
+/**
+ * When hot reload occurs, the state is not deleted, so when this function is called the state will be retained from before the reload.
+ * Without hot reload, this just returns [initialValue]
+ */
+@PublishedApi
+internal inline fun <reified T> Fun.useOldStateIfPossible(initialValue: T, parentId: FunId, stateId: FunId): T {
+    val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
+    if(parentId.contains("Player")) {
+        println("Old value for $parentId:$stateId is $oldState")
+    }
+    return if (oldState is T) oldState else initialValue
+}
 
 /**
  * Creates a property delegate that automatically synchronizes its value across all clients.
@@ -29,23 +41,22 @@ import kotlin.reflect.typeOf
  * @see Fun
  */
 inline fun <reified T> Fun.funValue(
-    value: T,
+    initialValue: T,
     id: FunId,
-//    owner: Fun,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
-//    autocloseSetValue: Boolean = true,
-//    /**
-//     * If not null, a listener will be automatically registered for [onSetValue].
-//     * If [autocloseSetValue] is true, The listener will be automatically closed when this [Fun] is closed.
-//     */
+    /**
+     * If not null, a listener will be automatically registered for [onSetValue].
+     */
     noinline onSetValue: ((value: T) -> Unit)? = null,
 ): ClientFunValue<T> {
-    val value = ClientFunValue(value, getFunSerializer<T>(), id, this, editor)
+    // SLOW: too much code in inline function
+    val funValue = ClientFunValue(
+        useOldStateIfPossible(initialValue, this.id, id), getFunSerializer<T>(), id, this, editor
+    )
     if (onSetValue != null) {
-        value.beforeChange(onSetValue)
-//        if (autocloseSetValue) closeEvent.listen { listener.close() }
+        funValue.beforeChange(onSetValue)
     }
-    return value
+    return funValue
 }
 
 
@@ -93,7 +104,7 @@ class ClientFunValue<T>(
     /**
      * Changes are emitted BEFORE setting a new value, and are passed the new value.
      */
-    override fun beforeChange(callback: (T) -> Unit): Listener<T> = change.listen(callback)
+    override fun beforeChange(callback: (T) -> Unit): Listener<T> = change.listenPermanently(callback)
 
 //    fun afterChange(callback: (T) -> Unit):
 

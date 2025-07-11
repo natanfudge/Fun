@@ -33,11 +33,20 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     private val bodies = mutableListOf<Body>()
 
+    private var processingBodies = false
+
+    private val pendingBodyRemovals = mutableSetOf<Body>()
+
     fun add(obj: Body) {
         bodies.add(obj)
     }
 
     fun remove(obj: Body) {
+        // Allow removal during physics tick without CME
+        if (processingBodies) {
+            pendingBodyRemovals.add(obj)
+            return
+        }
         bodies.remove(obj)
     }
 
@@ -63,6 +72,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
     private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox)
 
     fun tick(delta: Duration) {
+        processingBodies = true
         if (delta > maxDelta) {
             val ticks = ceil(delta / maxDelta).toInt()
             if (ticks > maxSkipTicks) {
@@ -82,6 +92,9 @@ class PhysicsSystem(var gravity: Boolean = true) {
         } else {
             singleTick(delta)
         }
+        processingBodies = false
+        pendingBodyRemovals.forEach { bodies.remove(it) }
+        pendingBodyRemovals.clear()
     }
 
 

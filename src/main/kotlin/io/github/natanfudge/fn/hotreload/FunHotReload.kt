@@ -1,6 +1,8 @@
 package io.github.natanfudge.fn.hotreload
 
 import io.github.natanfudge.fn.util.MutEventStream
+import org.jetbrains.compose.reload.agent.Reload
+import org.jetbrains.compose.reload.core.Try
 
 // To sum up the current commandments of DCEVM:
 // 1. Thou shalt not keep changing code next to long-running code: https://github.com/JetBrains/JetBrainsRuntime/issues/534
@@ -17,7 +19,7 @@ object FunHotReload {
      * The callback will be called on an alternate thread so be wary of that.
      * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeConfig.submitTask]
      */
-    val reloadEnded = MutEventStream<Unit>()
+    val reloadEnded = MutEventStream<Try<Reload>?>()
     val reloadStarted = MutEventStream<Unit>()
 
 
@@ -27,7 +29,7 @@ object FunHotReload {
      * Called externally by Hotswap Agent
      */
     internal fun notifyReload() {
-        reloadEnded.emit(Unit)
+        reloadEnded.emit(null)
     }
 
 //    /**

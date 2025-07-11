@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.mte
 
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.network.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
@@ -29,7 +29,7 @@ data class Item(
     }
 }
 
-class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextFunId("Item-${item.type}"), game.context) {
+class WorldItem(val game: MineTheEarthGame, item: Item, pos: Vec3f) : Fun(game.context, game.nextFunId("Item-${item.type}")) {
     companion object {
         val models = ItemType.entries.filter { it != ItemType.Nothing }.associateWith {
             Model.fromGlbResource("files/models/items/${it.name.lowercase()}.glb")
@@ -60,6 +60,11 @@ class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextF
             val down = spring(it)
             render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = down * 0.15f)
         }.closeWithThis()
+
+        physics.onTransformChange {
+            // Despawn items that have fallen out of the world
+            if (it.translation.z < WORLD_LOWEST_Z) close()
+        }
     }
 
     override fun cleanup() {
@@ -67,6 +72,8 @@ class WorldItem(val game: MineTheEarth, item: Item, pos: Vec3f) : Fun(game.nextF
     }
 
 }
+
+const val WORLD_LOWEST_Z = -200
 
 fun linearLoop(t: Float): Float {
     if (t < 0.5f) return 2 * t

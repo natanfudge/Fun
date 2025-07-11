@@ -15,18 +15,19 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.mte.MineTheEarth
+import io.github.natanfudge.fn.mte.DeepSouls
+import io.github.natanfudge.fn.mte.MineTheEarthGame
+import io.github.natanfudge.fn.network.state.listenAsState
 import natan.`fun`.generated.resources.MainMenuBG
 import natan.`fun`.generated.resources.Res
 import natan.`fun`.generated.resources.TitleText
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
-fun MainMenu(context: FunContext) {
-    var inMainMenu by remember { mutableStateOf(true) }
+fun MainMenu(ds: DeepSouls) {
     println("New main")
-    if (!inMainMenu) return
+
+    if (!ds.inMainMenuState.listenAsState().value) return
     Box(Modifier.fillMaxSize()) {
         MainMenuBackground()
         Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -34,8 +35,8 @@ fun MainMenu(context: FunContext) {
 //            Box(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 MainMenuButton("Dig Alone", border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
-                    inMainMenu = false
-                    MineTheEarth(context)
+                    ds.inMainMenu = false
+                    MineTheEarthGame(ds.context).initialize()
                 }
                 MainMenuButton("Dig With Friends", enabled = false) {}
                 MainMenuButton("Settings", fontColor = Color.White.copy(alpha = 0.6f)) {}

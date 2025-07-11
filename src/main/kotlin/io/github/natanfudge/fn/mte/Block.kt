@@ -1,9 +1,9 @@
 package io.github.natanfudge.fn.mte
 
 import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.physics.FunRenderState
+import io.github.natanfudge.fn.physics.FunRenderStateOld
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.render
 import io.github.natanfudge.fn.physics.translation
@@ -13,7 +13,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockPos) : Fun(game.nextFunId("Block-$type"), game.context) {
+class Block(private val game: MineTheEarthGame, val type: BlockType, val pos: BlockPos) : Fun( game.context, game.nextFunId("Block-$type")) {
     companion object {
         val BreakRenderId = "break"
         val models = BlockType.entries.associateWith {
@@ -28,7 +28,7 @@ class Block(private val game: MineTheEarth, val type: BlockType, val pos: BlockP
     val physics = physics(game.physics.system)
     val render = render(models.getValue(type), physics)
 
-    var breakOverlay: FunRenderState? = null
+    var breakOverlay: FunRenderStateOld? = null
 
     var health by funValue(type.hardness(game), "health") {
         updateBreakOverlay(it)

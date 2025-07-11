@@ -6,10 +6,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fn.base.listen
 import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.network.Fun
-import io.github.natanfudge.fn.network.FunStateContext
+import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.FunInputAdapter
 import io.github.natanfudge.fn.render.FunSurface
@@ -41,14 +41,10 @@ val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
 }
 
 
-/**
- * How many times the app has been hot-reloaded
- */
-var hotReloadIndex = 0
 
 
 private fun run(app: FunAppInitializer<*>) {
-    val window = app.init()
+    val (initFunc, window) = app.init()
     val loop = GlfwGameLoop(window.window)
 
     ProcessLifecycle.start(Unit)
@@ -59,10 +55,14 @@ private fun run(app: FunAppInitializer<*>) {
 //        loop.locked = true
 //    }
 
+    invokeAfterHotReload {id, result ->
+        FunHotReload.reloadEnded.emit(result)
+    }
 
 
-    invokeAfterHotReload { id, result ->
-        val reload = result.leftOrNull() ?: return@invokeAfterHotReload
+    // Doing it this way allows us to emit it on our own terms
+    FunHotReload.reloadEnded.listenPermanently {result ->
+//        val reload = result?.leftOrNull() ?: return@listen
 //        println("Full reload information: " + reload)
 //        println("redefined classes: ${reload.dirtyRuntime.redefinedClasses}")
 //        println("")
@@ -71,29 +71,40 @@ private fun run(app: FunAppInitializer<*>) {
 //            println("Reloaded class: ${it.definitionClass}")
 //        }
         loop.reloadCallback = {
-            val redefinedClasses = reload.definitions.map { it.definitionClass }
+//            val redefinedClasses = reload.definitions.map { it.definitionClass }
             val context = FunContextRegistry.getContext()
-            println("Root classes: ${context.rootFuns.keys}")
+            context.hotReloaded = true
+//            println("Root classes: ${context.rootFuns.keys}")
 
-            println("Reload data:" + reload)
-
-            hotReloadIndex++
-            println("Reloading app")
-
-            ProcessLifecycle.removeChildren()
-
-            app.close()
-            app.init()
-
-            try {
-                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel, ComposeWebGPURenderer.SurfaceLifecycleName))
-            } catch (e: Throwable) {
-                println("Failed to perform a granular restart, trying to restart the app entirely")
-                e.printStackTrace()
-                ProcessLifecycle.restart()
+            context.rootFuns.forEach {
+                it.value.close(
+                    // Doesn't matter
+                    unregisterFromParent = false,
+                    // We want to preserver state
+                    deleteState = false,
+                    // The context is thrown out anyway, and this causes a CME on context.rootFuns
+                    unregisterFromContext = false
+                )
             }
-            println("Reload done2")
 
+            context.clean()
+            initFunc(context)
+//            ProcessLifecycle.restartByLabels(AppLifecycleName)
+
+
+//            println("Reloading app")
+//
+//            app.close()
+//            app.init()
+//
+//            try {
+//                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel, ComposeWebGPURenderer.SurfaceLifecycleName))
+//            } catch (e: Throwable) {
+//                println("Failed to perform a granular restart, trying to restart the app entirely")
+//                e.printStackTrace()
+//                ProcessLifecycle.restart()
+//            }
+            println("Reload done")
         }
     }
 
@@ -145,7 +156,7 @@ private fun run(app: FunAppInitializer<*>) {
     exitProcess(0)
 }
 
-class FunTime(context: FunContext) : Fun("time", context) {
+class FunTime(context: FunContext) : Fun(context, "time") {
     var speed by funValue(1f, "speed")
     internal lateinit var app: FunApp
     fun advance(time: Duration) {
@@ -186,7 +197,11 @@ internal const val AppLifecycleName = "App"
 private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
     private lateinit var fsWatcher: FileSystemWatcher
-    fun init(): WebGPUWindow {
+
+    /**
+     * TODO: initFunc won't need to return T soon, because we gonna remove FunApp.
+     */
+    fun init(): Pair<(FunContext) -> T, WebGPUWindow> {
         val builder = FunAppBuilder()
         val initFunc = app(builder)
         val window = WebGPUWindow(builder.config)
@@ -226,7 +241,7 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
         window.bindFunLifecycles(compose, fsWatcher, appLifecycle, funSurface, funDimLifecycle)
 
-        return window
+        return initFunc to window
     }
 
     fun close() {
@@ -257,20 +272,6 @@ abstract class FunApp : AutoCloseable {
 
     }
 
-    @Deprecated("")
-    open fun handleInput(input: InputEvent) {
-
-    }
-
-    @Deprecated("")
-    open fun frame(delta: Double) {
-
-    }
-
-    @Deprecated("")
-    open fun physics(delta: Duration) {
-
-    }
 
 //    fun onComposeE
 
@@ -309,20 +310,17 @@ internal fun FunApp.actualHandleInput(input: InputEvent) {
     for (mod in mods) {
         mod.handleInput(input)
     }
-    handleInput(input)
 }
 
 
 internal fun FunApp.actualFrame(deltaMs: Double) {
     context.events.frame.emit(deltaMs.milliseconds)
     mods.forEach { it.frame(deltaMs) }
-    frame(deltaMs)
 }
 
 internal fun FunApp.actualPhysics(delta: Duration) {
     mods.forEach { it.prePhysics(delta) }
     context.events.beforePhysics.emit(delta)
-    physics(delta)
     context.events.afterPhysics.emit(delta)
     mods.forEach { it.postPhysics(delta) }
 }

@@ -2,19 +2,14 @@
 
 package io.github.natanfudge.fn.network.state
 
-import io.github.natanfudge.fn.network.Fun
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.StateKey
-import io.github.natanfudge.fn.network.sendStateChange
+import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.util.ImmutableCollection
 import io.github.natanfudge.fn.util.ImmutableSet
 import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.serializer
-
 
 
 /**
@@ -34,6 +29,7 @@ import kotlinx.serialization.serializer
 inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
     funMap(name, getFunSerializer(), getFunSerializer(), mutableMapOf(*items))
 
+
 inline fun <reified K, reified V> Fun.funMap(name: String,  items: Map<K,V>): FunMap<K, V> =
     funMap(name, getFunSerializer(), getFunSerializer(), items.toMutableMap())
 
@@ -50,7 +46,7 @@ inline fun <reified K, reified V> Fun.funMap(name: String,  items: Map<K,V>): Fu
  * @see funList
  */
 fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
-    val map = FunMap(items, name, this, keySerializer, valueSerializer)
+    val map = FunMap(useOldStateIfPossible(items,this.id,name), name, this, keySerializer, valueSerializer)
     context.stateManager.registerState(id, name, map)
     return map
 }
