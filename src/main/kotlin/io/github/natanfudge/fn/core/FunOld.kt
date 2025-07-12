@@ -12,7 +12,7 @@ import io.github.natanfudge.fn.base.FunResource
 //
 //    fun unregisterChild(child: Fun)
 //}
-
+//TODO: remove Fun, merge physics and rendering state, and return FunOld to Fun because it's fine.
 /**
  * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
  *
@@ -22,7 +22,6 @@ import io.github.natanfudge.fn.base.FunResource
  * @sample io.github.natanfudge.fn.example.network.NetworkExamples.networkStateExample
  */
 abstract class FunOld(
-    override val context: FunContext,
     /**
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
@@ -32,7 +31,7 @@ abstract class FunOld(
 ) : AutoCloseable, Taggable, FunResource {
     val isRoot: Boolean = parent == null
 
-    constructor(parent: FunOld, name: String) : this(parent.context, parent.id.child(name), parent) {
+    constructor(parent: FunOld, name: String) : this(parent.id.child(name), parent) {
         parent.registerChild(this)
     }
 
@@ -114,6 +113,9 @@ abstract class FunOld(
     protected open fun cleanup() {
 
     }
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T> storedValue(): T = null as T
 
 }
 

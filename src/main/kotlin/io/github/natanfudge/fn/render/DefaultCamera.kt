@@ -3,6 +3,8 @@ package io.github.natanfudge.fn.render
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.max
@@ -28,25 +30,25 @@ enum class CameraMode {
  * - Zooming (moving closer to or further from a focal point)
  * - Rotation around axes
  */
-class DefaultCamera: Camera {
+class DefaultCamera: Camera, FunOld("Camera") {
     /**
      * The current position of the camera in 3D space.
      * Initially positioned at (5, 5, 5).
      */
-     override val position = Vec3f(5f, 5f, 5f)
+     override val position by funValue(Vec3f(5f, 5f, 5f), "position")
 
     /**
      * The up vector defining the camera's orientation.
      * Points along the positive Z axis (0, 0, 1) by default.
      */
-    private val up = Vec3f(0f, 0f, 1f)
+    private val up by funValue(Vec3f(0f, 0f, 1f), "up")
 
     /**
      * The direction the camera is looking.
      * Always normalized to unit length.
      * Initially points from the starting position toward the origin.
      */
-    override val forward = (Vec3f.zero() - position).normalize()
+    override val forward by funValue ((Vec3f.zero() - position).normalize(), "forward")
 
     fun setLookAt(position: Vec3f, forward: Vec3f) {
         this.position.set(position)

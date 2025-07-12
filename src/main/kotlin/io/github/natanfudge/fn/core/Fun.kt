@@ -77,9 +77,6 @@ abstract class Fun() {
     @PublishedApi
     internal inline fun <reified T> useOldStateIfPossible(initialValue: T, parentId: FunId, stateId: StateId): T {
         val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
-        if (parentId.contains("Player")) {
-            println("Old value for $parentId:$stateId is $oldState")
-        }
         return if (oldState is T) oldState else initialValue
     }
 }

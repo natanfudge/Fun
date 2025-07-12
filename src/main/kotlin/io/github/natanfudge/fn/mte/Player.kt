@@ -41,7 +41,10 @@ private fun timeSinceStartup(): Duration {
 }
 
 
-class Player(private val game: MineTheEarthGame) : FunOld( game.context, "Player") {
+//TODO: when hot reloading (and therefore when loading a save and starting the game), the player starts off not being correctly oriented and animated,
+// and the correction is made only after a delay. This should be fixed.
+
+class Player(private val game: MineTheEarthGame) : FunOld( "Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
@@ -56,9 +59,9 @@ class Player(private val game: MineTheEarthGame) : FunOld( game.context, "Player
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
 
+
     val inventory = Inventory(game)
 
-    private val baseRotation = render.rotation
 
 
     private val mineDelay = DelayedStrike(this, )
@@ -91,10 +94,10 @@ class Player(private val game: MineTheEarthGame) : FunOld( game.context, "Player
 
 //            println("Pressed: ${left.isPressed}")
             if (left.isPressed) {
-                render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / -2)
+                render.localTransform.rotation = Quatf.identity().rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(deltaSecs * 3, 0f, 0f)
             } else if (right.isPressed) {
-                render.localTransform.rotation = baseRotation.rotateZ(PI.toFloat() / 2)
+                render.localTransform.rotation = Quatf.identity().rotateZ(PI.toFloat() / 2)
                 physics.position += Vec3f(deltaSecs * 3, 0f, 0f)
             }
             if (isJumping) {
@@ -163,7 +166,7 @@ class Player(private val game: MineTheEarthGame) : FunOld( game.context, "Player
 
 
             if (!printedStartupTime) {
-                println("App started in ${timeSinceStartup()}")
+//                println("App started in ${timeSinceStartup()}")
                 printedStartupTime = true
             }
         }
@@ -226,7 +229,7 @@ class Player(private val game: MineTheEarthGame) : FunOld( game.context, "Player
         val remainder = inventory.insert(item.item)
         if (remainder == 0) {
             // Only destroy the item if there is nothing left
-            item.close()
+            item.delete()
         } else {
             item.itemCount = remainder
         }

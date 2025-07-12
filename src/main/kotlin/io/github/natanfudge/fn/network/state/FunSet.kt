@@ -36,7 +36,7 @@ inline fun <reified T> FunOld.funSet(name: String, vararg items: T): FunSet<T> =
  * @see funList
  */
 fun <T> FunOld.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>): FunSet<T> {
-    val list = FunSet(useOldStateIfPossible(items,this.id,name), name, this, serializer)
+    val list = FunSet(useOldStateIfPossible(items,name), name, this, serializer)
     context.stateManager.registerState(id, name, list)
     return list
 }

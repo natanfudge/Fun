@@ -1,8 +1,10 @@
 package io.github.natanfudge.fn.mte
 
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.FunOld
-import io.github.natanfudge.fn.network.state.funList
-import io.github.natanfudge.fn.network.state.funMap
+import io.github.natanfudge.fn.network.state.FunList
+import io.github.natanfudge.fn.network.state.FunMap
+import io.github.natanfudge.fn.network.state.getFunSerializer
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.roundToInt
 
@@ -11,7 +13,7 @@ private data class PositionedBlock(
     val pos: BlockPos,
 )
 
-class World(val game: MineTheEarthGame) : FunOld(game.context, "World") {
+class World(val game: MineTheEarthGame) : FunOld("World") {
     private val width = 21
     private val height = 21
 
@@ -68,25 +70,30 @@ class World(val game: MineTheEarthGame) : FunOld(game.context, "World") {
             }
         }
 
-        return matrix.flatten().map { Block(game, it.type, it.pos.copy(x = it.pos.x - 10, z = it.pos.z - 10)) }
+        return matrix.flatten().map {
+            Block(
+                game, it.type, it.pos.copy(x = it.pos.x - 10, z = it.pos.z - 10),
+                id = "Block-${it.type.name}-${it.pos.x}-${it.pos.y}-${it.pos.z}"
+            )
+        }
     }
 
-    val blocks = funMap<BlockPos, Block>(
-        "blocks",
-//        List(height * width) {
-//            val x = it % width
-//            val y = it / width
-//            val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
-//            Block(game, type, BlockPos(x - width / 2, y = 0, z = y - height / 2))
-//        }
-        worldgen(mapWidth = 20, zLevelStart = -10, zLevelEnd = 10)
-            .associateBy { it.pos }
-    )
+    val blocks = mapOfFuns<BlockPos, Block>("blocks") {
+        Block(game, null, null, it)
+    }
 
-    val items = funList<WorldItem>("items")
+    init {
+        if (blocks.isEmpty()) {
+            blocks.putAll(worldgen(mapWidth = 20, zLevelStart = -10, zLevelEnd = 10).associateBy { it.pos })
+        }
+    }
+
+    val items = listOfFuns<WorldItem>("items") {
+        WorldItem(game, it, null)
+    }
 
     fun spawnItem(item: Item, pos: Vec3f) {
-        items.add(WorldItem(game, item).apply {
+        items.add(WorldItem(game, "Item-${item.type}-${items.size}-${context.time.gameTime}", item).apply {
             physics.position = pos
         })
     }
@@ -96,4 +103,41 @@ class World(val game: MineTheEarthGame) : FunOld(game.context, "World") {
             spawnItem(Item(ItemType.GoldOre, (it + 1) * 4), game.player.physics.position + Vec3f(2f + it, 0f, 0f))
         }
     }
+}
+
+@Suppress("UNCHECKED_CAST")
+inline fun <reified K, reified V : FunOld> FunOld.mapOfFuns(name: String, constructor: (FunId) -> V): FunMap<K, V> {
+    // SLOW: too much code in inline function
+    val oldState = context.stateManager.getState(id)?.getCurrentState()?.get(name)?.value
+    val keySerializer = getFunSerializer<K>()
+    val valueSerializer = getFunSerializer<V>()
+    val map = if (oldState is Map<*, *> && oldState.all { it.value is V }) {
+        val converted = oldState.mapValues {
+            constructor((it.value as FunOld).id)
+        } as Map<K, V>
+        FunMap(converted.toMutableMap(), name, this, keySerializer, valueSerializer)
+    } else {
+        if (oldState != null) println("Throwing out incompatible old state for $id:$name")
+        FunMap(mutableMapOf(), name, this, keySerializer, valueSerializer)
+    }
+    context.stateManager.registerState(id, name, map)
+    return map
+}
+
+
+inline fun <reified T : FunOld> FunOld.listOfFuns(name: String, constructor: (FunId) -> T): FunList<T> {
+    // SLOW: too much code in inline function
+    val oldState = context.stateManager.getState(id)?.getCurrentState()?.get(name)?.value
+    val serializer = getFunSerializer<T>()
+    val list = if (oldState is List<*> && oldState.all { it is T }) {
+        val converted = oldState.map {
+            constructor((it as FunOld).id)
+        }
+        FunList(converted.toMutableList(), name, this, serializer)
+    } else {
+        if (oldState != null) println("Throwing out incompatible old state for $id:$name")
+        FunList(mutableListOf(), name, this, serializer)
+    }
+    context.stateManager.registerState(id, name, list)
+    return list
 }

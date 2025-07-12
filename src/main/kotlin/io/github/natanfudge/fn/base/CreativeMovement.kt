@@ -17,14 +17,17 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.CameraMode
 
-class CreativeMovement(private val context: FunContext, private val inputManager: InputManager) {
+class CreativeMovement(private val inputManager: InputManager): FunOld("Creative-Movement") {
     private val camera = context.camera
 
-    var mode: CameraMode by mutableStateOf(CameraMode.Off)
+    var mode: CameraMode by funValue(CameraMode.Off, "mode")
 
     /**
      * Constant movement distance per frame. Not related to game time, because this is a dev tool.

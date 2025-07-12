@@ -7,14 +7,13 @@ import io.github.natanfudge.fn.render.physics
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.FunRenderObject
-import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Material
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class Block(private val game: MineTheEarthGame, val type: BlockType, val pos: BlockPos) : FunOld( game.context, game.nextFunId("Block-$type")) {
+class Block(private val game: MineTheEarthGame, initialType: BlockType?, initialPos: BlockPos?, id: String) : FunOld(id) {
     companion object {
         val BreakRenderId = "break"
         val models = BlockType.entries.associateWith {
@@ -25,6 +24,8 @@ class Block(private val game: MineTheEarthGame, val type: BlockType, val pos: Bl
             Model(Mesh.HomogenousCube, "Damage-$it", Material(FunImage.fromResource("drawable/break/break_$it.png")))
         }
     }
+
+    val type by funValue(initialType, "type")
 
     val physics = physics(game.physics.system)
     val render = render(models.getValue(type), physics)
@@ -53,24 +54,28 @@ class Block(private val game: MineTheEarthGame, val type: BlockType, val pos: Bl
             breakOverlay = null
         }
     }
+    val pos get() = physics.position.toBlockPos()
+
+
 
 
     init {
-        physics.position = pos.toVec3()
+        if (initialPos != null) {
+            physics.position = initialPos.toVec3()
+        }
         physics.affectedByGravity = false
         physics.isImmovable = true
         updateBreakOverlay(health)
     }
 
+
     fun destroy() {
         if (type == BlockType.Gold) {
             game.world.spawnItem(Item(ItemType.GoldOre, 1), physics.translation)
         }
+        game.world.blocks.remove(pos)
         close()
     }
 
-    override fun cleanup() {
-        game.world.blocks.remove(pos)
-    }
 }
 

@@ -27,6 +27,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
+import kotlin.time.measureTime
 
 
 val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
@@ -70,40 +71,26 @@ private fun run(app: FunAppInitializer<*>) {
 //            println("Reloaded class: ${it.definitionClass}")
 //        }
         loop.reloadCallback = {
-//            val redefinedClasses = reload.definitions.map { it.definitionClass }
-            val context = FunContextRegistry.getContext()
-            context.hotReloaded = true
-//            println("Root classes: ${context.rootFuns.keys}")
+            val time = measureTime {
+                val context = FunContextRegistry.getContext()
+                context.hotReloaded = true
 
-            context.rootFuns.forEach {
-                it.value.close(
-                    // Doesn't matter
-                    unregisterFromParent = false,
-                    // We want to preserver state
-                    deleteState = false,
-                    // The context is thrown out anyway, and this causes a CME on context.rootFuns
-                    unregisterFromContext = false
-                )
+
+                context.rootFuns.forEach {
+                    it.value.close(
+                        // Doesn't matter
+                        unregisterFromParent = false,
+                        // We want to preserver state
+                        deleteState = false,
+                        // The context is thrown out anyway, and this causes a CME on context.rootFuns
+                        unregisterFromContext = false
+                    )
+                }
+
+                context.clean()
+                initFunc(context)
             }
-
-            context.clean()
-            initFunc(context)
-//            ProcessLifecycle.restartByLabels(AppLifecycleName)
-
-
-//            println("Reloading app")
-//
-//            app.close()
-//            app.init()
-//
-//            try {
-//                ProcessLifecycle.restartByLabels(setOf(WebGPUWindow.SurfaceLifecycleLabel, ComposeWebGPURenderer.SurfaceLifecycleName))
-//            } catch (e: Throwable) {
-//                println("Failed to perform a granular restart, trying to restart the app entirely")
-//                e.printStackTrace()
-//                ProcessLifecycle.restart()
-//            }
-            println("Reload done")
+            println("Reload done in $time")
         }
     }
 
@@ -155,7 +142,7 @@ private fun run(app: FunAppInitializer<*>) {
     exitProcess(0)
 }
 
-class FunTime(context: FunContext) : FunOld(context, "time") {
+class FunTime : FunOld("time") {
     var speed by funValue(1f, "speed")
     internal lateinit var app: FunApp
     fun advance(time: Duration) {
@@ -222,13 +209,12 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
         })
         appLifecycle = funSurface.bind(AppLifecycleName) {
             val context = FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
-            FunContextRegistry.setContext(context)
-            val time = FunTime(context)
+            val time = FunTime()
             context.time = time
 
             val app = initFunc(context)
             time.app = app
-            it.ctx.window.callbacks["Fun"] = FunInputAdapter(app, context)
+            it.ctx.window.callbacks["Fun"] = FunInputAdapter(context)
             //TODO: when we remove dependance on FunApp overrides, we should replace usages of FunApp with FunContext.
             app
         }
@@ -283,13 +269,7 @@ abstract class FunApp : AutoCloseable {
 }
 
 internal fun FunApp.actualOnError(error: Throwable) {
-//    gui()
     context.events.guiError.emit(error)
-    mods.forEach {
-        with(it) {
-            onGUIError(error)
-        }
-    }
 }
 
 
@@ -303,25 +283,12 @@ internal fun FunApp.actualGui() = context.gui.PanelSupport {
     }
 }
 
-@Deprecated("")
-internal fun FunApp.actualHandleInput(input: InputEvent) {
 
-    for (mod in mods) {
-        mod.handleInput(input)
-    }
-}
-
-
-internal fun FunApp.actualFrame(deltaMs: Double) {
-    context.events.frame.emit(deltaMs.milliseconds)
-    mods.forEach { it.frame(deltaMs) }
-}
 
 internal fun FunApp.actualPhysics(delta: Duration) {
     mods.forEach { it.prePhysics(delta) }
     context.events.beforePhysics.emit(delta)
     context.events.afterPhysics.emit(delta)
-    mods.forEach { it.postPhysics(delta) }
 }
 
 

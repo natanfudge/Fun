@@ -5,6 +5,7 @@ package io.github.natanfudge.fn.network.state
 import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
+import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.util.ImmutableCollection
 import io.github.natanfudge.fn.util.ImmutableSet
 import io.github.natanfudge.fn.util.Listener
@@ -27,11 +28,13 @@ import kotlinx.serialization.builtins.MapSerializer
  * @see funList
  */
 inline fun <reified K, reified V> FunOld.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
-    funMap(name, getFunSerializer(), getFunSerializer(), mutableMapOf(*items))
+    funMap(name, mutableMapOf(*items))
 
 
-inline fun <reified K, reified V> FunOld.funMap(name: String, items: Map<K,V>): FunMap<K, V> =
-    funMap(name, getFunSerializer(), getFunSerializer(), items.toMutableMap())
+inline fun <reified K, reified V> FunOld.funMap(name: String, items: MutableMap<K,V>): FunMap<K, V> {
+    if (FunOld::class.java.isAssignableFrom(V::class.java)) throw UnallowedFunException("funMap is not intended for Fun values, use mapOfFuns for that.")
+    return funMap(name, getFunSerializer(), getFunSerializer(), items)
+}
 
 /**
  * Creates a synchronized map that automatically propagates changes to all clients.
@@ -46,7 +49,7 @@ inline fun <reified K, reified V> FunOld.funMap(name: String, items: Map<K,V>): 
  * @see funList
  */
 fun <K, V> FunOld.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
-    val map = FunMap(useOldStateIfPossible(items,this.id,name), name, this, keySerializer, valueSerializer)
+    val map = FunMap(useOldStateIfPossible(items,name), name, this, keySerializer, valueSerializer)
     context.stateManager.registerState(id, name, map)
     return map
 }

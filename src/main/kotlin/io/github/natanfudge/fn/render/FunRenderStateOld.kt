@@ -202,11 +202,11 @@ class FunRenderObject(
 }
 
 
-class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : FunOld(context, id) {
+class SimpleRenderObject(id: FunId, context: FunContext, model: Model) : FunOld( id) {
     val render = render(model)
 }
 
-class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physicsSystem: PhysicsSystem) : FunOld(context, id) {
+class SimplePhysicsObject(id: FunId, context: FunContext, model: Model, physicsSystem: PhysicsSystem) : FunOld(id) {
     val physics = physics(physicsSystem)
     val render = render(model, physics)
 }

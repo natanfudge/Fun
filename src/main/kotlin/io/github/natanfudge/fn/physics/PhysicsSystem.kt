@@ -71,7 +71,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     private fun intersect(bodyA: Body, bodyB: Body) = bodyA.boundingBox.intersects(bodyB.boundingBox)
 
-    fun tick(delta: Duration) {
+    fun tick(delta: Duration, spedUp: Boolean = false) {
         processingBodies = true
         if (delta > maxDelta) {
             val ticks = ceil(delta / maxDelta).toInt()
@@ -81,7 +81,9 @@ class PhysicsSystem(var gravity: Boolean = true) {
                     singleTick(maxDelta)
                 }
             } else {
-                println("Warn: physics is lagging behind, quickly emulating $ticks ticks. If the game is sped up you can ignore this.")
+                if (!spedUp) {
+                    println("Warn: physics is lagging behind, quickly emulating $ticks ticks.")
+                }
                 repeat(ticks - 1) {
                     singleTick(maxDelta)
                 }

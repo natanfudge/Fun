@@ -5,8 +5,6 @@ import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.actualFrame
-import io.github.natanfudge.fn.core.actualHandleInput
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
@@ -20,6 +18,7 @@ import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
+import korlibs.time.milliseconds
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -138,8 +137,7 @@ var pipelines = 0
 //    val input = InputManager(this, window, compose)
 //}
 
-//TODo: stop passing FunApp, FunContext is enough (once we remove FunApp overrides)
-class FunInputAdapter(private val app: FunApp, private val context: FunContext) : WindowCallbacks {
+class FunInputAdapter(private val context: FunContext) : WindowCallbacks {
     override fun onInput(input: InputEvent) {
         // No need to block input with a null cursor position
         if (context.world.cursorPosition != null && input is InputEvent.PointerEvent &&
@@ -147,7 +145,6 @@ class FunInputAdapter(private val app: FunApp, private val context: FunContext) 
             !context.gui.acceptMouseEvents) return
 //        println("Emitting input event, accept: ${context.gui.acceptMouseEvents}")
         context.events.input.emit(input)
-        app.actualHandleInput(input)
     }
 }
 
@@ -255,7 +252,7 @@ fun WebGPUWindow.bindFunLifecycles(
         if (!frame.isReady) return@bind
         frame.isReady = false // Avoid drawing using the same parent frame twice
 
-        app.actualFrame(frame.deltaMs)
+        app.context.events.frame.emit(frame.deltaMs.milliseconds)
 
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
@@ -299,9 +296,9 @@ private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     if (deltaMs > normalFrameTimeMs * 1.8f) {
         val missingFrames = (deltaMs / normalFrameTimeMs).roundToInt() - 1
         val plural = missingFrames > 1
-//        println(
-//            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
-//                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
-//        )
+        println(
+            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
+                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
+        )
     }
 }

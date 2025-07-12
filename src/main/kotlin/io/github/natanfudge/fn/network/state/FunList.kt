@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.network.state
 import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
+import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
@@ -21,10 +22,12 @@ import java.util.function.IntFunction
  * @see funMap
  * @see funSet
  */
-inline fun <reified T> FunOld.funList(name: String, vararg items: T): FunList<T> = funList(name, getFunSerializer(), mutableListOf(*items))
-inline fun <reified T> FunOld.funList(name: String, items: MutableList<T>): FunList<T> = funList(name, getFunSerializer(), items)
-inline fun <reified T> FunOld.funList(name: String, size: Int, init: (Int) -> T): FunList<T> = funList(name, getFunSerializer(), MutableList(size, init))
-
+inline fun <reified T> FunOld.funList(name: String, vararg items: T): FunList<T> = funList(name, mutableListOf(*items))
+inline fun <reified T> FunOld.funList(name: String, size: Int, init: (Int) -> T): FunList<T> = funList(name, MutableList(size, init))
+inline fun <reified T> FunOld.funList(name: String, items: MutableList<T>): FunList<T> {
+    if (FunOld::class.java.isAssignableFrom(T::class.java)) throw UnallowedFunException("funList is not intended for Fun values, use listOfFuns for that.")
+    return funList(name, getFunSerializer(), items)
+}
 /**
  * Creates a synchronized list that automatically propagates changes to all clients.
  * 
@@ -38,7 +41,7 @@ inline fun <reified T> FunOld.funList(name: String, size: Int, init: (Int) -> T)
  * @see funSet
  */
 fun <T> FunOld.funList(name: String, serializer: KSerializer<T>, items: MutableList<T>): FunList<T> {
-    val list = FunList(useOldStateIfPossible(items,this.id,name), name, this, serializer)
+    val list = FunList(useOldStateIfPossible(items,name), name, this, serializer)
     context.stateManager.registerState(id, name, list)
     return list
 }

@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.render.Animation
 import io.github.natanfudge.fn.render.FunRenderObject
 import io.github.natanfudge.fn.render.ModelNode
@@ -15,7 +16,7 @@ import korlibs.time.times
 import kotlin.time.Duration
 
 interface FunResource {
-    val context: FunContext
+    val context get() = FunContextRegistry.getContext()
     fun alsoClose(closeable: AutoCloseable)
 }
 
@@ -74,6 +75,7 @@ class ModelAnimator(private val render: FunRenderObject) {
     private val nodes = model.nodeHierarchy.toList()
 
     fun animationIsRunning(name: String) = activeAnimations.any { it.animation.name == name }
+
 
     init {
         render.context.events.frame.listen(render) { delta ->

@@ -234,7 +234,7 @@ class FunStateManager(
     /**
      * Registers a state property with its parent state holder.
      */
-    internal fun registerState(holderKey: String, propertyKey: String, state: FunState<*>) {
+    @PublishedApi internal fun registerState(holderKey: String, propertyKey: String, state: FunState<*>) {
         val holder = stateHolders[holderKey] ?: throw UnfunStateException(
             "State holder '$holderKey' was not registered prior to registering its sub-state '$propertyKey'!"
         )

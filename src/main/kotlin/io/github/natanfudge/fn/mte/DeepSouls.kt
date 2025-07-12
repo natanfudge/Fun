@@ -11,7 +11,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
 class MineTheEarthMainMenuTemp(override val context: FunContext) : FunApp() {
-    val ds = DeepSouls(context)
+    val ds = DeepSouls()
 
     init {
         context.addDsPanel {
@@ -20,19 +20,19 @@ class MineTheEarthMainMenuTemp(override val context: FunContext) : FunApp() {
     }
 }
 
-class DeepSouls(context: FunContext) : FunOld(context, "DeepSouls") {
+class DeepSouls() : FunOld("DeepSouls") {
     val inMainMenuState = funValue(true, "inMainMenu")
     var inMainMenu by inMainMenuState
 
     init {
         if (!inMainMenu) {
-            MineTheEarthGame(context)
+            MineTheEarthGame()
         }
     }
 }
 
 
-class MineTheEarthGame(override val context: FunContext) : FunApp() {
+class MineTheEarthGame : FunOld("Game") {
 
     val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
         Balance.create()
@@ -40,13 +40,6 @@ class MineTheEarthGame(override val context: FunContext) : FunApp() {
 
     val animation = FunAnimation(context)
 
-    private val indices = mutableMapOf<String, Int>()
-    fun nextFunId(name: String): FunId {
-        if (name !in indices) indices[name] = 0
-        val nextIndex = indices.getValue(name)
-        indices[name] = nextIndex + 1
-        return "$name-$nextIndex"
-    }
 
     val input = InputManager(context)
 
@@ -71,7 +64,7 @@ class MineTheEarthGame(override val context: FunContext) : FunApp() {
     val world = World(this)
 
 
-    var cameraDistance = 15f
+    var cameraDistance by funValue(15f, "cameraDistance")
 
     private fun repositionCamera(playerPos: Vec3f) {
         if (creativeMovement.mode == CameraMode.Off) {
@@ -81,15 +74,13 @@ class MineTheEarthGame(override val context: FunContext) : FunApp() {
         }
     }
 
-    val creativeMovement = CreativeMovement(context, input)
+    val creativeMovement = CreativeMovement(input)
 
     fun initialize() {
         player.physics.position = Vec3f(0f, 0.5f, 11.5f)
         world.initialize()
     }
     init {
-
-
         physics.system.earthGravityAcceleration = 20f
 
         player.render.onTransformChange {

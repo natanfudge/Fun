@@ -36,7 +36,7 @@ fun MainMenu(ds: DeepSouls) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 MainMenuButton("Dig Alone", border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
                     ds.inMainMenu = false
-                    MineTheEarthGame(ds.context).initialize()
+                    MineTheEarthGame().initialize()
                 }
                 MainMenuButton("Dig With Friends", enabled = false) {}
                 MainMenuButton("Settings", fontColor = Color.White.copy(alpha = 0.6f)) {}

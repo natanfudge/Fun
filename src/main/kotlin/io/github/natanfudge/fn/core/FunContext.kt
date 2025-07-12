@@ -40,6 +40,9 @@ class FunContext(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
     private val stateContext: FunStateContext,
 ) : FunStateContext by stateContext {
+    init {
+        FunContextRegistry.setContext(this)
+    }
 
 
     val events = BaseFunEvents()
@@ -51,10 +54,10 @@ class FunContext(
     val window by dims
 
     val world = surface.world
+    val rootFuns = mutableMapOf<FunId, FunOld>()
 
     var camera = DefaultCamera()
 
-    val rootFuns = mutableMapOf<FunId, FunOld>()
     private var restarting = false
 
     /**

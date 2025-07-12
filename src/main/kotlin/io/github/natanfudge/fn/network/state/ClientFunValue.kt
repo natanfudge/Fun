@@ -4,8 +4,8 @@ package io.github.natanfudge.fn.network.state
 
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
-import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.StateId
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
@@ -25,12 +25,16 @@ import kotlin.reflect.typeOf
  * Without hot reload, this just returns [initialValue]
  */
 @PublishedApi
-internal inline fun <reified T> FunOld.useOldStateIfPossible(initialValue: T, parentId: FunId, stateId: FunId): T {
+internal inline fun <reified T> FunOld.useOldStateIfPossible(initialValue: T, stateId: FunId): T {
+    val parentId = this.id
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
-    if(parentId.contains("Player")) {
+    if (parentId.contains("Player")) {
         println("Old value for $parentId:$stateId is $oldState")
     }
-    return if (oldState is T) oldState else initialValue
+    return if (oldState is T) oldState else {
+        if (oldState != null) println("Throwing out incompatible old state for $parentId:$stateId")
+        initialValue
+    }
 }
 
 /**
@@ -43,7 +47,7 @@ internal inline fun <reified T> FunOld.useOldStateIfPossible(initialValue: T, pa
  * @see FunOld
  */
 inline fun <reified T> FunOld.funValue(
-    initialValue: T,
+    initialValue: T?,
     id: FunId,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
     /**
@@ -53,14 +57,17 @@ inline fun <reified T> FunOld.funValue(
 ): ClientFunValue<T> {
     // SLOW: too much code in inline function
     val funValue = ClientFunValue(
-        useOldStateIfPossible(initialValue, this.id, id),
-        getFunSerializer<T>(), id, this.id,this.context, editor
+        useOldStateIfPossible(unsafeToNotNull(initialValue), id),
+        getFunSerializer<T>(), id, this.id, this.context, editor
     )
     if (onSetValue != null) {
         funValue.beforeChange(onSetValue)
     }
     return funValue
 }
+
+@PublishedApi
+internal fun <T> unsafeToNotNull(value: T?): T = value as T
 
 
 @PublishedApi
