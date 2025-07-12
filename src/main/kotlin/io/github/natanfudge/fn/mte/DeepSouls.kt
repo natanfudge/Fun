@@ -46,6 +46,8 @@ class MineTheEarthGame : Fun("Game") {
     val physics = FunPhysics(context)
     val player = Player(this)
 
+    val background = Background()
+
 
 //    val whale = Whale(this)
 

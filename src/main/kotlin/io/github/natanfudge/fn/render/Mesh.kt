@@ -71,6 +71,28 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         val HomogenousCube = unitCube(CubeUv.Repeat)
         val HeterogeneousCube = unitCube(CubeUv.Grid3x2)
 
+        /**
+         * Square centered at (0,0), going from [-0.5,-0.5,0] to [0.5,0.5,0], parallel to the XY plane (Z = 0)
+         */
+        val UnitSquare: Mesh = run {
+            val positions = listOf(
+                Vec3f(-0.5f, -0.5f, 0f), Vec3f(0.5f, -0.5f, 0f), Vec3f(0.5f, 0.5f, 0f), Vec3f(-0.5f, 0.5f, 0f),
+            )
+            val indices = TriangleIndexArray.of(
+                0, 1, 2, 0, 2, 3,      // front
+            )
+            val normals = inferNormals(indices, positions)
+            val vba = VertexArrayBuffer.of(
+                positions, normals,
+                uv = listOf(
+                    UV(0f, 1f), UV(1f, 1f), UV(1f, 0f), UV(0f, 0f),
+                ),
+                jointList = listOf(), //SLOW: should not need this
+                weightList = listOf()
+            )
+            Mesh(indices, vba)
+        }
+
 
         // There is actually only 24 unique positions, we don't need 36
         /**
@@ -284,11 +306,11 @@ data class UV(val u: Float, val v: Float) {
 }
 
 data class VertexJoints(
-    val a: Int, val b: Int, val c: Int, val d: Int
+    val a: Int, val b: Int, val c: Int, val d: Int,
 )
 
 data class VertexWeights(
-    val a: Float, val b: Float, val c: Float, val d: Float
+    val a: Float, val b: Float, val c: Float, val d: Float,
 )
 
 
