@@ -1,11 +1,11 @@
 package io.github.natanfudge.fn.base
 
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import kotlin.time.Duration
 
 
-class RateLimiter(parent: FunOld, name: String = "RateLimit") : FunOld(parent, name) {
+class RateLimiter(parent: Fun, name: String = "RateLimit") : Fun(parent, name) {
     private var lastInvocation: Duration by funValue(Duration.ZERO, "lastInvocation")
 
 

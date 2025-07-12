@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.util
 
+import kotlin.math.PI
 import kotlin.math.ceil
 
 fun closeAll(vararg closeables: AutoCloseable) {
@@ -21,3 +22,4 @@ fun <K, V> Map<K, V>.withValue(key: K, value: V): Map<K, V> {
 }
 
 
+val PIf = PI.toFloat()

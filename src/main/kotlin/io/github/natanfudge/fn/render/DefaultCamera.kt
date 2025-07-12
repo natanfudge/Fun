@@ -1,9 +1,6 @@
 package io.github.natanfudge.fn.render
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -30,7 +27,7 @@ enum class CameraMode {
  * - Zooming (moving closer to or further from a focal point)
  * - Rotation around axes
  */
-class DefaultCamera: Camera, FunOld("Camera") {
+class DefaultCamera: Camera, Fun("Camera") {
     /**
      * The current position of the camera in 3D space.
      * Initially positioned at (5, 5, 5).

@@ -18,7 +18,6 @@ import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowConfig
-import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
@@ -142,7 +141,7 @@ private fun run(app: FunAppInitializer<*>) {
     exitProcess(0)
 }
 
-class FunTime : FunOld("time") {
+class FunTime : Fun("time") {
     var speed by funValue(1f, "speed")
     internal lateinit var app: FunApp
     fun advance(time: Duration) {

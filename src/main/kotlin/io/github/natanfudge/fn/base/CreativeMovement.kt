@@ -4,9 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,12 +16,11 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.CameraMode
 
-class CreativeMovement(private val inputManager: InputManager): FunOld("Creative-Movement") {
+class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Movement") {
     private val camera = context.camera
 
     var mode: CameraMode by funValue(CameraMode.Off, "mode")

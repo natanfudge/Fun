@@ -19,10 +19,10 @@ import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunMod
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.base.InputManager
-import io.github.natanfudge.fn.render.FunRenderStateOld
+import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.SimplePhysicsObject
@@ -47,7 +47,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
      */
     private fun spawnTargetGhosts(block: PhysicsAssertionBlock) {
         for ((body, assertion) in block.assertions) {
-            val renderNode = (body as FunOld).getRoot().childrenTyped<FunRenderStateOld>().single()
+            val renderNode = (body as Fun).getRoot().childrenTyped<FunRenderState>().single()
             bodies.add(SimpleRenderObject("target-${index++}", app.context, renderNode.model).render.apply {
                 localTransform.translation = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
@@ -71,7 +71,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
         )
     }
 
-    val bodies = mutableListOf<FunOld>()
+    val bodies = mutableListOf<Fun>()
 
     override fun cube(
         position: Vec3f,

@@ -48,7 +48,7 @@ data class StateChange(val key: StateKey, val value: StateChangeValue, val polic
  *
  * Contains multiple [io.github.natanfudge.fn.core.FunStateManager] instances that send and receive state updates without network connections.
  *
- * @see io.github.natanfudge.fn.core.FunOld
+ * @see io.github.natanfudge.fn.core.Fun
  */
 class LocalMultiplayer(
     /**
@@ -63,7 +63,7 @@ class LocalMultiplayer(
     }
 
     /**
-     * List of clients that can be used to connect [io.github.natanfudge.fn.core.FunOld] components.
+     * List of clients that can be used to connect [io.github.natanfudge.fn.core.Fun] components.
      * Each client has its own communication channel to other clients.
      */
     val clients: List<FunClient> = List(playerCount) { clientNum ->

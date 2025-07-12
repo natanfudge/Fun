@@ -8,12 +8,12 @@ import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.base.listen
 import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.physics
+import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -29,7 +29,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 
-val PIf = PI.toFloat()
 
 private fun timeSinceStartup(): Duration {
     val mxBean = ManagementFactory.getRuntimeMXBean()
@@ -41,10 +40,8 @@ private fun timeSinceStartup(): Duration {
 }
 
 
-//TODO: when hot reloading (and therefore when loading a save and starting the game), the player starts off not being correctly oriented and animated,
-// and the correction is made only after a delay. This should be fixed.
 
-class Player(private val game: MineTheEarthGame) : FunOld( "Player") {
+class Player(private val game: MineTheEarthGame) : Fun( "Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
@@ -291,10 +288,10 @@ class Player(private val game: MineTheEarthGame) : FunOld( "Player") {
 }
 
 private class DelayedStrike(
-    parent: FunOld,
+    parent: Fun,
 
     name: String = "RateLimit",
-) : FunOld(parent, name) {
+) : Fun(parent, name) {
     private var strikeStart: Duration? by funValue(null, "strikeStart")
     private var lastStrike: Duration? by funValue(null, "lastStrike")
 
@@ -344,4 +341,4 @@ inline fun <reified R1, reified R2> whenRootFunsTyped(a: Body, b: Body, callback
     }
 }
 
-fun Body.getRootFun(): FunOld = (this as FunOld).getRoot()
+fun Body.getRootFun(): Fun = (this as Fun).getRoot()

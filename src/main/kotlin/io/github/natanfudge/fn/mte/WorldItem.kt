@@ -1,21 +1,14 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.FunOld
 import io.github.natanfudge.fn.gltf.fromGlbResource
-import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.physics
+import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.render
+import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.seconds
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -38,7 +31,7 @@ data class Item(
 }
 
 
-class WorldItem(val game: MineTheEarthGame, id: String, item: Item?) : FunOld(id) {
+class WorldItem(val game: MineTheEarthGame, id: String, item: Item?) : Fun(id) {
     companion object {
         val models = ItemType.entries.filter { it != ItemType.Nothing }.associateWith {
             Model.fromGlbResource("files/models/items/${it.name.lowercase()}.glb")

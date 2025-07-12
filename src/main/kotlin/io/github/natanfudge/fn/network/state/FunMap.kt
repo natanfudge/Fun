@@ -2,7 +2,7 @@
 
 package io.github.natanfudge.fn.network.state
 
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.error.UnallowedFunException
@@ -27,12 +27,12 @@ import kotlinx.serialization.builtins.MapSerializer
  * @see funSet
  * @see funList
  */
-inline fun <reified K, reified V> FunOld.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
+inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
     funMap(name, mutableMapOf(*items))
 
 
-inline fun <reified K, reified V> FunOld.funMap(name: String, items: MutableMap<K,V>): FunMap<K, V> {
-    if (FunOld::class.java.isAssignableFrom(V::class.java)) throw UnallowedFunException("funMap is not intended for Fun values, use mapOfFuns for that.")
+inline fun <reified K, reified V> Fun.funMap(name: String, items: MutableMap<K,V>): FunMap<K, V> {
+    if (Fun::class.java.isAssignableFrom(V::class.java)) throw UnallowedFunException("funMap is not intended for Fun values, use mapOfFuns for that.")
     return funMap(name, getFunSerializer(), getFunSerializer(), items)
 }
 
@@ -48,7 +48,7 @@ inline fun <reified K, reified V> FunOld.funMap(name: String, items: MutableMap<
  * @see funSet
  * @see funList
  */
-fun <K, V> FunOld.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
+fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
     val map = FunMap(useOldStateIfPossible(items,name), name, this, keySerializer, valueSerializer)
     context.stateManager.registerState(id, name, map)
     return map
@@ -62,7 +62,7 @@ fun <K, V> FunOld.funMap(name: String, keySerializer: KSerializer<K>, valueSeria
  * like any other map. However, any modifications to the map (putting, removing entries)
  * are automatically synchronized across all clients in the multiplayer environment.
  * 
- * Create instances using the [funMap] extension function on [FunOld].
+ * Create instances using the [funMap] extension function on [Fun].
  * 
  * Example usage:
  * ```
@@ -80,7 +80,7 @@ fun <K, V> FunOld.funMap(name: String, keySerializer: KSerializer<K>, valueSeria
 class FunMap<K, V> @PublishedApi internal constructor(
     @InternalFunApi val _items: MutableMap<K, V>,
     private val name: String,
-    private val owner: FunOld,
+    private val owner: Fun,
     private val keySerializer: KSerializer<K>,
     private val valueSerializer: KSerializer<V>,
 ) : MutableMap<K, V> , FunState<Map<K,V>> {

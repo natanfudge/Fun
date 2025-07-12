@@ -5,7 +5,7 @@ package io.github.natanfudge.fn.network.state
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
 import io.github.natanfudge.fn.core.FunId
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.StateId
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
@@ -25,7 +25,7 @@ import kotlin.reflect.typeOf
  * Without hot reload, this just returns [initialValue]
  */
 @PublishedApi
-internal inline fun <reified T> FunOld.useOldStateIfPossible(initialValue: T, stateId: FunId): T {
+internal inline fun <reified T> Fun.useOldStateIfPossible(initialValue: T, stateId: FunId): T {
     val parentId = this.id
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
     if (parentId.contains("Player")) {
@@ -40,13 +40,13 @@ internal inline fun <reified T> FunOld.useOldStateIfPossible(initialValue: T, st
 /**
  * Creates a property delegate that automatically synchronizes its value across all clients.
  *
- * This function is used to create properties in [FunOld] components that will be automatically
+ * This function is used to create properties in [Fun] components that will be automatically
  * synchronized when their value changes.
  *
  * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
- * @see FunOld
+ * @see Fun
  */
-inline fun <reified T> FunOld.funValue(
+inline fun <reified T> Fun.funValue(
     initialValue: T?,
     id: FunId,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
@@ -90,7 +90,7 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
  * Similarly, when another client modifies the property, the change is automatically applied locally.
  *
  * @see funValue
- * @see FunOld
+ * @see Fun
  */
 class ClientFunValue<T>(
     value: T, private val serializer: KSerializer<T>, private val id: StateId,

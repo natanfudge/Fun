@@ -19,7 +19,7 @@ import kotlinx.serialization.KSerializer
  * Implementations of this interface handle the communication between clients,
  * serializing values and ensuring they reach the appropriate destinations.
  *
- * @see FunOld
+ * @see Fun
  */
 interface FunStateSynchronizer {
     /**
@@ -186,7 +186,7 @@ interface FunCommunication {
  * - Sending state updates to other clients
  * - Receiving and applying state updates from other clients
  *
- * @see FunOld
+ * @see Fun
  */
 class FunStateManager(
 //    val synchronizer: FunStateSynchronizer,
@@ -216,7 +216,7 @@ class FunStateManager(
         stateHolders[fn] = MapStateHolder()
     }
 
-    internal fun unregister(fn: FunOld) {
+    internal fun unregister(fn: Fun) {
         stateHolders.remove(fn.id)
     }
 

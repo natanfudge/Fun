@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.mte
 
 import io.github.natanfudge.fn.core.FunId
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.FunList
 import io.github.natanfudge.fn.network.state.FunMap
 import io.github.natanfudge.fn.network.state.getFunSerializer
@@ -13,7 +13,7 @@ private data class PositionedBlock(
     val pos: BlockPos,
 )
 
-class World(val game: MineTheEarthGame) : FunOld("World") {
+class World(val game: MineTheEarthGame) : Fun("World") {
     private val width = 21
     private val height = 21
 
@@ -32,7 +32,7 @@ class World(val game: MineTheEarthGame) : FunOld("World") {
 //        if (zLevelStart == 0) {
 //            fillerBlock = BlockType.Dirt
 //        } else {
-//            TODO("")
+//            TO DO("")
 //        }
 
 
@@ -106,14 +106,14 @@ class World(val game: MineTheEarthGame) : FunOld("World") {
 }
 
 @Suppress("UNCHECKED_CAST")
-inline fun <reified K, reified V : FunOld> FunOld.mapOfFuns(name: String, constructor: (FunId) -> V): FunMap<K, V> {
+inline fun <reified K, reified V : Fun> Fun.mapOfFuns(name: String, constructor: (FunId) -> V): FunMap<K, V> {
     // SLOW: too much code in inline function
     val oldState = context.stateManager.getState(id)?.getCurrentState()?.get(name)?.value
     val keySerializer = getFunSerializer<K>()
     val valueSerializer = getFunSerializer<V>()
     val map = if (oldState is Map<*, *> && oldState.all { it.value is V }) {
         val converted = oldState.mapValues {
-            constructor((it.value as FunOld).id)
+            constructor((it.value as Fun).id)
         } as Map<K, V>
         FunMap(converted.toMutableMap(), name, this, keySerializer, valueSerializer)
     } else {
@@ -125,13 +125,13 @@ inline fun <reified K, reified V : FunOld> FunOld.mapOfFuns(name: String, constr
 }
 
 
-inline fun <reified T : FunOld> FunOld.listOfFuns(name: String, constructor: (FunId) -> T): FunList<T> {
+inline fun <reified T : Fun> Fun.listOfFuns(name: String, constructor: (FunId) -> T): FunList<T> {
     // SLOW: too much code in inline function
     val oldState = context.stateManager.getState(id)?.getCurrentState()?.get(name)?.value
     val serializer = getFunSerializer<T>()
     val list = if (oldState is List<*> && oldState.all { it is T }) {
         val converted = oldState.map {
-            constructor((it as FunOld).id)
+            constructor((it as Fun).id)
         }
         FunList(converted.toMutableList(), name, this, serializer)
     } else {

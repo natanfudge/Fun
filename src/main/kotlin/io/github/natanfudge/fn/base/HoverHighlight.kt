@@ -3,9 +3,8 @@ package io.github.natanfudge.fn.base
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.Tag
-import io.github.natanfudge.fn.render.FunRenderObject
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
@@ -15,12 +14,12 @@ class HoverHighlight(
      * Allows making another Fun be hovered instead of the one the cursor is pointing at.
      * Return null to not highlight anything.
      */
-    private val redirectHover: (FunOld) -> FunOld? = { it },
+    private val redirectHover: (Fun) -> Fun? = { it },
     /**
-     * Allows filtering out specific [FunRenderStateOld]s, subcomponents of [FunOld]s, from being highlighted.
+     * Allows filtering out specific [FunRenderStateOld]s, subcomponents of [Fun]s, from being highlighted.
      * Note that [redirectHover] must still return non-null for this to matter.
      */
-    private val hoverRenderPredicate: (FunRenderObject) -> Boolean = { true },
+    private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
 ) {
     companion object {
         /**
@@ -41,7 +40,7 @@ class HoverHighlight(
         }
     }
 
-    var hoveredObjectRoot: FunOld? = null
+    var hoveredObjectRoot: Fun? = null
         private set
 
     private fun colorHoveredObject() {
@@ -64,7 +63,7 @@ class HoverHighlight(
 //                    it.removeTag(PreHoverTintTag)
 //                }
 
-                oldHover.forEachChildTyped<FunRenderObject> {
+                oldHover.forEachChildTyped<FunRenderState> {
                     if (it.tint == it.getTag(PostHoverTintTag)) {
                         // If the tint has not changed since hovering...
                         // Restore the old tint
@@ -89,7 +88,7 @@ class HoverHighlight(
 //                }
 //            }
 
-            actualNewRoot?.forEachChildTyped<FunRenderObject> {
+            actualNewRoot?.forEachChildTyped<FunRenderState> {
                 // Only apply hover tint when it is allowed
                 if (hoverRenderPredicate(it)) {
                     // Save old tint

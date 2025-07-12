@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.natanfudge.fn.base.addFunPanel
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,7 +26,7 @@ import kotlin.io.path.toPath
 import kotlin.math.min
 
 
-class Inventory(val game: MineTheEarthGame) : FunOld("Inventory") {
+class Inventory(val game: MineTheEarthGame) : Fun("Inventory") {
     val maxSlots = 15
 
     private val items = funList<Item>("items", List(maxSlots) {

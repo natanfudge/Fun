@@ -54,7 +54,7 @@ class FunContext(
     val window by dims
 
     val world = surface.world
-    val rootFuns = mutableMapOf<FunId, FunOld>()
+    val rootFuns = mutableMapOf<FunId, Fun>()
 
     var camera = DefaultCamera()
 
@@ -74,7 +74,7 @@ class FunContext(
     }
 
 
-    fun register(fn: FunOld) {
+    fun register(fn: Fun) {
         if (restarting) throw UnallowedFunException("Don't spawn Funs during cleanup of a Fun.")
         if (fn.isRoot) {
             rootFuns[fn.id] = fn
@@ -86,7 +86,7 @@ class FunContext(
         stateContext.stateManager.register(fn.id, allowReregister = hotReloaded)
     }
 
-    fun unregister(fn: FunOld, deleteState: Boolean) {
+    fun unregister(fn: Fun, deleteState: Boolean) {
         // We don't need to unregister anything because the entire context is getting thrown out, and this causes ConcurrentModificationException anyway
         if (restarting) return
         if (fn.isRoot) {

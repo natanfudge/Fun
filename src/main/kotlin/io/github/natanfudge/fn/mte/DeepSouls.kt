@@ -20,7 +20,7 @@ class MineTheEarthMainMenuTemp(override val context: FunContext) : FunApp() {
     }
 }
 
-class DeepSouls() : FunOld("DeepSouls") {
+class DeepSouls() : Fun("DeepSouls") {
     val inMainMenuState = funValue(true, "inMainMenu")
     var inMainMenu by inMainMenuState
 
@@ -32,7 +32,7 @@ class DeepSouls() : FunOld("DeepSouls") {
 }
 
 
-class MineTheEarthGame : FunOld("Game") {
+class MineTheEarthGame : Fun("Game") {
 
     val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
         Balance.create()

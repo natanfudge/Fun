@@ -1,18 +1,18 @@
 package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunOld
+import io.github.natanfudge.fn.core.Fun
 import java.util.LinkedList
 
 /**
- * Returns the root [FunOld] node of the render [FunOld] that is currently being hovered by the mouse.
+ * Returns the root [Fun] node of the render [Fun] that is currently being hovered by the mouse.
  */
-fun FunContext.getHoveredRoot(): FunOld? {
-    val directHovered = world.hoveredObject as? FunOld ?: return null
+fun FunContext.getHoveredRoot(): Fun? {
+    val directHovered = world.hoveredObject as? Fun ?: return null
     return directHovered.getRoot()
 }
 
-fun FunOld.getRoot() : FunOld {
+fun Fun.getRoot() : Fun {
     var current = this
     while (true) {
         val parent = current.parent
@@ -21,8 +21,8 @@ fun FunOld.getRoot() : FunOld {
     }
 }
 
-inline fun <reified T> FunOld.forEachChildTyped(iter: (T) -> Unit) {
-    val queue = LinkedList<FunOld>()
+inline fun <reified T> Fun.forEachChildTyped(iter: (T) -> Unit) {
+    val queue = LinkedList<Fun>()
     queue.add(this)
     while (queue.isNotEmpty()) {
         val current = queue.removeFirst()
@@ -31,6 +31,6 @@ inline fun <reified T> FunOld.forEachChildTyped(iter: (T) -> Unit) {
     }
 }
 
-inline fun <reified T> FunOld.childrenTyped(): List<T>  = buildList {
+inline fun <reified T> Fun.childrenTyped(): List<T>  = buildList {
     forEachChildTyped<T> { add(it) }
 }

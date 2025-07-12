@@ -164,7 +164,7 @@ fun WebGPUWindow.bindFunLifecycles(
     funDimLifecycle: Lifecycle<*, FunWindow>,
 ) {
 
-    //TODO: this should be part of WorldRender
+    //SUS: this should be part of WorldRender
     val objectLifecycle = createReloadingPipeline(
         "Object",
         surfaceLifecycle, fsWatcher,
