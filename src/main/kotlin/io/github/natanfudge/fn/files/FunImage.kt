@@ -14,12 +14,22 @@ class FunImage(
     val width: Int,
     val height: Int,
     val bytes: ByteArray,
+    val path: String?
 ) {
     companion object {
         fun fromResource(path: String): FunImage {
             val url = URI(Res.getUri(path)).toPath().toKotlin()
             return readImage(url)
         }
+    }
+
+    // Only equate by path to avoid checking byte by byte, this works most of the time.
+    override fun equals(other: Any?): Boolean {
+        return other is FunImage && other.path == path
+    }
+
+    override fun hashCode(): Int {
+        return path.hashCode()
     }
 
 }
@@ -45,6 +55,6 @@ fun readImage(path: Path): FunImage {
         buf.get(bytes)
         buf.flip()
         stbi_image_free(buf)
-        return FunImage(width, height, bytes)
+        return FunImage(width, height, bytes, path)
     }
 }

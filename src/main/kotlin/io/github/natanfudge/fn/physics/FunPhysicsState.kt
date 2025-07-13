@@ -63,7 +63,7 @@ class FunPhysicsState(
     override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity")
     override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration")
     override var angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity")
-    override var isGrounded: Boolean by funValue(true, "isGrounded")
+    override var isGrounded: Boolean by funValue(false, "isGrounded")
     override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
     override var mass: Float by funValue(1f, "mass")
     override var isImmovable: Boolean by funValue(false, "isImmovable")

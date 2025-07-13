@@ -22,7 +22,7 @@ class ErrorNotifications(context: FunContext) {
     private var error: Throwable? by mutableStateOf(null)
 
     init {
-        context.events.guiError.listenPermanently {
+        context.events.guiError.listenUnscoped {
             this.error = it
         }
         context.addFunPanel {

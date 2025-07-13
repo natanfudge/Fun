@@ -5,8 +5,8 @@ import java.util.function.Consumer
 
 
 /**
- * Allows listening to changes of an object via the [listenPermanently] method.
- * Usually, another object owns an [MutEventStream] implementation of this interface, and emits values to it, which are received by the callback passed to [listenPermanently].
+ * Allows listening to changes of an object via the [listenUnscoped] method.
+ * Usually, another object owns an [MutEventStream] implementation of this interface, and emits values to it, which are received by the callback passed to [listenUnscoped].
  * @sample io.github.natanfudge.fn.test.example.util.ObservableExamples.observableExample
  */
 interface EventStream<T> {
@@ -21,12 +21,12 @@ interface EventStream<T> {
              * and unnecessary processing.
              * @see EventStream
              */
-    fun listenPermanently(onEvent: Consumer<T>): Listener<T>
+    fun listenUnscoped(onEvent: Consumer<T>): Listener<T>
 }
 
 /**
  * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method
- * to stop listening. This is typically returned by [EventStream.listenPermanently].
+ * to stop listening. This is typically returned by [EventStream.listenUnscoped].
  * @see EventStream
  */
 interface Listener<in T> : AutoCloseable {
@@ -93,7 +93,7 @@ class MutEventStream<T> : EventStream<T> {
 
     /** @see EventStream */
     @Deprecated("use scoped listen", replaceWith = ReplaceWith("listen(onEvent)"))
-    override fun listenPermanently(onEvent: Consumer<T>): Listener<T> {
+    override fun listenUnscoped(onEvent: Consumer<T>): Listener<T> {
         val listener = ListenerImpl(onEvent, this)
         listeners.add(listener)
         return listener

@@ -21,6 +21,11 @@ abstract class Fun(
     /*override*/ val id: FunId,
     val parent: Fun? = null,
 ) : AutoCloseable, Taggable, FunResource {
+
+
+    companion object {
+        val DEV = true
+    }
     val isRoot: Boolean = parent == null
 
     constructor(parent: Fun, name: String) : this(parent.id.child(name), parent) {

@@ -32,7 +32,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
 
     init {
         with(camera) {
-            inputManager.mouseMoved.listenPermanently { delta ->
+            inputManager.mouseMoved.listenUnscoped { delta ->
                 val normalizedDeltaX = delta.x / context.window.width
                 val normalizedDeltaY = delta.y / context.window.height
 
@@ -112,7 +112,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
                 }
             }
         }
-        context.events.input.listenPermanently { input ->
+        context.events.input.listenUnscoped { input ->
             with(camera) {
                 when (input) {
                     is InputEvent.PointerEvent -> {

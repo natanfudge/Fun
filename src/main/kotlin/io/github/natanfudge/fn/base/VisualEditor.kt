@@ -84,7 +84,7 @@ class VisualEditor(
                 }
             }
         }
-        hoverMod.context.events.input.listenPermanently { input ->
+        hoverMod.context.events.input.listenUnscoped { input ->
             if (input is InputEvent.PointerEvent && enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position

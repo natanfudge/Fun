@@ -60,7 +60,7 @@ private fun run(app: FunAppInitializer<*>) {
 
 
     // Doing it this way allows us to emit it on our own terms
-    FunHotReload.reloadEnded.listenPermanently {result ->
+    FunHotReload.reloadEnded.listenUnscoped { result ->
 //        val reload = result?.leftOrNull() ?: return@listen
 //        println("Full reload information: " + reload)
 //        println("redefined classes: ${reload.dirtyRuntime.redefinedClasses}")
@@ -287,6 +287,7 @@ internal fun FunApp.actualGui() = context.gui.PanelSupport {
 internal fun FunApp.actualPhysics(delta: Duration) {
     mods.forEach { it.prePhysics(delta) }
     context.events.beforePhysics.emit(delta)
+    context.events.physics.emit(delta)
     context.events.afterPhysics.emit(delta)
 }
 

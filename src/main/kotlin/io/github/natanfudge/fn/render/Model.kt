@@ -27,7 +27,6 @@ data class Model(
     val nodeHierarchy: Tree<ModelNode> = TreeImpl(ModelNode(0, "", baseTransform = Transform()), listOf()),
     val skeleton: Skeleton? = null,
 ) {
-
     fun getAnimationLength(name: String, withLastFrameTrimmed: Boolean): Duration {
         val animation = animations.find { it.name == name } ?: error("Cannot find animation with name '$name'")
         if(withLastFrameTrimmed) {
@@ -144,4 +143,6 @@ data class Skeleton(
 
 typealias ModelId = String
 
-class Material(val texture: FunImage? = null)
+data class Material(val texture: FunImage? = null) {
+
+}

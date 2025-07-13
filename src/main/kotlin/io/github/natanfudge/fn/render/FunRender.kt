@@ -102,14 +102,6 @@ class FunWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable 
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     val sampler = ctx.device.createSampler(
         SamplerDescriptor(
-            magFilter = GPUFilterMode.Linear,
-            minFilter = GPUFilterMode.Linear,
-            mipmapFilter = GPUMipmapFilterMode.Nearest,
-            addressModeU = GPUAddressMode.Repeat,
-            addressModeV = GPUAddressMode.Repeat,
-            addressModeW = GPUAddressMode.Repeat,
-            lodMinClamp = 0f,
-            lodMaxClamp = 0f,
             label = "Fun Sampler"
         )
     )

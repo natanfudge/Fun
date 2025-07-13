@@ -47,7 +47,7 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
     }
 
 
-    val listener = bgWindow.frameStream.listenPermanently { (bytes, width, height) ->
+    val listener = bgWindow.frameStream.listenUnscoped { (bytes, width, height) ->
         dimensions.surface.device.copyExternalImageToTexture(
             source = bytes,
             texture = composeTexture,

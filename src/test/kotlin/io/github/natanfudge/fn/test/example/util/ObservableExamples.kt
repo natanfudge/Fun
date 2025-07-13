@@ -14,7 +14,7 @@ class ObservableExamples {
         val receivedValues = mutableListOf<String>()
 
         // Observe the observable and add received values to our list
-        val listener = observable.listenPermanently { value ->
+        val listener = observable.listenUnscoped { value ->
             receivedValues.add(value)
         }
 

@@ -6,8 +6,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.network.ColorSerializer
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.render.utils.*
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
@@ -17,7 +18,8 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
 
-val lightPos get() = Vec3f(0f, -2f, 12f)
+val lightPos get() = Vec3f(0f, -2f, 100f)
+
 /**
  *   initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1
  */
@@ -181,7 +183,15 @@ class WorldRender(
         pass.end()
     }
 
-    fun getOrBindModel(model: Model) = models.computeIfAbsent(model.id) { bind(model) }
+    fun getOrBindModel(model: Model): BoundModel {
+        val existingModel = models[model.id]
+        // This model != existingModel check makes sure the model is rebound in case it was changed in dev. This check is expensive, so we only do it in dev.
+        if (existingModel == null || (Fun.DEV && model.material.texture?.path != existingModel.image?.path)) {
+            println("Binding model ${model.id}")
+            models[model.id] = bind(model)
+        }
+        return models[model.id]!!
+    }
 
     /**
      * Note: [models] is updated by [getOrBindModel]
@@ -220,7 +230,7 @@ class WorldRender(
     }
 
     override fun close() {
-        closeAll(vertexBuffer, indexBuffer,  uniformBuffer, baseInstanceData, jointMatrixData)
+        closeAll(vertexBuffer, indexBuffer, uniformBuffer, baseInstanceData, jointMatrixData)
         modelBindGroups.values.forEach { it.close() }
         models.forEach { it.value.close() }
     }
@@ -234,11 +244,14 @@ data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, v
  * Stores instance information in one buffer and then a map from each instance index to its instance information in another buffer.
  * @param instanceIndexGetter Gets the index of instance data of the given [RenderInstance].
  */
-internal class IndirectInstanceBuffer(private val world: WorldRender, maxInstances: Int, expectedElementSize: UInt,
-                                      private val instanceIndexGetter: (RenderInstance) -> Int): AutoCloseable {
+internal class IndirectInstanceBuffer(
+    private val world: WorldRender, maxInstances: Int, expectedElementSize: UInt,
+    private val instanceIndexGetter: (RenderInstance) -> Int,
+) : AutoCloseable {
     override fun close() {
         closeAll(instanceBuffer, instanceIndexBuffer)
     }
+
     val instanceBuffer =
         ManagedGPUMemory(world.ctx, initialSizeBytes = (maxInstances * expectedElementSize.toInt()).toULong(), expandable = false, GPUBufferUsage.Storage)
 

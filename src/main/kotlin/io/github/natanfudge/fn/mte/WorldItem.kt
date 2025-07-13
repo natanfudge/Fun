@@ -31,7 +31,7 @@ data class Item(
 }
 
 
-class WorldItem(val game: MineTheEarthGame, id: String, item: Item?) : Fun(id) {
+class WorldItem(val game: DeepSoulsGame, id: String, item: Item?) : Fun(id) {
     companion object {
         val models = ItemType.entries.filter { it != ItemType.Nothing }.associateWith {
             Model.fromGlbResource("files/models/items/${it.name.lowercase()}.glb")

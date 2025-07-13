@@ -26,13 +26,16 @@ class DeepSouls() : Fun("DeepSouls") {
 
     init {
         if (!inMainMenu) {
-            MineTheEarthGame()
+            DeepSoulsGame()
         }
     }
 }
 
 
-class MineTheEarthGame : Fun("Game") {
+class DeepSoulsGame : Fun("Game") {
+    companion object {
+        val SurfaceZ = 100
+    }
 
     val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
         Balance.create()
@@ -79,7 +82,9 @@ class MineTheEarthGame : Fun("Game") {
     val creativeMovement = CreativeMovement(input)
 
     fun initialize() {
-        player.physics.position = Vec3f(0f, 0.5f, 11.5f)
+        player.physics.position = Vec3f(0f, 0.5f, 750f)
+        player.animation.play("jump", loop = false)
+
         world.initialize()
     }
     init {

@@ -304,7 +304,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val config: Windo
 
 class HotReloadRestarter : AutoCloseable {
     var restarted = false
-    val handle = FunHotReload.reloadEnded.listenPermanently {
+    val handle = FunHotReload.reloadEnded.listenUnscoped {
         restarted = true
     }
 

@@ -28,9 +28,6 @@ import kotlin.reflect.typeOf
 internal inline fun <reified T> Fun.useOldStateIfPossible(initialValue: T, stateId: FunId): T {
     val parentId = this.id
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
-    if (parentId.contains("Player")) {
-        println("Old value for $parentId:$stateId is $oldState")
-    }
     return if (oldState is T) oldState else {
         if (oldState != null) println("Throwing out incompatible old state for $parentId:$stateId")
         initialValue
@@ -116,7 +113,7 @@ class ClientFunValue<T>(
     /**
      * Changes are emitted BEFORE setting a new value, and are passed the new value.
      */
-    override fun beforeChange(callback: (T) -> Unit): Listener<T> = change.listenPermanently(callback)
+    override fun beforeChange(callback: (T) -> Unit): Listener<T> = change.listenUnscoped(callback)
 
 //    fun afterChange(callback: (T) -> Unit):
 

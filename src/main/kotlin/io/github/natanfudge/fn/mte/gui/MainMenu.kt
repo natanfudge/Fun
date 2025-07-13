@@ -16,7 +16,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.mte.DeepSouls
-import io.github.natanfudge.fn.mte.MineTheEarthGame
+import io.github.natanfudge.fn.mte.DeepSoulsGame
 import io.github.natanfudge.fn.network.state.listenAsState
 import natan.`fun`.generated.resources.MainMenuBG
 import natan.`fun`.generated.resources.Res
@@ -36,7 +36,7 @@ fun MainMenu(ds: DeepSouls) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 MainMenuButton("Dig Alone", border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)) {
                     ds.inMainMenu = false
-                    MineTheEarthGame().initialize()
+                    DeepSoulsGame().initialize()
                 }
                 MainMenuButton("Dig With Friends", enabled = false) {}
                 MainMenuButton("Settings", fontColor = Color.White.copy(alpha = 0.6f)) {}

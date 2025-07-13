@@ -12,6 +12,7 @@ import kotlin.time.Duration
 class BaseFunEvents {
     val frame = MutEventStream<Duration>()
     val beforePhysics = MutEventStream<Duration>()
+    val physics = MutEventStream<Duration>()
     val afterPhysics = MutEventStream<Duration>()
     val input = MutEventStream<InputEvent>()
     val guiError = MutEventStream<Throwable>()
@@ -20,6 +21,7 @@ class BaseFunEvents {
     internal fun clearListeners() {
         frame.clearListeners()
         beforePhysics.clearListeners()
+        physics.clearListeners()
         afterPhysics.clearListeners()
         input.clearListeners()
         guiError.clearListeners()

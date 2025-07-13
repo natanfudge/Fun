@@ -7,14 +7,16 @@ import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.base.listen
-import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.physics.*
+import io.github.natanfudge.fn.physics.Body
+import io.github.natanfudge.fn.physics.physics
+import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.render
+import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
@@ -29,7 +31,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 
-
 private fun timeSinceStartup(): Duration {
     val mxBean = ManagementFactory.getRuntimeMXBean()
 
@@ -39,9 +40,9 @@ private fun timeSinceStartup(): Duration {
     return upMillis.milliseconds
 }
 
+//todo: dropping a lot of frames when windows is not focused, frames are not supposed to even occur when window is not focused.
 
-
-class Player(private val game: MineTheEarthGame) : Fun( "Player") {
+class Player(private val game: DeepSoulsGame) : Fun("Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
     val render = render(model, physics)
@@ -57,11 +58,11 @@ class Player(private val game: MineTheEarthGame) : Fun( "Player") {
     }
 
 
+
     val inventory = Inventory(game)
 
 
-
-    private val mineDelay = DelayedStrike(this, )
+    private val mineDelay = DelayedStrike(this)
 
     private val left = game.input.registerHotkey("Left", Key.A)
     private val right = game.input.registerHotkey("Right", Key.D)
@@ -76,11 +77,21 @@ class Player(private val game: MineTheEarthGame) : Fun( "Player") {
     private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()
     private val upperBodyBones = model.nodesAndTheirChildren("mixamorig:Spine1").toSet()
 
+    // When the player spawns in he falls quickly on to the ground and sinks through the floor.
+    // No easy way to fix this other than checking the initial time he hit the ground and then correcting the position.
+    val initialSinkIntoFloorFix: Listener<Duration> = events.afterPhysics.listenUnscoped {
+        if (physics.isGrounded) {
+            physics.position.z = DeepSoulsGame.SurfaceZ - physics.baseAABB.minZ
+            physics.velocity.z = 0f
+            initialSinkIntoFloorFix.close()
+        }
+    }
+
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
         physics.baseAABB = AxisAlignedBoundingBox(
             minX = -0.3f, maxX = 0.3f,
-            minZ = -0.5f, maxZ = 0.5f,
+            minZ = -0.49f, maxZ = 0.5f,
             minY = -0.3f, maxY = 0.3f,
         )
 
@@ -118,7 +129,7 @@ class Player(private val game: MineTheEarthGame) : Fun( "Player") {
                         }
                         // 200 millseconds because that's the point in the animation where the character strikes. We must divide it by the multiplier of dig
                         // speed relative to the base animation speed, so the strike delay will match the animation's strike delay.
-                        mineDelay.strike(strikeDelay = 200.milliseconds / digAnimationSpeed,  strikeInterval) {
+                        mineDelay.strike(strikeDelay = 200.milliseconds / digAnimationSpeed, strikeInterval) {
                             target.health -= game.balance.pickaxeStrength
                         }
                     }
@@ -133,7 +144,7 @@ class Player(private val game: MineTheEarthGame) : Fun( "Player") {
 
             if (!digging && landing) {
                 animation.play("land", loop = false)
-            } else if (!digging&& isJumping) {
+            } else if (!digging && isJumping) {
                 animation.play("jump", loop = false)
             } else if (running && grounded) {
                 animation.play(
@@ -171,7 +182,7 @@ class Player(private val game: MineTheEarthGame) : Fun( "Player") {
 
 
 
-        game.physics.system.collision.listenPermanently { (a, b) ->
+        game.physics.system.collision.listenUnscoped { (a, b) ->
             whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
                 player.collectItem(item)
             }
@@ -234,7 +245,6 @@ class Player(private val game: MineTheEarthGame) : Fun( "Player") {
 
 
     val blockPos get() = physics.translation.toBlockPos()
-
 
 
     /**

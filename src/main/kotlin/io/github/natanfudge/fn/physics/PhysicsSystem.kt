@@ -26,7 +26,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
     val collision: EventStream<CollisionEvent> get() = _collision
 
     companion object {
-        private val maxDelta = 40.milliseconds
+        private val maxDelta = 30.milliseconds
         private val maxSkipTicks = 50
     }
 

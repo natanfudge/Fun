@@ -26,7 +26,7 @@ import kotlin.io.path.toPath
 import kotlin.math.min
 
 
-class Inventory(val game: MineTheEarthGame) : Fun("Inventory") {
+class Inventory(val game: DeepSoulsGame) : Fun("Inventory") {
     val maxSlots = 15
 
     private val items = funList<Item>("items", List(maxSlots) {

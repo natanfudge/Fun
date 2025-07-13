@@ -13,7 +13,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class Block(private val game: MineTheEarthGame, initialType: BlockType?, initialPos: BlockPos?, id: String) : Fun(id) {
+class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos: BlockPos?, id: String) : Fun(id) {
     companion object {
         val BreakRenderId = "break"
         val models = BlockType.entries.associateWith {

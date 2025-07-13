@@ -150,12 +150,6 @@ class ComposeGlfwWindow(
         composeSceneContext = glfwContext
     )
 
-//    init {
-//        scene.setContent {
-//            composeContent()
-//        }
-//    }
-
     fun setContent(content: @Composable () -> Unit) {
         scene.setContent(content)
     }

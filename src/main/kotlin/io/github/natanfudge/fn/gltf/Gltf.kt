@@ -151,7 +151,7 @@ private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
             val gltfTexture = glb.textures[textureIndex]
             val imageIndex = gltfTexture.source
             val gltfImage = glb.images[imageIndex]
-            gltfImage.toImage()
+            gltfImage.toImage(path)
         } else {
             null
         }
@@ -252,7 +252,7 @@ private fun extractAnimations(glb: GLTF2): List<Animation> {
  *   when uploading to a GPU.
  * - Returns `null` for empty images.
  */
-fun BufferedImage.toFunImage(): FunImage? {
+fun BufferedImage.toFunImage(path: String): FunImage? {
     if (width == 0 || height == 0) return null
 
     val hasAlpha = colorModel.hasAlpha()
@@ -276,13 +276,13 @@ fun BufferedImage.toFunImage(): FunImage? {
         }
     }
 
-    return FunImage(width, height, out)
+    return FunImage(width, height, out, path)
 }
 
 
-private fun GLTF2.Image.toImage(): FunImage? {
+private fun GLTF2.Image.toImage(path: String): FunImage? {
     val bitmap = bitmap ?: return null
-    return (bitmap as AwtNativeImage).awtImage.toFunImage()
+    return (bitmap as AwtNativeImage).awtImage.toFunImage(path)
 }
 
 /**

@@ -95,14 +95,14 @@ class InputManager(context: FunContext)  {
     }
 
     init {
-        context.events.beforePhysics.listenPermanently { delta ->
+        context.events.beforePhysics.listenUnscoped { delta ->
             if (focused) {
                 for (hotkey in hotkeys) {
                     if (hotkey.key in heldKeys && hotkey.modifiersPressed()) hotkey.onHold?.invoke(delta.seconds.toFloat())
                 }
             }
         }
-        context.events.input.listenPermanently { input ->
+        context.events.input.listenUnscoped { input ->
             when (input) {
                 is InputEvent.KeyEvent -> {
                     val event = input.event
@@ -142,7 +142,7 @@ class InputManager(context: FunContext)  {
                         PointerEventType.Move -> {
                             val prev = prevCursorPos ?: run {
                                 prevCursorPos = input.position
-                                return@listenPermanently
+                                return@listenUnscoped
                             }
                             prevCursorPos = input.position
                             val delta = prev - input.position

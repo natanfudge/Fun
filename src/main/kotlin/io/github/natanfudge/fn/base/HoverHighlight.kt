@@ -35,7 +35,7 @@ class HoverHighlight(
     }
 
     init {
-        context.events.frame.listenPermanently {
+        context.events.frame.listenUnscoped {
             colorHoveredObject()
         }
     }

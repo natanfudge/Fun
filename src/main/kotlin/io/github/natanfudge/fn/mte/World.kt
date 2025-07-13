@@ -1,25 +1,39 @@
 package io.github.natanfudge.fn.mte
 
-import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.network.state.FunList
 import io.github.natanfudge.fn.network.state.FunMap
 import io.github.natanfudge.fn.network.state.getFunSerializer
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 private data class PositionedBlock(
     val type: BlockType,
     val pos: BlockPos,
 )
 
-class World(val game: MineTheEarthGame) : Fun("World") {
+class World(val game: DeepSoulsGame) : Fun("World") {
     private val width = 21
     private val height = 21
 
     private inline fun roll(chancePct: Float, crossinline callback: () -> Unit) {
         if ((0..99).random() < chancePct * 100) {
             callback()
+        }
+    }
+
+    fun worldgenSimple(): List<Block> {
+        return List(width * height) {
+            val x = it % width - width / 2
+            val z = it / width - height + DeepSoulsGame.SurfaceZ
+            val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
+            Block(
+                game,
+                type,
+                BlockPos(x = x, y = 0, z = z), id = "Block-$type-$x-$z"
+            )
         }
     }
 
@@ -46,7 +60,6 @@ class World(val game: MineTheEarthGame) : Fun("World") {
             List(weight) { block }
         }
 
-        // [0 - 100] - [0-100]
         for (z in 0 until height) {
             for (x in 0 until mapWidth) {
                 roll(10.0f) {
@@ -84,7 +97,7 @@ class World(val game: MineTheEarthGame) : Fun("World") {
 
     init {
         if (blocks.isEmpty()) {
-            blocks.putAll(worldgen(mapWidth = 20, zLevelStart = -10, zLevelEnd = 10).associateBy { it.pos })
+            blocks.putAll(worldgenSimple().associateBy { it.pos })
         }
     }
 

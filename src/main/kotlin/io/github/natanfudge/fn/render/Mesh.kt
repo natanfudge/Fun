@@ -315,6 +315,13 @@ data class VertexWeights(
 
 
 class VertexArrayBuffer(val array: FloatArray) {
+    override fun equals(other: Any?): Boolean {
+        return other is VertexArrayBuffer && other.array.contentEquals(array)
+    }
+
+    override fun hashCode(): Int {
+        return array.contentHashCode()
+    }
     companion object {
         //SLOW: should have a way to turn on/off attributes of the vertex
         const val StrideFloats = 16
@@ -432,6 +439,14 @@ data class TriangleIndices(val a: Int, val b: Int, val c: Int) {
 class TriangleIndexArray(val array: IntArray) {
     companion object {
         fun of(vararg indices: Int) = TriangleIndexArray(indices)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        return other is TriangleIndexArray && other.array.contentEquals(array)
+    }
+
+    override fun hashCode(): Int {
+        return array.contentHashCode()
     }
 
     constructor(points: List<TriangleIndices>) : this(

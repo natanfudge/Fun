@@ -9,18 +9,36 @@ import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.util.PIf
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.math.roundToInt
 
 class Background : Fun("Background") {
-    private val rows = 10
-    private val columns = 10
-    private val model = Model(Mesh.UnitSquare, "sky ", material = Material(FunImage.fromResource("files/background/sky_smooth.png")))
-    val backgrounds = List(rows * columns) {
-        val row = it / columns
-        val column = it % columns
-        render(model, name = "bg-$row-$column").apply {
-            localTransform.rotation = Quatf.identity().rotateX(PIf / 2)
-            localTransform.scale = Vec3f(20f,20f,20f)
-            localTransform.translation = Vec3f((row - (rows / 2)) * 20f, 10f, (column - columns / 2) * 20f)
+    private var builtHeight = 0f
+    private val worldWidth = 200f
+    private val bgRotation = Quatf.identity().rotateX(PIf / 2)
+
+    private fun backgroundLayer(tileSize: Float, tilesInHeight: Int, image: String) {
+        val model = Model(Mesh.UnitSquare, image, material = Material(FunImage.fromResource("files/background/$image.png")))
+        val columns = (worldWidth / tileSize).roundToInt()
+        // Start from negative column values to be centered at (0,0)
+        val baseColumn = -(columns / 2)
+        val scale = Vec3f(tileSize, tileSize, tileSize)
+        repeat(tilesInHeight) { row ->
+            repeat(columns) { col ->
+                render(model, name = "bg-$image-$row-$col").apply {
+                    localTransform.scale = scale
+                    localTransform.translation = Vec3f((baseColumn + col) * tileSize, 10f, builtHeight + tileSize / 2)
+                    localTransform.rotation = bgRotation
+                }
+            }
+            builtHeight += (tileSize)
         }
+    }
+    init {
+        backgroundLayer(20f, 4, "underground")
+        backgroundLayer(20f, 1, "surface")
+        backgroundLayer(20f, 1, "sky_low_to_surface")
+        backgroundLayer(20f, 1, "sky_low")
+        backgroundLayer(40f, 1, "sky_high_to_low")
+        backgroundLayer(40f, 15, "sky_high")
     }
 }

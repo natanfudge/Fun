@@ -45,11 +45,11 @@ private val json = Json {
     isLenient = true
 }
 
-fun BlockType.hardness(game: MineTheEarthGame): Float = game.balance.blocks[this]?.hardness ?: 1f
-fun BlockType.zHeight(game: MineTheEarthGame): Int = game.balance.blocks[this]?.zHeight ?: 0
-fun BlockType.spawnPrec(game: MineTheEarthGame): Float= game.balance.blocks[this]?.spawnPrec ?: 0f
-fun BlockType.veinSizeMin(game: MineTheEarthGame): Int = game.balance.blocks[this]?.veinSizeMin ?: 0
-fun BlockType.veinSizeMax(game: MineTheEarthGame): Int = game.balance.blocks[this]?.veinSizeMax ?: 0
+fun BlockType.hardness(game: DeepSoulsGame): Float = game.balance.blocks[this]?.hardness ?: 1f
+fun BlockType.zHeight(game: DeepSoulsGame): Int = game.balance.blocks[this]?.zHeight ?: 0
+fun BlockType.spawnPrec(game: DeepSoulsGame): Float= game.balance.blocks[this]?.spawnPrec ?: 0f
+fun BlockType.veinSizeMin(game: DeepSoulsGame): Int = game.balance.blocks[this]?.veinSizeMin ?: 0
+fun BlockType.veinSizeMax(game: DeepSoulsGame): Int = game.balance.blocks[this]?.veinSizeMax ?: 0
 
 //object Balance {
 //    fun blockHardness(type: BlockType): Float = when (type) {
