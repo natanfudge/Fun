@@ -49,6 +49,8 @@ class DeepSoulsGame : Fun("Game") {
     val physics = FunPhysics(context)
     val player = Player(this)
 
+    val devil = Devil()
+
     val background = Background()
 
 
