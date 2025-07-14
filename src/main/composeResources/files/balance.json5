@@ -15,7 +15,7 @@
       zHeight: 90,
       spawnPrec : 2,
       veinSizeMin: 2,
-      veinSizeMax : 3
+      veinSizeMax : 5
     }
   }
 }
