@@ -37,7 +37,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
         }
     }
 
-    fun worldgen(mapWidth: Int, zLevelStart: Int, zLevelEnd: Int): List<Block> {
+    fun worldgen(mapWidth: Int, zLevelStart: Int, zLevelEnd: Int, xLevelStart: Int): List<Block> {
         val blocksList = BlockType.entries
 
         val validBlocks = blocksList.filter { it.zHeight(game) in zLevelStart until zLevelEnd }
@@ -62,7 +62,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
 
         for (z in 0 until height) {
             for (x in 0 until mapWidth) {
-                roll(10.0f) {
+                roll(0.10f) {
                     val block = weightedBlocksList.random()
                     val veinSize = (block.veinSizeMin(game)..block.veinSizeMax(game)).random()
                     val placed = mutableSetOf<Pair<Int, Int>>()
@@ -85,7 +85,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
 
         return matrix.flatten().map {
             Block(
-                game, it.type, it.pos.copy(x = it.pos.x - 10, z = it.pos.z - 10),
+                game, it.type, it.pos.copy(x = it.pos.x + xLevelStart, z = it.pos.z + zLevelStart),
                 id = "Block-${it.type.name}-${it.pos.x}-${it.pos.y}-${it.pos.z}"
             )
         }
@@ -97,7 +97,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
 
     init {
         if (blocks.isEmpty()) {
-            blocks.putAll(worldgenSimple().associateBy { it.pos })
+            blocks.putAll(worldgen(width, DeepSoulsGame.SurfaceZ - height, DeepSoulsGame.SurfaceZ, -10).associateBy { it.pos })
         }
     }
 

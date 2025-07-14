@@ -83,6 +83,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
         if (physics.isGrounded) {
             physics.position.z = DeepSoulsGame.SurfaceZ - physics.baseAABB.minZ
             physics.velocity.z = 0f
+            physics.velocity.x = 0f
             initialSinkIntoFloorFix.close()
         }
     }
