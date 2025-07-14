@@ -48,17 +48,21 @@ inline fun <reified T> Fun.funValue(
     id: FunId,
     editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
     /**
-     * If not null, a listener will be automatically registered for [onSetValue].
+     * If not null, a listener will be automatically registered for [beforeChange].
      */
-    noinline onSetValue: ((value: T) -> Unit)? = null,
+    noinline beforeChange: ((value: T) -> Unit)? = null,
+    noinline afterChange: ((value: T) -> Unit)? = null,
 ): ClientFunValue<T> {
     // SLOW: too much code in inline function
     val funValue = ClientFunValue(
         useOldStateIfPossible(unsafeToNotNull(initialValue), id),
         getFunSerializer<T>(), id, this.id, this.context, editor
     )
-    if (onSetValue != null) {
-        funValue.beforeChange(onSetValue)
+    if (beforeChange != null) {
+        funValue.beforeChange(beforeChange)
+    }
+    if (afterChange != null) {
+        funValue.afterChange(afterChange)
     }
     return funValue
 }
@@ -99,7 +103,8 @@ class ClientFunValue<T>(
 //    private var composeValue
 //    private var registered: Boolean = false
 
-    private val change = EventStream.create<T>()
+    private val beforeChange = EventStream.create<T>()
+    private val afterChange = EventStream.create<T>()
 
 
     init {
@@ -113,7 +118,8 @@ class ClientFunValue<T>(
     /**
      * Changes are emitted BEFORE setting a new value, and are passed the new value.
      */
-    override fun beforeChange(callback: (T) -> Unit): Listener<T> = change.listenUnscoped(callback)
+    override fun beforeChange(callback: (T) -> Unit): Listener<T> = beforeChange.listenUnscoped(callback)
+    fun afterChange(callback: (T) -> Unit): Listener<T> = afterChange.listenUnscoped(callback)
 
 //    fun afterChange(callback: (T) -> Unit):
 
@@ -124,8 +130,9 @@ class ClientFunValue<T>(
 //                StateKey(owner.id, id),
 //                StateChangeValue.SetProperty(value.toNetwork(serializer)),
 //            )
-            change.emit(value)
+            beforeChange.emit(value)
             field = value
+            afterChange.emit(value)
 //            composeValue = value
         }
 

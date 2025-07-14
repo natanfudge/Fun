@@ -150,6 +150,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
                 // Don't care about isGrounded for immovable stuff.
                 it.isGrounded = isGrounded(it)
             }
+            it.commit()
         }
     }
 

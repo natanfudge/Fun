@@ -5,7 +5,6 @@ import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
-import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 fun Fun.physics(
@@ -18,33 +17,35 @@ class FunPhysicsState(
     baseAABB: AxisAlignedBoundingBox,
     private val physics: PhysicsSystem,
 ) : Fun(funParent, "physics"), Body, Transformable {
-    private val physicsTransform = FunTransform(this)
+    private val transformState = FunTransform(this)
 
-    override var transform: Transform get() = physicsTransform.transform
+    override var transform: Transform
+        get() = transformState.transform
         set(value) {
-            physicsTransform.transform = value
+            transformState.transform = value
         }
 
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        return physicsTransform.onTransformChange(callback)
+        return transformState.onTransformChange(callback)
     }
 
 
-    /**
-     * For `Fun` that have physics, it's generally best to update [position] and not [translation], since those are only applied once each frame.
-     */
-    override var position by physicsTransform::translation
+    //TODO: need for this to not emit events whenever physics updates this variable , because physics often return the variable to the original value.
+    override var position by transformState::translation
+    override fun commit() {
+        transformState.translation = position
+    }
 
     /**
      * For `Fun` that have physics, it's generally best to update [orientation] and not [rotation], since those are only applied once each frame.
      */
-    override var orientation by physicsTransform::rotation
+    override var orientation by transformState::rotation
 
-    var scale: Vec3f by physicsTransform::scale
+    var scale: Vec3f by transformState::scale
 
-    var baseAABB by funValue(baseAABB, "baseAABB") {
+    var baseAABB by funValue(baseAABB, "baseAABB", beforeChange = {
         this.boundingBox = it.transformed(transform.toMatrix())
-    }
+    })
 
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
@@ -52,11 +53,16 @@ class FunPhysicsState(
 
     private fun updateAABB(transform: Transform) {
         boundingBox = baseAABB.transformed(transform.toMatrix())
+        println("Bounding box set to $boundingBox (transformed from base of $baseAABB)")
     }
 
     init {
         onTransformChange {
-            updateAABB(it)
+            if (it != transform) {
+                updateAABB(it)
+//                // The position state is separate from the transform.translation state, so if the transform changes we update it here.
+//                this.position = it.translation //TODO
+            }
         }
     }
 
