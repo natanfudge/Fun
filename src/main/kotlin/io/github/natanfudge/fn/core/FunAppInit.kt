@@ -42,7 +42,7 @@ val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
 
 
 
-private fun run(app: FunAppInitializer<*>) {
+private fun run(app: FunAppInitializer) {
     val (initFunc, window) = app.init()
     val loop = GlfwGameLoop(window.window)
 
@@ -143,9 +143,9 @@ private fun run(app: FunAppInitializer<*>) {
 
 class FunTime : Fun("time") {
     var speed by funValue(1f, "speed")
-    internal lateinit var app: FunApp
+    internal lateinit var _context: FunContext
     fun advance(time: Duration) {
-        app.actualPhysics(time)
+        _context.progressPhysics(time)
     }
 
     val stoppedState = funValue(false, "stopped")
@@ -172,21 +172,21 @@ class FunTime : Fun("time") {
         val actualDelta = physicsDelta * speed.toDouble()
         gameTime += actualDelta
 
-        app.actualPhysics(actualDelta)
+        _context.progressPhysics(actualDelta)
     }
 
 }
 
 internal const val AppLifecycleName = "App"
 
-private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
+private class FunAppInitializer(private val app: FunAppInit) {
 
     private lateinit var fsWatcher: FileSystemWatcher
 
     /**
      * TODO: initFunc won't need to return T soon, because we gonna remove FunApp.
      */
-    fun init(): Pair<(FunContext) -> T, WebGPUWindow> {
+    fun init(): Pair<(FunContext) -> Unit, WebGPUWindow> {
         val builder = FunAppBuilder()
         val initFunc = app(builder)
         val window = WebGPUWindow(builder.config)
@@ -201,25 +201,25 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
         fsWatcher = FileSystemWatcher()
 
-        var appLifecycle: Lifecycle<*, FunApp>? = null
+        var appLifecycle: Lifecycle<*, FunContext>? = null
 
         val compose = ComposeWebGPURenderer(window, fsWatcher, show = false, onError = {
-            appLifecycle?.value?.actualOnError(it)
+            appLifecycle?.value?.events?.guiError?.emit(it)
         })
         appLifecycle = funSurface.bind(AppLifecycleName) {
             val context = FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
             val time = FunTime()
             context.time = time
 
-            val app = initFunc(context)
-            time.app = app
+            initFunc(context)
+            time._context = context
             it.ctx.window.callbacks["Fun"] = FunInputAdapter(context)
             //TODO: when we remove dependance on FunApp overrides, we should replace usages of FunApp with FunContext.
-            app
+            context
         }
-        compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, app ->
+        compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, context ->
             comp.setContent {
-                app.actualGui()
+                context.gui.PanelSupport()
             }
         }
 
@@ -236,26 +236,6 @@ private class FunAppInitializer<T : FunApp>(private val app: FunAppInit<T>) {
 
 abstract class FunApp : AutoCloseable {
 
-    internal val mods = mutableListOf<FunMod>()
-
-    @Deprecated("")
-    fun <T : FunMod> installMod(mod: T): T {
-        mods.add(mod)
-        return mod
-    }
-
-    @Deprecated("")
-    fun installMods(vararg mods: FunMod) {
-        mods.forEach { installMod(it) }
-    }
-
-
-    @Composable
-    @Deprecated("")
-    open fun ComposePanelPlacer.gui() {
-
-    }
-
 
 //    fun onComposeE
 
@@ -267,32 +247,19 @@ abstract class FunApp : AutoCloseable {
     }
 }
 
-internal fun FunApp.actualOnError(error: Throwable) {
-    context.events.guiError.emit(error)
+
+
+
+
+
+internal fun FunContext.progressPhysics(delta: Duration) {
+    events.beforePhysics.emit(delta)
+    events.physics.emit(delta)
+    events.afterPhysics.emit(delta)
 }
 
 
-@Composable
-internal fun FunApp.actualGui() = context.gui.PanelSupport {
-    gui()
-    mods.forEach {
-        with(it) {
-            gui()
-        }
-    }
-}
-
-
-
-internal fun FunApp.actualPhysics(delta: Duration) {
-    mods.forEach { it.prePhysics(delta) }
-    context.events.beforePhysics.emit(delta)
-    context.events.physics.emit(delta)
-    context.events.afterPhysics.emit(delta)
-}
-
-
-typealias FunAppInit<T> = FunAppBuilder.() -> ((context: FunContext) -> T)
+typealias FunAppInit = FunAppBuilder.() -> ((context: FunContext) -> Unit)
 
 class FunAppBuilder {
     internal var config: WindowConfig = WindowConfig()
@@ -307,7 +274,7 @@ class FunAppBuilder {
  * The reason [init] does not simply return a FunApp, is because the outer lambda is called whenever the window is created, and the inner lambda
  * is called whenever the app is created, allowing for more granular hot reloading.
  */
-fun <T : FunApp> startTheFun(init: FunAppInit<T>) {
+fun startTheFun(init: FunAppInit) {
     run(FunAppInitializer(init))
 }
 

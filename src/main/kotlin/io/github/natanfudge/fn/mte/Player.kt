@@ -77,23 +77,12 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
     private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()
     private val upperBodyBones = model.nodesAndTheirChildren("mixamorig:Spine1").toSet()
 
-    // When the player spawns in he falls quickly on to the ground and sinks through the floor.
-    // No easy way to fix this other than checking the initial time he hit the ground and then correcting the position.
-    val initialSinkIntoFloorFix: Listener<Duration> = events.afterPhysics.listenUnscoped {
-        if (physics.isGrounded) {
-            physics.position.z = DeepSoulsGame.SurfaceZ - physics.baseAABB.minZ
-            physics.velocity.z = 0f
-            physics.velocity.x = 0f
-            initialSinkIntoFloorFix.close()
-        }
-    }
-
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
         physics.baseAABB = AxisAlignedBoundingBox(
-            minX = -0.3f, maxX = 0.3f,
+            minX = -0.2f, maxX = 0.2f,
             minZ = -0.49f, maxZ = 0.5f,
-            minY = -0.3f, maxY = 0.3f,
+            minY = -0.23f, maxY = 0.1f,
         )
 
         game.context.events.beforePhysics.listen {
@@ -103,10 +92,10 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
 //            println("Pressed: ${left.isPressed}")
             if (left.isPressed) {
-                render.localTransform.rotation = Quatf.identity().rotateZ(PI.toFloat() / -2)
+                physics.orientation = Quatf.identity().rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(deltaSecs * 3, 0f, 0f)
             } else if (right.isPressed) {
-                render.localTransform.rotation = Quatf.identity().rotateZ(PI.toFloat() / 2)
+                physics.orientation = Quatf.identity().rotateZ(PI.toFloat() / 2)
                 physics.position += Vec3f(deltaSecs * 3, 0f, 0f)
             }
             if (isJumping) {
@@ -125,8 +114,8 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
                     if (target != null) {
                         digging = true
                         if (!running) {
-                            val targetOrientation = getRotationTo(render.translation, Quatf(), target.pos.toVec3())
-                            render.localTransform.rotation = targetOrientation
+                            val targetOrientation = getRotationTo(physics.translation, Quatf(), target.pos.toVec3())
+                            physics.orientation = targetOrientation
                         }
                         // 200 millseconds because that's the point in the animation where the character strikes. We must divide it by the multiplier of dig
                         // speed relative to the base animation speed, so the strike delay will match the animation's strike delay.

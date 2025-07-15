@@ -157,9 +157,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
      * If a body touches the floor / wall, we firmly place it above the floor / wall and stop it from moving
      */
     private fun pushOut(surface: Body, body: Body) {
-        val overlapByAxis = (0..2).map {
-            it to surface.boundingBox.overlap(body.boundingBox, it)
-        }
+        val overlapByAxis = overlapByAxis(surface, body)
 
         // Push the body apart along the axis with the smallest overlap, so it stops and doesn't sink into the surface.
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
@@ -182,13 +180,30 @@ class PhysicsSystem(var gravity: Boolean = true) {
         }
     }
 
+    private fun overlapByAxis(surface: Body, body: Body): List<Pair<Int, Float>> {
+        val axis = (0..2).map {
+            //TODO: test that the sinking through floor stuff doesn't happen with a physics test, first without this fix and then with it.
+
+            // It's important to divide by the size of the body's bounding box in each given axis, because what can happen is for example
+            // a body is very small on the X axis, and then that axis will dominate on the pushout choice (we choose the axis with the LEAST overlap),
+            // When in reality there is another axis, that relative to the bounding box, has less overlap with the surface
+            val div = body.boundingBox.size(it)
+            val overlap = (surface.boundingBox.overlap(body.boundingBox, it)) / div
+            // In the case where multiple axes have the same overlap (for example when one body is completely inside another),
+            // we decide to push out on the Z axis (by reducing its overlap score slightly always).
+            // This is just because we prefer objects to "bubble up" instead of "bubbling sideways"
+            val zPrioritizedOverlap = if (it == 2) overlap - 0.001f else overlap //TODO: test bubbling up
+            it to zPrioritizedOverlap
+        }
+
+        return axis
+    }
+
     /**
      * If a body is close to a surface, and will reasonably touch it, we do not allow it to move through the surface, in the axis of that surface.
      */
     private fun stop(surface: Body, body: Body) {
-        val overlapByAxis = (0..2).map {
-            it to surface.boundingBox.overlap(body.boundingBox, it)
-        }
+        val overlapByAxis = overlapByAxis(surface, body)
 
         // Push the body apart along the axis with the smallest overlap, so it stops.
         val pushoutAxis = overlapByAxis.minBy { it.second }.first

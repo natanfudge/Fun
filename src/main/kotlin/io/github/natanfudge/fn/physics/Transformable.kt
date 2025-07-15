@@ -32,22 +32,22 @@ class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
     override var transform: Transform
         get() = _transform
         set(value) {
-            _transform = value
             translationState.value = value.translation
             rotationState.value = value.rotation
             scaleState.value = value.scale
+            _transform = value
         }
 
 
-    val translationState = funValue<Vec3f>(Vec3f.zero(), "translation") {
+    val translationState = funValue<Vec3f>(Vec3f.zero(), "translation", afterChange = {
         _transform = _transform.copy(translation = it)
-    }
-    val rotationState = funValue<Quatf>(Quatf.identity(), "rotation") {
+    })
+    val rotationState = funValue<Quatf>(Quatf.identity(), "rotation", afterChange = {
         _transform = _transform.copy(rotation = it)
-    }
-    val scaleState = funValue<Vec3f>(Vec3f(1f, 1f, 1f), "scaling") {
+    })
+    val scaleState = funValue<Vec3f>(Vec3f(1f, 1f, 1f), "scaling", afterChange = {
         _transform = _transform.copy(scale = it)
-    }
+    })
 
     var translation by translationState
     var rotation by rotationState
