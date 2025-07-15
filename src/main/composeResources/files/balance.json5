@@ -11,17 +11,17 @@
   blocks: {
     Dirt: {
       hardness: 2,
-      zHeight: 1,
-      spawnPrec : 1,
+      zHeight: 90,
+      spawnPrec : 0,
       veinSizeMin: 1,
       veinSizeMax : 4
     },
     Gold: {
       hardness: 6,
-      zHeight: 1,
+      zHeight: 90,
       spawnPrec : 2,
       veinSizeMin: 2,
-      veinSizeMax : 3
+      veinSizeMax : 5
     }
   }
 }

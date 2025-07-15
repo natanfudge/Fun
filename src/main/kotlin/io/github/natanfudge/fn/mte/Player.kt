@@ -77,8 +77,6 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
     private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()
     private val upperBodyBones = model.nodesAndTheirChildren("mixamorig:Spine1").toSet()
 
-
-
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
         physics.baseAABB = AxisAlignedBoundingBox(
