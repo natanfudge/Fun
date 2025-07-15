@@ -17,7 +17,7 @@ data class Balance(
     val undergroundStart: Int,
     val cavernsStart: Int,
     val deepCavernsStart: Int,
-    val allmostHellStart: Int,
+    val almostHellStart: Int,
     val hellStart: Int,
     val worldEnd: Int,
 ) {
@@ -52,7 +52,7 @@ private val json = Json {
 }
 
 fun BlockType.hardness(game: DeepSoulsGame): Float = game.balance.blocks[this]?.hardness ?: 1f
-fun BlockType.zHeight(game: DeepSoulsGame): Int = (game.balance.blocks[this]?.zHeight) ?: 0
+fun BlockType.zHeight(game: DeepSoulsGame): Int = game.balance.blocks[this]?.zHeight ?: 0
 fun BlockType.spawnPrec(game: DeepSoulsGame): Float= game.balance.blocks[this]?.spawnPrec ?: 0f
 fun BlockType.veinSizeMin(game: DeepSoulsGame): Int = game.balance.blocks[this]?.veinSizeMin ?: 0
 fun BlockType.veinSizeMax(game: DeepSoulsGame): Int = game.balance.blocks[this]?.veinSizeMax ?: 0

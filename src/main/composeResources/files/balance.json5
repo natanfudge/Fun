@@ -5,7 +5,7 @@
   undergroundStart: 100,
   cavernsStart: 0,
   deepCavernsStart: -100,
-  allmostHellStart: -200,
+  almostHellStart: -200,
   hellStart: -300,
   worldEnd: -400,
   blocks: {
