@@ -36,14 +36,7 @@ fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, co
 }
 
 
-@Composable
-fun ComposePanelPlacer.FunPanel(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Panel(modifier) {
-        MaterialTheme(darkColorScheme()) {
-            content()
-        }
-    }
-}
+
 
 /**
  * If you use [HoverHighlight], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditor].

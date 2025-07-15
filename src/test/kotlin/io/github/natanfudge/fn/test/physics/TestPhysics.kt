@@ -79,7 +79,7 @@ class TestPhysics {
     @Test
     fun testFloor() {
         // it might make more sense to add a specialized API for testing physics, this way we don't need to stub all the Fun context things.
-        object : PhysicsTest(show = false) {
+        object : PhysicsTest(show = true) {
             override fun PhysicsSimulation.run() {
                 val cube = cube(
                     position = Vec3f(x = 0f, y = 0f, z = 5f)

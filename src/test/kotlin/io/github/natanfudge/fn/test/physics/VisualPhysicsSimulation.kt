@@ -15,10 +15,8 @@ import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.compose.utils.FunTheme
 import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
-import io.github.natanfudge.fn.core.ComposePanelPlacer
 import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunMod
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.base.InputManager
@@ -48,7 +46,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
     private fun spawnTargetGhosts(block: PhysicsAssertionBlock) {
         for ((body, assertion) in block.assertions) {
             val renderNode = (body as Fun).getRoot().childrenTyped<FunRenderState>().single()
-            bodies.add(SimpleRenderObject("target-${index++}", app.context, renderNode.model).render.apply {
+            bodies.add(SimpleRenderObject("target-${index++}", renderNode.model).render.apply {
                 localTransform.translation = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
                 localTransform.scale = renderNode.scale * 1.1f
@@ -83,7 +81,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
         angularVelocity: Vec3f,
         isImmovable: Boolean,
     ): Body {
-        val body = SimplePhysicsObject("body-${index++}", app.context, cubeModel, app.physics.system)
+        val body = SimplePhysicsObject("body-${index++}", cubeModel, app.physics.system)
         body.physics.scale = scale
         body.physics.position = position
         body.physics.orientation = rotation
@@ -131,61 +129,61 @@ class PhysicsSimulationApp(override val context: FunContext, private val simulat
 
     init {
         VisualEditor(this, input)
-        CreativeMovement(context,input)
+        CreativeMovement(input)
         runSimulation()
-    }
 
-    @Composable
-    override fun ComposePanelPlacer.gui() = FunTheme {
-        Box(Modifier.fillMaxSize().background(Color.Transparent)) {
-            Surface(Modifier.align(Alignment.CenterStart).padding(10.dp)) {
-                Column(Modifier.padding(5.dp)) {
-                    var stopped by remember { mutableStateOf(false) }
-                    IconButton(onClick = {
-                        if (stopped) {
-                            context.time.resume()
-                        } else {
-                            context.time.stop()
+        context.addFunPanel {
+            Box(Modifier.fillMaxSize().background(Color.Transparent)) {
+                Surface(Modifier.align(Alignment.CenterStart).padding(10.dp)) {
+                    Column(Modifier.padding(5.dp)) {
+                        var stopped by remember { mutableStateOf(false) }
+                        IconButton(onClick = {
+                            if (stopped) {
+                                context.time.resume()
+                            } else {
+                                context.time.stop()
+                            }
+                            stopped = !stopped
+                        }) {
+                            if (stopped) {
+                                Icon(Icons.Filled.PlayArrow, "start")
+                            } else {
+                                Icon(Icons.Filled.Pause, "stop")
+                            }
                         }
-                        stopped = !stopped
-                    }) {
-                        if (stopped) {
-                            Icon(Icons.Filled.PlayArrow, "start")
-                        } else {
-                            Icon(Icons.Filled.Pause, "stop")
+                        IconButton(onClick = {
+                            scheduler.reset()
+                            simulationRunner.bodies.forEach {
+                                it.close()
+                            }
+                            simulationRunner.bodies.clear()
+                            runSimulation()
+                        }) {
+                            Icon(Icons.Filled.Refresh, "restart")
                         }
-                    }
-                    IconButton(onClick = {
-                        scheduler.reset()
-                        simulationRunner.bodies.forEach {
-                            it.close()
+                        var simulationSpeed by rememberPersistentFloat("simulation-speed") { 1f }
+                        LaunchedEffect(simulationSpeed) {
+                            context.time.speed = simulationSpeed
                         }
-                        simulationRunner.bodies.clear()
-                        runSimulation()
-                    }) {
-                        Icon(Icons.Filled.Refresh, "restart")
-                    }
-                    var simulationSpeed by rememberPersistentFloat("simulation-speed") { 1f }
-                    LaunchedEffect(simulationSpeed) {
-                        context.time.speed = simulationSpeed
-                    }
-                    Text("x${simulationSpeed.toString(2)}", Modifier.align(Alignment.CenterHorizontally))
-                    Row {
-                        Slider(simulationSpeed, onValueChange = {
-                            simulationSpeed = it
-                        }, valueRange = 0.1f..10f, modifier = Modifier.width(200.dp))
-                        IconButton(onClick = { simulationSpeed = 1f }) {
-                            Icon(Icons.Filled.Refresh, "reset speed")
+                        Text("x${simulationSpeed.toString(2)}", Modifier.align(Alignment.CenterHorizontally))
+                        Row {
+                            Slider(simulationSpeed, onValueChange = {
+                                simulationSpeed = it
+                            }, valueRange = 0.1f..10f, modifier = Modifier.width(200.dp))
+                            IconButton(onClick = { simulationSpeed = 1f }) {
+                                Icon(Icons.Filled.Refresh, "reset speed")
+                            }
                         }
-                    }
 
+                    }
                 }
             }
         }
     }
+
 }
 
-class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSystem) : FunMod {
+class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSystem)  {
     private var finishCallback: (() -> Unit)? = null
     private var tickCallback: ((Float) -> Unit)? = null
 
@@ -205,25 +203,24 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
         scheduleDelay = Duration.ZERO
     }
 
-
-    /**
-     * Returns the delta to be passed to the physics system.
-     */
-    override fun prePhysics(delta: Duration) {
-        if (finishCallback == null) return
-        val newTime = timeSinceScheduleStart + delta
-        if (newTime > scheduleDelay) {
-            val actualDelta = scheduleDelay - timeSinceScheduleStart
-            tickCallback?.invoke(actualDelta.toFloat(DurationUnit.SECONDS))
-            physics.tick(actualDelta)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
-            // After the final bit of physics is squeezed out, notify completion
-            finishCallback?.invoke()
-            finishCallback = null
-        } else {
-            timeSinceScheduleStart = newTime
-            tickCallback?.invoke(delta.toFloat(DurationUnit.SECONDS))
-            physics.tick(delta)
+    init {
+        context.events.physics.listenUnscoped { delta ->
+            if (finishCallback == null) return@listenUnscoped
+            val newTime = timeSinceScheduleStart + delta
+            if (newTime > scheduleDelay) {
+                val actualDelta = scheduleDelay - timeSinceScheduleStart
+                tickCallback?.invoke(actualDelta.toFloat(DurationUnit.SECONDS))
+                physics.tick(actualDelta)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
+                // After the final bit of physics is squeezed out, notify completion
+                finishCallback?.invoke()
+                finishCallback = null
+            } else {
+                timeSinceScheduleStart = newTime
+                tickCallback?.invoke(delta.toFloat(DurationUnit.SECONDS))
+                physics.tick(delta)
+            }
         }
     }
+
 }
 
