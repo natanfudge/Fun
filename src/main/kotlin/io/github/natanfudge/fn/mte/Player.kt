@@ -77,19 +77,6 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
     private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()
     private val upperBodyBones = model.nodesAndTheirChildren("mixamorig:Spine1").toSet()
 
-    private var fixedFloorProblem by funValue(false, "fixedFloorProblem")
-
-    // When the player spawns in he falls quickly on to the ground and sinks through the floor.
-    // No easy way to fix this other than checking the initial time he hit the ground and then correcting the position.
-    val initialSinkIntoFloorFix: Listener<Duration>? = if(!fixedFloorProblem) events.afterPhysics.listenUnscoped {
-        if (physics.isGrounded) {
-            physics.position.z = DeepSoulsGame.SurfaceZ - physics.baseAABB.minZ
-            physics.velocity.z = 0f
-            initialSinkIntoFloorFix?.close()
-            fixedFloorProblem = true
-        }
-    } else null
-
 
 
     init {

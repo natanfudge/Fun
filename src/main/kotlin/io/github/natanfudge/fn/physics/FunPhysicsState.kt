@@ -12,6 +12,7 @@ fun Fun.physics(
     baseAABB: AxisAlignedBoundingBox = AxisAlignedBoundingBox.UnitAABB,
 ) = FunPhysicsState(this, baseAABB, physics)
 
+//TODO: collision is fucked until the first time we rotate
 class FunPhysicsState(
     funParent: Fun,
     baseAABB: AxisAlignedBoundingBox,
@@ -19,22 +20,18 @@ class FunPhysicsState(
 ) : Fun(funParent, "physics"), Body, Transformable {
     private val transformState = FunTransform(this)
 
-    override var transform: Transform
-        get() = transformState.transform
-        set(value) {
-            transformState.transform = value
-        }
+    override var transform: Transform by transformState::transform
 
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
         return transformState.onTransformChange(callback)
     }
 
-
-    //TODO: need for this to not emit events whenever physics updates this variable , because physics often return the variable to the original value.
-    override var position by transformState::translation
-    override fun commit() {
-        transformState.translation = position
+    override fun toString(): String {
+        return "$id at ${transform.translation}"
     }
+
+
+    override var position by transformState::translation
 
     /**
      * For `Fun` that have physics, it's generally best to update [orientation] and not [rotation], since those are only applied once each frame.
@@ -43,9 +40,7 @@ class FunPhysicsState(
 
     var scale: Vec3f by transformState::scale
 
-    var baseAABB by funValue(baseAABB, "baseAABB", beforeChange = {
-        this.boundingBox = it.transformed(transform.toMatrix())
-    })
+    var baseAABB by funValue(baseAABB, "baseAABB")
 
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
@@ -53,16 +48,11 @@ class FunPhysicsState(
 
     private fun updateAABB(transform: Transform) {
         boundingBox = baseAABB.transformed(transform.toMatrix())
-        println("Bounding box set to $boundingBox (transformed from base of $baseAABB)")
     }
 
     init {
         onTransformChange {
-            if (it != transform) {
-                updateAABB(it)
-//                // The position state is separate from the transform.translation state, so if the transform changes we update it here.
-//                this.position = it.translation //TODO
-            }
+            updateAABB(it)
         }
     }
 

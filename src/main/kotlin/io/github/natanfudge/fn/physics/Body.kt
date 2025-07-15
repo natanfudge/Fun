@@ -24,10 +24,6 @@ interface Body {
 
     var isGrounded: Boolean // SLOW: Don't think if we need this for EVERYTHING
 
-    fun commit() {
-
-    }
-
 }
 
 class SimpleBody(

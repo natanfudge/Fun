@@ -151,7 +151,7 @@ class FunInputAdapter(private val context: FunContext) : WindowCallbacks {
 fun WebGPUWindow.bindFunLifecycles(
     compose: ComposeWebGPURenderer,
     fsWatcher: FileSystemWatcher,
-    appLifecycle: Lifecycle<*, FunApp>,
+    appLifecycle: Lifecycle<*, FunContext>,
     funSurface: Lifecycle<*, FunSurface>,
     funDimLifecycle: Lifecycle<*, FunWindow>,
 ) {
@@ -228,11 +228,11 @@ fun WebGPUWindow.bindFunLifecycles(
 
 
     // Running this in-frame is a bad idea since it can trigger a new frame
-    window.eventPollLifecycle.bind(appLifecycle, "Fun Polling", FunLogLevel.Verbose) { _, app ->
+    window.eventPollLifecycle.bind(appLifecycle, "Fun Polling", FunLogLevel.Verbose) { _, context ->
         if (HOT_RELOAD_SHADERS) {
             fsWatcher.poll()
         }
-        app.context.time._poll()
+        context.time._poll()
     }
 
 
@@ -240,11 +240,11 @@ fun WebGPUWindow.bindFunLifecycles(
         funSurface, funDimLifecycle, bindGroupLifecycle, objectLifecycle,
         compose.frameLifecycle, appLifecycle,
         "Fun Frame", FunLogLevel.Verbose
-    ) { frame, surface, dimensions, bindGroup, shaders, composeFrame, app ->
+    ) { frame, surface, dimensions, bindGroup, shaders, composeFrame, context ->
         if (!frame.isReady) return@bind
         frame.isReady = false // Avoid drawing using the same parent frame twice
 
-        app.context.events.frame.emit(frame.deltaMs.milliseconds)
+        context.events.frame.emit(frame.deltaMs.milliseconds)
 
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)
@@ -254,7 +254,7 @@ fun WebGPUWindow.bindFunLifecycles(
 
         //TO Do: need to think how to enable user-driven drawing
 
-        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, camera = app.context.camera)
+        surface.world.draw(commandEncoder, bindGroup, shaders.pipeline, dimensions, textureView, camera = context.camera)
 
         compose.frame(commandEncoder, textureView, composeFrame)
 

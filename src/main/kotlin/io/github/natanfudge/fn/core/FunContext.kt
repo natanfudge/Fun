@@ -41,7 +41,7 @@ internal object FunContextRegistry {
 class FunContext(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
     private val stateContext: FunStateContext,
-) : FunStateContext by stateContext {
+) : FunStateContext by stateContext, AutoCloseable {
     init {
         FunContextRegistry.setContext(this)
     }
@@ -116,5 +116,9 @@ class FunContext(
         events.clearListeners()
         rootFuns.clear()
         gui.clearPanels()
+    }
+
+    override fun close() {
+        events.appClose.emit(Unit)
     }
 }
