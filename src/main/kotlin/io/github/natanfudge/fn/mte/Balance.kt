@@ -14,6 +14,12 @@ data class Balance(
     val mineIntervalMs: Long,
     val breakReach: Int,
     val pickaxeStrength: Float,
+    val undergroundStart: Int,
+    val cavernsStart: Int,
+    val deepCavernsStart: Int,
+    val almostHellStart: Int,
+    val hellStart: Int,
+    val worldEnd: Int,
 ) {
     companion object {
         fun create() : Balance {

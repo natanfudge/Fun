@@ -2,6 +2,12 @@
   mineIntervalMs: 500,
   breakReach: 5,
   pickaxeStrength: 1,
+  undergroundStart: 100,
+  cavernsStart: 0,
+  deepCavernsStart: -100,
+  almostHellStart: -200,
+  hellStart: -300,
+  worldEnd: -400,
   blocks: {
     Dirt: {
       hardness: 2,
