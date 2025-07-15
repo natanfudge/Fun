@@ -86,7 +86,7 @@ class FunMap<K, V> @PublishedApi internal constructor(
 ) : MutableMap<K, V> , FunState<Map<K,V>> {
 
     override fun beforeChange(callback: (Map<K, V>) -> Unit): Listener<Map<K, V>> {
-        TODO("Not yet implemented")
+        throw NotImplementedError("Not yet implemented")
     }
 
 
@@ -121,7 +121,7 @@ class FunMap<K, V> @PublishedApi internal constructor(
     override val entries: MutableSet<MutableMap.MutableEntry<K, V>> = ImmutableSet(_items.entries)
 
     override fun put(key: K, value: V): V? {
-        //TODO: do this only in a ServerFunValue
+        //TO DO: do this only in a ServerFunValue
         owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key.keyToNetwork(), value.valueToNetwork()))
         return _items.put(key, value)
     }

@@ -19,6 +19,7 @@ data class CollisionEvent(val bodyA: Body, val bodyB: Body)
  */
 class PhysicsSystem(var gravity: Boolean = true) {
     var earthGravityAcceleration = 9.8f
+    var upAxis = 2
 
     var elasticCollision: Boolean = false
 
@@ -162,6 +163,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
         // Push the body apart along the axis with the smallest overlap, so it stops and doesn't sink into the surface.
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
 
+
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
             val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
 
@@ -182,18 +184,16 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     private fun overlapByAxis(surface: Body, body: Body): List<Pair<Int, Float>> {
         val axis = (0..2).map {
-            //TODO: test that the sinking through floor stuff doesn't happen with a physics test, first without this fix and then with it.
-
             // It's important to divide by the size of the body's bounding box in each given axis, because what can happen is for example
             // a body is very small on the X axis, and then that axis will dominate on the pushout choice (we choose the axis with the LEAST overlap),
             // When in reality there is another axis, that relative to the bounding box, has less overlap with the surface
             val div = body.boundingBox.size(it)
             val overlap = (surface.boundingBox.overlap(body.boundingBox, it)) / div
             // In the case where multiple axes have the same overlap (for example when one body is completely inside another),
-            // we decide to push out on the Z axis (by reducing its overlap score slightly always).
+            // we decide to push out on the up axis (by reducing its overlap score slightly always).
             // This is just because we prefer objects to "bubble up" instead of "bubbling sideways"
-            val zPrioritizedOverlap = if (it == 2) overlap - 0.001f else overlap //TODO: test bubbling up
-            it to zPrioritizedOverlap
+            val upBiasedOverlap = if (it == upAxis) overlap - 0.001f else overlap
+            it to upBiasedOverlap
         }
 
         return axis

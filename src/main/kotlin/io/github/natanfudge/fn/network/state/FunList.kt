@@ -77,7 +77,7 @@ class FunList<T> @PublishedApi internal constructor(
 ) : MutableList<T>, FunState<List<T>> {
 
     override fun beforeChange(callback: (List<T>) -> Unit): Listener<List<T>> {
-        TODO("Not yet implemented")
+        throw NotImplementedError("Not yet implemented")
     }
     
     private val key = StateKey(owner.id, name)
@@ -104,7 +104,7 @@ class FunList<T> @PublishedApi internal constructor(
 
 
     override fun add(element: T): Boolean {
-        //TODO: do this only in a ServerFunValue
+        //TO DO: do this only in a ServerFunValue
         owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element.toNetwork()))
         return _items.add(element)
     }

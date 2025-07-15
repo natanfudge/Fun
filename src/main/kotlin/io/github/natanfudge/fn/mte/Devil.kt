@@ -9,7 +9,6 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 class Devil: Fun("devil") {
-    //TODO: missing model fallback...
     val render = render(Model.fromGlbResource("files/models/hooded_devil.glb"))
 
     init {

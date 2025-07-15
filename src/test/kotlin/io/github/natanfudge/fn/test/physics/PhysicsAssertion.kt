@@ -18,9 +18,9 @@ data class PhysicsAssertion(
 )
 
 fun PhysicsAssertion.assert(body: Body, throwOnFailure: Boolean) {
-    body.position.shouldRoughlyEqual(position, epsilon = epsilon, throwOnFailure = throwOnFailure)
-    if(velocity != null) {
-        body.velocity.shouldRoughlyEqual(velocity, epsilon = epsilon, throwOnFailure = throwOnFailure)
+    body.position.shouldRoughlyEqual(position, "Position", epsilon = epsilon, throwOnFailure = throwOnFailure)
+    if (velocity != null) {
+        body.velocity.shouldRoughlyEqual(velocity, "Velocity", epsilon = epsilon, throwOnFailure = throwOnFailure)
     }
 }
 

@@ -12,7 +12,6 @@ fun Fun.physics(
     baseAABB: AxisAlignedBoundingBox = AxisAlignedBoundingBox.UnitAABB,
 ) = FunPhysicsState(this, baseAABB, physics)
 
-//TODO: collision is fucked until the first time we rotate
 class FunPhysicsState(
     funParent: Fun,
     baseAABB: AxisAlignedBoundingBox,

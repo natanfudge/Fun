@@ -40,7 +40,6 @@ private fun timeSinceStartup(): Duration {
     return upMillis.milliseconds
 }
 
-//todo: dropping a lot of frames when windows is not focused, frames are not supposed to even occur when window is not focused.
 
 class Player(private val game: DeepSoulsGame) : Fun("Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")

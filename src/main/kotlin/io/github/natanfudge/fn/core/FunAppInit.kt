@@ -183,9 +183,6 @@ private class FunAppInitializer(private val app: FunAppInit) {
 
     private lateinit var fsWatcher: FileSystemWatcher
 
-    /**
-     * TODO: initFunc won't need to return T soon, because we gonna remove FunApp.
-     */
     fun init(): Pair<(FunContext) -> Unit, WebGPUWindow> {
         val builder = FunAppBuilder()
         val initFunc = app(builder)
@@ -214,8 +211,7 @@ private class FunAppInitializer(private val app: FunAppInit) {
             initFunc(context)
             time._context = context
             it.ctx.window.callbacks["Fun"] = FunInputAdapter(context)
-            //TODO: when we remove dependance on FunApp overrides, we should replace usages of FunApp with FunContext.
-            context
+            context // Close context when lifecycle is restarted
         }
         compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, context ->
             comp.setContent {
