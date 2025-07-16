@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.mte
 
+import androidx.compose.material3.Text
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.mte.gui.MainMenu
@@ -108,6 +109,10 @@ class DeepSoulsGame : Fun("Game") {
 
         RestartButtons(context)
         ErrorNotifications(context)
+
+        context.gui.addWorldPanel(Vec3f(3f, 0.5f, SurfaceZ.toFloat())) {
+            Text("Halo World Panel")
+        }
     }
 }
 

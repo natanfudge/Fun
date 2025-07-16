@@ -101,7 +101,7 @@ data class WebGPUFrame(
     }
 }
 
-class WebGPUWindow(config: WindowConfig) {
+class WebGPUWindow(config: WindowParameters) {
     companion object {
         const val SurfaceLifecycleLabel = "WebGPU Surface"
 

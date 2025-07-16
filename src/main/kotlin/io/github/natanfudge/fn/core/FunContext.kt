@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.core
 
-import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
+import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.FunSurface
@@ -39,11 +39,18 @@ internal object FunContextRegistry {
 }
 
 class FunContext(
-    private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeWebGPURenderer,
+    private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeHudWebGPURenderer,
     private val stateContext: FunStateContext,
 ) : FunStateContext by stateContext, AutoCloseable {
     init {
         FunContextRegistry.setContext(this)
+    }
+    private val inputListener = surface.ctx.window.inputEvent.listenUnscoped { input ->
+        // No need to block input with a null cursor position
+        if (world.cursorPosition != null && input is InputEvent.PointerEvent &&
+            // Allow blocking input by setting acceptMouseEvents to false
+            !gui.acceptMouseEvents) return@listenUnscoped
+        events.input.emit(input)
     }
 
 
@@ -120,5 +127,6 @@ class FunContext(
 
     override fun close() {
         events.appClose.emit(Unit)
+        inputListener.close()
     }
 }

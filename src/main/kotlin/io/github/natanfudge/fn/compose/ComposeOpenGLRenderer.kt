@@ -11,7 +11,6 @@ import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
@@ -22,8 +21,10 @@ import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
+import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
+import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
 
@@ -113,14 +114,11 @@ class ComposeGlfwWindow(
     val hostHandle: () -> WindowHandle,
     private val density: Density,
 //    private val composeContent: @Composable () -> Unit,
-    val config: ComposeConfig,
+    val config: ComposeOpenGLRenderer,
     private val onError: (Throwable) -> Unit,
     private val onInvalidate: () -> Unit,
+    val capabilities: GLCapabilities
 ) : AutoCloseable {
-
-    init {
-        GLFW.glfwMakeContextCurrent(handle)
-    }
 
 
     val frameStream = MutEventStream<ComposeFrameEvent>()
@@ -175,40 +173,42 @@ data class ComposeFrameEvent(
     val height: Int,
 )
 
-class ComposeConfig(
+class ComposeOpenGLRenderer(
     host: GlfwWindowConfig,
+    private val name: String,
 //    val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
-    onError: (Throwable) -> Unit
+    onError: (Throwable) -> Unit,
 ) {
-    companion object {
-        const val LifecycleLabel = "Compose Window"
-    }
 
-    private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose", host.config)
+    val LifecycleLabel = "$name Compose Window"
+
+    private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose $name", host.windowParameters.copy(
+        initialTitle = name
+    ))
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
     val windowLifecycle: Lifecycle<GlfwWindow, ComposeGlfwWindow> = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
-        glDebugGroup(1, groupName = { "Compose Init" }) {
+        GLFW.glfwMakeContextCurrent(it.handle)
+        val capabilities = GL.createCapabilities()
+
+        glDebugGroup(1, groupName = { "$name Compose Init" }) {
             var window: ComposeGlfwWindow? = null
             window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)), hostHandle = { host.windowLifecycle.assertValue.handle },
-                config = this@ComposeConfig, onError = onError
-            ) {
-                // Invalidate Compose frame on change
-                window!!.invalid = true
-            }
+                config = this@ComposeOpenGLRenderer, onError = onError, capabilities = capabilities, onInvalidate = {
+                    // Invalidate Compose frame on change
+                    window!!.invalid = true
+                }
+            )
             window
         }
     }
 
-//    fun ComposeGlfwWindow.setContent(content: @Composable () -> Unit = { Text("Hello!") }) {
-//
-//    }
 
     val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> =
-        host.dimensionsLifecycle.bind(windowLifecycle, "Compose Fixed Size Window") { dim, window ->
+        host.dimensionsLifecycle.bind(windowLifecycle, "$name Compose Fixed Size Window") { dim, window ->
             GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
             window.scene.size = IntSize(dim.width, dim.height)
 
@@ -218,11 +218,12 @@ class ComposeConfig(
     init {
         // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
         // Also we need
-        host.frameLifecycle.bind(dimensionsLifecycle, "Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
+        host.frameLifecycle.bind(dimensionsLifecycle, "$name Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
             val window = dim.window
             window.dispatcher.poll()
             if (window.invalid) {
                 GLFW.glfwMakeContextCurrent(window.handle)
+                GL.setCapabilities(window.capabilities)
                 dim.draw()
                 glfwSwapBuffers(window.handle)
                 window.invalid = false
@@ -233,12 +234,12 @@ class ComposeConfig(
 
 
     private fun FixedSizeComposeWindow.draw() {
-        glDebugGroup(5, groupName = { "Compose Render" }) {
+        glDebugGroup(5, groupName = { "$name Compose Render" }) {
             try {
                 // When updates are needed - render new content
                 renderSkia()
             } catch (e: Throwable) {
-                System.err.println("Error during Skia rendering! This is usually a Compose user error.")
+                System.err.println("Error during Skia rendering of $name! This is usually a Compose user error.")
                 e.printStackTrace()
             }
 
@@ -262,15 +263,15 @@ class ComposeConfig(
     private fun FixedSizeComposeWindow.renderSkia() {
         // Set color explicitly because skia won't reapply it every time
         glClearColor(0f, 0f, 0f, 0f)
-        glDebugGroup(2, groupName = { "Compose Canvas Clear" }) {
+        glDebugGroup(2, groupName = { "$name Compose Canvas Clear" }) {
             surface.canvas.clear(Color.TRANSPARENT)
         }
 
         // Render to the framebuffer
-        glDebugGroup(3, groupName = { "Compose Render Content" }) {
+        glDebugGroup(3, groupName = { "$name Compose Render Content" }) {
             window.scene.render(canvas, System.nanoTime())
         }
-        glDebugGroup(4, groupName = { "Compose Flush" }) {
+        glDebugGroup(4, groupName = { "$name Compose Flush" }) {
             window.context.flush()
         }
     }
@@ -282,64 +283,6 @@ class ComposeConfig(
     }
 
 
-    @OptIn(InternalComposeUiApi::class)
-    val callbacks = object : WindowCallbacks {
-        override fun onInput(input: InputEvent) {
-            val window = windowLifecycle.value ?: return
-            if (window.focused) {
-                when (input) {
-                    is InputEvent.KeyEvent -> window.scene.sendKeyEvent(input.event)
-                    is InputEvent.PointerEvent -> {
-                        with(input) {
-                            window.scene.sendPointerEvent(
-                                eventType,
-                                position,
-                                scrollDelta,
-                                timeMillis,
-                                type,
-                                buttons,
-                                keyboardModifiers,
-                                nativeEvent,
-                                button
-                            )
-                        }
-                    }
-
-                    else -> {}
-                }
-            }
-        }
-//        override fun pointerEvent(
-//            eventType: PointerEventType,
-//            position: Offset,
-//            scrollDelta: Offset,
-//            timeMillis: Long,
-//            type: PointerType,
-//            buttons: PointerButtons?,
-//            keyboardModifiers: PointerKeyboardModifiers?,
-//            nativeEvent: Any?,
-//            button: PointerButton?,
-//        ) {
-//            val window = windowLifecycle.value ?: return
-//            if (window.focused) {
-//                window.scene.sendPointerEvent(eventType, position, scrollDelta, timeMillis, type, buttons, keyboardModifiers, nativeEvent, button)
-//            }
-//        }
-//
-//        override fun keyEvent(event: KeyEvent) {
-//            val window = windowLifecycle.value ?: return
-//            if (window.focused) {
-//                window.scene.sendKeyEvent(event)
-//            }
-//        }
-
-        override fun densityChange(newDensity: Density) {
-            val window = windowLifecycle.value ?: return
-            if (window.focused) {
-                window.scene.density = newDensity
-            }
-        }
-    }
 }
 
 

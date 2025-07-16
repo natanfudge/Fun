@@ -17,7 +17,7 @@ object FunHotReload {
 //    val observation: Observable<Unit>
     /**
      * The callback will be called on an alternate thread so be wary of that.
-     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeConfig.submitTask]
+     * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeOpenGLRenderer.submitTask]
      */
     val reloadEnded = MutEventStream<Try<Reload>?>()
     val reloadStarted = MutEventStream<Unit>()

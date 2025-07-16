@@ -2,22 +2,23 @@
 
 package io.github.natanfudge.fn.core
 
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.Text
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
-import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
+import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
+import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.render.FunInputAdapter
 import io.github.natanfudge.fn.render.FunSurface
 import io.github.natanfudge.fn.render.FunWindow
 import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
-import io.github.natanfudge.fn.window.WindowConfig
+import io.github.natanfudge.fn.window.WindowParameters
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
@@ -40,8 +41,6 @@ val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
 }
 
 
-
-
 private fun run(app: FunAppInitializer) {
     val (initFunc, window) = app.init()
     val loop = GlfwGameLoop(window.window)
@@ -54,7 +53,7 @@ private fun run(app: FunAppInitializer) {
 //        loop.locked = true
 //    }
 
-    invokeAfterHotReload {id, result ->
+    invokeAfterHotReload { id, result ->
         FunHotReload.reloadEnded.emit(result)
     }
 
@@ -143,9 +142,8 @@ private fun run(app: FunAppInitializer) {
 
 class FunTime : Fun("time") {
     var speed by funValue(1f, "speed")
-    internal lateinit var _context: FunContext
     fun advance(time: Duration) {
-        _context.progressPhysics(time)
+        context.progressPhysics(time)
     }
 
     val stoppedState = funValue(false, "stopped")
@@ -172,7 +170,7 @@ class FunTime : Fun("time") {
         val actualDelta = physicsDelta * speed.toDouble()
         gameTime += actualDelta
 
-        _context.progressPhysics(actualDelta)
+        context.progressPhysics(actualDelta)
     }
 
 }
@@ -200,26 +198,35 @@ private class FunAppInitializer(private val app: FunAppInit) {
 
         var appLifecycle: Lifecycle<*, FunContext>? = null
 
-        val compose = ComposeWebGPURenderer(window, fsWatcher, show = false, onError = {
+        val hud = ComposeHudWebGPURenderer(window, fsWatcher, show = true, name = "HUD", onError = {
+            appLifecycle?.value?.events?.guiError?.emit(it)
+        })
+        val worldPanels = ComposeOpenGLRenderer(window.window, show = true, name = "World Panels", onError = {
             appLifecycle?.value?.events?.guiError?.emit(it)
         })
         appLifecycle = funSurface.bind(AppLifecycleName) {
-            val context = FunContext(it, funDimLifecycle, compose, FunStateContext.isolatedClient())
+            val context = FunContext(it, funDimLifecycle, hud, FunStateContext.isolatedClient())
             val time = FunTime()
             context.time = time
 
             initFunc(context)
-            time._context = context
-            it.ctx.window.callbacks["Fun"] = FunInputAdapter(context)
             context // Close context when lifecycle is restarted
         }
-        compose.compose.windowLifecycle.bind(appLifecycle, "App Compose binding") { comp, context ->
+        hud.compose.windowLifecycle.bind(appLifecycle, "App Hud binding") { comp, context ->
             comp.setContent {
                 context.gui.PanelSupport()
             }
         }
 
-        window.bindFunLifecycles(compose, fsWatcher, appLifecycle, funSurface, funDimLifecycle)
+
+        worldPanels.windowLifecycle.bind(appLifecycle, "App WorldPanels binding") { comp, context ->
+            comp.setContent {
+                Text("Halo??", color = Color.White)
+//                context.gui.worldGui?.content?.invoke()
+            }
+        }
+
+        window.bindFunLifecycles(hud, fsWatcher, appLifecycle, funSurface, funDimLifecycle)
 
         return initFunc to window
     }
@@ -244,10 +251,6 @@ abstract class FunApp : AutoCloseable {
 }
 
 
-
-
-
-
 internal fun FunContext.progressPhysics(delta: Duration) {
     events.beforePhysics.emit(delta)
     events.physics.emit(delta)
@@ -258,8 +261,8 @@ internal fun FunContext.progressPhysics(delta: Duration) {
 typealias FunAppInit = FunAppBuilder.() -> ((context: FunContext) -> Unit)
 
 class FunAppBuilder {
-    internal var config: WindowConfig = WindowConfig()
-    fun window(config: WindowConfig) {
+    internal var config: WindowParameters = WindowParameters()
+    fun window(config: WindowParameters) {
         this.config = config
     }
 }

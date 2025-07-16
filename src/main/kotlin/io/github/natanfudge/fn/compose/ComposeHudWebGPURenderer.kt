@@ -1,13 +1,51 @@
+@file:OptIn(InternalComposeUiApi::class)
+
 package io.github.natanfudge.fn.compose
 
-import io.github.natanfudge.fn.compose.ComposeWebGPURenderer.ComposeBindGroup
+import androidx.compose.ui.InternalComposeUiApi
+import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer.ComposeBindGroup
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.ygdrasil.webgpu.*
 
 private var samplerIndex = 0
-class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
+
+class ComposeWebgpuSurface(val ctx: WebGPUContext, val composeWindowLifecycle: ValueHolder<ComposeGlfwWindow>) : AutoCloseable {
+    // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
+    private val inputListener = ctx.window.inputEvent.listenUnscoped { input ->
+        val window = composeWindowLifecycle.value ?: return@listenUnscoped
+        if (window.focused) {
+            when (input) {
+                is InputEvent.KeyEvent -> window.scene.sendKeyEvent(input.event)
+                is InputEvent.PointerEvent -> {
+                    with(input) {
+                        window.scene.sendPointerEvent(
+                            eventType,
+                            position,
+                            scrollDelta,
+                            timeMillis,
+                            type,
+                            buttons,
+                            keyboardModifiers,
+                            nativeEvent,
+                            button
+                        )
+                    }
+                }
+
+                else -> {}
+            }
+        }
+    }
+    private val densityListener = ctx.window.densityChangeEvent.listenUnscoped { newDensity ->
+        val window = composeWindowLifecycle.value ?: return@listenUnscoped
+        if (window.focused) {
+            window.scene.density = newDensity
+        }
+    }
 
     val myIndex = samplerIndex++
     val sampler = ctx.device.createSampler(
@@ -19,7 +57,7 @@ class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
     )
 
     override fun close() {
-        closeAll(sampler)
+        closeAll(sampler, inputListener, densityListener)
     }
 
     override fun toString(): String {
@@ -30,7 +68,7 @@ class ComposeWebgpuSurface(val ctx: WebGPUContext) : AutoCloseable {
 private var textureIndex = 0
 
 class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGlfwWindow, val ctx: WebGPUContext) : AutoCloseable {
-    val myIndex=  textureIndex++
+    val myIndex = textureIndex++
     val composeTexture = dimensions.surface.device.createTexture(
         TextureDescriptor(
             size = Extent3D(dimensions.dimensions.width.toUInt(), dimensions.dimensions.height.toUInt(), 1u),
@@ -61,32 +99,29 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
     }
 
 
-
     override fun close() {
         closeAll(listener, composeTexture)
     }
 }
 
-class ComposeWebGPURenderer(
+class ComposeHudWebGPURenderer(
     hostWindow: WebGPUWindow,
     fsWatcher: FileSystemWatcher,
     onError: (Throwable) -> Unit,
-    show: Boolean = false
+    name: String,
+    show: Boolean = false,
 ) {
-     val compose = ComposeConfig(hostWindow.window,  show = show, onError)
+    val compose = ComposeOpenGLRenderer(hostWindow.window, show = show, name = name, onError = onError)
+    val SurfaceLifecycleName = "$name Compose WebGPU Surface"
 
-    companion object {
-        const val SurfaceLifecycleName = "Compose WebGPU Surface"
-    }
 
-    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind(SurfaceLifecycleName) {
-        it.window.callbacks["Compose"] = compose.callbacks
-        ComposeWebgpuSurface(it)
+    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind(SurfaceLifecycleName) { surface ->
+        ComposeWebgpuSurface(surface, compose.windowLifecycle)
     }
 
 
     val fullscreenQuadLifecycle = createReloadingPipeline(
-        "Compose Fullscreen Quad",
+        "$name Compose Fullscreen Quad",
         hostWindow.surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("compose/fullscreen_quad.vertex"),
         fragmentShader = ShaderSource.HotFile("compose/fullscreen_quad.fragment"),
@@ -124,15 +159,15 @@ class ComposeWebGPURenderer(
             primitive = PrimitiveState(
                 topology = GPUPrimitiveTopology.TriangleList
             ),
-            label = "Compose Pipeline",
+            label = "$name Compose Pipeline",
         )
     }
 
-    val textureLifecycle = hostWindow.dimensionsLifecycle.bind(compose.windowLifecycle, "Compose Texture") {dim, bgWindow ->
+    val textureLifecycle = hostWindow.dimensionsLifecycle.bind(compose.windowLifecycle, "$name Compose Texture") { dim, bgWindow ->
         ComposeTexture(dim, bgWindow, dim.surface)
     }
 
-    class ComposeBindGroup(pipeline: ReloadingPipeline,texture: ComposeTexture, surface: ComposeWebgpuSurface): AutoCloseable {
+    class ComposeBindGroup(pipeline: ReloadingPipeline, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
         val resource = texture.composeTexture.createView()
         val group = texture.ctx.device.createBindGroup(
             BindGroupDescriptor(
@@ -152,20 +187,19 @@ class ComposeWebGPURenderer(
             )
 
 
-
         )
+
         override fun close() {
             closeAll(resource, group)
         }
     }
 
 
-
-    val bindGroupLifecycle = fullscreenQuadLifecycle.bind(textureLifecycle, surfaceLifecycle,"Compose BindGroup") { pipeline, tex, surface ->
+    val bindGroupLifecycle = fullscreenQuadLifecycle.bind(textureLifecycle, surfaceLifecycle, "$name Compose BindGroup") { pipeline, tex, surface ->
         ComposeBindGroup(pipeline, tex, surface)
     }
 
-    val frameLifecycle = fullscreenQuadLifecycle.bind(bindGroupLifecycle,"Compose Frame"){ pipeline, group ->
+    val frameLifecycle = fullscreenQuadLifecycle.bind(bindGroupLifecycle, "$name Compose Frame") { pipeline, group ->
         ComposeFrame(pipeline, group)
     }
 
@@ -195,5 +229,5 @@ class ComposeWebGPURenderer(
 }
 
 data class ComposeFrame(
-    val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup
+    val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup,
 )

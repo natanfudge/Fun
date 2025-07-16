@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.render.utils.ManagedGPUMemory
 import io.github.natanfudge.fn.render.utils.toFloatArray
 import io.github.natanfudge.fn.util.closeAll
@@ -40,6 +41,12 @@ class BoundModel(
         )
     )
 
+    fun setTexture(newTexture: FunImage) {
+        this.texture.close()
+        this.textureView.close()
+
+    }
+
     val jointCount = if (model.skeleton == null) 0uL else model.skeleton.joints.size.toULong()
 
     val instanceStruct = JointMatrix(jointCount.toInt())
@@ -66,7 +73,7 @@ class BoundModel(
     }
 
 
-    val textureView = texture.createView()
+    var textureView = texture.createView()
 
     val instances = mutableMapOf<FunId, RenderInstance>()
 
@@ -77,6 +84,7 @@ class BoundModel(
         instances[id] = instance
         return instance
     }
+    //TODO: need to also recreate and rebind bindgroup
 
     internal fun createBindGroup(pipeline: GPURenderPipeline) = world.ctx.device.createBindGroup(
         BindGroupDescriptor(

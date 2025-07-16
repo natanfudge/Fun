@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.render
 
-import io.github.natanfudge.fn.compose.ComposeWebGPURenderer
-import io.github.natanfudge.fn.core.FunApp
+import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.core.InputEvent
@@ -149,7 +148,7 @@ class FunInputAdapter(private val context: FunContext) : WindowCallbacks {
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(
-    compose: ComposeWebGPURenderer,
+    compose: ComposeHudWebGPURenderer,
     fsWatcher: FileSystemWatcher,
     appLifecycle: Lifecycle<*, FunContext>,
     funSurface: Lifecycle<*, FunSurface>,
