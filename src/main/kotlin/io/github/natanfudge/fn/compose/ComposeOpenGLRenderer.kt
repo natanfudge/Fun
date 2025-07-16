@@ -20,13 +20,15 @@ import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
 import org.lwjgl.glfw.GLFW
-import org.lwjgl.glfw.GLFW.*
+import org.lwjgl.glfw.GLFW.glfwGetWindowContentScale
+import org.lwjgl.glfw.GLFW.glfwSwapBuffers
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
+
 
 
 @OptIn(InternalComposeUiApi::class)
@@ -59,48 +61,15 @@ class FixedSizeComposeWindow(
     }
 }
 
-class GlfwComposeSceneContext(handle: () -> WindowHandle) : ComposeSceneContext, AutoCloseable {
-    override val platformContext = GlfwComposePlatformContext(handle)
-
-    override fun close() {
-        platformContext.close()
-    }
+class GlfwComposeSceneContext(onSetPointerIcon: (PointerIcon) -> Unit) : ComposeSceneContext {
+    override val platformContext = GlfwComposePlatformContext(onSetPointerIcon)
 }
 
 class GlfwComposePlatformContext(
-    private val handle: () -> WindowHandle,
-) : PlatformContext by PlatformContext.Empty, AutoCloseable {
-
-    /** Cache of `glfwCreateStandardCursor` results so we don’t create the same cursor twice. */
-    private val stdCursorCache = mutableMapOf<Int, Long>()
-
+    private val onSetPointerIcon: (PointerIcon) -> Unit,
+) : PlatformContext by PlatformContext.Empty {
     override fun setPointerIcon(pointerIcon: PointerIcon) {
-        // Pick (or build) the native cursor to install
-        val cursor: Long = when (pointerIcon) {
-            PointerIcon.Default -> 0L                             // Arrow
-            PointerIcon.Text -> std(GLFW_IBEAM_CURSOR)           // I-beam
-            PointerIcon.Crosshair -> std(GLFW_CROSSHAIR_CURSOR)     // Crosshair
-            PointerIcon.Hand -> std(GLFW_HAND_CURSOR)            // Hand
-            /* ---------- Anything else: just arrow ---------- */
-            else -> 0L
-        }
-
-
-        GLFW.glfwSetCursor(handle(), cursor)
-    }
-
-    /* -------------------------------------------------- */
-    /* Helper utilities                                   */
-    /* -------------------------------------------------- */
-
-    /** Lazily create -– and cache –- one of GLFW’s built-in cursors. */
-    private fun std(shape: Int): Long = stdCursorCache.getOrPut(shape) { glfwCreateStandardCursor(shape) }
-
-
-    /** Must be called once when you close the window. */
-    override fun close() {
-        stdCursorCache.values.forEach(::glfwDestroyCursor)
-        stdCursorCache.clear()
+        this.onSetPointerIcon(pointerIcon)
     }
 }
 
@@ -110,14 +79,13 @@ class ComposeGlfwWindow(
     initialHeight: Int,
     // Background window used for OpenGL rendering
     val handle: WindowHandle,
-    // Main window that displays WebGPU output
-    val hostHandle: () -> WindowHandle,
+    onSetPointerIcon: (PointerIcon) -> Unit,
     private val density: Density,
 //    private val composeContent: @Composable () -> Unit,
     val config: ComposeOpenGLRenderer,
     private val onError: (Throwable) -> Unit,
     private val onInvalidate: () -> Unit,
-    val capabilities: GLCapabilities
+    val capabilities: GLCapabilities,
 ) : AutoCloseable {
 
 
@@ -138,7 +106,7 @@ class ComposeGlfwWindow(
 
     var focused = true
 
-    val glfwContext = GlfwComposeSceneContext(hostHandle)
+    val glfwContext = GlfwComposeSceneContext(onSetPointerIcon)
 
     val scene = PlatformLayersComposeScene(
         coroutineContext = dispatcher + exceptionHandler,
@@ -153,7 +121,6 @@ class ComposeGlfwWindow(
     }
 
     override fun close() {
-        glfwContext.close()
         scene.close()
     }
 }
@@ -174,18 +141,22 @@ data class ComposeFrameEvent(
 )
 
 class ComposeOpenGLRenderer(
+    windowParameters: WindowParameters,
     host: GlfwWindowConfig,
     private val name: String,
 //    val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
+    onSetPointerIcon: (PointerIcon) -> Unit,
     onError: (Throwable) -> Unit,
 ) {
 
     val LifecycleLabel = "$name Compose Window"
 
-    private val glfw = GlfwWindowConfig(GlfwConfig(disableApi = false, showWindow = show), name = "Compose $name", host.windowParameters.copy(
-        initialTitle = name
-    ))
+    private val glfw = GlfwWindowConfig(
+        GlfwConfig(disableApi = false, showWindow = show), name = "Compose $name", windowParameters.copy(
+            initialTitle = name
+        )
+    )
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
     val windowLifecycle: Lifecycle<GlfwWindow, ComposeGlfwWindow> = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
@@ -196,7 +167,8 @@ class ComposeOpenGLRenderer(
             var window: ComposeGlfwWindow? = null
             window = ComposeGlfwWindow(
                 it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
-                density = Density(glfwGetWindowContentScale(it.handle)), hostHandle = { host.windowLifecycle.assertValue.handle },
+                density = Density(glfwGetWindowContentScale(it.handle)),
+                onSetPointerIcon = onSetPointerIcon,
                 config = this@ComposeOpenGLRenderer, onError = onError, capabilities = capabilities, onInvalidate = {
                     // Invalidate Compose frame on change
                     window!!.invalid = true

@@ -3,6 +3,7 @@
 package io.github.natanfudge.fn.compose
 
 import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerIcon
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer.ComposeBindGroup
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
@@ -10,6 +11,8 @@ import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.ygdrasil.webgpu.*
+import org.lwjgl.glfw.GLFW
+import org.lwjgl.glfw.GLFW.*
 
 private var samplerIndex = 0
 
@@ -105,14 +108,36 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
 }
 
 class ComposeHudWebGPURenderer(
-    hostWindow: WebGPUWindow,
+    private val hostWindow: WebGPUWindow,
     fsWatcher: FileSystemWatcher,
     onError: (Throwable) -> Unit,
     name: String,
     show: Boolean = false,
 ) {
-    val compose = ComposeOpenGLRenderer(hostWindow.window, show = show, name = name, onError = onError)
+    val compose = ComposeOpenGLRenderer(hostWindow.window.windowParameters, hostWindow.window, show = show, name = name, onError = onError, onSetPointerIcon = {
+        setHostWindowCursorIcon(it)
+    })
     val SurfaceLifecycleName = "$name Compose WebGPU Surface"
+
+    private fun setHostWindowCursorIcon(icon: PointerIcon) {
+        // Pick (or build) the native cursor to install
+        val cursor: Long = when (icon) {
+            PointerIcon.Default -> 0L                             // Arrow
+            PointerIcon.Text -> glfwCursor(GLFW_IBEAM_CURSOR)           // I-beam
+            PointerIcon.Crosshair -> glfwCursor(GLFW_CROSSHAIR_CURSOR)     // Crosshair
+            PointerIcon.Hand -> glfwCursor(GLFW_HAND_CURSOR)            // Hand
+            /* ---------- Anything else: just arrow ---------- */
+            else -> 0L
+        }
+
+        GLFW.glfwSetCursor(hostWindow.window.windowLifecycle.assertValue.handle, cursor)
+    }
+
+    /** Cache of `glfwCreateStandardCursor` results so we don’t create the same cursor twice. */
+    private val stdCursorCache = mutableMapOf<Int, Long>()
+
+    /** Lazily create -– and cache –- one of GLFW’s built-in cursors. */
+    private fun glfwCursor(shape: Int): Long = stdCursorCache.getOrPut(shape) { glfwCreateStandardCursor(shape) }
 
 
     val surfaceLifecycle = hostWindow.surfaceLifecycle.bind(SurfaceLifecycleName) { surface ->
