@@ -7,13 +7,19 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.util.EventStream
 import korlibs.time.seconds
 
 
-class InputManager(context: FunContext)  {
+//TODO: this class only wants the AutoClose functionallity, I should seperate this out into parts:
+// - State Management (funValue)
+// - AutoClose (listen {})
+// - Granular composition (funRemember {})
+class InputManager(context: FunContext): Fun("InputManager")  {
     val heldKeys = mutableSetOf<FunKey>()
 
     var prevCursorPos: Offset? = null
@@ -95,14 +101,14 @@ class InputManager(context: FunContext)  {
     }
 
     init {
-        context.events.beforePhysics.listenUnscoped { delta ->
+        context.events.beforePhysics.listen { delta ->
             if (focused) {
                 for (hotkey in hotkeys) {
                     if (hotkey.key in heldKeys && hotkey.modifiersPressed()) hotkey.onHold?.invoke(delta.seconds.toFloat())
                 }
             }
         }
-        context.events.input.listenUnscoped { input ->
+        context.events.input.listen { input ->
             when (input) {
                 is InputEvent.KeyEvent -> {
                     val event = input.event
@@ -142,7 +148,7 @@ class InputManager(context: FunContext)  {
                         PointerEventType.Move -> {
                             val prev = prevCursorPos ?: run {
                                 prevCursorPos = input.position
-                                return@listenUnscoped
+                                return@listen
                             }
                             prevCursorPos = input.position
                             val delta = prev - input.position

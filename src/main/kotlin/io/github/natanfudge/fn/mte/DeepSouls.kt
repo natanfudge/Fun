@@ -42,12 +42,12 @@ class DeepSoulsGame : Fun("Game") {
         Balance.create()
     }
 
-    val animation = FunAnimation(context)
+    val animation = FunAnimation()
 
 
     val input = InputManager(context)
 
-    val physics = FunPhysics(context)
+    val physics = FunPhysics()
     val player = Player(this)
 
     val devil = Devil()
@@ -57,7 +57,7 @@ class DeepSoulsGame : Fun("Game") {
 
 //    val whale = Whale(this)
 
-    val hoverMod = HoverHighlight(context, redirectHover = {
+    val hoverMod = HoverHighlight( redirectHover = {
         if (visualEditor.enabled) it
         else if (it is Block) player.targetBlock(it)
         else null
@@ -108,7 +108,7 @@ class DeepSoulsGame : Fun("Game") {
         }
 
         RestartButtons(context)
-        ErrorNotifications(context)
+        ErrorNotifications()
 
         context.gui.addWorldPanel(Vec3f(3f, 0.5f, SurfaceZ.toFloat())) {
             Text("Halo World Panel")

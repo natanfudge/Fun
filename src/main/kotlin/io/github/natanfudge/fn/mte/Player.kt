@@ -6,8 +6,8 @@ import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
-import io.github.natanfudge.fn.base.listen
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.Body
@@ -16,7 +16,6 @@ import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.render
-import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.math.squared
@@ -52,7 +51,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
     init {
         pickaxe.localTransform.translation = Vec3f(0.07f, 0.11f, 0.01f)
-        pickaxe.localTransform.scale = Vec3f(0.5f, 0.5f, 0.5f)
+        pickaxe.localTransform.scale = Vec3f(5f, 5f, 5f)
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
 
@@ -171,11 +170,11 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
 
 
-        game.physics.system.collision.listenUnscoped { (a, b) ->
+        game.physics.system.collision.listen { (a, b) ->
             whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
                 player.collectItem(item)
             }
-        }.closeWithThis()
+        }
 
     }
 

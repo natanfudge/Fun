@@ -2,7 +2,6 @@
 
 package io.github.natanfudge.fn.core
 
-import io.github.natanfudge.fn.base.FunResource
 
 
 /**

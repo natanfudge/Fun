@@ -16,13 +16,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.listen
 
-class ErrorNotifications(context: FunContext) {
+// TODO: only auto-close
+class ErrorNotifications: Fun("ErrorNotifications") {
     private var error: Throwable? by mutableStateOf(null)
 
     init {
-        context.events.guiError.listenUnscoped {
+        context.events.guiError.listen {
             this.error = it
         }
         context.addFunPanel {

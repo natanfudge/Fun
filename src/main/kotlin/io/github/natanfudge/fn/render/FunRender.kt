@@ -3,7 +3,6 @@ package io.github.natanfudge.fn.render
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
-import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
@@ -12,7 +11,6 @@ import io.github.natanfudge.fn.webgpu.ShaderSource
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.webgpu.createReloadingPipeline
-import io.github.natanfudge.fn.window.WindowCallbacks
 import io.github.natanfudge.fn.window.GlfwWindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -123,28 +121,24 @@ internal fun UInt.wgpuAlignInt(): UInt = toULong().wgpuAlign().toUInt()
 
 var pipelines = 0
 
-//class AppState(window: WebGPUWindow, compose: ComposeWebGPURenderer) {
-//    val camera = DefaultCamera()
-//    val input = InputManager(this, window, compose)
+
+
+// TODO: Some Fun API like this could replace lifecycles.
+// We would have a unified API even for rendering, and it wouldn't be a special mechanic.
+//class RenderingStack {
+//    val surface = remember(size){ WebGPUSurface() }
+//}
+//
+//class WebGPUSurface {
+//    val pipeline = remember(shaderSource) { WebGPUPipeline() }
+//}
+//
+//class WebGPUPipeline {
+//
 //}
 
-class FunInputAdapter(private val context: FunContext) : WindowCallbacks {
-    override fun onInput(input: InputEvent) {
-        // No need to block input with a null cursor position
-        if (context.world.cursorPosition != null && input is InputEvent.PointerEvent &&
-            // Allow blocking input by setting acceptMouseEvents to false
-            !context.gui.acceptMouseEvents) return
-//        println("Emitting input event, accept: ${context.gui.acceptMouseEvents}")
-        context.events.input.emit(input)
-    }
-}
 
-//data class AppSurfaceBinding(
-//    val app: FunApp,
-//    val surface: FunSurface
-//)
 
-//internal fun
 
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(
@@ -243,7 +237,7 @@ fun WebGPUWindow.bindFunLifecycles(
         if (!frame.isReady) return@bind
         frame.isReady = false // Avoid drawing using the same parent frame twice
 
-        context.events.frame.emit(frame.deltaMs.milliseconds)
+        context.events.beforeFrame.emit(frame.deltaMs.milliseconds)
 
         val ctx = frame.ctx
         checkForFrameDrops(ctx, frame.deltaMs)

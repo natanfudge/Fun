@@ -2,6 +2,8 @@ package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.FunContextRegistry
+import io.github.natanfudge.fn.core.FunResource
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Animation
 import io.github.natanfudge.fn.render.ModelNode
@@ -14,23 +16,9 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.times
 import kotlin.time.Duration
 
-interface FunResource {
-    val context get() = FunContextRegistry.getContext()
-    fun alsoClose(closeable: AutoCloseable)
 
-    val events get() = context.events
-}
 
-fun <T> EventStream<T>.listen(resource: FunResource, callback: (T) -> Unit) {
-    val listener = listenUnscoped(callback)
-    resource.alsoClose(listener)
-}
 
-context(resource: FunResource)
-fun <T> EventStream<T>.listen(callback: (T) -> Unit) {
-    val listener = listenUnscoped(callback)
-    resource.alsoClose(listener)
-}
 
 
 typealias JointMask = Set<Int>
@@ -79,7 +67,7 @@ class ModelAnimator(private val render: FunRenderState) {
 
 
     init {
-        render.context.events.frame.listen(render) { delta ->
+        render.context.events.beforeFrame.listen(render) { delta ->
             // Copy list to avoid ConcurrentModificationException
             for (animation in activeAnimations.toList()) {
                 animation.currentTime = animation.currentTime + (delta * animation.speed)

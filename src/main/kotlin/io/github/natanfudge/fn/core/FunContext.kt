@@ -9,8 +9,11 @@ import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.util.ValueHolder
 import kotlin.time.Duration
 
-class BaseFunEvents {
-    val frame = MutEventStream<Duration>()
+class BaseFunEvents(
+    //TODO: temporary until we consolidate rendering to use a FunContext itself
+    val beforeFrame: MutEventStream<Duration>
+) {
+
     val beforePhysics = MutEventStream<Duration>()
     val physics = MutEventStream<Duration>()
     val afterPhysics = MutEventStream<Duration>()
@@ -19,13 +22,27 @@ class BaseFunEvents {
     val appClose = MutEventStream<Unit>()
 
     internal fun clearListeners() {
-        frame.clearListeners()
-        beforePhysics.clearListeners()
-        physics.clearListeners()
-        afterPhysics.clearListeners()
-        input.clearListeners()
-        guiError.clearListeners()
-        appClose.clearListeners()
+        //TODO: not checking  one because we are breaking some rules currently, the ComposeHudWebGPURenderer registers its beforeFrame once
+        // and doesn't re-register it when the Context is re-created, in the future ComposeHudWebGPURenderer will be re-created and re-register on context
+        // recreation
+//        check(!beforeFrame.hasListeners)
+
+        // In the future it will be expected that some listeners will remain, as some parts of the app won't reload.
+        // We should still have this sort of test where everything is closed, and then we make sure that everything is empty, as a dev-time check.
+        // (to verify the dev closed all his listeners properly)
+        check(!beforePhysics.hasListeners) {"Before Physics"}
+        check(!physics.hasListeners) {"Physics"}
+        check(!afterPhysics.hasListeners) {"After Physics"}
+        check(!input.hasListeners){"Input"}
+        check(!guiError.hasListeners){"GUI error"}
+        check(!appClose.hasListeners) {"AppClose"}
+//        beforeFrame.clearListeners()
+//        beforePhysics.clearListeners()
+//        physics.clearListeners()
+//        afterPhysics.clearListeners()
+//        input.clearListeners()
+//        guiError.clearListeners()
+//        appClose.clearListeners()
     }
 }
 
@@ -41,6 +58,8 @@ internal object FunContextRegistry {
 class FunContext(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeHudWebGPURenderer,
     private val stateContext: FunStateContext,
+    //TODO: temporary until we consolidate rendering to use a FunContext itself
+    val beforeFrame: MutEventStream<Duration>
 ) : FunStateContext by stateContext, AutoCloseable {
     init {
         FunContextRegistry.setContext(this)
@@ -54,7 +73,7 @@ class FunContext(
     }
 
 
-    val events = BaseFunEvents()
+    val events = BaseFunEvents(beforeFrame)
 
     lateinit var time: FunTime
 
@@ -122,6 +141,7 @@ class FunContext(
         // Note that we don't clear the state context, we actually want to keep that around in order to preserver state.
         events.clearListeners()
         rootFuns.clear()
+        //TODO: GUIs will have a responsibility to clean up their GUIs once we start selectively initializing components
         gui.clearPanels()
     }
 

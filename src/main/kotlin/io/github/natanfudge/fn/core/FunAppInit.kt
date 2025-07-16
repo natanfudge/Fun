@@ -16,6 +16,7 @@ import io.github.natanfudge.fn.render.FunSurface
 import io.github.natanfudge.fn.render.FunWindow
 import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
+import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowParameters
@@ -186,6 +187,8 @@ private class FunAppInitializer(private val app: FunAppInit) {
         val initFunc = app(builder)
         val window = WebGPUWindow(builder.config)
 
+        val beforeFrame = MutEventStream<Duration>()
+
         val funSurface = window.surfaceLifecycle.bind("Fun Surface") { surface ->
             FunSurface(surface)
         }
@@ -198,14 +201,15 @@ private class FunAppInitializer(private val app: FunAppInit) {
 
         var appLifecycle: Lifecycle< FunContext>? = null
 
-        val hud = ComposeHudWebGPURenderer(window, fsWatcher, show = false, name = "HUD", onError = {
+        val hud = ComposeHudWebGPURenderer(window, fsWatcher, show = false, name = "HUD", beforeFrameEvent = beforeFrame, onError = {
             appLifecycle?.value?.events?.guiError?.emit(it)
         })
 //        val worldPanels = ComposeOpenGLRenderer(window.window, show = true, name = "World Panels", onError = {
 //            appLifecycle?.value?.events?.guiError?.emit(it)
 //        })
         appLifecycle = funSurface.bind(AppLifecycleName) {
-            val context = FunContext(it, funDimLifecycle, hud, FunStateContext.isolatedClient())
+
+            val context = FunContext(it, funDimLifecycle, hud, FunStateContext.isolatedClient(), beforeFrame)
             val time = FunTime()
             context.time = time
 

@@ -1,14 +1,16 @@
 package io.github.natanfudge.fn.base
 
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.physics.PhysicsSystem
 
-
-class FunPhysics(val context: FunContext) {
+//TODO: only wants AutoClose
+class FunPhysics: Fun("FunPhysics") {
     val system = PhysicsSystem()
 
     init {
-        context.events.physics.listenUnscoped {
+        context.events.physics.listen {
             system.tick(it, spedUp = context.time.speed > 1.2f)
         }
     }

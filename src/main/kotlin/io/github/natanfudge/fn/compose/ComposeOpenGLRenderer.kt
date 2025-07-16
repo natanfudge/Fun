@@ -11,6 +11,7 @@ import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
@@ -28,7 +29,7 @@ import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
 import java.nio.ByteBuffer
-
+import kotlin.time.Duration
 
 
 @OptIn(InternalComposeUiApi::class)
@@ -143,7 +144,7 @@ data class ComposeFrameEvent(
 class ComposeOpenGLRenderer(
     windowParameters: WindowParameters,
     windowDimensionsLifecycle: Lifecycle<WindowDimensions>,
-    host: GlfwWindowConfig,
+    beforeFrameEvent: EventStream<Duration>,
     private val name: String,
 //    val content: @Composable () -> Unit = { Text("Hello!") },
     show: Boolean = false,
@@ -153,7 +154,7 @@ class ComposeOpenGLRenderer(
 
     val LifecycleLabel = "$name Compose Window"
 
-    private val glfw = GlfwWindowConfig(
+     val glfw = GlfwWindowConfig(
         GlfwConfig(disableApi = false, showWindow = show), name = "Compose $name", windowParameters.copy(
             initialTitle = name
         )
@@ -181,7 +182,7 @@ class ComposeOpenGLRenderer(
 
 
     val dimensionsLifecycle: Lifecycle<FixedSizeComposeWindow> =
-        host.dimensionsLifecycle.bind(windowLifecycle, "$name Compose Fixed Size Window") { dim, window ->
+        windowDimensionsLifecycle.bind(windowLifecycle, "$name Compose Fixed Size Window") { dim, window ->
             GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
             window.scene.size = IntSize(dim.width, dim.height)
 
@@ -189,9 +190,9 @@ class ComposeOpenGLRenderer(
         }
 
     init {
-        // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
-        // Also we need
-        host.frameLifecycle.bind(dimensionsLifecycle, "$name Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
+        //TODO: this needs to get unregistered properly once we consolidate rendering API into the Fun API (this would be a Fun and we can just call listen {})
+        beforeFrameEvent.listenUnscoped {
+            val dim = dimensionsLifecycle.assertValue
             val window = dim.window
             window.dispatcher.poll()
             if (window.invalid) {
@@ -202,6 +203,11 @@ class ComposeOpenGLRenderer(
                 window.invalid = false
             }
         }
+//        // Make sure we get the frame early so we can draw it in the webgpu pass of the current frame
+//        // Also we need
+//        host.frameLifecycle.bind(dimensionsLifecycle, "$name Compose Frame Store", FunLogLevel.Verbose, early1 = true) { delta, dim ->
+//
+//        }
 
     }
 

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.CameraMode
 
@@ -32,7 +33,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
 
     init {
         with(camera) {
-            inputManager.mouseMoved.listenUnscoped { delta ->
+            inputManager.mouseMoved.listen { delta ->
                 val normalizedDeltaX = delta.x / context.window.width
                 val normalizedDeltaY = delta.y / context.window.height
 
@@ -112,7 +113,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
                 }
             }
         }
-        context.events.input.listenUnscoped { input ->
+        context.events.input.listen { input ->
             with(camera) {
                 when (input) {
                     is InputEvent.PointerEvent -> {

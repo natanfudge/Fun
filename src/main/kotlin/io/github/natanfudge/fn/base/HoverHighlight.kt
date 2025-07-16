@@ -5,11 +5,11 @@ import androidx.compose.ui.graphics.lerp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.Tag
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
 class HoverHighlight(
-    val context: FunContext,
     /**
      * Allows making another Fun be hovered instead of the one the cursor is pointing at.
      * Return null to not highlight anything.
@@ -20,7 +20,7 @@ class HoverHighlight(
      * Note that [redirectHover] must still return non-null for this to matter.
      */
     private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
-) {
+): Fun("HoverHighlight") { //TODO: only for autoclose
     companion object {
         /**
          * Add this tag to an object to prevent it from being highlighted when hovered.
@@ -35,7 +35,7 @@ class HoverHighlight(
     }
 
     init {
-        context.events.frame.listenUnscoped {
+        context.events.beforeFrame.listen {
             colorHoveredObject()
         }
     }

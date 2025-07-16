@@ -87,6 +87,8 @@ class MutEventStream<T> : EventStream<T> {
     private val pendingDetachments = mutableSetOf<Listener<T>>()
     private var emitting = false
 
+    val hasListeners get() = listeners.isNotEmpty()
+
     fun clearListeners() {
         listeners.clear()
     }

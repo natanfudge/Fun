@@ -7,12 +7,14 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer.ComposeBindGroup
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.ygdrasil.webgpu.*
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
+import kotlin.time.Duration
 
 private var samplerIndex = 0
 
@@ -110,13 +112,15 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
 class ComposeHudWebGPURenderer(
     private val hostWindow: WebGPUWindow,
     fsWatcher: FileSystemWatcher,
+    beforeFrameEvent: EventStream<Duration>,
     onError: (Throwable) -> Unit,
     name: String,
     show: Boolean = false,
 ) {
     val compose = ComposeOpenGLRenderer(hostWindow.window.windowParameters,
         windowDimensionsLifecycle = hostWindow.window.dimensionsLifecycle,
-        hostWindow.window, show = show, name = name, onError = onError, onSetPointerIcon = {
+        beforeFrameEvent =beforeFrameEvent,
+        show = show, name = name, onError = onError, onSetPointerIcon = {
         setHostWindowCursorIcon(it)
     })
     val SurfaceLifecycleName = "$name Compose WebGPU Surface"

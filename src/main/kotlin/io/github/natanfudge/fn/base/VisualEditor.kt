@@ -47,10 +47,11 @@ class VisualEditor(
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
      var enabled: Boolean = true,
-)  {
+): Fun("Visual Editor")  { //TODO: only for AutoClose?
     constructor(app: FunApp, inputManagerMod: InputManager, enabled: Boolean = true) : this(
-        HoverHighlight(app.context), inputManagerMod, enabled
+        HoverHighlight(), inputManagerMod, enabled
     )
+
 
     init {
         inputManagerMod.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
@@ -77,7 +78,7 @@ class VisualEditor(
                 }
             }
         }
-        hoverMod.context.events.input.listenUnscoped { input ->
+        hoverMod.context.events.input.listen { input ->
             if (input is InputEvent.PointerEvent && enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position
@@ -87,7 +88,6 @@ class VisualEditor(
         }
     }
 
-    private val context = hoverMod.context
     private var mouseDownPos: Offset? = null
     var selectedObject: FunRenderState? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
