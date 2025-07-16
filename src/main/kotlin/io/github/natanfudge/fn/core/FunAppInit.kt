@@ -198,12 +198,12 @@ private class FunAppInitializer(private val app: FunAppInit) {
 
         var appLifecycle: Lifecycle<*, FunContext>? = null
 
-        val hud = ComposeHudWebGPURenderer(window, fsWatcher, show = true, name = "HUD", onError = {
+        val hud = ComposeHudWebGPURenderer(window, fsWatcher, show = false, name = "HUD", onError = {
             appLifecycle?.value?.events?.guiError?.emit(it)
         })
-        val worldPanels = ComposeOpenGLRenderer(window.window, show = true, name = "World Panels", onError = {
-            appLifecycle?.value?.events?.guiError?.emit(it)
-        })
+//        val worldPanels = ComposeOpenGLRenderer(window.window, show = true, name = "World Panels", onError = {
+//            appLifecycle?.value?.events?.guiError?.emit(it)
+//        })
         appLifecycle = funSurface.bind(AppLifecycleName) {
             val context = FunContext(it, funDimLifecycle, hud, FunStateContext.isolatedClient())
             val time = FunTime()
@@ -219,12 +219,12 @@ private class FunAppInitializer(private val app: FunAppInit) {
         }
 
 
-        worldPanels.windowLifecycle.bind(appLifecycle, "App WorldPanels binding") { comp, context ->
-            comp.setContent {
-                Text("Halo??", color = Color.White)
-//                context.gui.worldGui?.content?.invoke()
-            }
-        }
+//        worldPanels.windowLifecycle.bind(appLifecycle, "App WorldPanels binding") { comp, context ->
+//            comp.setContent {
+//                Text("Halo??", color = Color.White)
+////                context.gui.worldGui?.content?.invoke()
+//            }
+//        }
 
         window.bindFunLifecycles(hud, fsWatcher, appLifecycle, funSurface, funDimLifecycle)
 

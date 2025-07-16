@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.physics.Transformable
 import io.github.natanfudge.fn.render.utils.GPUPointer
 import io.github.natanfudge.fn.util.Listener
@@ -27,7 +28,7 @@ class RenderInstance(
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
     internal val globalInstancePointer = world.baseInstanceData.newInstance(
         BaseInstanceData.toArray(
-            initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (bound.image == null) 0 else 1,
+            initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (bound.currentTexture == null) 0 else 1,
             if (bound.model.skeleton == null) 0 else 1
         )
     ) as GPUPointer<BaseInstanceData>
@@ -86,6 +87,10 @@ class RenderInstance(
         despawned = true
     }
 
+    fun setTexture(texture: FunImage) {
+        bound.setTexture(texture)
+    }
+
     private fun checkDespawned() {
         if (despawned) throw IllegalStateException("Attempt to transform despawned object")
     }
@@ -104,7 +109,7 @@ class RenderInstance(
             BaseInstanceData.set(
                 instanceDataBuffer, globalInstancePointer,
                 gpuTransform, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
-                if (bound.image == null) 0 else 1,
+                if (bound.currentTexture == null) 0 else 1,
                 if (bound.model.skeleton == null) 0 else 1
             )
             setTransform = requestedTransform!!

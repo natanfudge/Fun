@@ -15,4 +15,6 @@ class Devil: Fun("devil") {
         render.localTransform.translation = Vec3f(-4f, 0.5f, DeepSoulsGame.SurfaceZ + 0.5f)
         render.localTransform.rotation = Quatf.identity().rotateX(PIf / 2).rotateY(PIf /2)
     }
+
+    val chatbox = ChatBox()
 }

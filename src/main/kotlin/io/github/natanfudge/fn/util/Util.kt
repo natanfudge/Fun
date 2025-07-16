@@ -3,7 +3,7 @@ package io.github.natanfudge.fn.util
 import kotlin.math.PI
 import kotlin.math.ceil
 
-fun closeAll(vararg closeables: AutoCloseable) {
+fun closeAll(vararg closeables: AutoCloseable?) {
     for (closeable in closeables) {
         // On reload the values might become null
         @Suppress("UNNECESSARY_SAFE_CALL")

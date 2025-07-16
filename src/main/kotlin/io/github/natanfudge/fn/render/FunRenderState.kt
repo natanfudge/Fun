@@ -5,6 +5,7 @@ import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.FunPhysicsState
@@ -72,6 +73,11 @@ class FunRenderState(
     val renderInstance: RenderInstance = context.world.getOrBindModel(model).spawn(
         id, this, initialTransform = parentTransform.transform.toMatrix(), tint
     )
+
+    fun setTexture(image: FunImage) {
+        renderInstance.setTexture(image)
+    }
+
     init {
         onTransformChange {
             updateTransform(it)

@@ -22,40 +22,6 @@ sealed interface ShaderSource {
     data class HotFile(val path: String) : ShaderSource
 }
 
-//class ReloadingPipelineOld(
-//    val vertexShader: GPUShaderModule,
-//    val fragmentShader: GPUShaderModule,
-//    val pipeline: GPURenderPipeline,
-//    // On the other hand when the surface changes ctx does change and then you get old values for the children of this
-//) : AutoCloseable {
-//    companion object {
-//        inline fun build(
-//            vertexShaderCode: String,
-//            fragmentShaderCode: String,
-//            descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-//            ctx: WebGPUContext,
-//        ): ReloadingPipelineOld {
-//            val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
-//            val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
-//            val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
-//            return ReloadingPipelineOld(vertexShader, fragmentShader, pipeline)
-//        }
-//    }
-//
-//    override fun toString(): String {
-//        return "Reloading Pipeline"
-//    }
-//
-//
-//    override fun close() {
-//        println("CLosing pipeline ${pipeline.label}")
-//        closeAll(vertexShader, fragmentShader, pipeline)
-//    }
-//}
-
-
-
-
 class ReloadingPipelineOld(
     val vertexShader: GPUShaderModule,
     val fragmentShader: GPUShaderModule,
@@ -159,7 +125,7 @@ suspend fun loadShader(source: ShaderSource): String {
     val code = when (source) {
         // Load directly from source when hot reloading
         is ShaderSource.HotFile -> if (HOT_RELOAD_SHADERS) {
-            Thread.sleep(100)
+            Thread.sleep(100) //TODO: seems sus
             val file = source.getSourceFile()
 
             println("Loading shader at '${file}'")

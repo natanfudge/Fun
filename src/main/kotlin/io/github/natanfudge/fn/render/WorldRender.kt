@@ -62,8 +62,6 @@ class WorldRender(
 
     val models = mutableMapOf<ModelId, BoundModel>()
 
-    val modelBindGroups = mutableMapOf<ModelId, GPUBindGroup>()
-
 
     fun createBindGroup(pipeline: GPURenderPipeline) = ctx.device.createBindGroup(
         BindGroupDescriptor(
@@ -86,10 +84,7 @@ class WorldRender(
      */
     fun onPipelineChanged(pipeline: GPURenderPipeline) {
         this.pipeline = pipeline
-        modelBindGroups.clear()
-        for (model in models.values) {
-            modelBindGroups[model.model.id] = model.createBindGroup(pipeline)
-        }
+        models.forEach { it.value.recreateBindGroup(pipeline) }
     }
 
 
@@ -165,20 +160,26 @@ class WorldRender(
 
         var instanceIndex = 0u
         for (model in models.values) {
-            for (instance in model.instances) {
-                instance.value.updateGPU()
+            val bindGroup = model.bindGroup
+            if (bindGroup != null) {
+                for (instance in model.instances) {
+                    instance.value.updateGPU()
+                }
+
+                pass.setBindGroup(1u, bindGroup)
+                val instances = model.instances.size.toUInt()
+                pass.drawIndexed(
+                    model.model.mesh.indexCount,
+                    instanceCount = instances,
+                    firstIndex = model.firstIndex,
+                    baseVertex = model.baseVertex,
+                    firstInstance = instanceIndex
+                )
+                instanceIndex += instances
+            } else {
+                println("Skipping model because its bindgroup is null, not sure if this will work correctly")
             }
 
-            pass.setBindGroup(1u, modelBindGroups[model.model.id]!!)
-            val instances = model.instances.size.toUInt()
-            pass.drawIndexed(
-                model.model.mesh.indexCount,
-                instanceCount = instances,
-                firstIndex = model.firstIndex,
-                baseVertex = model.baseVertex,
-                firstInstance = instanceIndex
-            )
-            instanceIndex += instances
         }
         pass.end()
     }
@@ -186,8 +187,7 @@ class WorldRender(
     fun getOrBindModel(model: Model): BoundModel {
         val existingModel = models[model.id]
         // This model != existingModel check makes sure the model is rebound in case it was changed in dev. This check is expensive, so we only do it in dev.
-        if (existingModel == null || (Fun.DEV && model.material.texture?.path != existingModel.image?.path)) {
-            println("Binding model ${model.id}")
+        if (existingModel == null || (Fun.DEV && model.material.texture?.path != existingModel.currentTexture?.path)) {
             models[model.id] = bind(model)
         }
         return models[model.id]!!
@@ -206,9 +206,6 @@ class WorldRender(
             baseVertex = (vertexPointer.address / VertexArrayBuffer.StrideBytes).toInt(),
             world = this
         )
-        if (pipeline != null) {
-            modelBindGroups[model.id] = bound.createBindGroup(pipeline!!)
-        } // If pipeline is null, the modelBindGroups will be built once it is not null
 
         return bound
     }
@@ -231,7 +228,6 @@ class WorldRender(
 
     override fun close() {
         closeAll(vertexBuffer, indexBuffer, uniformBuffer, baseInstanceData, jointMatrixData)
-        modelBindGroups.values.forEach { it.close() }
         models.forEach { it.value.close() }
     }
 }
