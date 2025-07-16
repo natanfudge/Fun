@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.gltf
 
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.utils.TreeImpl
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.render.*
@@ -276,7 +277,7 @@ fun BufferedImage.toFunImage(path: String): FunImage? {
         }
     }
 
-    return FunImage(width, height, out, path)
+    return FunImage(IntSize(width, height), out, path)
 }
 
 

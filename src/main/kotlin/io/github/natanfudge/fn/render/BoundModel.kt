@@ -30,8 +30,8 @@ class BoundModel(
     val texture = ctx.device.createTexture(
         TextureDescriptor(
             size = if (image != null) Extent3D(
-                image.width.toUInt(),
-                image.height.toUInt(),
+                image.size.width.toUInt(),
+                image.size.height.toUInt(),
                 1u
             ) else Extent3D(1u, 1u),
             // We loaded srgb data from the png so we specify srgb here. If your data is in a linear color space you can do RGBA8Unorm instead
@@ -40,12 +40,12 @@ class BoundModel(
             label = "Model Texture"
         )
     )
-
-    fun setTexture(newTexture: FunImage) {
-        this.texture.close()
-        this.textureView.close()
-
-    }
+//
+//    fun setTexture(newTexture: FunImage) {
+//        this.texture.close()
+//        this.textureView.close()
+//
+//    }
 
     val jointCount = if (model.skeleton == null) 0uL else model.skeleton.joints.size.toULong()
 
@@ -62,7 +62,7 @@ class BoundModel(
             ctx.device.copyExternalImageToTexture(
                 source = image.bytes,
                 texture = texture,
-                width = image.width, height = image.height
+                width = image.size.width, height = image.size.height
             )
         }
         if (model.skeleton != null) {

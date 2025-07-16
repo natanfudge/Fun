@@ -79,7 +79,7 @@ class WorldRender(
         )
     )
 
-    private var pipeline: GPURenderPipeline? = null
+    var pipeline: GPURenderPipeline? = null
 
     /**
      * Called whenever the pipeline changes to update the model bind groups

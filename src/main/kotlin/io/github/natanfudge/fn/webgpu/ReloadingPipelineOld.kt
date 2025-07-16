@@ -17,12 +17,46 @@ sealed interface ShaderSource {
 
     /**
      * Will be fetched from `files/shaders/${path}.wgsl`
-     * If [ReloadingPipeline.hotReloadShaders] is true, changes to this file will be auto-reloaded.
+     * If [ReloadingPipelineOld.hotReloadShaders] is true, changes to this file will be auto-reloaded.
      */
     data class HotFile(val path: String) : ShaderSource
 }
 
-class ReloadingPipeline(
+//class ReloadingPipelineOld(
+//    val vertexShader: GPUShaderModule,
+//    val fragmentShader: GPUShaderModule,
+//    val pipeline: GPURenderPipeline,
+//    // On the other hand when the surface changes ctx does change and then you get old values for the children of this
+//) : AutoCloseable {
+//    companion object {
+//        inline fun build(
+//            vertexShaderCode: String,
+//            fragmentShaderCode: String,
+//            descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
+//            ctx: WebGPUContext,
+//        ): ReloadingPipelineOld {
+//            val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
+//            val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
+//            val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
+//            return ReloadingPipelineOld(vertexShader, fragmentShader, pipeline)
+//        }
+//    }
+//
+//    override fun toString(): String {
+//        return "Reloading Pipeline"
+//    }
+//
+//
+//    override fun close() {
+//        println("CLosing pipeline ${pipeline.label}")
+//        closeAll(vertexShader, fragmentShader, pipeline)
+//    }
+//}
+
+
+
+
+class ReloadingPipelineOld(
     val vertexShader: GPUShaderModule,
     val fragmentShader: GPUShaderModule,
     val pipeline: GPURenderPipeline,
@@ -34,11 +68,11 @@ class ReloadingPipeline(
             fragmentShaderCode: String,
             descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
             ctx: WebGPUContext,
-        ): ReloadingPipeline {
+        ): ReloadingPipelineOld {
             val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
             val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
             val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
-            return ReloadingPipeline(vertexShader, fragmentShader, pipeline)
+            return ReloadingPipelineOld(vertexShader, fragmentShader, pipeline)
         }
     }
 
@@ -61,7 +95,7 @@ inline fun createReloadingPipeline(
     vertexShader: ShaderSource,
     fragmentShader: ShaderSource = vertexShader,
     crossinline descriptorBuilder: WebGPUContext.(GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-): Lifecycle<WebGPUContext, ReloadingPipeline> {
+): Lifecycle<WebGPUContext, ReloadingPipelineOld> {
     val lifecycle = surfaceLifecycle.bind("Reloading Pipeline of $label") {
         // SLOW: this should prob not be blocking like this
         val (vertex, fragment) = runBlocking {
@@ -73,7 +107,7 @@ inline fun createReloadingPipeline(
             }
         }
 
-        ReloadingPipeline.build(
+        ReloadingPipelineOld.build(
             vertexShaderCode = vertex,
             fragmentShaderCode = fragment,
             { v, f -> it.descriptorBuilder(v, f) }, it

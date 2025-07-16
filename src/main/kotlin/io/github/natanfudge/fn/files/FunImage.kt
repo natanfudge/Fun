@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.files
 
+import androidx.compose.ui.unit.IntSize
 import kotlinx.io.files.Path
 import natan.`fun`.generated.resources.Res
 import org.lwjgl.stb.STBImage.stbi_failure_reason
@@ -11,8 +12,7 @@ import kotlin.io.path.toPath
 import kotlin.use
 
 class FunImage(
-    val width: Int,
-    val height: Int,
+    val size: IntSize,
     val bytes: ByteArray,
     val path: String?
 ) {
@@ -55,6 +55,6 @@ fun readImage(path: Path): FunImage {
         buf.get(bytes)
         buf.flip()
         stbi_image_free(buf)
-        return FunImage(width, height, bytes, path)
+        return FunImage(IntSize(width, height), bytes, path)
     }
 }

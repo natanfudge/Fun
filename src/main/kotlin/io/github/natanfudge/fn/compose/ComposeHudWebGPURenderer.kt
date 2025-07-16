@@ -167,7 +167,7 @@ class ComposeHudWebGPURenderer(
         ComposeTexture(dim, bgWindow, dim.surface)
     }
 
-    class ComposeBindGroup(pipeline: ReloadingPipeline, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
+    class ComposeBindGroup(pipeline: ReloadingPipelineOld, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
         val resource = texture.composeTexture.createView()
         val group = texture.ctx.device.createBindGroup(
             BindGroupDescriptor(
@@ -229,5 +229,5 @@ class ComposeHudWebGPURenderer(
 }
 
 data class ComposeFrame(
-    val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup,
+    val pipeline: ReloadingPipelineOld, val bindGroup: ComposeBindGroup,
 )
