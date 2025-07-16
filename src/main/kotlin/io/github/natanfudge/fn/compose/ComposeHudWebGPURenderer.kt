@@ -114,7 +114,9 @@ class ComposeHudWebGPURenderer(
     name: String,
     show: Boolean = false,
 ) {
-    val compose = ComposeOpenGLRenderer(hostWindow.window.windowParameters, hostWindow.window, show = show, name = name, onError = onError, onSetPointerIcon = {
+    val compose = ComposeOpenGLRenderer(hostWindow.window.windowParameters,
+        windowDimensionsLifecycle = hostWindow.window.dimensionsLifecycle,
+        hostWindow.window, show = show, name = name, onError = onError, onSetPointerIcon = {
         setHostWindowCursorIcon(it)
     })
     val SurfaceLifecycleName = "$name Compose WebGPU Surface"
@@ -192,7 +194,7 @@ class ComposeHudWebGPURenderer(
         ComposeTexture(dim, bgWindow, dim.surface)
     }
 
-    class ComposeBindGroup(pipeline: ReloadingPipelineOld, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
+    class ComposeBindGroup(pipeline: ReloadingPipeline, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
         val resource = texture.composeTexture.createView()
         val group = texture.ctx.device.createBindGroup(
             BindGroupDescriptor(
@@ -254,5 +256,5 @@ class ComposeHudWebGPURenderer(
 }
 
 data class ComposeFrame(
-    val pipeline: ReloadingPipelineOld, val bindGroup: ComposeBindGroup,
+    val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup,
 )

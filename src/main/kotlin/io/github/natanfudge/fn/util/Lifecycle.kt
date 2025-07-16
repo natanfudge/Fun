@@ -16,12 +16,12 @@ import kotlin.time.TimeSource
  * This context is passed to the [start] function of a [Lifecycle] and provides access to the lifecycle
  * being started through [thisLifecycle].
  */
-class LifecycleContext<P : Any, T : Any>(val thisLifecycle: Lifecycle<P, T>) : AutoClose by AutoCloseImpl()
+class LifecycleContext< T : Any>(val thisLifecycle: Lifecycle<T>) : AutoClose by AutoCloseImpl()
 
 // sus: we need to remove lifecycles from this list when we unbind them, when we add unbinding.
-private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*, *>>()
+private val lifecycleRegistry = mutableMapOf<String, Lifecycle<*>>()
 
-interface ValueHolder<T>: ReadOnlyProperty<Any?,T> {
+interface ValueHolder<out T>: ReadOnlyProperty<Any?,T> {
     /**
      * Returns the current value of this, throwing an error if it hasn't been initialized.
      *
@@ -59,7 +59,7 @@ interface ValueHolder<T>: ReadOnlyProperty<Any?,T> {
  * [P] is the type of the parent(s) of this lifecycle, and [T] is the type of the root of this lifecycle.
  * Note that we don't do `Lifecycle<P,T> = MutableTree<P,T>` because that would signify everything is `<P,T>` all the way down, which is not true.
  */
-class Lifecycle<P : Any, T : Any> private constructor(internal val tree: LifecycleTree): ValueHolder<T> {
+class Lifecycle<out T : Any> private constructor(internal val tree: LifecycleTree): ValueHolder<T> {
     companion object {
         /**
          * Creates a new lifecycle with the specified start and stop functions.
@@ -73,12 +73,13 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
          *
          * The [logLevel] controls the verbosity of logs for this lifecycle.
          */
-        fun <P : Any, T : Any> create(
+        fun <P : Any, C : Any> create(
             label: String,
             logLevel: FunLogLevel = FunLogLevel.Debug,
-            stop: (T) -> Unit = {},
-            start: LifecycleContext<P, T>.(P) -> T,
-        ): Lifecycle<P, T> {
+            stop: (C) -> Unit = {},
+            start: LifecycleContext<C>.(P) -> C,
+        ): Lifecycle<C> {
+            start as LifecycleContext<C>.(Any?) -> C
             val ls = lifecycleRegistry.getOrPut(label) {
                 val data = LifecycleData(
                     start = start,
@@ -93,7 +94,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
                     childrenParentIndices = mutableListOf(),
                     closed = false
                 )
-                val ls = Lifecycle<P, T>(
+                val ls = Lifecycle<C>(
                     MutableTreeImpl(
                         value = data,
                         children = mutableListOf()
@@ -101,8 +102,8 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
                 )
                 data.lsCtx = LifecycleContext(ls)
                 ls
-            } as Lifecycle<P, T>
-            val data = (ls.tree.value as LifecycleData<P, T>)
+            } as Lifecycle<C>
+            val data = (ls.tree.value as LifecycleData<C>)
             // Update lambda to capture new variables
             data.start = start
             data.stop = stop
@@ -120,30 +121,6 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
     }
 
 
-//    fun setThrowOnFail(throwOnFail: Boolean) {
-//        tree.visit {
-//            it.throwOnFail = throwOnFail
-//        }
-////        tree.value.throwOnFail = throwOnFail
-//    }
-
-    /**
-     * Removes all children from this lifecycle and returns them as a list.
-     *
-     * This detaches all child lifecycles from this lifecycle, meaning they will no longer
-     * be started or stopped when this lifecycle is started or stopped.
-     *
-     * @return A list of all removed child lifecycles
-     */
-    fun removeChildren(): List<Lifecycle<T, *>> {
-        // Copy list
-        val children = tree.children.toList().map { Lifecycle<T, Any>(it) }
-        tree.children.clear()
-        tree.value.childrenParentIndices.clear()
-        return children
-    }
-
-
     /**
      * Starts this lifecycle and all its children recursively in topological order.
      *
@@ -156,7 +133,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      *
      * @throws IllegalArgumentException if [parentIndex] is invalid
      */
-    fun start(seedValue: P?, parentIndex: Int = 0) {
+    fun start(seedValue: Any?, parentIndex: Int = 0) {
         val startTime = TimeSource.Monotonic.markNow()
 //        val time = measureTime {
         require(parentIndex == 0 || parentIndex < tree.value.parentCount)
@@ -166,7 +143,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
             "Starting tree of ${tree.value.label} by order: ${order.joinToString("->") { it.child.label }}"
         }
         for ((parents, child) in order) {
-            child as LifecycleData<Any, Any>
+            child as LifecycleData<Any>
             val parentValues = parents.map {
                 val parentValue =
                     it.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
@@ -221,7 +198,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 
     fun restartByLabels(labels: Set<String>) {
         tree.visitSubtrees {
-            if (it.value.label in labels) Lifecycle<Any, Any>(it).restart()
+            if (it.value.label in labels) Lifecycle<Any>(it).restart()
         }
     }
     fun restartByLabels(vararg labels: String) = restartByLabels(labels.toSet())
@@ -235,7 +212,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * The [parentIndex] specifies which parent's data to update if this lifecycle has multiple parents.
      */
     fun restart(
-        seedValue: P,
+        seedValue: Any?,
         parentIndex: Int,
     ) {
         end()
@@ -256,7 +233,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * The [runEarly] parameter controls the execution order of children. If true, the child will be inserted
      * before all other children, ensuring it runs first when this lifecycle starts.
      */
-    fun <CP : Any, CT : Any> bind(child: Lifecycle<CP, CT>, runEarly: Boolean = false) {
+    fun <CT : Any> bind(child: Lifecycle<CT>, runEarly: Boolean = false) {
         val parentIndex = child.tree.value.parentCount
         child.tree.value.parentCount++
         if (runEarly) {
@@ -287,8 +264,8 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         early: Boolean = false,
-        start: LifecycleContext<T, CT>.(T) -> CT,
-    ): Lifecycle<T, CT> {
+        start: LifecycleContext<CT>.(T) -> CT,
+    ): Lifecycle<CT> {
         val ls = create(label, logLevel, stop, start)
         bind(ls, early)
         return ls
@@ -310,18 +287,15 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any> bind(
-        secondLifecycle: Lifecycle<*, P2>,
+        secondLifecycle: Lifecycle< P2>,
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         early1: Boolean = false,
         early2: Boolean = false,
         start: (T, P2) -> CT,
-    ): Lifecycle<T, CT> {
+    ): Lifecycle<CT> {
 
-//         val parentA = parents[0] as? T ?: error("Lifecycle $label was ran with its ${secondLifecycle.label} lifecycle but not its ${this@Lifecycle.label} lifecycle")
-//            val parentB = parents[1] as? P2 ?:error("Lifecycle $label was ran with its ${this@Lifecycle.label} lifecycle but not its ${secondLifecycle.label} lifecycle")
-//
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -329,7 +303,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         })
         this.bind(ls, early1)
         secondLifecycle.bind(ls, early2)
-        return ls as Lifecycle<T, CT>
+        return ls
     }
 
     /**
@@ -349,8 +323,8 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any, P3 : Any> bind(
-        secondLifecycle: Lifecycle<*, P2>,
-        thirdLifecycle: Lifecycle<*, P3>,
+        secondLifecycle: Lifecycle<P2>,
+        thirdLifecycle: Lifecycle<P3>,
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
@@ -358,7 +332,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         early2: Boolean = false,
         early3: Boolean = false,
         start: AutoClose.(T, P2, P3) -> CT,
-    ): Lifecycle<T, CT> {
+    ): Lifecycle<CT> {
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -368,7 +342,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         this.bind(ls, early1)
         secondLifecycle.bind(ls, early2)
         thirdLifecycle.bind(ls, early3)
-        return ls as Lifecycle<T, CT>
+        return ls
     }
 
     /**
@@ -385,14 +359,14 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any, P3 : Any, P4 : Any> bind(
-        secondLifecycle: Lifecycle<*, P2>,
-        thirdLifecycle: Lifecycle<*, P3>,
-        fourthLifecycle: Lifecycle<*, P4>,
+        secondLifecycle: Lifecycle< P2>,
+        thirdLifecycle: Lifecycle<P3>,
+        fourthLifecycle: Lifecycle< P4>,
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         start: AutoClose.(T, P2, P3, P4) -> CT,
-    ): Lifecycle<T, CT> {
+    ): Lifecycle< CT> {
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -404,7 +378,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         secondLifecycle.bind(ls)
         thirdLifecycle.bind(ls)
         fourthLifecycle.bind(ls)
-        return ls as Lifecycle<T, CT>
+        return ls
     }
 
     /**
@@ -421,15 +395,15 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5 : Any> bind(
-        secondLifecycle: Lifecycle<*, P2>,
-        thirdLifecycle: Lifecycle<*, P3>,
-        fourthLifecycle: Lifecycle<*, P4>,
-        fifthLifecycle: Lifecycle<*, P5>,
+        secondLifecycle: Lifecycle< P2>,
+        thirdLifecycle: Lifecycle< P3>,
+        fourthLifecycle: Lifecycle< P4>,
+        fifthLifecycle: Lifecycle< P5>,
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         start: AutoClose.(T, P2, P3, P4, P5) -> CT,
-    ): Lifecycle<T, CT> {
+    ): Lifecycle<CT> {
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -443,7 +417,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         thirdLifecycle.bind(ls)
         fourthLifecycle.bind(ls)
         fifthLifecycle.bind(ls)
-        return ls as Lifecycle<T, CT>
+        return ls
     }
 
     /**
@@ -461,16 +435,16 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
      * @return The newly created and bound child lifecycle
      */
     fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5 : Any, P6 : Any> bind(
-        secondLifecycle: Lifecycle<*, P2>,
-        thirdLifecycle: Lifecycle<*, P3>,
-        fourthLifecycle: Lifecycle<*, P4>,
-        fifthLifecycle: Lifecycle<*, P5>,
-        sixthLifecycle: Lifecycle<*, P6>,
+        secondLifecycle: Lifecycle< P2>,
+        thirdLifecycle: Lifecycle<P3>,
+        fourthLifecycle: Lifecycle<P4>,
+        fifthLifecycle: Lifecycle< P5>,
+        sixthLifecycle: Lifecycle< P6>,
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         start: AutoClose.(T, P2, P3, P4, P5, P6) -> CT,
-    ): Lifecycle<T, CT> {
+    ): Lifecycle< CT> {
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -486,21 +460,21 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         fourthLifecycle.bind(ls)
         fifthLifecycle.bind(ls)
         sixthLifecycle.bind(ls)
-        return ls as Lifecycle<T, CT>
+        return ls
     }
 
     fun <CT : Any, P2 : Any, P3 : Any, P4 : Any, P5 : Any, P6 : Any, P7 : Any> bind(
-        secondLifecycle: Lifecycle<*, P2>,
-        thirdLifecycle: Lifecycle<*, P3>,
-        fourthLifecycle: Lifecycle<*, P4>,
-        fifthLifecycle: Lifecycle<*, P5>,
-        sixthLifecycle: Lifecycle<*, P6>,
-        seventhLifecycle: Lifecycle<*, P7>,
+        secondLifecycle: Lifecycle<P2>,
+        thirdLifecycle: Lifecycle< P3>,
+        fourthLifecycle: Lifecycle< P4>,
+        fifthLifecycle: Lifecycle< P5>,
+        sixthLifecycle: Lifecycle< P6>,
+        seventhLifecycle: Lifecycle< P7>,
         label: String,
         logLevel: FunLogLevel = FunLogLevel.Debug,
         stop: (CT) -> Unit = {},
         start: AutoClose.(T, P2, P3, P4, P5, P6, P7) -> CT,
-    ): Lifecycle<T, CT> {
+    ): Lifecycle< CT> {
         val ls = create<List<Any>, CT>(label, logLevel, stop, { parents ->
             val parentA = parents[0] as T
             val parentB = parents[1] as P2
@@ -518,7 +492,7 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
         fifthLifecycle.bind(ls)
         sixthLifecycle.bind(ls)
         seventhLifecycle.bind(ls)
-        return ls as Lifecycle<T, CT>
+        return ls
     }
 
     /**
@@ -560,10 +534,10 @@ class Lifecycle<P : Any, T : Any> private constructor(internal val tree: Lifecyc
 }
 
 
-internal class LifecycleData<P : Any, T : Any>(
-    var start: LifecycleContext<P, T>.(P) -> T,
+internal class LifecycleData<T : Any>(
+    var start: LifecycleContext<T>.(Any?) -> T,
     var stop: (T) -> Unit,
-    var parentState: P?,
+    var parentState: Any?,
     var selfState: T?,
     var closed: Boolean,
     /**
@@ -585,12 +559,12 @@ internal class LifecycleData<P : Any, T : Any>(
         return label
     }
 
-    lateinit var lsCtx: LifecycleContext<P, T>
+    lateinit var lsCtx: LifecycleContext< T>
 }
 
-internal typealias LifecycleTree = MutableTree<LifecycleData<*, *>>
+internal typealias LifecycleTree = MutableTree<LifecycleData<*>>
 
-private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
+private fun <P : Any, T : Any> LifecycleData<T>.startSingle(
     parents: List<Pair<P, Int>>,
 ) {
     val hasMultipleParents = parentCount > 1
@@ -648,7 +622,7 @@ private fun <P : Any, T : Any> LifecycleData<P, T>.startSingle(
 
 }
 
-private fun LifecycleData<*, *>.endSingle() {
+private fun LifecycleData< *>.endSingle() {
     if (closed) {
         log(FunLogLevel.Warn) { "Attempt to close '$label' twice, ignoring" }
         return
@@ -677,13 +651,13 @@ private fun <P : Any, T : Any> verifyState(prevParent: P?, prevSelf: T?, label: 
     }
 }
 
-private fun <P : Any, T : Any> logLifecycleStart(
-    data: LifecycleData<P, T>,
+private fun < T : Any> logLifecycleStart(
+    data: LifecycleData<T>,
     hasMultipleParents: Boolean,
-    prevParent: P?,
+    prevParent: Any?,
     label: String,
     prevSelf: T?,
-    parents: List<Pair<P, Int>>,
+    parents: List<Pair<Any, Int>>,
 ) {
     if (prevParent != null && prevSelf == null) {
         // With a single parent, we expect prevParent and prevSelf to be set both at once.

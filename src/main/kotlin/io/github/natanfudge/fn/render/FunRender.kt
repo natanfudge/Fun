@@ -13,7 +13,7 @@ import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.webgpu.createReloadingPipeline
 import io.github.natanfudge.fn.window.WindowCallbacks
-import io.github.natanfudge.fn.window.WindowDimensions
+import io.github.natanfudge.fn.window.GlfwWindowDimensions
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
 val msaaSamples = 4u
 
 
-class FunWindow(ctx: WebGPUContext, val dims: WindowDimensions) : AutoCloseable {
+class FunWindow(ctx: WebGPUContext, val dims: GlfwWindowDimensions) : AutoCloseable {
     val extent = Extent3D(dims.width.toUInt(), dims.height.toUInt())
      val height: Int = dims.height
      val width: Int = dims.width
@@ -150,9 +150,9 @@ class FunInputAdapter(private val context: FunContext) : WindowCallbacks {
 fun WebGPUWindow.bindFunLifecycles(
     compose: ComposeHudWebGPURenderer,
     fsWatcher: FileSystemWatcher,
-    appLifecycle: Lifecycle<*, FunContext>,
-    funSurface: Lifecycle<*, FunSurface>,
-    funDimLifecycle: Lifecycle<*, FunWindow>,
+    appLifecycle: Lifecycle< FunContext>,
+    funSurface: Lifecycle<FunSurface>,
+    funDimLifecycle: Lifecycle<FunWindow>,
 ) {
 
     //SUS: this should be part of WorldRender

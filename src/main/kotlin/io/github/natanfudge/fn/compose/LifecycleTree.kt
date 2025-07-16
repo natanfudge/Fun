@@ -26,7 +26,7 @@ import io.github.natanfudge.fn.util.Lifecycle
 }
 
 @Composable
-fun LifecycleTreeUi(lifecycle: Lifecycle<*, *>) {
+fun LifecycleTreeUi(lifecycle: Lifecycle< *>) {
     DagLayout(lifecycle.tree, node = { node, path, canExpand ->
         OutlinedButton(onClick = {
             println("Restarting lifecycle ${node.label}")

@@ -142,6 +142,7 @@ data class ComposeFrameEvent(
 
 class ComposeOpenGLRenderer(
     windowParameters: WindowParameters,
+    windowDimensionsLifecycle: Lifecycle<WindowDimensions>,
     host: GlfwWindowConfig,
     private val name: String,
 //    val content: @Composable () -> Unit = { Text("Hello!") },
@@ -159,7 +160,7 @@ class ComposeOpenGLRenderer(
     )
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards
-    val windowLifecycle: Lifecycle<GlfwWindow, ComposeGlfwWindow> = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
+    val windowLifecycle: Lifecycle<ComposeGlfwWindow> = glfw.windowLifecycle.bind(LifecycleLabel, early = true) {
         GLFW.glfwMakeContextCurrent(it.handle)
         val capabilities = GL.createCapabilities()
 
@@ -179,7 +180,7 @@ class ComposeOpenGLRenderer(
     }
 
 
-    val dimensionsLifecycle: Lifecycle<WindowDimensions, FixedSizeComposeWindow> =
+    val dimensionsLifecycle: Lifecycle<FixedSizeComposeWindow> =
         host.dimensionsLifecycle.bind(windowLifecycle, "$name Compose Fixed Size Window") { dim, window ->
             GLFW.glfwSetWindowSize(window.handle, dim.width, dim.height)
             window.scene.size = IntSize(dim.width, dim.height)

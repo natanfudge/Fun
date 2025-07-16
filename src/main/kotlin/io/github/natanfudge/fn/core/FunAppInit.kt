@@ -196,7 +196,7 @@ private class FunAppInitializer(private val app: FunAppInit) {
 
         fsWatcher = FileSystemWatcher()
 
-        var appLifecycle: Lifecycle<*, FunContext>? = null
+        var appLifecycle: Lifecycle< FunContext>? = null
 
         val hud = ComposeHudWebGPURenderer(window, fsWatcher, show = false, name = "HUD", onError = {
             appLifecycle?.value?.events?.guiError?.emit(it)

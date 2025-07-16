@@ -17,12 +17,12 @@ sealed interface ShaderSource {
 
     /**
      * Will be fetched from `files/shaders/${path}.wgsl`
-     * If [ReloadingPipelineOld.hotReloadShaders] is true, changes to this file will be auto-reloaded.
+     * If [ReloadingPipeline.hotReloadShaders] is true, changes to this file will be auto-reloaded.
      */
     data class HotFile(val path: String) : ShaderSource
 }
 
-class ReloadingPipelineOld(
+class ReloadingPipeline(
     val vertexShader: GPUShaderModule,
     val fragmentShader: GPUShaderModule,
     val pipeline: GPURenderPipeline,
@@ -34,11 +34,11 @@ class ReloadingPipelineOld(
             fragmentShaderCode: String,
             descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
             ctx: WebGPUContext,
-        ): ReloadingPipelineOld {
+        ): ReloadingPipeline {
             val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
             val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
             val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
-            return ReloadingPipelineOld(vertexShader, fragmentShader, pipeline)
+            return ReloadingPipeline(vertexShader, fragmentShader, pipeline)
         }
     }
 
@@ -56,12 +56,12 @@ class ReloadingPipelineOld(
 
 inline fun createReloadingPipeline(
     label: String,
-    surfaceLifecycle: Lifecycle<*, WebGPUContext>,
+    surfaceLifecycle: Lifecycle<WebGPUContext>,
     fsWatcher: FileSystemWatcher,
     vertexShader: ShaderSource,
     fragmentShader: ShaderSource = vertexShader,
     crossinline descriptorBuilder: WebGPUContext.(GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-): Lifecycle<WebGPUContext, ReloadingPipelineOld> {
+): Lifecycle<ReloadingPipeline> {
     val lifecycle = surfaceLifecycle.bind("Reloading Pipeline of $label") {
         // SLOW: this should prob not be blocking like this
         val (vertex, fragment) = runBlocking {
@@ -73,7 +73,7 @@ inline fun createReloadingPipeline(
             }
         }
 
-        ReloadingPipelineOld.build(
+        ReloadingPipeline.build(
             vertexShaderCode = vertex,
             fragmentShaderCode = fragment,
             { v, f -> it.descriptorBuilder(v, f) }, it
@@ -94,8 +94,8 @@ inline fun createReloadingPipeline(
 fun reloadOnChange(
     shaderSource: ShaderSource,
     fsWatcher: FileSystemWatcher,
-    surfaceLifecycle: Lifecycle<*, WebGPUContext>,
-    pipelineLifecycle: Lifecycle<*, *>,
+    surfaceLifecycle: Lifecycle< WebGPUContext>,
+    pipelineLifecycle: Lifecycle< *>,
 ) {
     if (shaderSource is ShaderSource.HotFile) {
         println("Re-registering callback")

@@ -28,11 +28,17 @@ data class GlfwConfig(
     val showWindow: Boolean,
 )
 
-data class WindowDimensions(
-    val width: Int,
-    val height: Int,
+interface WindowDimensions {
+    val width: Int
+    val height: Int
+}
+
+
+data class GlfwWindowDimensions(
+    override val width: Int,
+    override val height: Int,
     val window: GlfwWindow,
-)
+): WindowDimensions
 
 class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowParameters) : AutoCloseable {
     override fun toString(): String {
@@ -128,7 +134,7 @@ class GlfwFrame(
 class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParameters: WindowParameters) {
     fun submitTask(task: () -> Unit) = windowLifecycle.value?.submitTask(task)
 
-    val windowLifecycle: Lifecycle<Unit, GlfwWindow> = ProcessLifecycle.bind("GLFW $name Window") {
+    val windowLifecycle: Lifecycle<GlfwWindow> = ProcessLifecycle.bind("GLFW $name Window") {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (glfw.disableApi) {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
@@ -264,11 +270,11 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
     }
 
 
-    val dimensionsLifecycle: Lifecycle<GlfwWindow, WindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
+    val dimensionsLifecycle: Lifecycle< GlfwWindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
-        WindowDimensions(w[0], h[0], it)
+        GlfwWindowDimensions(w[0], h[0], it)
     }
 
     val frameLifecycle = dimensionsLifecycle.bind("GLFW Frame of $name", FunLogLevel.Verbose) {

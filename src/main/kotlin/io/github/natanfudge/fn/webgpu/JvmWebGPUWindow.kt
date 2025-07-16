@@ -71,7 +71,7 @@ class WebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 
 data class WebGPUFixedSizeSurface(
     val surface: WebGPUContext,
-    val dimensions: WindowDimensions,
+    val dimensions: GlfwWindowDimensions,
 //    val window: ComposeGlfwWindow
 )
 
@@ -79,7 +79,7 @@ private var frame = 0
 
 data class WebGPUFrame(
     val ctx: WebGPUContext,
-    val dimensions: WindowDimensions,
+    val dimensions: GlfwWindowDimensions,
     val deltaMs: Double,
 ) : AutoCloseable {
     /**
