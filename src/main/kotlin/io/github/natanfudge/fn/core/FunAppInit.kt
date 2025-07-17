@@ -38,7 +38,6 @@ val ProcessLifecycle = Lifecycle.create<Unit, Unit>("Process") {
     if (!glfwInit()) {
         throw IllegalStateException("Unable to initialize GLFW")
     }
-    it
 }
 
 
@@ -74,7 +73,7 @@ private fun run(app: FunAppInitializer) {
                 val context = FunContextRegistry.getContext()
                 context.hotReloaded = true
 
-
+                context.events.appClose.emit(Unit)
                 context.rootFuns.forEach {
                     it.value.close(
                         // Doesn't matter
@@ -241,18 +240,6 @@ private class FunAppInitializer(private val app: FunAppInit) {
 }
 
 
-abstract class FunApp : AutoCloseable {
-
-
-//    fun onComposeE
-
-    abstract val context: FunContext
-
-
-    final override fun close() {
-        context.events.appClose.emit(Unit)
-    }
-}
 
 
 internal fun FunContext.progressPhysics(delta: Duration) {

@@ -147,7 +147,9 @@ class Lifecycle<out T : Any> private constructor(internal val tree: LifecycleTre
             val parentValues = parents.map {
                 val parentValue =
                     it.value.selfState ?: error("It appears that topological sort failed - parent state is not initialized when reaching child")
-                val indexForChild = it.value.childrenParentIndices[it.childIndex]
+                val indexForChild = it.value.childrenParentIndices.getOrNull(it.childIndex)
+                    ?: error("Lifecycle ${it.value} is specified as a parent of $child where the child is its ${it.childIndex}th child, but this parent only has " +
+                            "${it.value.childrenParentIndices.size} children bound to him (childrenParentIndices=${it.value.childrenParentIndices})")
                 parentValue to indexForChild
             }
             if (parents.isNotEmpty()) {
@@ -526,10 +528,6 @@ class Lifecycle<out T : Any> private constructor(internal val tree: LifecycleTre
                 labels.add(it.value.label)
             }
         }
-    }
-
-    fun close() {
-
     }
 }
 

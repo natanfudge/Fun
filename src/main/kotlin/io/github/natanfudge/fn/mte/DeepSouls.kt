@@ -1,25 +1,24 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.material3.Text
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.mte.gui.MainMenu
-import io.github.natanfudge.fn.mte.gui.addDsPanel
+import io.github.natanfudge.fn.mte.gui.addDsHudPanel
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
-class MineTheEarthMainMenuTemp(override val context: FunContext) : FunApp() {
-    val ds = DeepSouls()
-
-    init {
-        context.addDsPanel {
-            MainMenu(ds)
-        }
-    }
-}
+//class MineTheEarthMainMenuTemp(override val context: FunContext) : Fun("MainMenu") {
+//    val ds = DeepSouls()
+//
+//    init {
+//        context.addDsHudPanel {
+//
+//        }
+//    }
+//}
 
 class DeepSouls() : Fun("DeepSouls") {
     val inMainMenuState = funValue(true, "inMainMenu")
@@ -29,8 +28,13 @@ class DeepSouls() : Fun("DeepSouls") {
         if (!inMainMenu) {
             DeepSoulsGame()
         }
+
+        addDsHudPanel {
+            MainMenu(this@DeepSouls)
+        }
     }
 }
+
 
 
 class DeepSoulsGame : Fun("Game") {
@@ -50,7 +54,7 @@ class DeepSoulsGame : Fun("Game") {
     val physics = FunPhysics()
     val player = Player(this)
 
-    val devil = Devil()
+    val devil = Devil(this)
 
     val background = Background()
 
@@ -85,7 +89,8 @@ class DeepSoulsGame : Fun("Game") {
     val creativeMovement = CreativeMovement(input)
 
     fun initialize() {
-        player.physics.position = Vec3f(0f, 0.5f, 750f)
+//        player.physics.position = Vec3f(0f, 0.5f, 750f)
+        player.physics.position = Vec3f(0f, 0.5f, 105f)
         player.animation.play("jump", loop = false)
 
         world.initialize()
@@ -109,10 +114,6 @@ class DeepSoulsGame : Fun("Game") {
 
         RestartButtons(context)
         ErrorNotifications()
-
-        context.gui.addWorldPanel(Vec3f(3f, 0.5f, SurfaceZ.toFloat())) {
-            Text("Halo World Panel")
-        }
     }
 }
 
@@ -120,8 +121,7 @@ class DeepSoulsGame : Fun("Game") {
 fun main() {
     startTheFun {
         {
-            MineTheEarthMainMenuTemp(it)
-//            MineTheEarth(it)
+            DeepSouls()
         }
     }
 }

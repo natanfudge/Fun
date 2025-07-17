@@ -8,7 +8,7 @@ import io.github.natanfudge.fn.util.PIf
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-class Devil: Fun("devil") {
+class Devil(game: DeepSoulsGame): Fun("devil") {
     val render = render(Model.fromGlbResource("files/models/hooded_devil.glb"))
 
     init {
@@ -16,5 +16,5 @@ class Devil: Fun("devil") {
         render.localTransform.rotation = Quatf.identity().rotateX(PIf / 2).rotateY(PIf /2)
     }
 
-    val chatbox = ChatBox()
+    val chatbox = ChatBox(game)
 }

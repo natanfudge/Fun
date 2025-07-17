@@ -11,8 +11,8 @@ import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
 import io.github.natanfudge.fn.window.*
@@ -39,6 +39,11 @@ class FixedSizeComposeWindow(
     val window: ComposeGlfwWindow,
 //    context: DirectContext,
 ) : AutoCloseable {
+    init {
+        GLFW.glfwMakeContextCurrent(window.handle)
+        GL.setCapabilities(window.capabilities)
+    }
+
     // Skia Surface, bound to the OpenGL context
     val surface = glDebugGroup(0, groupName = { "Compose Surface Init" }) {
         createSurface(width, height, window.context)
@@ -147,17 +152,18 @@ class ComposeOpenGLRenderer(
     beforeFrameEvent: EventStream<Duration>,
     private val name: String,
 //    val content: @Composable () -> Unit = { Text("Hello!") },
-    show: Boolean = false,
     onSetPointerIcon: (PointerIcon) -> Unit,
     onError: (Throwable) -> Unit,
+    show: Boolean = false,
+    parentLifecycle: Lifecycle<Unit> = ProcessLifecycle,
 ) {
 
     val LifecycleLabel = "$name Compose Window"
 
-     val glfw = GlfwWindowConfig(
+    val glfw = GlfwWindowConfig(
         GlfwConfig(disableApi = false, showWindow = show), name = "Compose $name", windowParameters.copy(
             initialTitle = name
-        )
+        ),parentLifecycle
     )
 
     // We want this one to start early so we can update its size with the dimensions lifecycle afterwards

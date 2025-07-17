@@ -99,8 +99,15 @@ class FunWindow(ctx: WebGPUContext, val dims: GlfwWindowDimensions) : AutoClosea
 class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
     val sampler = ctx.device.createSampler(
         SamplerDescriptor(
-            label = "Fun Sampler"
-        )
+            label = "Fun Sampler",
+
+            //TODO: These make world panels look better, but are not needed for normal textures and is probably very expensive.
+            // These should only apply to world panels.
+            magFilter = GPUFilterMode.Linear,
+            minFilter = GPUFilterMode.Linear,
+            mipmapFilter = GPUMipmapFilterMode.Linear,
+            maxAnisotropy = 8u
+        ),
     )
 
     val world = WorldRender(ctx, this)
@@ -281,9 +288,9 @@ private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     if (deltaMs > normalFrameTimeMs * 1.8f) {
         val missingFrames = (deltaMs / normalFrameTimeMs).roundToInt() - 1
         val plural = missingFrames > 1
-        println(
-            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
-                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
-        )
+//        println(
+//            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
+//                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
+//        )
     }
 }

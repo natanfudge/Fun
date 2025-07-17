@@ -48,7 +48,7 @@ class VisualEditor(
      */
      var enabled: Boolean = true,
 ): Fun("Visual Editor")  { //TODO: only for AutoClose?
-    constructor(app: FunApp, inputManagerMod: InputManager, enabled: Boolean = true) : this(
+    constructor(inputManagerMod: InputManager, enabled: Boolean = true) : this(
         HoverHighlight(), inputManagerMod, enabled
     )
 

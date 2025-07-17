@@ -137,6 +137,8 @@ class FunContext(
         compose.compose.windowLifecycle.assertValue.focused = focused
     }
 
+
+
     internal fun clean() {
         // Note that we don't clear the state context, we actually want to keep that around in order to preserver state.
         events.clearListeners()
@@ -147,6 +149,7 @@ class FunContext(
 
     override fun close() {
         events.appClose.emit(Unit)
-        inputListener.close()
+        inputListener.close() // This is scoped to the entire instance so it should die every clean()
+        clean()
     }
 }

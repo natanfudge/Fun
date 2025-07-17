@@ -14,6 +14,11 @@ plugins {
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("com.google.osdetector") version "1.7.3"
     id("org.jetbrains.compose.hot-reload") version "1.0.0-beta04"
+    id("org.jetbrains.kotlin.plugin.assignment") version "2.2.0" //TODO: what??
+}
+
+assignment {
+    annotation("io.github.natanfudge.fn.mte.KotlinAssignmentOverloadTarget")
 }
 
 repositories {

@@ -132,10 +132,10 @@ class GlfwFrame(
 
 
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
-class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParameters: WindowParameters) {
+class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParameters: WindowParameters, parentLifecycle: Lifecycle<Unit> = ProcessLifecycle) {
     fun submitTask(task: () -> Unit) = windowLifecycle.value?.submitTask(task)
 
-    val windowLifecycle: Lifecycle<GlfwWindow> = ProcessLifecycle.bind("GLFW $name Window") {
+    val windowLifecycle: Lifecycle<GlfwWindow> = parentLifecycle.bind("GLFW $name Window") {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (glfw.disableApi) {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
@@ -282,15 +282,12 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
         GlfwFrame(it.window)
     }
 
-    val HotReloadSave = ProcessLifecycle.bind("GLFW Reload Save") {
+    val HotReloadSave = parentLifecycle.bind("GLFW Reload Save of $name") {
         HotReloadRestarter()
     }
 
-    val eventPollLifecycle = ProcessLifecycle.bind("GLFW Event poll", FunLogLevel.Verbose) {
-
+    val eventPollLifecycle = parentLifecycle.bind("GLFW Event poll of $name", FunLogLevel.Verbose) {
         glfwPollEvents()
-
-
     }
 
 
@@ -312,55 +309,7 @@ class HotReloadRestarter : AutoCloseable {
     }
 }
 
-/**
- * The [window] needs to be updated whenever it is recreated.
- */
-class GlfwGameLoop(val window: GlfwWindowConfig) {
-    var reloadCallback: (() -> Unit)? = null
 
-    private val currentWindow get() = window.windowLifecycle.assertValue
-
-    fun loop() {
-        while (currentWindow.open) {
-            checkForReloads()
-            if (!window.eventPollLifecycle.isInitialized) window.eventPollLifecycle.start(Unit)
-            else {
-                try {
-                    window.eventPollLifecycle.restart()
-                } catch (e: Throwable) {
-                    val hotReload = window.HotReloadSave.value
-                    if (hotReload?.restarted == true) {
-                        println("Crashed in poll after making a hot reload, trying to restart app")
-                        e.printStackTrace()
-                        hotReload.restarted = false
-                        ProcessLifecycle.restart()
-                    } else {
-                        throw e
-                    }
-                }
-            }
-            checkForReloads()
-            if (!currentWindow.open) break
-            if (currentWindow.minimized) continue
-            val time = System.nanoTime()
-            val delta = time - currentWindow.lastFrameTimeNano
-            if (delta >= 1e9 / currentWindow.init.maxFps) {
-                checkForReloads()
-                currentWindow.pollTasks()
-                checkForReloads()
-                window.frameLifecycle.restart()
-            }
-        }
-    }
-
-
-    private fun checkForReloads() {
-        if (reloadCallback != null) {
-            reloadCallback!!()
-            reloadCallback = null
-        }
-    }
-}
 
 private fun glfwGetCursorPos(window: Long): Offset {
     val x = DoubleArray(1)
