@@ -116,6 +116,8 @@ dependencies {
     implementation("com.soywiz:korlibs-image:6.0.0")
     implementation(libs.wgpu4k)
     implementation("io.coil-kt.coil3:coil-compose:3.2.0")
+    implementation(group = "com.patrykandpatrick.vico", name = "multiplatform", version = "2.1.3")
+
     runtimeOnly(compose.desktop.windows_x64)
 
     testImplementation(libs.bundles.commonTest)
