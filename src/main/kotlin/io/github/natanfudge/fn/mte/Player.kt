@@ -51,9 +51,10 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
     init {
         pickaxe.localTransform.translation = Vec3f(0.07f, 0.11f, 0.01f)
-        pickaxe.localTransform.scale = Vec3f(5f, 5f, 5f)
+        pickaxe.localTransform.scale = Vec3f(0.5f, 5f, 0.5f)
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
+
 
 
 
