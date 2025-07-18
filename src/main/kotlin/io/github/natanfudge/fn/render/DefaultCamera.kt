@@ -32,20 +32,20 @@ class DefaultCamera: Camera, Fun("Camera") {
      * The current position of the camera in 3D space.
      * Initially positioned at (5, 5, 5).
      */
-     override val position by funValue(Vec3f(5f, 5f, 5f), "position")
+     override val position by funValue(Vec3f(5f, 5f, 5f))
 
     /**
      * The up vector defining the camera's orientation.
      * Points along the positive Z axis (0, 0, 1) by default.
      */
-    private val up by funValue(Vec3f(0f, 0f, 1f), "up")
+    private val up by funValue(Vec3f(0f, 0f, 1f))
 
     /**
      * The direction the camera is looking.
      * Always normalized to unit length.
      * Initially points from the starting position toward the origin.
      */
-    override val forward by funValue ((Vec3f.zero() - position).normalize(), "forward")
+    override val forward by funValue ((Vec3f.zero() - position).normalize())
 
     fun setLookAt(position: Vec3f, forward: Vec3f) {
         this.position.set(position)

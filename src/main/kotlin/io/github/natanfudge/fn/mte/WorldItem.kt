@@ -41,8 +41,8 @@ class WorldItem(val game: DeepSoulsGame, id: String, item: Item?) : Fun(id) {
     /**
      * We allow setting the count dynamically for efficiency. For setting the type, we can just destroy and respawn the item.
      */
-    var itemCount by funValue(item?.count, "itemCount")
-    val itemType by funValue(item?.type, "itemType")
+    var itemCount by funValue(item?.count)
+    val itemType by funValue(item?.type)
 
 
     val item get() = Item(itemType, itemCount)

@@ -21,8 +21,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 //}
 
 class DeepSouls() : Fun("DeepSouls") {
-    val inMainMenuState = funValue(true, "inMainMenu")
-    var inMainMenu by inMainMenuState
+    var inMainMenu by funValue(true)
 
     init {
         if (!inMainMenu) {
@@ -76,7 +75,7 @@ class DeepSoulsGame : Fun("Game") {
     val world = World(this)
 
 
-    var cameraDistance by funValue(15f, "cameraDistance")
+    var cameraDistance by funValue(15f)
 
     private fun repositionCamera(playerPos: Vec3f) {
         if (creativeMovement.mode == CameraMode.Off) {

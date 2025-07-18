@@ -141,13 +141,12 @@ private fun run(app: FunAppInitializer) {
 }
 
 class FunTime : Fun("time") {
-    var speed by funValue(1f, "speed")
+    var speed by funValue(1f)
     fun advance(time: Duration) {
         context.progressPhysics(time)
     }
 
-    val stoppedState = funValue(false, "stopped")
-    var stopped by stoppedState
+    var stopped by funValue(false)
 
     fun stop() {
         stopped = true
@@ -158,7 +157,7 @@ class FunTime : Fun("time") {
         prevPhysicsTime = TimeSource.Monotonic.markNow()
     }
 
-    var gameTime: Duration by funValue(Duration.ZERO, "gameTime")
+    var gameTime: Duration by funValue(Duration.ZERO)
 
     private var prevPhysicsTime = TimeSource.Monotonic.markNow()
 

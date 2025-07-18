@@ -4,8 +4,8 @@ package io.github.natanfudge.fn.network.state
 
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
-import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.StateId
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
@@ -15,6 +15,7 @@ import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlinx.serialization.KSerializer
+import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -66,6 +67,19 @@ inline fun <reified T> Fun.funValue(
     }
     return funValue
 }
+
+inline fun <reified T> Fun.funValue(
+    initialValue: T?,
+    editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
+    /**
+     * If not null, a listener will be automatically registered for [beforeChange].
+     */
+    noinline beforeChange: ((value: T) -> Unit)? = null,
+    noinline afterChange: ((value: T) -> Unit)? = null,
+): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
+    funValue(initialValue, property.name, editor, beforeChange, afterChange)
+}
+
 
 @PublishedApi
 internal fun <T> unsafeToNotNull(value: T?): T = value as T

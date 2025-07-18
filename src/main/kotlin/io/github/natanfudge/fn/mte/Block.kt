@@ -25,14 +25,14 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         }
     }
 
-    val type by funValue(initialType, "type")
+    val type by funValue(initialType)
 
     val physics = physics(game.physics.system)
     val render = render(models.getValue(type), physics)
 
     var breakOverlay: FunRenderState? = null
 
-    var health by funValue(type.hardness(game), "health") {
+    var health by funValue(type.hardness(game)) {
         updateBreakOverlay(it)
     }
 

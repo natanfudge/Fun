@@ -54,7 +54,7 @@ class FunRenderState(
         return localListener.compose(parentListener).cast()
     }
 
-    var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh), "baseAABB", beforeChange = {
+    var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh), beforeChange = {
         this.boundingBox = it.transformed(transform.toMatrix())
     })
 
@@ -62,13 +62,12 @@ class FunRenderState(
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
 
-    val tintState: ClientFunValue<Tint> = funValue<Tint>(Tint(Color.White, 0f), "tint", beforeChange = {
+    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f),  beforeChange = {
         if (tint != it && !despawned) {
             renderInstance.setTintColor(it.color)
             renderInstance.setTintStrength(it.strength)
         }
     })
-    var tint by tintState
 
     val renderInstance: RenderInstance = context.world.getOrBindModel(model).spawn(
         id, this, initialTransform = parentTransform.transform.toMatrix(), tint

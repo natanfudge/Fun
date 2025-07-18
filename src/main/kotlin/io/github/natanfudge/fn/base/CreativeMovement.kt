@@ -24,7 +24,7 @@ import io.github.natanfudge.fn.render.CameraMode
 class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Movement") {
     private val camera = context.camera
 
-    var mode: CameraMode by funValue(CameraMode.Off, "mode")
+    var mode: CameraMode by funValue(CameraMode.Off)
 
     /**
      * Constant movement distance per frame. Not related to game time, because this is a dev tool.

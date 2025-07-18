@@ -13,10 +13,11 @@ import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.gltf.clearModelCache
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.listenAsState
+import io.github.natanfudge.fn.physics.getBackingState
 
-class RestartButtons(val context: FunContext){
+class RestartButtons(val context: FunContext) {
     init {
-        context.addFunPanel({Modifier.align(Alignment.CenterStart)}) {
+        context.addFunPanel({ Modifier.align(Alignment.CenterStart) }) {
             Surface(color = Color.Transparent) {
                 Column {
                     Button(onClick = { ProcessLifecycle.restartByLabels(setOf("WebGPU Surface")) }) {
@@ -38,7 +39,7 @@ class RestartButtons(val context: FunContext){
                         if (context.time.stopped) context.time.resume()
                         else context.time.stop()
                     }) {
-                        val stopped by context.time.stoppedState.listenAsState()
+                        val stopped by context.time::stopped.getBackingState().listenAsState()
                         Text("${if (stopped) "Resume" else "Stop"} Game")
                     }
                     Button(onClick = {

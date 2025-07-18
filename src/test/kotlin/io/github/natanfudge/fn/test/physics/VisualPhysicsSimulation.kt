@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.compose.utils.FunTheme
 import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
-import io.github.natanfudge.fn.core.FunApp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.physics.*

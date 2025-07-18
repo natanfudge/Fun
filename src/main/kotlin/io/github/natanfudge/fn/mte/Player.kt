@@ -291,8 +291,8 @@ private class DelayedStrike(
 
     name: String = "RateLimit",
 ) : Fun(parent, name) {
-    private var strikeStart: Duration? by funValue(null, "strikeStart")
-    private var lastStrike: Duration? by funValue(null, "lastStrike")
+    private var strikeStart: Duration? by funValue(null)
+    private var lastStrike: Duration? by funValue(null)
 
 
     /**

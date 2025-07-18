@@ -39,7 +39,7 @@ class FunPhysicsState(
 
     var scale: Vec3f by transformState::scale
 
-    var baseAABB by funValue(baseAABB, "baseAABB")
+    var baseAABB by funValue(baseAABB)
 
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
@@ -55,14 +55,14 @@ class FunPhysicsState(
         }
     }
 
-    override var velocity: Vec3f by funValue(Vec3f.zero(), "velocity")
-    override var acceleration: Vec3f by funValue(Vec3f.zero(), "acceleration")
-    override var angularVelocity: Vec3f by funValue(Vec3f.zero(), "angularVelocity")
-    override var isGrounded: Boolean by funValue(false, "isGrounded")
-    override var affectedByGravity: Boolean by funValue(true, "affectedByGravity")
-    override var mass: Float by funValue(1f, "mass")
-    override var isImmovable: Boolean by funValue(false, "isImmovable")
-    override var collisionGroup: Int by funValue(0, "collisionGroup")
+    override var velocity: Vec3f by funValue(Vec3f.zero())
+    override var acceleration: Vec3f by funValue(Vec3f.zero())
+    override var angularVelocity: Vec3f by funValue(Vec3f.zero())
+    override var isGrounded: Boolean by funValue(false)
+    override var affectedByGravity: Boolean by funValue(true)
+    override var mass: Float by funValue(1f)
+    override var isImmovable: Boolean by funValue(false)
+    override var collisionGroup: Int by funValue(0)
 
     init {
         physics.add(this)
