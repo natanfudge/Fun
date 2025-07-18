@@ -24,20 +24,8 @@ struct VertexOutput {
 @group(0) @binding(5) var<storage,read> joint_matrix_indices: array<u32>;
 // SLOW: should have one large thing we can index when we have bindless resources, both for textures and skinning matrices.
 @group(1) @binding(0) var texture: texture_2d<f32>;
-//// Single array per instance, and this stores the joint matrices for the entire model, so this has multiple arrays
-//@group(1) @binding(1) var<storage, read> joint_matrices: array<mat4x4f>;
 // Single array per model
 @group(1) @binding(1) var<storage, read> inverse_bind_matrices: array<mat4x4f>;
-// The size of each element of the joint_matrices.
-// Each instance accesses his own joint matrix by calculating instance_index * joint_matrices_stride
-//@group(1) @binding(3) var<uniform> modelUniforms: ModelUniforms;
-
-//struct ModelUniforms {
-//    joint_matrices_stride: u32,
-//    // Because the passed instance index is global, we need to offset it by the model's starting index to access the joint matrix.
-//    // SLOW: I won't need any of these 2 values (stride and start index) if I stored everything globally and then have a "instanceIndex -> joint matrix" buffer
-//    model_start_index: u32
-//}
 
 struct SkinResult {
     transformedPos: vec4f,
@@ -77,7 +65,6 @@ fn vs_main(
          skinning = true;
          let joint_matrix_index = joint_matrix_indices[iiid];
         posNormal = skin(position, normal, joints, weights, joint_matrix_index);// Animated - skin
-//        posNormal = SkinResult(vec4f(position, 1.0), normal);
     } else {
         posNormal = SkinResult(vec4f(position, 1.0), normal);// Not animated - don't skin
     }
@@ -96,11 +83,6 @@ fn vs_main(
         /* iid           */ globalInstanceIndex,
         /* tintStrength  */ instance.tintStrength
     );
-
-//    if (skinning) {
-//        output.tintColor = vec4f(1,0,0,1);
-//        output.tintStrength = 1;
-//    }
 
     return output;
 }

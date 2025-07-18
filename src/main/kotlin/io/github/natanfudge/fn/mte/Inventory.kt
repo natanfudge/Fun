@@ -5,10 +5,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.toMutableStateList
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -113,36 +110,70 @@ class Inventory(val game: DeepSoulsGame) : Fun("Inventory") {
             Box(Modifier.size(slotWidth))
             return
         }
-        Box {
-            val image by produceState<Pair<Boolean, Any?>?>(null) {
-                val uri = getResourceUri("files/icons/items/${item.type.name.lowercase()}.png")
-                if (uriExists(uri)) {
-                    value = true to uriToCoil(uri)
-                } else {
-                    value = false to uriToCoil(uri)
-                }
-//                value = uriExists(uri)
+        Box(Modifier.size(slotWidth)) {
+            val state = rememberResourceImageState("files/icons/items/${item.type.name.lowercase()}.png")
+
+            ResourceImage(state, Modifier.size(slotWidth))
+
+            if (state == ImageLoadState.NotFound) {
+                Text(item.type.toString(), modifier = Modifier.padding(5.dp))
             }
 
-//            var loadState by remember { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
-            if (image == null) {
-                Box(Modifier.size(slotWidth))
-            } else if (image!!.first) {
-                AsyncImage(
-                    model = image!!.second,
-                    contentDescription = item.type.toString(),
-                    Modifier.size(slotWidth),
-//                    onState = { loadState = it }
-                )
-            } else {
-                Text(item.type.toString(), modifier = Modifier.size(slotWidth).padding(5.dp))
-            }
-            if (image != null) {
+            if (state is ImageLoadState.StartedDisplay) {
                 Text(item.count.toString(), Modifier.align(Alignment.BottomEnd).padding(5.dp))
             }
         }
 
     }
+}
+
+sealed interface ImageLoadState {
+    object CalculatingUri : ImageLoadState
+    object NotFound : ImageLoadState
+
+    // Not exposing anything past Loading for now, this is good enough since Loading means the image has actually partially showed up
+    class StartedDisplay(val uri: String) : ImageLoadState
+}
+
+@Composable
+fun rememberResourceImageState(path: String): ImageLoadState {
+    var stage: ImageLoadState by remember(path) { mutableStateOf(ImageLoadState.CalculatingUri) }
+    LaunchedEffect(path) {
+        val uri = getResourceUri(path)
+        if (uriExists(uri)) {
+            stage = ImageLoadState.StartedDisplay(uriToCoil(uri))
+            println("Set stage to uri with $uri")
+        } else {
+            stage = ImageLoadState.NotFound
+        }
+    }
+    return stage
+}
+
+
+
+@Composable
+fun ResourceImage(
+    state: ImageLoadState,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+) {
+    if (state is ImageLoadState.StartedDisplay) {
+        AsyncImage(
+            model = state.uri,
+            contentDescription = contentDescription,
+            modifier
+        )
+    }
+}
+
+@Composable
+fun ResourceImage(
+    path: String,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+) {
+    ResourceImage(rememberResourceImageState(path), modifier, contentDescription)
 }
 
 fun uriToCoil(uri: String) = URI(uri).toPath().absolutePathString()

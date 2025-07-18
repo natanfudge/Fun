@@ -3,18 +3,18 @@ package io.github.natanfudge.fn.files
 import androidx.compose.ui.unit.IntSize
 import kotlinx.io.files.Path
 import natan.`fun`.generated.resources.Res
-import org.lwjgl.stb.STBImage.stbi_failure_reason
-import org.lwjgl.stb.STBImage.stbi_image_free
-import org.lwjgl.stb.STBImage.stbi_load
+import org.lwjgl.stb.STBImage.*
+import org.lwjgl.stb.STBImageWrite
 import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil
 import java.net.URI
+import java.nio.file.Files
 import kotlin.io.path.toPath
-import kotlin.use
 
 class FunImage(
     val size: IntSize,
     val bytes: ByteArray,
-    val path: String?
+    val path: String?,
 ) {
     companion object {
         fun fromResource(path: String): FunImage {
@@ -30,6 +30,38 @@ class FunImage(
 
     override fun hashCode(): Int {
         return path.hashCode()
+    }
+
+    fun saveAsPng(path: Path) {
+        // Make sure the parent directories exist
+        val nioPath = path.toNio()
+        Files.createDirectories(nioPath.parent)
+
+        // RGBA → 4 bytes per pixel
+        val stride = size.width * 4
+
+        // Copy the Kotlin ByteArray into a direct ByteBuffer that STB can use
+        val buffer = MemoryUtil.memAlloc(bytes.size).apply {
+            put(bytes)
+            flip()
+        }
+
+        try {
+            val ok = STBImageWrite.stbi_write_png(
+                nioPath.toAbsolutePath().toString(),   // destination file
+                size.width,                            // image width
+                size.height,                           // image height
+                4,                                     // components (RGBA)
+                buffer,                                // pixel data
+                stride                                 // bytes per row
+            )
+
+            if (!ok) {
+                throw RuntimeException("Failed to write PNG to $nioPath")
+            }
+        } finally {
+            MemoryUtil.memFree(buffer) // always free native memory
+        }
     }
 
 }

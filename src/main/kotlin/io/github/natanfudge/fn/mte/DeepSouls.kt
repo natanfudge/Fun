@@ -46,6 +46,7 @@ class DeepSoulsGame : Fun("Game") {
     }
 
     val animation = FunAnimation()
+    val background = Background()
 
 
     val input = InputManager(context)
@@ -55,7 +56,6 @@ class DeepSoulsGame : Fun("Game") {
 
     val devil = Devil(this)
 
-    val background = Background()
 
 
 //    val whale = Whale(this)

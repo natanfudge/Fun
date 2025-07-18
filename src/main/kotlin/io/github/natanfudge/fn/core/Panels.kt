@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
+import io.github.natanfudge.fn.files.toKotlin
 import io.github.natanfudge.fn.mte.PanelWindowDimensions
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
@@ -23,6 +24,7 @@ import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.fn.window.WindowParameters
+import java.nio.file.Paths
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: Panels) : AutoCloseable {
     override fun close() {
@@ -164,3 +166,4 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
 }
 
 
+//TODO: current issue is that renderer is not drawing transparently textures, although it did work before, very weird
