@@ -18,7 +18,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import kotlinx.serialization.Serializable
 
-val lightPos get() = Vec3f(0f, -2f, 100f)
+val lightPos get() = Vec3f(-2f, -2f, 101f)
 
 /**
  *   initialTransform, normalMatrix, tint.color, tint.strength, if (model.image == null) 0 else 1

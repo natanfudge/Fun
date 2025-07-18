@@ -6,28 +6,29 @@ import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.physics.FunPhysicsState
-import io.github.natanfudge.fn.physics.FunTransform
-import io.github.natanfudge.fn.physics.PhysicsSystem
-import io.github.natanfudge.fn.physics.RootTransformable
-import io.github.natanfudge.fn.physics.Transformable
-import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.util.Listener
-import io.github.natanfudge.fn.util.cast
-import io.github.natanfudge.fn.util.compose
+import io.github.natanfudge.fn.physics.*
+import io.github.natanfudge.fn.util.*
 
 
-fun Fun.render(model: Model, name: String = "render") = FunRenderState(name, this, RootTransformable, model)
-fun Fun.render(model: Model, parent: Transformable, name: String = "render"): FunRenderState {
+fun Fun.render(model: Model, name: String, parent: Transformable = RootTransformable): FunRenderState {
     val render = FunRenderState(name, this, parent, model)
     return render
 }
-fun Fun.render(model: Model, physics: FunPhysicsState, name: String = "render"): FunRenderState {
+
+fun Fun.render(model: Model, physics: FunPhysicsState, name: String): FunRenderState {
     val render = FunRenderState(name, this, physics, model)
     physics.baseAABB = render.baseAABB
     return render
+}
+
+
+fun Fun.render(model: Model, parent: Transformable = RootTransformable): Delegate<FunRenderState> = obtainPropertyName {
+    render(model, it, parent)
+}
+
+fun Fun.render(model: Model, physics: FunPhysicsState): Delegate<FunRenderState> = obtainPropertyName {
+    render(model, physics, it)
 }
 
 
@@ -62,7 +63,7 @@ class FunRenderState(
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
 
-    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f),  beforeChange = {
+    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f), beforeChange = {
         if (tint != it && !despawned) {
             renderInstance.setTintColor(it.color)
             renderInstance.setTintStrength(it.strength)
@@ -92,7 +93,11 @@ class FunRenderState(
 
 
     fun joint(name: String): Transformable {
-        val nodeId = model.nodeHierarchy.find { it.name == name }?.id ?: throw IllegalArgumentException("No joint with name $name (actual: ${model.nodeHierarchy.toList().map { it.name }})")
+        val nodeId = model.nodeHierarchy.find { it.name == name }?.id ?: throw IllegalArgumentException(
+            "No joint with name $name (actual: ${
+                model.nodeHierarchy.toList().map { it.name }
+            })"
+        )
         return renderInstance.jointTransform(this, nodeId)
     }
 
@@ -109,7 +114,7 @@ class SimpleRenderObject(id: FunId, model: Model) : Fun(id) {
     val render = render(model)
 }
 
-class SimplePhysicsObject(id: FunId, model: Model, physicsSystem: PhysicsSystem) : Fun( id) {
+class SimplePhysicsObject(id: FunId, model: Model, physicsSystem: PhysicsSystem) : Fun(id) {
     val physics = physics(physicsSystem)
     val render = render(model, physics)
 }

@@ -43,9 +43,9 @@ private fun timeSinceStartup(): Duration {
 class Player(private val game: DeepSoulsGame) : Fun("Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")
     val physics = physics(game.physics.system)
-    val render = render(model, physics)
-    val pickaxe = render(
-        Model.fromGlbResource("files/models/items/pickaxe.glb"), parent = render.joint("mixamorig:RightHand"), "pickaxe"
+    val render by render(model, physics)
+    val pickaxe by render(
+        Model.fromGlbResource("files/models/items/pickaxe.glb"), parent = render.joint("mixamorig:RightHand")
     )
     val animation = ModelAnimator(render)
 
@@ -54,8 +54,6 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
         pickaxe.localTransform.scale = Vec3f(0.5f, 5f, 0.5f)
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
-
-
 
 
     val inventory = Inventory(game)
@@ -76,6 +74,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
     private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()
     private val upperBodyBones = model.nodesAndTheirChildren("mixamorig:Spine1").toSet()
 
+
     init {
         render.localTransform.translation = Vec3f(0f, 0f, -0.5f)
         physics.baseAABB = AxisAlignedBoundingBox(
@@ -87,6 +86,11 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
         game.context.events.beforePhysics.listen {
             val deltaSecs = it.seconds.toFloat()
             val grounded = physics.isGrounded
+
+            // Make devil request quota on first landing
+            //TODO: this should happen in a delay, use a scheduler
+            if (grounded && !game.devil.quotaRequested) game.devil.quotaRequested = true
+
             val isJumping = jump.isPressed && grounded
 
 //            println("Pressed: ${left.isPressed}")

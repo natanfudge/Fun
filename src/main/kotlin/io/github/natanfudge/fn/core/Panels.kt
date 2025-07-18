@@ -112,7 +112,7 @@ interface WorldPanel {
 
 //TODO: I really want to memoize this, takes a decent amount of time (>100ms) to start this every hot reload
 private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel { //TODo: only need autoclose and context
-    val render = render(Model(Mesh.UnitSquare, "WorldPanel"))
+    val render by render(Model(Mesh.UnitSquare, "WorldPanel"))
 
     fun setContent(content: @Composable () -> Unit) {
         renderer.windowLifecycle.assertValue.setContent {

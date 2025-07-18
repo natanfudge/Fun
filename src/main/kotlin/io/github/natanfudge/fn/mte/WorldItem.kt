@@ -49,7 +49,7 @@ class WorldItem(val game: DeepSoulsGame, id: String, item: Item?) : Fun(id) {
 
 
     val physics = physics(game.physics.system)
-    val render = render(models.getValue(itemType), physics)
+    val render by render(models.getValue(itemType), physics)
 
     init {
         physics.scale = Vec3f(0.5f, 0.5f, 0.5f)

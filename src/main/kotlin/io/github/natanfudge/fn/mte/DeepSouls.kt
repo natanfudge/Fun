@@ -54,7 +54,7 @@ class DeepSoulsGame : Fun("Game") {
     val physics = FunPhysics()
     val player = Player(this)
 
-    val devil = Devil(this)
+    val devil = Devil()
 
 
 
@@ -88,8 +88,8 @@ class DeepSoulsGame : Fun("Game") {
     val creativeMovement = CreativeMovement(input)
 
     fun initialize() {
-//        player.physics.position = Vec3f(0f, 0.5f, 750f)
-        player.physics.position = Vec3f(0f, 0.5f, 105f)
+        player.physics.position = Vec3f(0f, 0.5f, 750f)
+//        player.physics.position = Vec3f(0f, 0.5f, 105f)
         player.animation.play("jump", loop = false)
 
         world.initialize()
