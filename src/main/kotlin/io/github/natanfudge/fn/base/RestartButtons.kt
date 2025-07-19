@@ -10,10 +10,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.gltf.clearModelCache
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.physics.getBackingState
+import io.github.natanfudge.fn.render.clearModelCache
 
 class RestartButtons(val context: FunContext) {
     init {

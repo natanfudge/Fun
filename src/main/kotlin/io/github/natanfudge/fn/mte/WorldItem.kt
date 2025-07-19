@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.mte
 
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.render

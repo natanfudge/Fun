@@ -85,6 +85,7 @@ class MutEventStream<T> : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
     private val pendingDetachments = mutableSetOf<Listener<T>>()
+    private val pendingAdditions = mutableSetOf<ListenerImpl<T>>()
     private var emitting = false
 
     val hasListeners get() = listeners.isNotEmpty()
@@ -97,7 +98,11 @@ class MutEventStream<T> : EventStream<T> {
     @Deprecated("use scoped listen", replaceWith = ReplaceWith("listen(onEvent)"))
     override fun listenUnscoped(onEvent: Consumer<T>): Listener<T> {
         val listener = ListenerImpl(onEvent, this)
-        listeners.add(listener)
+        if (emitting) {
+            pendingAdditions.add(listener)
+        } else {
+            listeners.add(listener)
+        }
         return listener
     }
 
@@ -111,10 +116,16 @@ class MutEventStream<T> : EventStream<T> {
             listener.callback.accept(value)
         }
         emitting = false
+
         pendingDetachments.forEach {
             detach(it)
         }
         pendingDetachments.clear()
+
+        pendingAdditions.forEach {
+            listeners.add(it)
+        }
+        pendingAdditions.clear()
     }
 
     /**

@@ -1,14 +1,16 @@
 package io.github.natanfudge.fn.files
 
 import androidx.compose.ui.unit.IntSize
-import kotlinx.io.files.Path
+import io.github.natanfudge.fn.core.FunLogger
 import natan.`fun`.generated.resources.Res
+import org.jetbrains.compose.resources.MissingResourceException
 import org.lwjgl.stb.STBImage.*
 import org.lwjgl.stb.STBImageWrite
 import org.lwjgl.system.MemoryStack
 import org.lwjgl.system.MemoryUtil
 import java.net.URI
 import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.toPath
 
 class FunImage(
@@ -17,8 +19,20 @@ class FunImage(
     val path: String?,
 ) {
     companion object {
+        private val placeholder by lazy {
+            fromResource("files/placeholder.png")
+        }
+
         fun fromResource(path: String): FunImage {
-            val url = URI(Res.getUri(path)).toPath().toKotlin()
+            val uri = try {
+                Res.getUri(path)
+            } catch (e: MissingResourceException) {
+                FunLogger.error("Missing Resource", e) {
+                    "Missing image file at $path"
+                }
+                return placeholder
+            }
+            val url = URI(uri).toPath()
             return readImage(url)
         }
     }
@@ -34,7 +48,7 @@ class FunImage(
 
     fun saveAsPng(path: Path) {
         // Make sure the parent directories exist
-        val nioPath = path.toNio()
+        val nioPath = path
         Files.createDirectories(nioPath.parent)
 
         // RGBA → 4 bytes per pixel
@@ -67,7 +81,7 @@ class FunImage(
 }
 
 fun readImage(path: Path): FunImage {
-    val path = path.toNio().toAbsolutePath().toString()
+    val path = path.toAbsolutePath().toString()
     MemoryStack.stackPush().use { stack ->
         val w = stack.mallocInt(1)
         val h = stack.mallocInt(1)

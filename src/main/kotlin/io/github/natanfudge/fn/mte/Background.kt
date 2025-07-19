@@ -17,7 +17,7 @@ class Background : Fun("Background") {
     private val bgRotation = Quatf.identity().rotateX(PIf / 2)
 
     private fun backgroundLayer(tileSize: Float, tilesInHeight: Int, image: String) {
-        val model = Model(Mesh.UnitSquare, image, material = Material(FunImage.fromResource("files/background/$image.png")))
+        val model = Model.quad("files/background/$image.png")
         val columns = (worldWidth / tileSize).roundToInt()
         // Start from negative column values to be centered at (0,0)
         val baseColumn = -(columns / 2)

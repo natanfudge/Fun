@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.physics.translation
@@ -24,6 +23,7 @@ val FacingCameraRotation = Quatf.xRotation(PIf / -2)
 
 class Devil() : Fun("devil") {
     val render by render(Model.fromGlbResource("files/models/hooded_devil.glb"))
+//    val foo by render(Model.quad("files/background/sky_high.png"), render)
     var quotaRequested by funValue(false)
 
 

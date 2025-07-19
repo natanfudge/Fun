@@ -20,18 +20,10 @@ import java.net.URI
 import kotlin.io.path.toPath
 
 
-//SUS: gonna do this more robust and not global state when we have proper async model loading.
-private val modelCache = mutableMapOf<String, Model>()
-
-fun clearModelCache() = modelCache.clear()
-
-fun Model.Companion.fromGlbResource(path: String): Model = modelCache.getOrPut(path) {
-    Model.fromGlbResourceImpl(path)
-}
 
 
 
-private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
+internal fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val url = URI(Res.getUri(path)).toPath().toAbsolutePath()
     val glb = runBlocking { localVfs(url.toString()).readGLB() }
 
@@ -166,7 +158,7 @@ private fun Model.Companion.fromGlbResourceImpl(path: String): Model {
     val nodeHierarchy = buildNodeHierarchy(glb)
     return Model(
         mesh = resultMesh,
-        id = url.toFile().nameWithoutExtension,
+        id = path,
         material = Material(texture = texture),
         animations = animations,
         nodeHierarchy = nodeHierarchy,

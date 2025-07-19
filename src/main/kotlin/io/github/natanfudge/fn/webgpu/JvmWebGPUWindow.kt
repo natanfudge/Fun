@@ -6,7 +6,7 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
-import io.github.natanfudge.fn.util.FunLogLevel
+import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
 import io.github.natanfudge.fn.window.*

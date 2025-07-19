@@ -6,6 +6,7 @@ import io.github.natanfudge.fn.compose.utils.findNode
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.gltf.PartialTransform
+import io.github.natanfudge.fn.gltf.fromGlbResourceImpl
 import io.github.natanfudge.fn.util.Tree
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -29,7 +30,7 @@ data class Model(
 ) {
     fun getAnimationLength(name: String, withLastFrameTrimmed: Boolean): Duration {
         val animation = animations.find { it.name == name } ?: error("Cannot find animation with name '$name'")
-        if(withLastFrameTrimmed) {
+        if (withLastFrameTrimmed) {
             return animation.keyFrames[animation.keyFrames.size - 2].time
         } else {
             return animation.keyFrames.last().time
@@ -46,8 +47,22 @@ data class Model(
 
     val baseRootTransform = nodeHierarchy.value.baseTransform.toMatrix()
 
-    companion object;
+    companion object {
+        fun fromGlbResource(path: String): Model = modelCache.getOrPut(path) {
+            Model.fromGlbResourceImpl(path)
+        }
+        fun quad(imagePath: String) = modelCache.getOrPut(imagePath) {
+            Model(Mesh.UnitSquare, imagePath, material = Material(FunImage.fromResource(imagePath)))
+        }
+    }
 }
+
+//SUS: gonna do this more robust and not global state when we have proper async model loading.
+internal val modelCache = mutableMapOf<String, Model>()
+
+fun clearModelCache() = modelCache.clear()
+
+
 
 
 data class Transform(

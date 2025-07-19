@@ -9,10 +9,10 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
-import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.MutEventStream
 import org.lwjgl.glfw.GLFW.*

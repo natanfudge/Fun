@@ -2,9 +2,10 @@ package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.FunLogLevel
+import io.github.natanfudge.fn.core.FunLogger
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.util.FunLogLevel
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.ShaderSource
@@ -27,8 +28,8 @@ val msaaSamples = 4u
 
 class FunWindow(ctx: WebGPUContext, val dims: GlfwWindowDimensions) : AutoCloseable {
     val extent = Extent3D(dims.width.toUInt(), dims.height.toUInt())
-     val height: Int = dims.height
-     val width: Int = dims.width
+    val height: Int = dims.height
+    val width: Int = dims.width
 
     // Create z buffer
     val depthTexture = ctx.device.createTexture(
@@ -62,12 +63,12 @@ class FunWindow(ctx: WebGPUContext, val dims: GlfwWindowDimensions) : AutoClosea
         zFar = 100f
     )
 
-     var fovYRadians = PI.toFloat() / 3f
+    var fovYRadians = PI.toFloat() / 3f
         set(value) {
             field = value
             calculateProjectionMatrix()
         }
-     val aspectRatio = dims.width.toFloat() / dims.height
+    val aspectRatio = dims.width.toFloat() / dims.height
 
 
     val projection = calculateProjectionMatrix()
@@ -129,7 +130,6 @@ internal fun UInt.wgpuAlignInt(): UInt = toULong().wgpuAlign().toUInt()
 var pipelines = 0
 
 
-
 // TODO: Some Fun API like this could replace lifecycles.
 // We would have a unified API even for rendering, and it wouldn't be a special mechanic.
 //class RenderingStack {
@@ -145,13 +145,11 @@ var pipelines = 0
 //}
 
 
-
-
 @OptIn(ExperimentalAtomicApi::class)
 fun WebGPUWindow.bindFunLifecycles(
     compose: ComposeHudWebGPURenderer,
     fsWatcher: FileSystemWatcher,
-    appLifecycle: Lifecycle< FunContext>,
+    appLifecycle: Lifecycle<FunContext>,
     funSurface: Lifecycle<FunSurface>,
     funDimLifecycle: Lifecycle<FunWindow>,
 ) {
@@ -288,9 +286,9 @@ private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     if (deltaMs > normalFrameTimeMs * 1.8f) {
         val missingFrames = (deltaMs / normalFrameTimeMs).roundToInt() - 1
         val plural = missingFrames > 1
-//        println(
-//            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
-//                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
-//        )
+        FunLogger.performance("Frame Drops") {
+            "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
+                    " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
+        }
     }
 }

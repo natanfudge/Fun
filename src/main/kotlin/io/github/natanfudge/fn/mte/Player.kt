@@ -8,7 +8,6 @@ import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.listen
-import io.github.natanfudge.fn.gltf.fromGlbResource
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
@@ -89,6 +88,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
             // Make devil request quota on first landing
             //TODO: this should happen in a delay, use a scheduler
+            // TODO: Would be cool to animate it out as well
             if (grounded && !game.devil.quotaRequested) game.devil.quotaRequested = true
 
             val isJumping = jump.isPressed && grounded
