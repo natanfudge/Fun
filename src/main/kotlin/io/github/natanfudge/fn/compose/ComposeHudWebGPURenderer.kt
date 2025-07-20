@@ -18,7 +18,7 @@ import kotlin.time.Duration
 
 private var samplerIndex = 0
 
-class ComposeWebgpuSurface(val ctx: WebGPUContext, val composeWindowLifecycle: ValueHolder<ComposeGlfwWindow>) : AutoCloseable {
+internal class ComposeWebgpuSurface(val ctx: WebGPUContext, val composeWindowLifecycle: ValueHolder<ComposeGlfwWindow>) : AutoCloseable {
     // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
     private val inputListener = ctx.window.inputEvent.listenUnscoped { input ->
         val window = composeWindowLifecycle.value ?: return@listenUnscoped
@@ -72,7 +72,7 @@ class ComposeWebgpuSurface(val ctx: WebGPUContext, val composeWindowLifecycle: V
 
 private var textureIndex = 0
 
-class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGlfwWindow, val ctx: WebGPUContext) : AutoCloseable {
+internal class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGlfwWindow, val ctx: WebGPUContext) : AutoCloseable {
     val myIndex = textureIndex++
     val composeTexture = dimensions.surface.device.createTexture(
         TextureDescriptor(
@@ -109,7 +109,7 @@ class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: ComposeGl
     }
 }
 
-class ComposeHudWebGPURenderer(
+internal class ComposeHudWebGPURenderer(
     private val hostWindow: WebGPUWindow,
     fsWatcher: FileSystemWatcher,
     beforeFrameEvent: EventStream<Duration>,
@@ -259,6 +259,6 @@ class ComposeHudWebGPURenderer(
     }
 }
 
-data class ComposeFrame(
+internal data class ComposeFrame(
     val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup,
 )

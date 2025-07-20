@@ -1,6 +1,5 @@
 package io.github.natanfudge.fn.core
 
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,13 +9,10 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
-import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.files.toKotlin
 import io.github.natanfudge.fn.mte.PanelWindowDimensions
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
@@ -25,7 +21,6 @@ import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.fn.window.WindowParameters
-import java.nio.file.Paths
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: Panels) : AutoCloseable {
     override fun close() {
@@ -156,7 +151,7 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
             render.setTexture(image)
         }
 
-        events.appClose.listen {
+        events.appClosed.listen {
             panelLifecycle.end()
 //            window.end()
 //            renderer.glfw.windowLifecycle.end()

@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.files
 
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.FunLogger
 import natan.`fun`.generated.resources.Res
 import org.jetbrains.compose.resources.MissingResourceException
@@ -27,7 +28,7 @@ class FunImage(
             val uri = try {
                 Res.getUri(path)
             } catch (e: MissingResourceException) {
-                FunLogger.error("Missing Resource", e) {
+                FunContextRegistry.getContext().logger.error("Missing Resource", e) {
                     "Missing image file at $path"
                 }
                 return placeholder

@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.FunLogger
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
@@ -146,7 +147,7 @@ var pipelines = 0
 
 
 @OptIn(ExperimentalAtomicApi::class)
-fun WebGPUWindow.bindFunLifecycles(
+internal fun WebGPUWindow.bindFunLifecycles(
     compose: ComposeHudWebGPURenderer,
     fsWatcher: FileSystemWatcher,
     appLifecycle: Lifecycle<FunContext>,
@@ -286,7 +287,7 @@ private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
     if (deltaMs > normalFrameTimeMs * 1.8f) {
         val missingFrames = (deltaMs / normalFrameTimeMs).roundToInt() - 1
         val plural = missingFrames > 1
-        FunLogger.performance("Frame Drops") {
+        FunContextRegistry.getContext().logger.performance("Frame Drops") {
             "Took ${deltaMs}ms to make a frame instead of the usual ${normalFrameTimeMs.roundToInt()}ms," +
                     " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
         }

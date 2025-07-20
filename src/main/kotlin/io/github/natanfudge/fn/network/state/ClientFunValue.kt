@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.funedit.*
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.StateId
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
@@ -95,8 +96,10 @@ internal fun <T> chooseEditor(kClass: KClass<T & Any>): ValueEditor<T> = when (k
     Boolean::class -> BooleanEditor
     Float::class -> FloatEditor
     Int::class -> IntEditor
+    else if Enum::class.java.isAssignableFrom(kClass.java) -> EnumEditor(kClass.java.enumConstants.toList() as List<Enum<*>>)
     else -> ValueEditor.Missing
 } as ValueEditor<T>
+
 
 /**
  * A property delegate that synchronizes its value across all clients in a multiplayer environment.

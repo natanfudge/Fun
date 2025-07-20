@@ -68,26 +68,14 @@ private fun run(app: FunAppInitializer) {
         loop.reloadCallback = {
             val time = measureTime {
                 val context = FunContextRegistry.getContext()
-                context.hotReloaded = true
-
-                context.events.appClose.emit(Unit)
-                context.rootFuns.forEach {
-                    it.value.close(
-                        // Doesn't matter
-                        unregisterFromParent = false,
-                        // We want to preserver state
-                        deleteState = false,
-                        // The context is thrown out anyway, and this causes a CME on context.rootFuns
-                        unregisterFromContext = false
-                    )
-                }
-
                 context.clean()
                 initFunc(context)
             }
             println("Reload done in $time")
         }
     }
+
+
 
 //    staticHotReloadScope.invokeAfterHotReload {
 //        loop.reloadCallback = {

@@ -4,7 +4,7 @@ import io.github.natanfudge.fn.network.state.funSet
 import io.github.natanfudge.fn.network.state.funValue
 
 
-object FunLogger : Fun("FunLogger") {
+class FunLogger : Fun("FunLogger") {
     var level by funValue(FunLogLevel.Info)
     val hiddenTags by funSet<String>()
     var performance by funValue(true)

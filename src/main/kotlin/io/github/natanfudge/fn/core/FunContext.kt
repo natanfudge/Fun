@@ -11,7 +11,7 @@ import kotlin.time.Duration
 
 class BaseFunEvents(
     //TODO: temporary until we consolidate rendering to use a FunContext itself
-    val beforeFrame: EventEmitter<Duration>
+    val beforeFrame: EventEmitter<Duration>,
 ) {
 
     val beforePhysics = EventEmitter<Duration>()
@@ -19,9 +19,9 @@ class BaseFunEvents(
     val afterPhysics = EventEmitter<Duration>()
     val input = EventEmitter<InputEvent>()
     val guiError = EventEmitter<Throwable>()
-    val appClose = EventEmitter<Unit>()
+    val appClosed = EventEmitter<Unit>()
 
-    internal fun clearListeners() {
+    internal fun checkListenersClosed() {
         //TODO: not checking  one because we are breaking some rules currently, the ComposeHudWebGPURenderer registers its beforeFrame once
         // and doesn't re-register it when the Context is re-created, in the future ComposeHudWebGPURenderer will be re-created and re-register on context
         // recreation
@@ -30,12 +30,12 @@ class BaseFunEvents(
         // In the future it will be expected that some listeners will remain, as some parts of the app won't reload.
         // We should still have this sort of test where everything is closed, and then we make sure that everything is empty, as a dev-time check.
         // (to verify the dev closed all his listeners properly)
-        check(!beforePhysics.hasListeners) {"Before Physics"}
-        check(!physics.hasListeners) {"Physics"}
-        check(!afterPhysics.hasListeners) {"After Physics"}
-        check(!input.hasListeners){"Input"}
-        check(!guiError.hasListeners){"GUI error"}
-        check(!appClose.hasListeners) {"AppClose"}
+        check(!beforePhysics.hasListeners) { "Before Physics" }
+        check(!physics.hasListeners) { "Physics" }
+        check(!afterPhysics.hasListeners) { "After Physics" }
+        check(!input.hasListeners) { "Input" }
+        check(!guiError.hasListeners) { "GUI error" }
+        check(!appClosed.hasListeners) { "AppClose" }
 //        beforeFrame.clearListeners()
 //        beforePhysics.clearListeners()
 //        physics.clearListeners()
@@ -55,22 +55,25 @@ internal object FunContextRegistry {
     fun getContext() = context
 }
 
-class FunContext(
+class FunContext internal constructor(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeHudWebGPURenderer,
     private val stateContext: FunStateContext,
     //TODO: temporary until we consolidate rendering to use a FunContext itself
-    val beforeFrame: EventEmitter<Duration>
+    val beforeFrame: EventEmitter<Duration>,
 ) : FunStateContext by stateContext, AutoCloseable {
     init {
         FunContextRegistry.setContext(this)
     }
+
     private val inputListener = surface.ctx.window.inputEvent.listenUnscoped { input ->
         // No need to block input with a null cursor position
         if (world.cursorPosition != null && input is InputEvent.PointerEvent &&
             // Allow blocking input by setting acceptMouseEvents to false
-            !gui.acceptMouseEvents) return@listenUnscoped
+            !gui.acceptMouseEvents
+        ) return@listenUnscoped
         events.input.emit(input)
     }
+
 
 
     val events = BaseFunEvents(beforeFrame)
@@ -85,6 +88,7 @@ class FunContext(
     val rootFuns = mutableMapOf<FunId, Fun>()
 
     var camera = DefaultCamera()
+    val logger = FunLogger()
 
     private var restarting = false
 
@@ -96,10 +100,11 @@ class FunContext(
 
     fun restartApp() {
         restarting = true
-        rootFuns.forEach { it.value.close(unregisterFromParent = false, unregisterFromContext = false, deleteState = true) }
+
 
         ProcessLifecycle.restartByLabels(AppLifecycleName)
     }
+
 
 
     fun register(fn: Fun) {
@@ -137,19 +142,38 @@ class FunContext(
         compose.compose.windowLifecycle.assertValue.focused = focused
     }
 
+    fun closeApp(deleteState: Boolean) {
+        if (!deleteState) {
+            hotReloaded = true
+        }
+        events.appClosed(Unit)
 
+        rootFuns.forEach {
+            it.value.close(
+                // Doesn't matter
+                unregisterFromParent = false,
+                // We want to preserver state
+                deleteState = deleteState,
+                // The context is thrown out anyway, and this causes a CME on context.rootFuns
+                unregisterFromContext = false
+            )
+        }
+    }
 
-    internal fun clean() {
-        // Note that we don't clear the state context, we actually want to keep that around in order to preserver state.
-        events.clearListeners()
+    /**
+     * Called before hot reload to restart the context without closing it
+     */
+    fun clean() {
+        closeApp(deleteState = false)
+        events.checkListenersClosed()
         rootFuns.clear()
         //TODO: GUIs will have a responsibility to clean up their GUIs once we start selectively initializing components
         gui.clearPanels()
     }
 
+
     override fun close() {
-        events.appClose.emit(Unit)
+        closeApp(deleteState = true)
         inputListener.close() // This is scoped to the entire instance so it should die every clean()
-        clean()
     }
 }

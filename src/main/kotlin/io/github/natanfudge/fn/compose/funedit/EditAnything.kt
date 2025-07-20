@@ -15,12 +15,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.compose.utils.FloatField
 import io.github.natanfudge.fn.compose.utils.IntField
+import io.github.natanfudge.fn.compose.utils.SimpleDropdownMenu
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.withValue
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
+import kotlin.enums.EnumEntries
 
 interface ValueEditor<T> {
     @Composable
@@ -35,10 +37,6 @@ interface ValueEditor<T> {
     }
 }
 
-interface ValueRenderer<in T> {
-    @Composable
-    fun Render(value: T, modifier: Modifier = Modifier)
-}
 
 val AABBEditor = VectorEditor(
     toMap = { mapOf("minX" to it.minX, "minY" to it.minY, "minZ" to it.minZ, "maxX" to it.maxX, "maxY" to it.maxY, "maxZ" to it.maxZ) },
@@ -152,3 +150,9 @@ fun UntypedVectorEditor(ranges: Map<String, VectorComponentConfig>, state: Mutab
     }
 }
 
+class EnumEditor<T: Enum<T>>(val entries: List<Enum<T>>): ValueEditor<Enum<T>> {
+    @Composable
+    override fun EditorUi(state: MutableState<Enum<T>>, modifier: Modifier) {
+        SimpleDropdownMenu(state,entries)
+    }
+}
