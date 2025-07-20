@@ -14,7 +14,7 @@ import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.MutEventStream
+import io.github.natanfudge.fn.util.EventEmitter
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.locks.ReentrantLock
@@ -47,8 +47,8 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
     }
 
     private val waitingTasks = mutableListOf<() -> Unit>()
-    val inputEvent = MutEventStream<InputEvent>()
-    val densityChangeEvent = MutEventStream<Density>()
+    val inputEvent = EventEmitter<InputEvent>()
+    val densityChangeEvent = EventEmitter<Density>()
 
 
 //    val callbacks = mutableMapOf<String, WindowCallbacks>()

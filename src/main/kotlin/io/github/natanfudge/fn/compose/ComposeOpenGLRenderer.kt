@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.MutEventStream
+import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.window.*
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.jetbrains.skia.*
@@ -95,7 +95,7 @@ class ComposeGlfwWindow(
 ) : AutoCloseable {
 
 
-    val frameStream = MutEventStream<ComposeFrameEvent>()
+    val frameStream = EventEmitter<ComposeFrameEvent>()
     val context = DirectContext.makeGL()
     val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         System.err.println("An error occurred inside an asynchronous Compose callback. The GUI will restart itself to recover.")

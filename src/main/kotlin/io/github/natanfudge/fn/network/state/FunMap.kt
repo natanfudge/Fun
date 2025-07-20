@@ -122,17 +122,17 @@ class FunMap<K, V> @PublishedApi internal constructor(
 
     override fun put(key: K, value: V): V? {
         //TO DO: do this only in a ServerFunValue
-        owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key.keyToNetwork(), value.valueToNetwork()))
+        owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key, value))
         return _items.put(key, value)
     }
 
     override fun remove(key: K): V? {
-        owner.context.sendStateChange(this.key, StateChangeValue.MapRemove(key.keyToNetwork()))
+        owner.context.sendStateChange(this.key, StateChangeValue.MapRemove(key))
         return _items.remove(key)
     }
 
     override fun putAll(from: Map<out K, V>) {
-        owner.context.sendStateChange(key, StateChangeValue.MapPutAll(from.mapToNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.MapPutAll(from))
         _items.putAll(from)
     }
 
@@ -151,22 +151,23 @@ class FunMap<K, V> @PublishedApi internal constructor(
 
     override fun get(key: K): V? = _items[key]
     override fun applyChange(change: StateChangeValue) {
-        when (change) {
-            !is StateChangeValue.MapOp -> warnMismatchingStateChange(change, "MAP")
-            StateChangeValue.CollectionClear -> _items.clear()
-            is StateChangeValue.MapRemove -> {
-                val key = change.key.decode(keySerializer)
-                _items.remove(key)
-            }
-            is StateChangeValue.MapPut -> {
-                val key = change.key.decode(keySerializer)
-                val value = change.value.decode(valueSerializer)
-                _items[key] = value
-            }
-            is StateChangeValue.MapPutAll -> {
-                val entries = change.entries.decode(mapSerializer)
-                _items.putAll(entries)
-            }
-        }
+        TODO()
+//        when (change) {
+//            !is StateChangeValue.MapOp -> warnMismatchingStateChange(change, "MAP")
+//            StateChangeValue.CollectionClear -> _items.clear()
+//            is StateChangeValue.MapRemove -> {
+//                val key = change.key.decode(keySerializer)
+//                _items.remove(key)
+//            }
+//            is StateChangeValue.MapPut -> {
+//                val key = change.key.decode(keySerializer)
+//                val value = change.value.decode(valueSerializer)
+//                _items[key] = value
+//            }
+//            is StateChangeValue.MapPutAll -> {
+//                val entries = change.entries.decode(mapSerializer)
+//                _items.putAll(entries)
+//            }
+//        }
     }
 }

@@ -2,13 +2,10 @@
 
 package io.github.natanfudge.fn.core
 
-import androidx.compose.material3.Text
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
-import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.funValue
@@ -16,7 +13,7 @@ import io.github.natanfudge.fn.render.FunSurface
 import io.github.natanfudge.fn.render.FunWindow
 import io.github.natanfudge.fn.render.bindFunLifecycles
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.MutEventStream
+import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
 import io.github.natanfudge.fn.window.WindowParameters
@@ -185,7 +182,7 @@ private class FunAppInitializer(private val app: FunAppInit) {
         val initFunc = app(builder)
         val window = WebGPUWindow(builder.config)
 
-        val beforeFrame = MutEventStream<Duration>()
+        val beforeFrame = EventEmitter<Duration>()
 
         val funSurface = window.surfaceLifecycle.bind("Fun Surface") { surface ->
             FunSurface(surface)

@@ -95,43 +95,43 @@ class FunList<T> @PublishedApi internal constructor(
     private val listSerializer = ListSerializer(serializer)
 
 
-    private fun Collection<T>.toNetwork(): String {
-        return (this as? List<T> ?: this.toList()).toNetwork(listSerializer)
-    }
+//    private fun Collection<T>: String {
+//        return (this as? List<T> ?: this.toList()).toNetwork(listSerializer)
+//    }
 
-    private fun T.toNetwork() = toNetwork(serializer)
+//    private fun T = toNetwork(serializer)
     override fun iterator(): MutableIterator<T> = _items.iterator()
 
 
     override fun add(element: T): Boolean {
         //TO DO: do this only in a ServerFunValue
-        owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element))
         return _items.add(element)
     }
 
     override fun remove(element: T): Boolean {
-        owner.context.sendStateChange(key, StateChangeValue.CollectionRemove(element.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRemove(element))
         return _items.remove(element)
     }
 
     override fun addAll(elements: Collection<T>): Boolean {
-        owner.context.sendStateChange(key, StateChangeValue.CollectionAddAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionAddAll(elements))
         return _items.addAll(elements)
     }
 
     override fun addAll(index: Int, elements: Collection<T>): Boolean {
         // We need to include the index in the network update
-        owner.context.sendStateChange(key, StateChangeValue.ListIndexedAddAll(elements.toNetwork(), index))
+        owner.context.sendStateChange(key, StateChangeValue.ListIndexedAddAll(elements, index))
         return _items.addAll(index, elements)
     }
 
     override fun removeAll(elements: Collection<T>): Boolean {
-        owner.context.sendStateChange(key, StateChangeValue.CollectionRemoveAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRemoveAll(elements))
         return _items.removeAll(elements)
     }
 
     override fun retainAll(elements: Collection<T>): Boolean {
-        owner.context.sendStateChange(key, StateChangeValue.CollectionRetainAll(elements.toNetwork()))
+        owner.context.sendStateChange(key, StateChangeValue.CollectionRetainAll(elements))
         return _items.retainAll(elements)
     }
 
@@ -141,12 +141,12 @@ class FunList<T> @PublishedApi internal constructor(
     }
 
     override operator fun set(index: Int, element: T): T {
-        owner.context.sendStateChange(key, StateChangeValue.ListSet(element.toNetwork(), index))
+        owner.context.sendStateChange(key, StateChangeValue.ListSet(element, index))
         return _items.set(index, element)
     }
 
     override fun add(index: Int, element: T) {
-        owner.context.sendStateChange(key, StateChangeValue.ListIndexedAdd(element.toNetwork(), index))
+        owner.context.sendStateChange(key, StateChangeValue.ListIndexedAdd(element, index))
         _items.add(index, element)
     }
 
@@ -174,31 +174,32 @@ class FunList<T> @PublishedApi internal constructor(
     }
 
     override fun applyChange(change: StateChangeValue) {
-        when (change) {
-            !is StateChangeValue.ListOp -> warnMismatchingStateChange(change, "LIST")
-            StateChangeValue.CollectionClear -> _items.clear()
-            is StateChangeValue.ListRemoveAt -> _items.removeAt(change.index)
-            is StateChangeValue.SingleChange -> {
-                val value = change.value.decode(serializer)
-                when (change) {
-                    is StateChangeValue.CollectionAdd -> _items.add(value)
-                    is StateChangeValue.ListIndexedAdd -> _items.add(change.index, value)
-                    is StateChangeValue.CollectionRemove -> _items.remove(value)
-                    is StateChangeValue.ListSet -> _items[change.index] = value
-                    else -> error("Impossible")
-                }
-            }
-
-            is StateChangeValue.BulkChange -> {
-                val values = change.values.decode(listSerializer)
-                when (change) {
-                    is StateChangeValue.CollectionAddAll -> _items.addAll(values)
-                    is StateChangeValue.ListIndexedAddAll -> _items.addAll(change.index, values)
-                    is StateChangeValue.CollectionRemoveAll -> _items.removeAll(values)
-                    is StateChangeValue.CollectionRetainAll -> _items.retainAll(values)
-                }
-            }
-        }
+        TODO()
+//        when (change) {
+//            !is StateChangeValue.ListOp -> warnMismatchingStateChange(change, "LIST")
+//            StateChangeValue.CollectionClear -> _items.clear()
+//            is StateChangeValue.ListRemoveAt -> _items.removeAt(change.index)
+//            is StateChangeValue.SingleChange -> {
+//                val value = change.value.decode(serializer)
+//                when (change) {
+//                    is StateChangeValue.CollectionAdd -> _items.add(value)
+//                    is StateChangeValue.ListIndexedAdd -> _items.add(change.index, value)
+//                    is StateChangeValue.CollectionRemove -> _items.remove(value)
+//                    is StateChangeValue.ListSet -> _items[change.index] = value
+//                    else -> error("Impossible")
+//                }
+//            }
+//
+//            is StateChangeValue.BulkChange -> {
+//                val values = change.values.decode(listSerializer)
+//                when (change) {
+//                    is StateChangeValue.CollectionAddAll -> _items.addAll(values)
+//                    is StateChangeValue.ListIndexedAddAll -> _items.addAll(change.index, values)
+//                    is StateChangeValue.CollectionRemoveAll -> _items.removeAll(values)
+//                    is StateChangeValue.CollectionRetainAll -> _items.retainAll(values)
+//                }
+//            }
+//        }
     }
 
     override var value: List<T>

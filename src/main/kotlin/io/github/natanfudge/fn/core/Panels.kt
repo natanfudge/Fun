@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
@@ -78,20 +79,18 @@ class Panels {
     @Composable
     fun PanelSupport() {
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().focusable().onPointerEvent(PointerEventType.Press) {
-                // Allow clicking outside of the GUI
-                acceptMouseEvents = true
-                // The clickable thing is just for it to draw focus
-            }.clickableWithNoIndication { }.onPointerEvent(PointerEventType.Enter) {
-                acceptMouseEvents = true
-            })
-
             for (panel in panelList) {
                 Box(
                     panel.modifier(this)
-                        .onPointerEvent(PointerEventType.Press, pass = PointerEventPass.Initial) {
-                            // Block clicks
-                            acceptMouseEvents = false
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent( PointerEventPass.Initial)
+                                    // Exited - accept mouse events
+                                    // Did anything but exit - don't accept mouse events
+                                    acceptMouseEvents = event.type == PointerEventType.Exit
+                                }
+                            }
                         }
                 ) {
                     panel.content(this)

@@ -20,8 +20,10 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
-import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.render.FunRenderState
@@ -36,8 +38,6 @@ fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, co
 }
 
 
-
-
 /**
  * If you use [HoverHighlight], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditor].
  */
@@ -46,8 +46,8 @@ class VisualEditor(
     /**
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
-     var enabled: Boolean = true,
-): Fun("Visual Editor")  { //TODO: only for AutoClose?
+    var enabled: Boolean = true,
+) : Fun("Visual Editor") { //TODO: only for AutoClose?
     constructor(inputManagerMod: InputManager, enabled: Boolean = true) : this(
         HoverHighlight(), inputManagerMod, enabled
     )
@@ -66,16 +66,10 @@ class VisualEditor(
             }
         })
         hoverMod.context.addFunPanel({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
-                val root = selectedObject?.getRoot()
-                if (root != null) {
-                    Column(
-                        Modifier.padding(5.dp).width(IntrinsicSize.Max)
-                            .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        FunEditor(root)
-                    }
-                }
+            //TODO: this is going to break down at some point, because the root is going to be the whole world and then it will select the whole world.
+            val root = selectedObject?.getRoot()
+            if (root != null) {
+                FunEditor(root)
             }
         }
         hoverMod.context.events.input.listen { input ->
@@ -91,29 +85,6 @@ class VisualEditor(
     private var mouseDownPos: Offset? = null
     var selectedObject: FunRenderState? by mutableStateOf(null)
     private var selectedObjectOldTint: Tint? = null
-
-    @Composable
-    fun FunEditor(fn: Fun) {
-        val values = context.stateManager.getState(fn.id)
-        if (values != null) {
-            Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
-            for ((key, state) in values.getCurrentState()) {
-                state as FunState<Any?>
-                val value by state.listenAsState()
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Box(Modifier.weight(1f))
-                    state.editor.EditorUi(
-                        mutableState(value) { state.value = it }
-                    )
-                    Box(Modifier.weight(1f))
-                }
-            }
-        }
-        for (child in fn.children) {
-            FunEditor(child)
-        }
-    }
 
     private fun restoreOldTint() {
         selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
@@ -152,4 +123,38 @@ class VisualEditor(
     }
 
 
+}
+
+@Composable fun FunEditor(root: Fun) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
+        Column(
+            Modifier.padding(5.dp).width(IntrinsicSize.Max)
+                .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            FunEditorRecur(root)
+        }
+    }
+}
+
+@Composable
+private fun FunEditorRecur(fn: Fun) {
+    val values = fn.context.stateManager.getState(fn.id)
+    if (values != null) {
+        Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
+        for ((key, state) in values.getCurrentState()) {
+            state as FunState<Any?>
+            val value by state.listenAsState()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(key, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Box(Modifier.weight(1f))
+                state.editor.EditorUi(
+                    mutableState(value) { state.value = it }
+                )
+                Box(Modifier.weight(1f))
+            }
+        }
+    }
+    for (child in fn.children) {
+        FunEditorRecur(child)
+    }
 }

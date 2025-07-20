@@ -271,20 +271,20 @@ sealed interface StateChangeValue {
     /**
      * A state change that involves a single value.
      */
-    sealed interface SingleChange : StateChangeValue {
-        val value: NetworkValue
+    sealed interface SingleChange<T> : StateChangeValue {
+        val value: T
     }
 
     /**
      * A change that sets a property to a new value.
      */
-    data class SetProperty(override val value: NetworkValue) : SingleChange
+    data class SetProperty<T>(override val value: T) : SingleChange<T>
 
     /**
      * A state change that involves multiple values.
      */
-    sealed interface BulkChange : StateChangeValue {
-        val values: NetworkValue
+    sealed interface BulkChange<T> : StateChangeValue {
+        val values: Collection<T>
     }
 
     /**
@@ -295,12 +295,12 @@ sealed interface StateChangeValue {
     /**
      * Sets the element at the specified [index] in a list.
      */
-    data class ListSet(override val value: NetworkValue, val index: Int) : SingleChange, ListOp, SetOp
+    data class ListSet<T>(override val value: T, val index: Int) : SingleChange<T>, ListOp, SetOp
 
     /**
      * Adds an element at the specified [index] in a list.
      */
-    data class ListIndexedAdd(override val value: NetworkValue, val index: Int) : SingleChange, ListOp
+    data class ListIndexedAdd<T>(override val value: T, val index: Int) : SingleChange<T>, ListOp
 
     /**
      * Removes the element at the specified [index] from a list.
@@ -310,7 +310,7 @@ sealed interface StateChangeValue {
     /**
      * Adds all elements from a collection at the specified [index] in a list.
      */
-    data class ListIndexedAddAll(override val values: NetworkValue, val index: Int) : BulkChange, ListOp
+    data class ListIndexedAddAll<T>(override val values: Collection<T>, val index: Int) : BulkChange<T>, ListOp
 
     /**
      * Marker interface for operations on a [FunMap].
@@ -320,17 +320,17 @@ sealed interface StateChangeValue {
     /**
      * Puts a key-value pair in a map.
      */
-    data class MapPut(val key: NetworkValue, val value: NetworkValue) : MapOp
+    data class MapPut<K,V>(val key: K, val value: V) : MapOp
 
     /**
      * Removes a key-value pair from a map.
      */
-    data class MapRemove(val key: NetworkValue) : MapOp
+    data class MapRemove<K>(val key: K) : MapOp
 
     /**
      * Puts all entries from another map into a map.
      */
-    data class MapPutAll(val entries: NetworkValue) : MapOp
+    data class MapPutAll<K, V>(val entries: Map<K, V>) : MapOp
 
     /**
      * Marker interface for operations on a [FunSet].
@@ -345,27 +345,27 @@ sealed interface StateChangeValue {
     /**
      * Adds an element to a collection.
      */
-    data class CollectionAdd(override val value: NetworkValue) : SingleChange, ListOp, SetOp
+    data class CollectionAdd<T>(override val value: T) : SingleChange<T>, ListOp, SetOp
 
     /**
      * Removes an element from a collection.
      */
-    data class CollectionRemove(override val value: NetworkValue) : SingleChange, ListOp, SetOp
+    data class CollectionRemove<T>(override val value: T) : SingleChange<T>, ListOp, SetOp
 
     /**
      * Removes all elements in the specified collection from this collection.
      */
-    data class CollectionRemoveAll(override val values: NetworkValue) : BulkChange, ListOp, SetOp
+    data class CollectionRemoveAll<T>(override val values: Collection<T>) : BulkChange<T>, ListOp, SetOp
 
     /**
      * Retains only the elements in this collection that are contained in the specified collection.
      */
-    data class CollectionRetainAll(override val values: NetworkValue) : BulkChange, ListOp, SetOp
+    data class CollectionRetainAll<T>(override val values: Collection<T>) : BulkChange<T>, ListOp, SetOp
 
     /**
      * Adds all elements from the specified collection to this collection.
      */
-    data class CollectionAddAll(override val values: NetworkValue) : BulkChange, ListOp, SetOp
+    data class CollectionAddAll<T>(override val values: Collection<T>) : BulkChange<T>, ListOp, SetOp
 }
 
 internal fun warnMismatchingStateChange(change: StateChangeValue, expected: String) {

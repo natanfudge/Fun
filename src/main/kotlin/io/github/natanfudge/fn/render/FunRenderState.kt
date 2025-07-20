@@ -111,7 +111,7 @@ class FunRenderState(
 
 
 class SimpleRenderObject(id: FunId, model: Model) : Fun(id) {
-    val render = render(model)
+    val render by render(model)
 }
 
 class SimplePhysicsObject(id: FunId, model: Model, physicsSystem: PhysicsSystem) : Fun(id) {

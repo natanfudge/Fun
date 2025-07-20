@@ -1,10 +1,13 @@
 package io.github.natanfudge.fn.core
 
+import io.github.natanfudge.fn.network.state.funSet
+import io.github.natanfudge.fn.network.state.funValue
 
-object FunLogger {
-    var level = FunLogLevel.Info
-    val hiddenTags = mutableSetOf<String>()
-    var performance = true
+
+object FunLogger : Fun("FunLogger") {
+    var level by funValue(FunLogLevel.Info)
+    val hiddenTags by funSet<String>()
+    var performance by funValue(true)
 
     fun log(level: FunLogLevel, tag: String = "General", exception: Throwable? = null, message: () -> String) {
         if (level >= this.level && tag !in hiddenTags) {

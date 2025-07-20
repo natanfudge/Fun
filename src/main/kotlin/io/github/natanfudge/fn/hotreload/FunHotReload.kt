@@ -1,6 +1,6 @@
 package io.github.natanfudge.fn.hotreload
 
-import io.github.natanfudge.fn.util.MutEventStream
+import io.github.natanfudge.fn.util.EventEmitter
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.core.Try
 
@@ -19,8 +19,8 @@ object FunHotReload {
      * The callback will be called on an alternate thread so be wary of that.
      * If you want it to run code on the main thread you can use [io.github.natanfudge.fn.compose.ComposeOpenGLRenderer.submitTask]
      */
-    val reloadEnded = MutEventStream<Try<Reload>?>()
-    val reloadStarted = MutEventStream<Unit>()
+    val reloadEnded = EventEmitter<Try<Reload>?>()
+    val reloadStarted = EventEmitter<Unit>()
 
 
 //    fun observe(callback: (Unit) -> Unit) = reloadEnded.listen(callback)

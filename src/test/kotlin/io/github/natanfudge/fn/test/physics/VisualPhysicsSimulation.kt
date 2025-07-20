@@ -112,8 +112,8 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
     }
 }
 
-class PhysicsSimulationApp(override val context: FunContext, private val simulation: PhysicsTest, val throwOnFailure: Boolean) : FunApp() {
-    val physics = FunPhysics(context)
+class PhysicsSimulationApp( val context: FunContext, private val simulation: PhysicsTest, val throwOnFailure: Boolean) {
+    val physics = FunPhysics()
     val scheduler = VisibleSimulationTickerMod(context, physics.system)
 
     val input = InputManager(context)
@@ -127,7 +127,7 @@ class PhysicsSimulationApp(override val context: FunContext, private val simulat
     }
 
     init {
-        VisualEditor(this, input)
+        VisualEditor(input)
         CreativeMovement(input)
         runSimulation()
 

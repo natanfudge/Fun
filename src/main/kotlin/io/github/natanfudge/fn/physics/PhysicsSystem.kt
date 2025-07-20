@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.MutEventStream
+import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.*
@@ -23,7 +23,7 @@ class PhysicsSystem(var gravity: Boolean = true) {
 
     var elasticCollision: Boolean = false
 
-    private val _collision = MutEventStream<CollisionEvent>()
+    private val _collision = EventEmitter<CollisionEvent>()
     val collision: EventStream<CollisionEvent> get() = _collision
 
     companion object {

@@ -737,6 +737,7 @@ val activeLogLevel = FunLogLevel.Debug
  * function efficient for expensive message construction.
  */
 private fun logLifecycle(level: FunLogLevel, msg: () -> String) {
-    FunLogger.log(level, "Lifecycle", null, msg)
+    // TODO: in the future everything will operate inside a context and this will work better
+//    FunLogger.log(level, "Lifecycle", null, msg)
 }
 

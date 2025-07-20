@@ -142,7 +142,6 @@ fun rememberResourceImageState(path: String): ImageLoadState {
         val uri = getResourceUri(path)
         if (uriExists(uri)) {
             stage = ImageLoadState.StartedDisplay(uriToCoil(uri))
-            println("Set stage to uri with $uri")
         } else {
             stage = ImageLoadState.NotFound
         }

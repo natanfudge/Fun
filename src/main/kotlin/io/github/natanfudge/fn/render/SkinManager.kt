@@ -70,7 +70,7 @@ internal class SkinManager(skeleton: Skeleton, model: Model) {
         }
     }
 
-    internal val jointTransformEvent = MutEventStream<JointTransformEvent>()
+    internal val jointTransformEvent = EventEmitter<JointTransformEvent>()
 
     init {
         val initialTransform = buildMap {

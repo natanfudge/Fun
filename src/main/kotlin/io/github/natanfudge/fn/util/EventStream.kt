@@ -1,26 +1,34 @@
 package io.github.natanfudge.fn.util
 
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.error.UnallowedFunException
 import java.util.function.Consumer
 
 
 /**
  * Allows listening to changes of an object via the [listenUnscoped] method.
- * Usually, another object owns an [MutEventStream] implementation of this interface, and emits values to it, which are received by the callback passed to [listenUnscoped].
+ * Usually, another object owns an [EventEmitter] implementation of this interface, and emits values to it, which are received by the callback passed to [listenUnscoped].
  * @sample io.github.natanfudge.fn.test.example.util.ObservableExamples.observableExample
  */
 interface EventStream<T> {
     companion object {
-        fun <T> create() = MutEventStream<T>()
+        fun <T> create() = EventEmitter<T>()
     }
 
-    @Deprecated("use scoped listen", replaceWith = ReplaceWith("listen(onEvent)"))
-            /**
-             * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [MutEventStream]).
-             * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks
-             * and unnecessary processing.
-             * @see EventStream
-             */
+    /**
+     * Registers the given [onEvent] callback to be invoked when an event is emitted by the underlying source (usually an [EventEmitter]).
+     *
+     * This may be called while inside yet another [listenUnscoped], and events will begin to be emitted AFTER the current event:
+     * ```
+     *   stream.listenUnscoped {
+     *     // Works fine, will not be called until the next event
+     *     if (it == 42) stream.listenUnscoped {...}
+     *   }
+     * ```
+     * @return a [Listener] instance which can be used to stop receiving events via [Listener.close] when they are no longer needed, preventing memory leaks
+     * and unnecessary processing.
+     * @see EventStream
+     */
     fun listenUnscoped(onEvent: Consumer<T>): Listener<T>
 }
 
@@ -53,7 +61,8 @@ fun Listener<*>.compose(other: Listener<*>): Listener<*> = ComposedListener(this
 fun <T, R> Listener<T>.cast() = this as Listener<R>
 
 
-class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: MutEventStream<T>) : Listener<T> {
+class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: EventEmitter<T>) : Listener<T> {
+
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
@@ -62,6 +71,11 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
     override fun close() {
         observable.detach(this)
     }
+}
+
+fun <T> Fun.event() = obtainPropertyName {
+    //TODO: use the property name + Fun so we can build some event dependency graph
+    EventEmitter<T>()
 }
 
 
@@ -81,28 +95,40 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
  * This is the standard way to create and manage an observable data source.
  * @see EventStream
  */
-class MutEventStream<T> : EventStream<T> {
+class EventEmitter<T> : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
-    private val pendingDetachments = mutableSetOf<Listener<T>>()
-    private val pendingAdditions = mutableSetOf<ListenerImpl<T>>()
-    private var emitting = false
-
     val hasListeners get() = listeners.isNotEmpty()
+
+    /**
+     * Kept at an instance level in the object so that when we remove an object before the active iteration index,
+     * we can reduce the activeIterationIndex by 1 and avoid skipping an object in emit()
+     */
+    private var activeIterationIndex = 0
+
+    /**
+     * Kept at an instance level in the object so that when we remove an an object, we can reduce iterationEndIndex by 1 to not go out of bounds.
+     * Note that we don't want to keep checking listeners.size because then it would process newer elements that were added with [listenUnscoped]
+     * during the same emittion, which we don't want.
+     */
+    private var iterationEndIndex = -1
 
     fun clearListeners() {
         listeners.clear()
     }
 
-    /** @see EventStream */
-    @Deprecated("use scoped listen", replaceWith = ReplaceWith("listen(onEvent)"))
+    /**
+     * This may be called while inside yet another [listenUnscoped], and events will begin to be emitted AFTER the current event:
+     * ```
+     * stream.listenUnscoped {
+     *      if (it == 42) stream.listenUnscoped {...} // Works fine, will not be called until the next event
+     * }
+     * ```
+     *
+     * */
     override fun listenUnscoped(onEvent: Consumer<T>): Listener<T> {
         val listener = ListenerImpl(onEvent, this)
-        if (emitting) {
-            pendingAdditions.add(listener)
-        } else {
-            listeners.add(listener)
-        }
+        listeners.add(listener)
         return listener
     }
 
@@ -111,22 +137,16 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     fun emit(value: T) {
-        emitting = true
-        for (listener in listeners) {
+        activeIterationIndex = 0
+        iterationEndIndex = listeners.size
+        while (activeIterationIndex < iterationEndIndex) {
+            val listener = listeners[activeIterationIndex]
+            activeIterationIndex++
             listener.callback.accept(value)
         }
-        emitting = false
-
-        pendingDetachments.forEach {
-            detach(it)
-        }
-        pendingDetachments.clear()
-
-        pendingAdditions.forEach {
-            listeners.add(it)
-        }
-        pendingAdditions.clear()
     }
+
+    operator fun invoke(value: T) = emit(value)
 
     /**
      * Removes the specified [listener] from the internal list, preventing it from receiving future events.
@@ -134,12 +154,47 @@ class MutEventStream<T> : EventStream<T> {
      * @see EventStream
      */
     internal fun detach(listener: Listener<T>) {
-        // Allow detach() to work without a CME during an emit, by waiting until the emit is done and only then detaching.
-        if (emitting) {
-            pendingDetachments.add(listener)
-            return
-        }
-        if (!listeners.remove(listener)) {
+        val removeIndex = listeners.indexOf(listener)
+        if (removeIndex != -1) {
+            listeners.removeAt(removeIndex)
+            // Make sure to not reduce the iteration end index for listeners that are not part of the active iteration zone anyway (they were recently added)
+            if (removeIndex < iterationEndIndex) {
+                // No need to process this anymore
+                iterationEndIndex--
+            }
+            if (removeIndex < activeIterationIndex) {
+                //    activeIterationIndex
+                //          |
+                //          |
+                // [][][][X][][][][][]
+                //        |
+                //        |
+                //     removeIndex
+                //
+                // If we remove up until that point, the array will shift to the left, and the element at activeIterationIndex will be skipped.
+                // So we move activeIterationIndex one place back to account for the shift.
+                activeIterationIndex--
+            } else {
+                //      activeIterationIndex
+                //          |
+                //          |
+                // [][][][][X][][][][]
+                //          |
+                //          |
+                //        removeIndex
+                //
+                // In this case, the deleted value will be skipped, which is fine.
+                // If removeIndex > activeIterationIndex:
+                //      activeIterationIndex
+                //          |
+                //          |
+                // [][][][][][X][][][]
+                //            |
+                //            |
+                //        removeIndex
+                // Only later elements will be affected, and the iteration will work correctly.
+            }
+        } else {
             if (listener is Listener.Stub) {
                 throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")
             }
@@ -147,6 +202,5 @@ class MutEventStream<T> : EventStream<T> {
         }
     }
 }
-
 
 

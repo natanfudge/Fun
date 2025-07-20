@@ -36,7 +36,7 @@ typealias Delegate<T> = PropertyDelegateProvider<Any?, ReadOnlyProperty<Any?, T>
  * foo can obtain the String "x" by using obtainPropertyName.
  * The caller will need to use `by` instead of `=` in that case, which is a negligible difference.
  */
-internal fun <T> obtainPropertyName(usage: (String) -> T): Delegate<T> = PropertyDelegateProvider { _, property ->
+@PublishedApi internal fun <T> obtainPropertyName(usage: (String) -> T): Delegate<T> = PropertyDelegateProvider { _, property ->
     val state = usage(property.name) // We don't want to reinitialize it every time it is accessed
     ReadOnlyProperty { _, _ -> state }
 }

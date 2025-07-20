@@ -111,7 +111,7 @@ class DeepSoulsGame : Fun("Game") {
             repositionCamera(player.render.translation)
         }
 
-        RestartButtons(context)
+        FunHud(context)
         ErrorNotifications()
     }
 }

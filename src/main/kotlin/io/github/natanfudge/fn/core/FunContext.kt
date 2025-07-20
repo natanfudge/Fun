@@ -5,21 +5,21 @@ import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.FunSurface
 import io.github.natanfudge.fn.render.FunWindow
-import io.github.natanfudge.fn.util.MutEventStream
+import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.ValueHolder
 import kotlin.time.Duration
 
 class BaseFunEvents(
     //TODO: temporary until we consolidate rendering to use a FunContext itself
-    val beforeFrame: MutEventStream<Duration>
+    val beforeFrame: EventEmitter<Duration>
 ) {
 
-    val beforePhysics = MutEventStream<Duration>()
-    val physics = MutEventStream<Duration>()
-    val afterPhysics = MutEventStream<Duration>()
-    val input = MutEventStream<InputEvent>()
-    val guiError = MutEventStream<Throwable>()
-    val appClose = MutEventStream<Unit>()
+    val beforePhysics = EventEmitter<Duration>()
+    val physics = EventEmitter<Duration>()
+    val afterPhysics = EventEmitter<Duration>()
+    val input = EventEmitter<InputEvent>()
+    val guiError = EventEmitter<Throwable>()
+    val appClose = EventEmitter<Unit>()
 
     internal fun clearListeners() {
         //TODO: not checking  one because we are breaking some rules currently, the ComposeHudWebGPURenderer registers its beforeFrame once
@@ -59,7 +59,7 @@ class FunContext(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeHudWebGPURenderer,
     private val stateContext: FunStateContext,
     //TODO: temporary until we consolidate rendering to use a FunContext itself
-    val beforeFrame: MutEventStream<Duration>
+    val beforeFrame: EventEmitter<Duration>
 ) : FunStateContext by stateContext, AutoCloseable {
     init {
         FunContextRegistry.setContext(this)
