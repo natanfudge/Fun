@@ -145,7 +145,8 @@ internal class GlfwComposeSceneContext(
             focusable,
             compositionContext,
             onInvalidate,
-            onLayerRemoved
+            onLayerRemoved,
+            parentContext = this
         )
         onLayerCreated(layer)
         return layer
@@ -165,6 +166,7 @@ class GlfwComposeSceneLayer(
     /** Schedules a new frame on the owning window. */
     private val onInvalidate: () -> Unit,
     private val onClose: (GlfwComposeSceneLayer) -> Unit,
+    private val parentContext: ComposeSceneContext
 ) : ComposeSceneLayer {
 
     /*  public mutable props  */
@@ -186,12 +188,13 @@ class GlfwComposeSceneLayer(
         density = density,
         layoutDirection = layoutDirection,
         invalidate = onInvalidate,
-        composeSceneContext = GlfwComposeSceneContext(
-            /* pointer icon  = */ { /* handled by parent */ },
-            /* invalidate    = */ onInvalidate,
-            /* nested layer  = */ { /* ignore nested layers in overlays for now */ },
-            onLayerRemoved = {} //TODO
-        ),
+        composeSceneContext = parentContext
+//                GlfwComposeSceneContext(
+//            /* pointer icon  = */ { /* handled by parent */ },
+//            /* invalidate    = */ onInvalidate,
+//            /* nested layer  = */ { /* ignore nested layers in overlays for now */ },
+//            onLayerRemoved = {} //TODO
+//        ),
     )
 
     /*  listener storage  */
