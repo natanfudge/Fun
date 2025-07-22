@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.core
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
+import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.mte.PanelWindowDimensions
 import io.github.natanfudge.fn.render.Mesh
@@ -64,7 +66,6 @@ class Panels {
         panelList.remove(panel)
     }
 
-    //    var blockMouseEventsOnPanel = true
     var acceptMouseEvents = true
 
     /**
@@ -74,13 +75,16 @@ class Panels {
     @Composable
     fun PanelSupport() {
         Box(Modifier.fillMaxSize()) {
+            // Allow clicking outside of the UI to lose focus of the UI
+            Box(Modifier.fillMaxSize().focusable().clickableWithNoIndication {})
+
             for (panel in panelList) {
                 Box(
                     panel.modifier(this)
                         .pointerInput(Unit) {
                             awaitPointerEventScope {
                                 while (true) {
-                                    val event = awaitPointerEvent( PointerEventPass.Initial)
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
                                     // Exited - accept mouse events
                                     // Did anything but exit - don't accept mouse events
                                     acceptMouseEvents = event.type == PointerEventType.Exit
@@ -143,7 +147,6 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
         panelLifecycle.start(Unit)
 //        window.start(Unit)
 //        renderer.glfw.windowLifecycle.start(Unit)
-
 
 
         renderer.windowLifecycle.assertValue.frameStream.listen {

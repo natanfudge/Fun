@@ -4,6 +4,7 @@ package io.github.natanfudge.fn.compose
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.InternalComposeUiApi
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asComposeCanvas
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.pointer.PointerButton
@@ -12,10 +13,12 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.PointerKeyboardModifiers
 import androidx.compose.ui.platform.PlatformContext
 import androidx.compose.ui.platform.WindowInfo
+import androidx.compose.ui.scene.ComposeScene
 import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.ComposeSceneLayer
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.*
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.EventStream
@@ -166,7 +169,7 @@ class GlfwComposeSceneLayer(
     /** Schedules a new frame on the owning window. */
     private val onInvalidate: () -> Unit,
     private val onClose: (GlfwComposeSceneLayer) -> Unit,
-    private val parentContext: ComposeSceneContext
+    private val parentContext: ComposeSceneContext,
 ) : ComposeSceneLayer {
 
     /*  public mutable props  */
@@ -197,10 +200,23 @@ class GlfwComposeSceneLayer(
 //        ),
     )
 
+    fun sendInputEvent(event: InputEvent) {
+        if (event is InputEvent.PointerEvent && event.position !in boundsInWindow) {
+            // Clicked outside - invoke onOutsidePointer, not the normal callback.
+            onOutsidePointer?.invoke(event.eventType, event.button)
+        } else {
+            scene.sendInputEvent(event.offset(-boundsInWindow.topLeft))
+        }
+
+    }
+
     /*  listener storage  */
-    private var onPreviewKey: ((KeyEvent) -> Boolean)? = null
-    private var onKey: ((KeyEvent) -> Boolean)? = null
-    private var onOutsidePointer:
+    // TODO: currently not handling this one and just shoving input events into the ComposeScene. not sure why these 2 are needed
+    var onPreviewKey: ((KeyEvent) -> Boolean)? = null
+    var onKey: ((KeyEvent) -> Boolean)? = null
+
+
+    var onOutsidePointer:
             ((PointerEventType, PointerButton?) -> Unit)? = null
 
     /*  ComposeSceneLayer contract  */
@@ -260,6 +276,8 @@ class GlfwComposeSceneLayer(
         canvas.restore()
     }
 }
+
+operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= right && offset.y <= bottom && offset.y >= top
 
 //TODO:
 // 1. Properly position layer (boundsInWindow needs to be set by Compose but currently it's not doing it correctly,
@@ -347,18 +365,34 @@ internal class ComposeGlfwWindow(
             overlayLayers.add(it)
             val dim = config.dimensionsLifecycle.value
             if (dim != null) {
-                // TODO: we're supposed to be more specific like RecordDrawRectRenderDecorator { rect -> layer.boundsInWindow = rect.translate(offset) }
-                // but this should work
-//                it.boundsInWindow = IntRect(0, 0, dim.width, dim.height)
+                // IDK why, but if you don't set this then Compose doesn't properly initialize the layer. There's no need to resize it or anything
+                // on window resize, I think it just needs some initial "push" to compose the initial popup content
+                it.boundsInWindow = IntRect(0, 0, dim.width, dim.height)
                 it.scene.size = IntSize(dim.width, dim.height)
             }
         },
         onLayerRemoved = { overlayLayers.remove(it) }
     )
+
     init {
         sceneContext.platformContext.windowInfo.containerSize = IntSize(initialWidth, initialHeight)
     }
+
     var focused by sceneContext.platformContext.windowInfo::isWindowFocused
+
+    fun sendInputEvent(event: InputEvent) {
+        if (focused) {
+            overlayLayers.asReversed().forEach { it.sendInputEvent(event) }
+            scene.sendInputEvent(event)
+
+//            overlayLayers.asReversed().forEach { it.onPreviewKey?.invoke(key) }
+//            overlayLayers.asReversed().forEach { it.onKey?.invoke(key) }
+//            it.onOutsidePointer?.invoke(eventType, button)
+
+
+        }
+    }
+
 
     /** root scene */
     val scene = PlatformLayersComposeScene(
@@ -375,6 +409,44 @@ internal class ComposeGlfwWindow(
     fun setContent(content: @Composable () -> Unit) = scene.setContent(content)
 
     override fun close() = scene.close()
+}
+
+/**
+ * Offset mouse events by a given amount, to give compose layers a position relative to their own coordinate system (their root is often not at (0,0))
+ */
+private fun InputEvent.offset(offset: IntOffset) = when (this) {
+    is InputEvent.PointerEvent -> {
+        copy(position = position + offset)
+    }
+
+    else -> this
+}
+
+private fun ComposeScene.sendInputEvent(event: InputEvent) {
+    when (event) {
+        is InputEvent.KeyEvent -> {
+            val key = event.event
+            sendKeyEvent(key)
+        }
+
+        is InputEvent.PointerEvent -> {
+            with(event) {
+                sendPointerEvent(
+                    eventType,
+                    position,
+                    scrollDelta,
+                    timeMillis,
+                    type,
+                    buttons,
+                    keyboardModifiers,
+                    nativeEvent,
+                    button
+                )
+            }
+        }
+
+        else -> {}
+    }
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -400,8 +472,6 @@ data class ComposeFrameEvent(
     val height: Int,
 )
 
-/*  (The rest of ComposeOpenGLRenderer is unchanged – only the draw path
-    now calls FixedSizeComposeWindow.renderSkia() and .blitFrame().)       */
 
 internal class ComposeOpenGLRenderer(
     windowParameters: WindowParameters,

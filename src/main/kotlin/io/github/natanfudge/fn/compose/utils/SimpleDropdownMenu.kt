@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import io.github.natanfudge.fn.core.FunLogLevel
@@ -97,7 +98,13 @@ fun <T> SimpleDropdownMenu(
 fun main() {
     application {
         Window(::exitApplication) {
-            SimpleDropdownMenu(remember { mutableStateOf(FunLogLevel.Info) }, FunLogLevel.entries)
+            ComposeLayerDebug()
         }
+    }
+}
+
+@Composable fun ComposeLayerDebug() {
+    Popup {
+        Text("Halo!")
     }
 }

@@ -6,15 +6,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.compose.utils.SimpleDropdownMenu
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.FunLogLevel
-import io.github.natanfudge.fn.core.FunLogger
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.network.state.listenAsState
@@ -23,7 +18,7 @@ import io.github.natanfudge.fn.render.clearModelCache
 
 //TODO: it's listening to input events while compose is focused...
 
-class FunHud(val context: FunContext) {
+class FunDebugPanel(val context: FunContext) {
     init {
         context.addFunPanel({ Modifier.align(Alignment.CenterStart) }) {
             Surface(color = Color.Transparent) {
@@ -71,8 +66,7 @@ class FunHud(val context: FunContext) {
 
     @Composable
     private fun LoggingConfig() {
-        SimpleDropdownMenu(remember { mutableStateOf(FunLogLevel.Info) }, FunLogLevel.entries)
-//        FunEditor(context.logger)
+        FunEditor(context.logger)
     }
 }
 

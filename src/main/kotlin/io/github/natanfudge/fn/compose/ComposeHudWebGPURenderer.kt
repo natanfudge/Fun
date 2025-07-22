@@ -5,7 +5,6 @@ package io.github.natanfudge.fn.compose
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerIcon
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer.ComposeBindGroup
-import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.ValueHolder
@@ -22,28 +21,7 @@ internal class ComposeWebgpuSurface(val ctx: WebGPUContext, val composeWindowLif
     // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
     private val inputListener = ctx.window.inputEvent.listenUnscoped { input ->
         val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        if (window.focused) {
-            when (input) {
-                is InputEvent.KeyEvent -> window.scene.sendKeyEvent(input.event)
-                is InputEvent.PointerEvent -> {
-                    with(input) {
-                        window.scene.sendPointerEvent(
-                            eventType,
-                            position,
-                            scrollDelta,
-                            timeMillis,
-                            type,
-                            buttons,
-                            keyboardModifiers,
-                            nativeEvent,
-                            button
-                        )
-                    }
-                }
-
-                else -> {}
-            }
-        }
+        window.sendInputEvent(input)
     }
     private val densityListener = ctx.window.densityChangeEvent.listenUnscoped { newDensity ->
         val window = composeWindowLifecycle.value ?: return@listenUnscoped
@@ -117,12 +95,13 @@ internal class ComposeHudWebGPURenderer(
     name: String,
     show: Boolean = false,
 ) {
-    val compose = ComposeOpenGLRenderer(hostWindow.window.windowParameters,
+    val compose = ComposeOpenGLRenderer(
+        hostWindow.window.windowParameters,
         windowDimensionsLifecycle = hostWindow.window.dimensionsLifecycle,
-        beforeFrameEvent =beforeFrameEvent,
+        beforeFrameEvent = beforeFrameEvent,
         show = show, name = name, onError = onError, onSetPointerIcon = {
-        setHostWindowCursorIcon(it)
-    })
+            setHostWindowCursorIcon(it)
+        })
     val SurfaceLifecycleName = "$name Compose WebGPU Surface"
 
     private fun setHostWindowCursorIcon(icon: PointerIcon) {
