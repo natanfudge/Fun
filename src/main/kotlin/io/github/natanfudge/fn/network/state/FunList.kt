@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.network.state
 
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
@@ -75,6 +76,9 @@ class FunList<T> @PublishedApi internal constructor(
     private val owner: Fun,
     private val serializer: KSerializer<T>,
 ) : MutableList<T>, FunState<List<T>> {
+
+    override val editor: ValueEditor<List<T>>
+        get() = ValueEditor.Missing as ValueEditor<List<T>>
 
     override fun beforeChange(callback: (List<T>) -> Unit): Listener<List<T>> {
         throw NotImplementedError("Not yet implemented")

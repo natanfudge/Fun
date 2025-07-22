@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.network.state
 
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.sendStateChange
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.state.StateChangeValue.*
 import io.github.natanfudge.fn.util.*
@@ -22,10 +22,13 @@ import java.util.function.IntFunction
  * @see funMap
  * @see funList
  */
-inline fun <reified T> Fun.funSet(name: String, vararg items: T): FunSet<T> = funSet(name, getFunSerializer(), mutableSetOf(*items))
-inline fun <reified T> Fun.funSet(vararg items: T): Delegate<FunSet<T>> = obtainPropertyName {
-    funSet(it, getFunSerializer(), mutableSetOf(*items))
-}
+inline fun <reified T> Fun.funSet(name: String, editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, vararg items: T): FunSet<T> =
+    funSet(name, getFunSerializer(), mutableSetOf(*items), editor)
+
+inline fun <reified T> Fun.funSet(editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, vararg items: T): Delegate<FunSet<T>> =
+    obtainPropertyName {
+        funSet(it, getFunSerializer(), mutableSetOf(*items), editor)
+    }
 
 /**
  * Creates a synchronized set that automatically propagates changes to all clients.
@@ -39,8 +42,8 @@ inline fun <reified T> Fun.funSet(vararg items: T): Delegate<FunSet<T>> = obtain
  * @see funMap
  * @see funList
  */
-fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>): FunSet<T> {
-    val list = FunSet(useOldStateIfPossible(items, name), name, this, serializer)
+fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
+    val list = FunSet(useOldStateIfPossible(items, name), name, this, serializer, editor)
     context.stateManager.registerState(id, name, list)
     return list
 }
@@ -65,10 +68,11 @@ fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T
  * @see FunMap
  */
 class FunSet<T> @PublishedApi internal constructor(
-    @InternalFunApi val _items: MutableSet<T>,
+    @InternalFunApi var _items: MutableSet<T>,
     private val name: String,
     private val owner: Fun,
     private val serializer: KSerializer<T>,
+    override val editor: ValueEditor<Set<T>>,
 ) : MutableSet<T>, FunState<Set<T>> {
 
     val changed by owner.event<SetOp>()
@@ -84,8 +88,8 @@ class FunSet<T> @PublishedApi internal constructor(
     override var value: Set<T>
         get() = _items
         set(value) {
-            _items.clear()
-            _items.addAll(value)
+            _items = value.toMutableSet()
+            changed(SetProperty(value))
         }
 
     private val key = StateKey(owner.id, name)
@@ -119,6 +123,7 @@ class FunSet<T> @PublishedApi internal constructor(
 
     @Suppress("ConvertArgumentToSet")
     override fun removeAll(elements: Collection<T>) = _items.removeAll(elements).also { changed(CollectionRemoveAll(elements)) }
+
     @Suppress("ConvertArgumentToSet")
     override fun retainAll(elements: Collection<T>) = _items.retainAll(elements).also { changed(CollectionRetainAll(elements)) }
 

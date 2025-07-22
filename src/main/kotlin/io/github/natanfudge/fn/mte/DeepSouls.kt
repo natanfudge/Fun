@@ -1,6 +1,10 @@
 package io.github.natanfudge.fn.mte
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import io.github.natanfudge.fn.base.*
+import io.github.natanfudge.fn.compose.funedit.StringSetEditor
+import io.github.natanfudge.fn.compose.utils.composeApp
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.mte.gui.MainMenu
 import io.github.natanfudge.fn.mte.gui.addDsHudPanel
@@ -9,16 +13,6 @@ import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
-
-//class MineTheEarthMainMenuTemp(override val context: FunContext) : Fun("MainMenu") {
-//    val ds = DeepSouls()
-//
-//    init {
-//        context.addDsHudPanel {
-//
-//        }
-//    }
-//}
 
 class DeepSouls() : Fun("DeepSouls") {
     var inMainMenu by funValue(true)
@@ -118,6 +112,20 @@ class DeepSoulsGame : Fun("Game") {
 
 
 fun main() {
+//    composeApp {
+//        StringSetEditor(
+//            listOf(
+//                "Thing", "Another Thing", "The great", "123"
+//            )
+//        ).EditorUi(
+//            remember {
+//                mutableStateOf(
+//                    setOf("Another Thing")
+//                )
+//            }
+//        )
+//    }
+
     startTheFun {
         {
             DeepSouls()

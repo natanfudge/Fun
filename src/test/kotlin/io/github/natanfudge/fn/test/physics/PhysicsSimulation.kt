@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.test.physics
 
+import io.github.natanfudge.fn.core.SimpleLogger
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.PhysicsSystem
@@ -48,7 +49,7 @@ private fun PhysicsTest.runTest(show: Boolean, throwOnFailure: Boolean) {
 
 
 class HeadlessPhysicsSimulation : PhysicsSimulation {
-    override val physics = PhysicsSystem()
+    override val physics = PhysicsSystem(SimpleLogger())
     override fun cube(
         position: Vec3f,
         rotation: Quatf,

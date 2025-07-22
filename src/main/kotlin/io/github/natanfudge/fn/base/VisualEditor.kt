@@ -125,8 +125,8 @@ class VisualEditor(
 
 }
 
-@Composable fun FunEditor(root: Fun) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
+@Composable fun FunEditor(root: Fun, modifier: Modifier = Modifier) {
+    Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
         Column(
             Modifier.padding(5.dp).width(IntrinsicSize.Max)
                 .verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally

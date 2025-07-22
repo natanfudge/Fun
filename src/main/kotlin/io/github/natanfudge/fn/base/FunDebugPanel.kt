@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.base
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -9,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
@@ -66,7 +68,7 @@ class FunDebugPanel(val context: FunContext) {
 
     @Composable
     private fun LoggingConfig() {
-        FunEditor(context.logger)
+        FunEditor(context.logger, Modifier.width(300.dp))
     }
 }
 

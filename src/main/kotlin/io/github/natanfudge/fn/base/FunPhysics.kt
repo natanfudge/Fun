@@ -7,7 +7,7 @@ import io.github.natanfudge.fn.physics.PhysicsSystem
 
 //TODO: only wants AutoClose
 class FunPhysics: Fun("FunPhysics") {
-    val system = PhysicsSystem()
+    val system = PhysicsSystem(context.logger)
 
     init {
         context.events.physics.listen {

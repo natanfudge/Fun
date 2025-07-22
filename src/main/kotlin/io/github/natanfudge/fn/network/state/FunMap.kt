@@ -2,6 +2,7 @@
 
 package io.github.natanfudge.fn.network.state
 
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
@@ -84,6 +85,9 @@ class FunMap<K, V> @PublishedApi internal constructor(
     private val keySerializer: KSerializer<K>,
     private val valueSerializer: KSerializer<V>,
 ) : MutableMap<K, V> , FunState<Map<K,V>> {
+
+    override val editor: ValueEditor<Map<K, V>>
+        get() = ValueEditor.Missing as ValueEditor<Map<K,V>>
 
     override fun beforeChange(callback: (Map<K, V>) -> Unit): Listener<Map<K, V>> {
         throw NotImplementedError("Not yet implemented")

@@ -1,7 +1,8 @@
 package io.github.natanfudge.fn.physics
 
-import io.github.natanfudge.fn.util.EventStream
+import io.github.natanfudge.fn.core.ILogger
 import io.github.natanfudge.fn.util.EventEmitter
+import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.*
@@ -17,7 +18,7 @@ data class CollisionEvent(val bodyA: Body, val bodyB: Body)
  * The physics system measures position in meters, velocity in meters per second, and acceleration in meters per second squared.
  * It is assumed the Z axis is down (sorry Minecraft bros).
  */
-class PhysicsSystem(var gravity: Boolean = true) {
+class PhysicsSystem(private val logger: ILogger, var gravity: Boolean = true) {
     var earthGravityAcceleration = 9.8f
     var upAxis = 2
 
@@ -77,13 +78,18 @@ class PhysicsSystem(var gravity: Boolean = true) {
         if (delta > maxDelta) {
             val ticks = ceil(delta / maxDelta).toInt()
             if (ticks > maxSkipTicks) {
-                println("Warn: physics is lagging behind by more than $maxSkipTicks ticks ($maxSkipTicks)!  Only $maxSkipTicks ticks will be emulated.")
+
+                logger.performance("Physics") {
+                    "Warn: physics is lagging behind by more than $maxSkipTicks ticks ($maxSkipTicks)!  Only $maxSkipTicks ticks will be emulated."
+                }
                 repeat(maxSkipTicks) {
                     singleTick(maxDelta)
                 }
             } else {
                 if (!spedUp) {
-                    println("Warn: physics is lagging behind, quickly emulating $ticks ticks.")
+                    logger.performance("Physics") {
+                        "Warn: physics is lagging behind, quickly emulating $ticks ticks."
+                    }
                 }
                 repeat(ticks - 1) {
                     singleTick(maxDelta)

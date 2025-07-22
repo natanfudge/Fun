@@ -213,7 +213,7 @@ sealed interface FunState<T> {
      */
     fun beforeChange(callback: (T) -> Unit): Listener<T>
 
-    val editor: ValueEditor<T> get() = ValueEditor.Missing as ValueEditor<T>
+    val editor: ValueEditor<T>
 }
 
 @Composable
@@ -278,7 +278,7 @@ sealed interface StateChangeValue {
     /**
      * A change that sets a property to a new value.
      */
-    data class SetProperty<T>(override val value: T) : SingleChange<T>
+    data class SetProperty<T>(override val value: T) : SingleChange<T>, SetOp
 
     /**
      * A state change that involves multiple values.

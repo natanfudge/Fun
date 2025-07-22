@@ -2,10 +2,15 @@
 
 package io.github.natanfudge.fn.compose.funedit
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Alignment
@@ -13,16 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.natanfudge.fn.compose.utils.FloatField
-import io.github.natanfudge.fn.compose.utils.IntField
-import io.github.natanfudge.fn.compose.utils.SimpleDropdownMenu
-import io.github.natanfudge.fn.compose.utils.mutableState
+import io.github.natanfudge.fn.compose.utils.*
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.util.withValue
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.enums.EnumEntries
 
 interface ValueEditor<T> {
     @Composable
@@ -81,14 +82,14 @@ object BooleanEditor : ValueEditor<Boolean> {
     }
 }
 
-object FloatEditor: ValueEditor<Float> {
+object FloatEditor : ValueEditor<Float> {
     @Composable
     override fun EditorUi(state: MutableState<Float>, modifier: Modifier) {
         FloatField(state, modifier)
     }
 }
 
-object IntEditor: ValueEditor<Int> {
+object IntEditor : ValueEditor<Int> {
     @Composable
     override fun EditorUi(state: MutableState<Int>, modifier: Modifier) {
         IntField(state, modifier)
@@ -150,9 +151,51 @@ fun UntypedVectorEditor(ranges: Map<String, VectorComponentConfig>, state: Mutab
     }
 }
 
-class EnumEditor<T: Enum<T>>(val entries: List<Enum<T>>): ValueEditor<Enum<T>> {
+class EnumEditor<T : Enum<T>>(val entries: List<Enum<T>>) : ValueEditor<Enum<T>> {
     @Composable
     override fun EditorUi(state: MutableState<Enum<T>>, modifier: Modifier) {
-        SimpleDropdownMenu(state,entries)
+        SimpleDropdownMenu(state, entries)
     }
+}
+
+
+
+class StringSetEditor(val possibleStrings: Set<String>) : ValueEditor<Set<String>> {
+    @Composable
+    override fun EditorUi(state: MutableState<Set<String>>, modifier: Modifier) {
+        Column(Modifier.defaultMinSize(minWidth = 200.dp)) {
+            FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
+                for (element in state.value) {
+                    Card {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(element)
+                            IconButton(onClick = {
+                                state.value = state.value.without(element)
+                            }) {
+                                Icon(Icons.Default.Close, "Remove")
+                            }
+                        }
+                    }
+                }
+                StandaloneWidthDropdownMenu(possibleStrings.filter { it !in state.value }.toList(), onSelectItem = {
+                    state.value = state.value.with(it)
+                }) {
+                    Icon(Icons.Default.Add, "Add")
+                }
+            }
+        }
+
+    }
+
+}
+
+fun <T> Set<T>.without(value: T): Set<T> {
+    val newSet = toMutableSet()
+    newSet.remove(value)
+    return newSet
+}
+fun <T> Set<T>.with(value: T): Set<T> {
+    val newSet = toMutableSet()
+    newSet.add(value)
+    return newSet
 }
