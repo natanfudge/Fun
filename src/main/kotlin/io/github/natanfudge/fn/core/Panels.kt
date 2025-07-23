@@ -12,6 +12,9 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
+import coil3.ImageLoader
+import coil3.compose.setSingletonImageLoaderFactory
+import coil3.memory.MemoryCache
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
@@ -98,6 +101,7 @@ class Panels {
 
         }
     }
+
 
 
 }

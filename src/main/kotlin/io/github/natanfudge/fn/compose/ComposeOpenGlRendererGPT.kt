@@ -24,6 +24,7 @@ import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.*
+import korlibs.io.util.toByteArray
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
@@ -36,7 +37,6 @@ import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
-import java.nio.ByteBuffer
 import kotlin.time.Duration
 
 
@@ -54,13 +54,6 @@ internal class FixedSizeComposeWindow(
     init {
         GLFW.glfwMakeContextCurrent(window.handle)
         GL.setCapabilities(window.capabilities)
-        window.overlayLayers.forEach {
-            //TODO: supposed to be more precise
-//            it.boundsInWindow = IntRect(0, 0, width, height)
-
-            //TODO: don't know if this needed
-            it.scene.size = IntSize(width, height)
-        }
     }
 
     /** Skia surface bound to the current OpenGL FBO. */
@@ -70,14 +63,11 @@ internal class FixedSizeComposeWindow(
     val canvas: org.jetbrains.skia.Canvas = surface.canvas
     private val composeCanvas = canvas.asComposeCanvas()
 
-    /* Buffers for copying pixels out (used by frameStream). */
-    private val frame = ByteArray(width * height * 4)
-    private val frameByteBuffer = MemoryUtil.memAlloc(width * height * 4)
+    private val frameBytes = width * height * 4
+    private val jvmHeapFramebuffer = ByteArray(frameBytes)
+    private val offHeapFrameBuffer = MemoryUtil.memAlloc(frameBytes)
 
-    override fun close() {
-        surface.close()
-        MemoryUtil.memFree(frameByteBuffer)
-    }
+
 
     /* Draw the root scene + every overlay layer. */
     fun renderSkia() {
@@ -107,19 +97,26 @@ internal class FixedSizeComposeWindow(
 
     /* Copy back‑buffer into [frame] & emit it. */
     fun blitFrame() {
-        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, frameByteBuffer)
-        val buffer: ByteBuffer = getFrameBytes()
-        buffer.get(frame)
-        window.frameStream.emit(ComposeFrameEvent(frame, width, height))
+        // Reset buffer position before OpenGL writes to it
+        offHeapFrameBuffer.rewind()
+
+        // Copy from GPU to off-heap buffer
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, offHeapFrameBuffer)
+
+        // Reset position again before reading
+        offHeapFrameBuffer.rewind()
+
+        // Copy from off-heap buffer to JVM array
+        offHeapFrameBuffer.get(jvmHeapFramebuffer)
+
+
+        window.frameStream.emit(ComposeFrameEvent(jvmHeapFramebuffer, width, height))
     }
 
-    private fun getFrameBytes(): ByteBuffer {
-        //TODO: memory leak?
-        val buffer = MemoryUtil.memAlloc(width * height * 4)
-        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer)
-        return buffer
+    override fun close() {
+        surface.close()
+        MemoryUtil.memFree(offHeapFrameBuffer)
     }
-
 
 }
 
@@ -192,12 +189,6 @@ class GlfwComposeSceneLayer(
         layoutDirection = layoutDirection,
         invalidate = onInvalidate,
         composeSceneContext = parentContext
-//                GlfwComposeSceneContext(
-//            /* pointer icon  = */ { /* handled by parent */ },
-//            /* invalidate    = */ onInvalidate,
-//            /* nested layer  = */ { /* ignore nested layers in overlays for now */ },
-//            onLayerRemoved = {} //TODO
-//        ),
     )
 
     fun sendInputEvent(event: InputEvent) {
@@ -211,7 +202,7 @@ class GlfwComposeSceneLayer(
     }
 
     /*  listener storage  */
-    // TODO: currently not handling this one and just shoving input events into the ComposeScene. not sure why these 2 are needed
+    // SUS: currently not handling this one and just shoving input events into the ComposeScene. not sure why these 2 are needed
     var onPreviewKey: ((KeyEvent) -> Boolean)? = null
     var onKey: ((KeyEvent) -> Boolean)? = null
 
@@ -279,10 +270,7 @@ class GlfwComposeSceneLayer(
 
 operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= right && offset.y <= bottom && offset.y >= top
 
-//TODO:
-// 1. Properly position layer (boundsInWindow needs to be set by Compose but currently it's not doing it correctly,
-// if I initialize it myself it gets positioned at root instead of at the anchor, normal Compose doesn't set itself so I shouldn't need to set it either.)
-// 2. Send over input events from layer
+
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  🔸 GLFW PLATFORM CONTEXT (POINTER ICON ONLY)                             */

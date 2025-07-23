@@ -20,7 +20,7 @@ class HoverHighlight(
      * Note that [redirectHover] must still return non-null for this to matter.
      */
     private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
-): Fun("HoverHighlight") { //TODO: only for autoclose
+): Fun("HoverHighlight") {
     companion object {
         /**
          * Add this tag to an object to prevent it from being highlighted when hovered.

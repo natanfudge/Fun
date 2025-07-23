@@ -18,7 +18,6 @@ import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.physics.getBackingState
 import io.github.natanfudge.fn.render.clearModelCache
 
-//TODO: it's listening to input events while compose is focused...
 
 class FunDebugPanel(val context: FunContext) {
     init {

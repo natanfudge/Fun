@@ -124,20 +124,20 @@ fun <T> StandaloneWidthDropdownMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    // DisableSelection keeps the anchor free of text‑selection handles, just
-    // like in the original version.
+    //DisableSelection keeps the anchor free of text‑selection handles, just
+    //like in the original version.
     DisableSelection {
-        // The Box is both the visual anchor and the touch target.
+        //The Box is both the visual anchor and the touch target.
         Box(
             modifier
-                // Makes the whole anchor clickable to toggle the dropdown.
+                //Makes the whole anchor clickable to toggle the dropdown.
                 .clickable { expanded = !expanded }
         ) {
-            // Caller‑supplied UI (e.g. an OutlinedTextField or any custom view)
+            //Caller‑supplied UI (e.g. an OutlinedTextField or any custom view)
             content(expanded)
         }
 
-        // Regular DropdownMenu ‑‑ width = max(intrinsic width of items)
+        //Regular DropdownMenu ‑‑ width = max(intrinsic width of items)
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -149,7 +149,7 @@ fun <T> StandaloneWidthDropdownMenu(
                         onSelectItem(option)
                         expanded = false
                     },
-                    // Keeps the default M3 padding to match Exposed styling
+                    //Keeps the default M3 padding to match Exposed styling
                     contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                 )
             }

@@ -5,7 +5,6 @@ import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.physics.PhysicsSystem
 
-//TODO: only wants AutoClose
 class FunPhysics: Fun("FunPhysics") {
     val system = PhysicsSystem(context.logger)
 

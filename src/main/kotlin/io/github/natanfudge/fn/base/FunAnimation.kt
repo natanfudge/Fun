@@ -7,7 +7,6 @@ import korlibs.time.min
 import kotlin.time.Duration
 
 // SUS: I kinda wanna consider getting rid of some mods in favor of letting stuff hook into the lifecycles.
-// TODO: only wants AutoClose
 class FunAnimation: Fun("FunAnimation")  {
     init {
         context.events.beforeFrame.listen { delta ->

@@ -15,10 +15,7 @@ import io.github.natanfudge.fn.util.EventStream
 import korlibs.time.seconds
 
 
-//TODO: this class only wants the AutoClose functionallity, I should seperate this out into parts:
-// - State Management (funValue)
-// - AutoClose (listen {})
-// - Granular composition (funRemember {})
+
 class InputManager(context: FunContext): Fun("InputManager")  {
     val heldKeys = mutableSetOf<FunKey>()
 

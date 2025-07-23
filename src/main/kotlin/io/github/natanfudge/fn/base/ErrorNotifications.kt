@@ -20,7 +20,6 @@ import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.listen
 
-// TODO: only auto-close
 class ErrorNotifications: Fun("ErrorNotifications") {
     private var error: Throwable? by mutableStateOf(null)
 

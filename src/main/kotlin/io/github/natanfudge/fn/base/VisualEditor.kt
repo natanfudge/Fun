@@ -47,7 +47,7 @@ class VisualEditor(
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
     var enabled: Boolean = true,
-) : Fun("Visual Editor") { //TODO: only for AutoClose?
+) : Fun("Visual Editor") {
     constructor(inputManagerMod: InputManager, enabled: Boolean = true) : this(
         HoverHighlight(), inputManagerMod, enabled
     )
@@ -66,10 +66,9 @@ class VisualEditor(
             }
         })
         hoverMod.context.addFunPanel({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
-            //TODO: this is going to break down at some point, because the root is going to be the whole world and then it will select the whole world.
-            val root = selectedObject?.getRoot()
-            if (root != null) {
-                FunEditor(root)
+            val parent = selectedObject?.parent
+            if (parent != null) {
+                FunEditor(parent)
             }
         }
         hoverMod.context.events.input.listen { input ->

@@ -10,6 +10,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import io.github.natanfudge.fn.base.addFunPanel
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.funList
@@ -131,19 +135,38 @@ sealed interface ImageLoadState {
     object CalculatingUri : ImageLoadState
     object NotFound : ImageLoadState
 
+    interface StartedDisplay : ImageLoadState {
+        val uri: String
+    }
+
     // Not exposing anything past Loading for now, this is good enough since Loading means the image has actually partially showed up
-    class StartedDisplay(val uri: String) : ImageLoadState
+    class Loading(override val uri: String) : StartedDisplay
+    class Error(override val uri: String) : StartedDisplay
+    class Empty(override val uri: String) : StartedDisplay
+    class Success(override val uri: String) : StartedDisplay
 }
+
+// Cache resource uris because resolving them takes a lot of time
+private val resourceUriCache = mutableMapOf<String, String>()
 
 @Composable
 fun rememberResourceImageState(path: String): ImageLoadState {
-    var stage: ImageLoadState by remember(path) { mutableStateOf(ImageLoadState.CalculatingUri) }
-    LaunchedEffect(path) {
-        val uri = getResourceUri(path)
-        if (uriExists(uri)) {
-            stage = ImageLoadState.StartedDisplay(uriToCoil(uri))
-        } else {
-            stage = ImageLoadState.NotFound
+    var stage: ImageLoadState by remember(path) {
+        val uri = resourceUriCache[path]
+        val state = if (uri != null) ImageLoadState.Loading(uri)
+        else ImageLoadState.CalculatingUri
+        mutableStateOf(state)
+    }
+    if (stage == ImageLoadState.CalculatingUri) {
+        LaunchedEffect(path) {
+            val uri = getResourceUri(path)
+            if (uriExists(uri)) {
+                val coilUri = uriToCoil(uri)
+                resourceUriCache[path] = coilUri
+                stage = ImageLoadState.Loading(coilUri)
+            } else {
+                stage = ImageLoadState.NotFound
+            }
         }
     }
     return stage
@@ -155,13 +178,29 @@ fun rememberResourceImageState(path: String): ImageLoadState {
 fun ResourceImage(
     state: ImageLoadState,
     modifier: Modifier = Modifier,
+    onState: (ImageLoadState) -> Unit = {},
     contentDescription: String? = null,
 ) {
     if (state is ImageLoadState.StartedDisplay) {
         AsyncImage(
-            model = state.uri,
+            model = ImageRequest.Builder(LocalPlatformContext.current)
+                .data(state.uri)
+                .crossfade(false)
+                .build(),
             contentDescription = contentDescription,
-            modifier
+            modifier,
+            onState = {
+                onState(
+                    when (it) {
+                        AsyncImagePainter.State.Empty -> ImageLoadState.Empty(state.uri)
+                        is AsyncImagePainter.State.Error -> ImageLoadState.Error(state.uri)
+                        is AsyncImagePainter.State.Loading -> ImageLoadState.Loading(state.uri)
+                        is AsyncImagePainter.State.Success -> ImageLoadState.Success(state.uri)
+                    }
+                )
+
+
+            },
         )
     }
 }
@@ -170,9 +209,10 @@ fun ResourceImage(
 fun ResourceImage(
     path: String,
     modifier: Modifier = Modifier,
+    onState: (ImageLoadState) -> Unit = {},
     contentDescription: String? = null,
 ) {
-    ResourceImage(rememberResourceImageState(path), modifier, contentDescription)
+    ResourceImage(rememberResourceImageState(path), modifier, onState, contentDescription)
 }
 
 fun uriToCoil(uri: String) = URI(uri).toPath().absolutePathString()
