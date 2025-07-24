@@ -64,6 +64,7 @@ class FunContext internal constructor(
     init {
         FunContextRegistry.setContext(this)
     }
+    internal val cache = FunCache()
 
     private val inputListener = surface.ctx.window.inputEvent.listenUnscoped { input ->
         // No need to block input with a null cursor position

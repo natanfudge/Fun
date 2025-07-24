@@ -17,7 +17,7 @@ abstract class Fun(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-    /*override*/ val id: FunId,
+    val id: FunId,
     val parent: Fun? = null,
 ) : AutoCloseable, Taggable, FunResource {
 
@@ -49,10 +49,6 @@ abstract class Fun(
         return tag.name in tags
     }
 
-//    val closeEvent: EventStream<Unit>
-//        field = MutEventStream<Unit>()
-
-
     val children = mutableListOf<Fun>()
 
      fun registerChild(child: Fun) {
@@ -79,15 +75,13 @@ abstract class Fun(
         context.register(this)
     }
 
-//    private val closeEvent = MutEventStream<Unit>()
-//    override fun onClose(callback: () -> Unit): Listener<Unit> = closeEvent.listen { callback() }
 
     override fun toString(): String {
         return id
     }
 
     final override fun close() {
-        close(unregisterFromParent = true, deleteState = true)
+        close(unregisterFromParent = true, deleteState = true, unregisterFromContext = true)
     }
 
     /**
@@ -95,11 +89,10 @@ abstract class Fun(
      * @param deleteState If true, the state of this Fun will be deleted.
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state and its place in rootFuns if it had one.
      */
-    internal fun close(unregisterFromParent: Boolean,  deleteState: Boolean, unregisterFromContext: Boolean = true,) {
+    internal fun close(unregisterFromParent: Boolean,  deleteState: Boolean, unregisterFromContext: Boolean) {
         if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
         childCloseables.forEach { it.close() }
         cleanup()
-        // No need to unregister when this is getting closed anyway
         children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext, deleteState = deleteState) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
@@ -109,9 +102,6 @@ abstract class Fun(
     protected open fun cleanup() {
 
     }
-
-    @Suppress("UNCHECKED_CAST")
-    fun <T> storedValue(): T = null as T
 
 }
 
