@@ -1,7 +1,8 @@
 @file:Suppress("UNCHECKED_CAST")
 
-package io.github.natanfudge.fn.core
+package io.github.natanfudge.fn.core.newstuff
 
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.obtainPropertyName
 
@@ -29,11 +30,3 @@ data class CacheValue(
 
 typealias CacheKey = String
 
-fun <T : Fun> Fun.memo(vararg keys: Any?, ctr: () -> T): Delegate<T> = obtainPropertyName { name ->
-    memo(name, keys.toList(), ctr)
-}
-
-fun <T : Fun> Fun.memo(key: String, dependencies: CacheDependencyKeys, ctr: () -> T): T {
-    val key = id + key
-    return context.cache.getOrCreate(key, dependencies, ctr)
-}

@@ -3,7 +3,7 @@ package io.github.natanfudge.fn.window
 import androidx.compose.ui.unit.Density
 import io.github.natanfudge.fn.core.InputEvent
 
-data class WindowParameters(
+data class WindowConfig(
     val initialWindowWidth: Int = 800,
     val initialWindowHeight: Int = 600,
     val initialTitle: String = "Fun",

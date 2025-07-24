@@ -34,7 +34,7 @@ class GlfwGameLoop(val window: GlfwWindowConfig) {
             if (currentWindow.minimized) continue
             val time = System.nanoTime()
             val delta = time - currentWindow.lastFrameTimeNano
-            if (delta >= 1e9 / currentWindow.init.maxFps) {
+            if (delta >= 1e9 / currentWindow.params.maxFps) {
                 checkForReloads()
                 currentWindow.pollTasks()
                 checkForReloads()

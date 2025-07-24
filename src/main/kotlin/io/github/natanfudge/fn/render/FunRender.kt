@@ -75,23 +75,6 @@ class FunWindow(ctx: WebGPUContext, val dims: GlfwWindowDimensions) : AutoClosea
     val projection = calculateProjectionMatrix()
 
 
-//    val fovY = Math.PI.toFloat() / 3f      // ~60°
-//    val aspect = dims.width.toFloat() / dims.height
-//    val zMatch = 1.5f                       // depth where sizes should match
-//
-//    val halfHeight = (tan(fovY / 2f) * zMatch)
-//    val halfWidth  = halfHeight * aspect
-//
-//    val projection = Mat4f.orthographic(
-//        left   = -halfWidth,
-//        right  =  halfWidth,
-//        bottom = -halfHeight,
-//        top    =  halfHeight,
-//        near   = 0.01f,   // same near/far you used before is fine
-//        far    = 100f
-//    )
-
-
     override fun close() {
         closeAll(depthStencilView, depthTexture, msaaTextureView, msaaTexture)
     }

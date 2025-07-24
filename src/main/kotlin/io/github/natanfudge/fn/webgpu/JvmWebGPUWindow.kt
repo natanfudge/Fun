@@ -101,7 +101,7 @@ data class WebGPUFrame(
     }
 }
 
-class WebGPUWindow(config: WindowParameters) {
+class WebGPUWindow(config: WindowConfig) {
     companion object {
         const val SurfaceLifecycleLabel = "WebGPU Surface"
 
@@ -141,12 +141,7 @@ class WebGPUWindow(config: WindowParameters) {
         WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
     }
 
-    /**
-     * Submits a callback to run on the main thread.
-     */
-    fun submitTask(task: () -> Unit) {
-        window.submitTask(task)
-    }
+
 }
 
 private enum class Os {

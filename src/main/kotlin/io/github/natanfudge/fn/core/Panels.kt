@@ -12,9 +12,6 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
-import coil3.ImageLoader
-import coil3.compose.setSingletonImageLoaderFactory
-import coil3.memory.MemoryCache
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
@@ -25,7 +22,7 @@ import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.WindowDimensions
-import io.github.natanfudge.fn.window.WindowParameters
+import io.github.natanfudge.fn.window.WindowConfig
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: Panels) : AutoCloseable {
     override fun close() {
@@ -136,7 +133,7 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
 
 
     val renderer = ComposeOpenGLRenderer(
-        WindowParameters(), windowDimensionsLifecycle = window, beforeFrameEvent = context.beforeFrame,
+        WindowConfig(), windowDimensionsLifecycle = window, beforeFrameEvent = context.beforeFrame,
         name = "WorldPanel", show = false, onSetPointerIcon = {}//TODO
         , onError = {
             context.events.guiError.emit(it)

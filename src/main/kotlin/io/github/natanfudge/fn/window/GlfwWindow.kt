@@ -41,7 +41,35 @@ data class GlfwWindowDimensions(
     val window: GlfwWindow,
 ): WindowDimensions
 
-class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: WindowParameters) : AutoCloseable {
+class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowConfig) : AutoCloseable {
+    init {
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
+        if (withOpenGL) {
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API)
+        } else {
+            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
+        }
+        glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
+    }
+
+
+    val handle = glfwCreateWindow(
+        params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
+    )
+
+    init {
+        if (handle == NULL) {
+            glfwTerminate()
+            throw RuntimeException("Failed to create the GLFW window")
+        }
+        // Unfloaty it because it's annoying, it was only enabled for it to be focused initially
+        glfwSetWindowAttrib(handle, GLFW_FLOATING, GLFW_FALSE)
+
+        if (showWindow) {
+            glfwShowWindow(handle)
+        }
+    }
+
     override fun toString(): String {
         return "GLFW Window $handle"
     }
@@ -63,7 +91,6 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
     /**
      * If cursor is not locked, will return the position of the cursor.
      */
-//    var cursorPos: Offset? = null
 
     var minimized = false
     var cursorLocked = false
@@ -108,9 +135,6 @@ class GlfwWindow(val handle: WindowHandle, val glfw: GlfwConfig, val init: Windo
 
     override fun close() {
         glfwSetWindowCloseCallback(handle, null)
-        if (!glfw.disableApi) {
-            glfwMakeContextCurrent(handle)
-        }
         glfwDestroyWindow(handle)
     }
 }
@@ -132,41 +156,10 @@ class GlfwFrame(
 
 
 // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
-class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParameters: WindowParameters, parentLifecycle: Lifecycle<Unit> = ProcessLifecycle) {
-    fun submitTask(task: () -> Unit) = windowLifecycle.value?.submitTask(task)
+class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParameters: WindowConfig, parentLifecycle: Lifecycle<Unit> = ProcessLifecycle) {
 
     val windowLifecycle: Lifecycle<GlfwWindow> = parentLifecycle.bind("GLFW $name Window") {
-        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
-        if (glfw.disableApi) {
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
-        } else {
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API)
-        }
-        glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
-
-        val windowHandle = glfwCreateWindow(
-            windowParameters.initialWindowWidth, windowParameters.initialWindowHeight, windowParameters.initialTitle, NULL, NULL
-        )
-        val window = GlfwWindow(windowHandle, glfw, windowParameters)
-
-        // Unfloaty it because it's annoying, it was only enabled for it to be focused initially
-        glfwSetWindowAttrib(windowHandle, GLFW_FLOATING, GLFW_FALSE)
-        if (windowHandle == NULL) {
-            glfwTerminate()
-            throw RuntimeException("Failed to create the GLFW window")
-        }
-//        if (!glfw.disableApi) {
-////            glfwMakeContextCurrent(windowHandle)
-////            GL.createCapabilities()
-//        }
-
-
-
-        if (glfw.showWindow) {
-            glfwShowWindow(windowHandle)
-        }
-
-        window
+        GlfwWindow(!glfw.disableApi, glfw.showWindow, windowParameters)
     }
 
     init {

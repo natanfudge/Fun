@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.core
 
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
+import io.github.natanfudge.fn.core.newstuff.FunCache
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.FunSurface

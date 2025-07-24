@@ -16,7 +16,7 @@ import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.window.GlfwGameLoop
-import io.github.natanfudge.fn.window.WindowParameters
+import io.github.natanfudge.fn.window.WindowConfig
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.skiko.currentNanoTime
 import org.lwjgl.glfw.GLFW.glfwInit
@@ -236,8 +236,8 @@ internal fun FunContext.progressPhysics(delta: Duration) {
 typealias FunAppInit = FunAppBuilder.() -> ((context: FunContext) -> Unit)
 
 class FunAppBuilder {
-    internal var config: WindowParameters = WindowParameters()
-    fun window(config: WindowParameters) {
+    internal var config: WindowConfig = WindowConfig()
+    fun window(config: WindowConfig) {
         this.config = config
     }
 }

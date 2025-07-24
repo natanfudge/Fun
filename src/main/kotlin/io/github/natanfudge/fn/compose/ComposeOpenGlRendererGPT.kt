@@ -24,7 +24,6 @@ import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.*
-import korlibs.io.util.toByteArray
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
@@ -462,7 +461,7 @@ data class ComposeFrameEvent(
 
 
 internal class ComposeOpenGLRenderer(
-    windowParameters: WindowParameters,
+    windowParameters: WindowConfig,
     windowDimensionsLifecycle: Lifecycle<WindowDimensions>,
     beforeFrameEvent: EventStream<Duration>,
     val name: String,
@@ -492,7 +491,7 @@ internal class ComposeOpenGLRenderer(
         glDebugGroup(1, groupName = { "$name Compose Init" }) {
             var window: ComposeGlfwWindow? = null
             window = ComposeGlfwWindow(
-                it.init.initialWindowWidth, it.init.initialWindowHeight, it.handle,
+                it.params.initialWindowWidth, it.params.initialWindowHeight, it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 onSetPointerIcon = onSetPointerIcon,
                 config = this@ComposeOpenGLRenderer, onError = onError, capabilities = capabilities, onInvalidate = {

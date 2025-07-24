@@ -1,38 +1,38 @@
-@file:JvmName("FunKt")
+package io.github.natanfudge.fn.core.newstuff
 
-package io.github.natanfudge.fn.core
+import io.github.natanfudge.fn.core.*
+import io.github.natanfudge.fn.core.child
+import io.github.natanfudge.fn.util.Delegate
+import io.github.natanfudge.fn.util.obtainPropertyName
 
 
-
-/**
- * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
- *
- * Fun components automatically register themselves with a [FunStateManager] and use [funValue] properties
- * to synchronize state changes across all clients.
- *
- * @sample io.github.natanfudge.fn.example.network.NetworkExamples.networkStateExample
- */
-abstract class Fun(
+abstract class NewFun(
     /**
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
     val id: FunId,
-    val parent: Fun? = null,
-) : AutoCloseable, Taggable by TagMap(), Parent<Fun> by ChildList<Fun>(), FunResource, Resource by CloseList() {
-    companion object {
-        val DEV = true
-    }
+    val parent: NewFun? = null,
+) : AutoCloseable, Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList() {
+    val context get() = NewFunContextRegistry.getContext()
     val isRoot: Boolean = parent == null
 
-    constructor(parent: Fun, name: String) : this(parent.id.child(name), parent) {
+    constructor(parent: NewFun, name: String) : this(parent.id.child(name), parent) {
         parent.registerChild(this)
     }
 
     init {
-        context.register(this)
+//        context.register(this)
     }
 
+    fun <T> memo(vararg keys: Any?, ctr: () -> T): Delegate<T> = obtainPropertyName { name ->
+        memo(name, keys.toList(), ctr)
+    }
+
+    fun <T> memo(key: String, dependencies: CacheDependencyKeys, ctr: () -> T): T {
+        val key = id + key
+        return context.cache.getOrCreate(key, dependencies, ctr)
+    }
 
     override fun toString(): String {
         return id
@@ -47,8 +47,8 @@ abstract class Fun(
      * @param deleteState If true, the state of this Fun will be deleted.
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state and its place in rootFuns if it had one.
      */
-    internal fun close(unregisterFromParent: Boolean,  deleteState: Boolean, unregisterFromContext: Boolean) {
-        if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
+    internal fun close(unregisterFromParent: Boolean, deleteState: Boolean, unregisterFromContext: Boolean) {
+//        if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
         childCloseables.forEach { it.close() }
         cleanup()
         children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext, deleteState = deleteState) }
@@ -61,8 +61,6 @@ abstract class Fun(
 
     }
 }
-
-
 
 
 typealias FunId = String
