@@ -1,6 +1,8 @@
 package io.github.natanfudge.fn.util
 
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunResource
+import io.github.natanfudge.fn.core.Resource
 import io.github.natanfudge.fn.error.UnallowedFunException
 import java.util.function.Consumer
 
@@ -30,6 +32,12 @@ interface EventStream<T> {
      * @see EventStream
      */
     fun listenUnscoped(onEvent: Consumer<T>): Listener<T>
+
+    context(resource: Resource)
+    fun listen(callback: (T) -> Unit) {
+        val listener = listenUnscoped(callback)
+        resource.alsoClose(listener)
+    }
 }
 
 /**

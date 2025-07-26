@@ -37,13 +37,6 @@ class BaseFunEvents(
         check(!input.hasListeners) { "Input" }
         check(!guiError.hasListeners) { "GUI error" }
         check(!appClosed.hasListeners) { "AppClose" }
-//        beforeFrame.clearListeners()
-//        beforePhysics.clearListeners()
-//        physics.clearListeners()
-//        afterPhysics.clearListeners()
-//        input.clearListeners()
-//        guiError.clearListeners()
-//        appClose.clearListeners()
     }
 }
 

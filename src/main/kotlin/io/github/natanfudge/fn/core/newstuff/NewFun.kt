@@ -3,21 +3,27 @@ package io.github.natanfudge.fn.core.newstuff
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.util.Delegate
+import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.obtainPropertyName
 
 
-abstract class NewFun(
+interface SideEffect : AutoCloseable {
+    fun init() {}
+}
+
+abstract class NewFun internal constructor(
+    // Note: we swap the order of parameters here so we can differentiate between this internal constructor and the public one
+    val parent: NewFun?,
     /**
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
     val id: FunId,
-    val parent: NewFun? = null,
-) : AutoCloseable, Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList() {
+) :  Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList(), SideEffect {
     val context get() = NewFunContextRegistry.getContext()
-    val isRoot: Boolean = parent == null
+    inline val events get() = context.events
 
-    constructor(parent: NewFun, name: String) : this(parent.id.child(name), parent) {
+    constructor(name: String, parent: NewFun = NewFunContextRegistry.getContext().rootFun) : this(parent, parent.id.child(name)) {
         parent.registerChild(this)
     }
 
@@ -25,14 +31,6 @@ abstract class NewFun(
 //        context.register(this)
     }
 
-    fun <T> memo(vararg keys: Any?, ctr: () -> T): Delegate<T> = obtainPropertyName { name ->
-        memo(name, keys.toList(), ctr)
-    }
-
-    fun <T> memo(key: String, dependencies: CacheDependencyKeys, ctr: () -> T): T {
-        val key = id + key
-        return context.cache.getOrCreate(key, dependencies, ctr)
-    }
 
     override fun toString(): String {
         return id
@@ -59,6 +57,15 @@ abstract class NewFun(
 
     protected open fun cleanup() {
 
+    }
+
+    fun <T> memo(vararg keys: Any?, ctr: () -> T): Delegate<T> = obtainPropertyName { name ->
+        memo(name, keys.toList(), ctr)
+    }
+
+    fun <T> event() = obtainPropertyName {
+        // see https://github.com/natanfudge/MineTheEarth/issues/116
+        EventEmitter<T>()
     }
 }
 
