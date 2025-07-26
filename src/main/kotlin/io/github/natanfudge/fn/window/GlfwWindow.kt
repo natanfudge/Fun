@@ -74,7 +74,6 @@ class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowCon
         return "GLFW Window $handle"
     }
 
-    private val waitingTasks = mutableListOf<() -> Unit>()
     val inputEvent = EventEmitter<InputEvent>()
     val densityChangeEvent = EventEmitter<Density>()
 
@@ -83,10 +82,6 @@ class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowCon
 
     var lastFrameTimeNano = System.nanoTime()
 
-    /**
-     * It's important to lock on this when modifying [waitingTasks] because [submitTask] occurs on a different thread than the running of [waitingTasks]
-     */
-    private val taskLock = ReentrantLock()
 
     /**
      * If cursor is not locked, will return the position of the cursor.
@@ -114,23 +109,6 @@ class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowCon
 
     var open = true
 
-    fun pollTasks() {
-        taskLock.withLock {
-            waitingTasks.forEach { it() }
-            waitingTasks.clear()
-        }
-    }
-
-//    fun getWindowPos()
-
-    /**
-     * Submits a callback to run on the main thread.
-     */
-    fun submitTask(task: () -> Unit) {
-        taskLock.withLock {
-            waitingTasks.add(task)
-        }
-    }
 
 
     override fun close() {

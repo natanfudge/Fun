@@ -36,8 +36,6 @@ class GlfwGameLoop(val window: GlfwWindowConfig) {
             val delta = time - currentWindow.lastFrameTimeNano
             if (delta >= 1e9 / currentWindow.params.maxFps) {
                 checkForReloads()
-                currentWindow.pollTasks()
-                checkForReloads()
                 window.frameLifecycle.restart()
             }
         }

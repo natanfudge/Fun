@@ -1,7 +1,8 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import io.github.natanfudge.fn.core.FunStateContext
+import io.github.natanfudge.fn.core.FunStateManager
 import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.window.GlfwWindow
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
@@ -32,14 +33,21 @@ class RootFun : NewFun(null, "") {
 
 }
 
-class NewFunContext(val appCallback: () -> Unit) {
+class NewFunContext(val appCallback: () -> Unit): FunStateContext {
     init {
         NewFunContextRegistry.setContext(this)
     }
+    val initializer = FunInitializer()
+    override val stateManager = FunStateManager()
+
     val rootFun = RootFun()
 
-    val cache = FunCache()
     val events = NewFunEvents()
+
+    internal fun register(fn: NewFun) {
+        stateManager.register(fn.id, allowReregister = true)
+        initializer.requestInitialization(fn.id, fn.keys, fn)
+    }
 
 
     private var previousFrameTime = TimeSource.Monotonic.markNow()
@@ -60,7 +68,7 @@ class NewFunContext(val appCallback: () -> Unit) {
 
         appCallback()
         // Nothing to close, but its fine, it will start everything without closing anything
-        cache.finishRefresh()
+        initializer.finishRefresh()
 
         while (true) {
             val elapsed = previousFrameTime.elapsedNow()
@@ -88,9 +96,9 @@ class NewFunContext(val appCallback: () -> Unit) {
 
     private fun reload(reload: Reload) {
         events.appClosed(Unit)
-        cache.prepareForRefresh()
+        initializer.prepareForRefresh()
         appCallback()
-        cache.finishRefresh()
+        initializer.finishRefresh()
     }
 }
 
@@ -104,19 +112,37 @@ internal object NewFunContextRegistry {
     fun getContext() = context
 }
 
+class StatelessEffect(
+    id: String,
+    override val keys: List<Any?>,
+    val initFunc: () -> Unit,
+    val close: () -> Unit,
+) : NewFun(id) {
+    override fun init() {
+        initFunc()
+    }
+
+    override fun cleanup() {
+        close()
+    }
+}
+
+fun sideEffect(vararg keys: Any?, name: String = "sideEffect", close: () -> Unit = {}, init: () -> Unit)  {
+    StatelessEffect(name, keys.toList(), init, close)
+}
+
 class FunBaseApp(window: WindowConfig) : NewFun("FunBaseApp") {
-    val glfwConfig by memo {
-        GlfwWindowProvider.initialize()
-    }
-    // TODO: maybe we should do something about side effects not occuring without memo, but tbh currently it's incorrect to not use memo
-    // For userland, we def don't want memo everywhere, so we need to hook into the cache on init of Fun.
-
-    val window by memo(window) {
-        NewGlfwWindow(withOpenGL = false, showWindow = true, window)
-    }
-
-
     init {
+        sideEffect(Unit) {
+            GlfwWindowProvider.initialize()
+        }
+    }
+
+
+    //TODO: test hot reload and then write next steps
+    val window = NewGlfwWindow(withOpenGL = false, showWindow = true, window)
+
+    override fun init() {
         events.frame.listen {
             Thread.sleep(30)
             GLFW.glfwPollEvents()

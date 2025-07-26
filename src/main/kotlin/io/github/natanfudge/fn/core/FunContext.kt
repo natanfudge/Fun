@@ -1,7 +1,7 @@
 package io.github.natanfudge.fn.core
 
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
-import io.github.natanfudge.fn.core.newstuff.FunCache
+import io.github.natanfudge.fn.core.newstuff.FunInitializer
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.render.DefaultCamera
 import io.github.natanfudge.fn.render.FunSurface
@@ -58,7 +58,7 @@ class FunContext internal constructor(
     init {
         FunContextRegistry.setContext(this)
     }
-    internal val cache = FunCache()
+    internal val cache = FunInitializer()
 
     private val inputListener = surface.ctx.window.inputEvent.listenUnscoped { input ->
         // No need to block input with a null cursor position

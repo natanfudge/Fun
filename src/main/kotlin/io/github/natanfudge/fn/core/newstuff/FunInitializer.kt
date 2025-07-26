@@ -5,12 +5,11 @@ package io.github.natanfudge.fn.core.newstuff
 import androidx.compose.runtime.*
 import io.github.natanfudge.fn.compose.utils.composeApp
 import kotlinx.coroutines.delay
-import java.util.*
 
-class FunCache {
+class FunInitializer {
     // Stored in a TreeMap so we can track the order of insertions. We want to init by order, and close by reverse order.
-    private val invalidValues = TreeMap<CacheKey, CacheValue>()
-    private val values = TreeMap<CacheKey, CacheValue>()
+    private val invalidValues = LinkedHashMap<CacheKey, CacheValue>()
+    private val values = LinkedHashMap<CacheKey, CacheValue>()
 
     /**
      * Refreshing Fun state happens in three stages:
@@ -19,7 +18,7 @@ class FunCache {
      * 3. Init: init() is called for all constructed objects, causing side effects.
      *
      * We run [prepareForRefresh] before stage 1 to have an empty [values] map and track which values are invalid, initially
-     * marking all values as invalid. When [getOrCreate] will be called for all components then some will be revalidated, and they won't be closed.
+     * marking all values as invalid. When [requestInitialization] will be called for all components then some will be revalidated, and they won't be closed.
      */
     fun prepareForRefresh() {
         invalidValues.putAll(values)
@@ -32,35 +31,28 @@ class FunCache {
      * @see prepareForRefresh
      */
     fun finishRefresh() {
-        invalidValues.descendingMap().forEach { (_, value) ->
-            if (value.value is AutoCloseable) {
-                value.value.close()
-            }
+        invalidValues.toList().asReversed().forEach { (_, value) ->
+            value.value.close(unregisterFromParent = false, deleteState = false, unregisterFromContext = false)
         }
         values.forEach { (_, value) ->
-            if (value.value is SideEffect) {
-                value.value.init()
-            }
+            value.value.init()
         }
         invalidValues.clear()
     }
 
 
-    fun <T> getOrCreate(key: CacheKey, keys: CacheDependencyKeys, ctr: () -> T): T {
+    fun requestInitialization(key: CacheKey, keys: CacheDependencyKeys, value: NewFun) {
+        check(key !in values) { "Two Funs were registered with the same ID: $key" }
         val cached = invalidValues[key]
 
-        if (cached == null || keys != cached.dependencies) {
+        if (keys == null || cached == null || keys != cached.dependencies) {
             // Key remains invalid in this case, and the value will be closed in finishRefresh()
-
-            val newVal = ctr()
-            values[key] = CacheValue(keys, newVal)
-            return newVal
+            values[key] = CacheValue(keys, value)
         } else {
             values[key] = cached
             // Cached value - its not invalid and we don't want to close it
             invalidValues.remove(key)
         }
-        return cached.value as T
     }
 }
 
@@ -145,11 +137,11 @@ fun Child() {
     }
 }
 
-typealias CacheDependencyKeys = List<Any?>
+typealias CacheDependencyKeys = List<Any?>?
 
 data class CacheValue(
     val dependencies: CacheDependencyKeys,
-    val value: Any?,
+    val value: NewFun,
 )
 
 typealias CacheKey = String

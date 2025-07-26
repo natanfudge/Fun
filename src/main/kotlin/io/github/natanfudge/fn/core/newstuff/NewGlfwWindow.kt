@@ -13,15 +13,9 @@ import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
-import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.EventEmitter
-import io.github.natanfudge.fn.window.AwtMouseEvent
-import io.github.natanfudge.fn.window.AwtMouseWheelEvent
-import io.github.natanfudge.fn.window.WindowConfig
-import io.github.natanfudge.fn.window.WindowHandle
-import io.github.natanfudge.fn.window.getAwtMods
-import io.github.natanfudge.fn.window.glfwToComposeEvent
-import io.github.natanfudge.fn.window.typedCharacterToComposeEvent
+import io.github.natanfudge.fn.util.Lifecycle
+import io.github.natanfudge.fn.window.*
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
 import java.util.concurrent.locks.ReentrantLock
@@ -42,17 +36,19 @@ interface WindowDimensions {
 }
 
 
-
 data class GlfwWindowDimensions(
     override val width: Int,
     override val height: Int,
     val window: NewGlfwWindow,
-): WindowDimensions
+) : WindowDimensions
 
-class NewGlfwWindow(val withOpenGL: Boolean,val showWindow: Boolean, val params: WindowConfig) : SideEffect {
-    //TODO: emit events into here
-    private val context = NewFunContextRegistry.getContext()
-    var handle by Delegates.notNull<WindowHandle>()
+class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow") {
+
+    override val keys = mutableListOf(params)
+
+    //TODO: emit events into context
+
+    var handle by funValue<WindowHandle>(null)
     override fun init() {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (withOpenGL) {
@@ -82,17 +78,11 @@ class NewGlfwWindow(val withOpenGL: Boolean,val showWindow: Boolean, val params:
         return "GLFW Window $handle"
     }
 
-    private val waitingTasks = mutableListOf<() -> Unit>()
     val inputEvent = EventEmitter<InputEvent>()
     val densityChangeEvent = EventEmitter<Density>()
 
-
     var lastFrameTimeNano = System.nanoTime()
 
-    /**
-     * It's important to lock on this when modifying [waitingTasks] because [submitTask] occurs on a different thread than the running of [waitingTasks]
-     */
-    private val taskLock = ReentrantLock()
 
     /**
      * If cursor is not locked, will return the position of the cursor.
@@ -120,26 +110,9 @@ class NewGlfwWindow(val withOpenGL: Boolean,val showWindow: Boolean, val params:
 
     var open = true
 
-    fun pollTasks() {
-        taskLock.withLock {
-            waitingTasks.forEach { it() }
-            waitingTasks.clear()
-        }
-    }
-
-//    fun getWindowPos()
-
-    /**
-     * Submits a callback to run on the main thread.
-     */
-    fun submitTask(task: () -> Unit) {
-        taskLock.withLock {
-            waitingTasks.add(task)
-        }
-    }
 
 
-    override fun close() {
+    override fun cleanup() {
         glfwSetWindowCloseCallback(handle, null)
         glfwDestroyWindow(handle)
     }
@@ -270,7 +243,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
     }
 
 
-    val dimensionsLifecycle: Lifecycle< GlfwWindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
+    val dimensionsLifecycle: Lifecycle<GlfwWindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
         val w = IntArray(1)
         val h = IntArray(1)
         glfwGetWindowSize(it.handle, w, h)
@@ -307,7 +280,6 @@ class HotReloadRestarter : AutoCloseable {
         handle.close()
     }
 }
-
 
 
 private fun glfwGetCursorPos(window: Long): Offset {
