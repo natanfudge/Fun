@@ -9,6 +9,7 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
@@ -44,13 +45,7 @@ data class GlfwWindowDimensions(
 
 class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow", params) {
 
-    //TODO: emit events into context
-
     var handle by funValue<WindowHandle>(null)
-    init {
-        val x = 2
-    }
-
 
     override fun init() {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
@@ -75,6 +70,98 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         if (showWindow) {
             glfwShowWindow(handle)
         }
+
+        glfwSetWindowCloseCallback(handle) {
+            events.input(InputEvent.WindowClosePressed)
+        }
+        glfwSetWindowPosCallback(handle) { _, x, y ->
+            events.input(InputEvent.WindowMove(IntOffset(x, y)))
+        }
+
+        glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
+            minimized = windowWidth == 0 || windowHeight == 0
+
+            events.windowResized(IntSize(windowWidth, windowHeight))
+        }
+
+
+
+        glfwSetMouseButtonCallback(handle) { _, button, action, mods ->
+            events.input(
+                InputEvent.PointerEvent(
+                    position = glfwGetCursorPos(handle
+                    ),
+                    eventType = when (action) {
+                        GLFW_PRESS -> PointerEventType.Press
+                        GLFW_RELEASE -> PointerEventType.Release
+                        else -> PointerEventType.Unknown
+                    },
+                    nativeEvent = AwtMouseEvent(getAwtMods(handle)),
+                    button = when (button) {
+                        GLFW_MOUSE_BUTTON_LEFT -> PointerButton.Primary
+                        GLFW_MOUSE_BUTTON_RIGHT -> PointerButton.Secondary
+                        GLFW_MOUSE_BUTTON_MIDDLE -> PointerButton.Tertiary
+                        GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
+                        GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
+                        else -> PointerButton.Forward // Default to Forward on unknown button
+                    }
+                )
+            )
+        }
+
+        glfwSetCursorPosCallback(handle) { _, xpos, ypos ->
+            val position = Offset(xpos.toFloat(), ypos.toFloat())
+            events.input(
+                InputEvent.PointerEvent(
+                    position = position,
+                    eventType = PointerEventType.Move,
+                    nativeEvent = AwtMouseEvent(getAwtMods(handle))
+                )
+            )
+        }
+
+        glfwSetScrollCallback(handle) { _, xoffset, yoffset ->
+            events.input(
+                InputEvent.PointerEvent(
+                    eventType = PointerEventType.Scroll,
+                    position = glfwGetCursorPos(handle),
+                    scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
+                    nativeEvent = AwtMouseWheelEvent(getAwtMods(handle))
+                )
+            )
+        }
+
+        glfwSetCursorEnterCallback(handle) { _, entered ->
+            events.input(
+                InputEvent.PointerEvent(
+                    position = glfwGetCursorPos(handle),
+                    eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
+                    nativeEvent = AwtMouseEvent(getAwtMods(handle))
+                )
+            )
+        }
+
+        glfwSetKeyCallback(handle) { _, key, scancode, action, mods ->
+            val event = glfwToComposeEvent(key, action, mods)
+            if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
+            events.input(InputEvent.KeyEvent(event))
+        }
+
+        glfwSetCharCallback(handle) { _, codepoint ->
+            for (char in Character.toChars(codepoint)) {
+                events.input(
+                    InputEvent.KeyEvent(typedCharacterToComposeEvent(char))
+                )
+            }
+        }
+
+        glfwSetWindowContentScaleCallback(handle) { _, xscale, _ ->
+            events.densityChange(Density(xscale))
+        }
+
+        events.beforeFrame.listen {
+            glfwPollEvents()
+        }
     }
 
 
@@ -83,8 +170,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         return "GLFW Window $handle"
     }
 
-    val inputEvent = EventEmitter<InputEvent>()
-    val densityChangeEvent = EventEmitter<Density>()
 
     var lastFrameTimeNano = System.nanoTime()
 
@@ -103,7 +188,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
                     if (glfwRawMouseMotionSupported()) {
                         glfwSetInputMode(handle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
                     }
-//                    cursorPos = null
                 } else {
                     glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL)
                     if (glfwRawMouseMotionSupported()) {
@@ -114,8 +198,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         }
 
     var open = true
-
-
 
     override fun cleanup() {
         glfwSetWindowCloseCallback(handle, null)
@@ -149,100 +231,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
     init {
         windowLifecycle.bind("GLFW Callbacks ($name)") { window ->
             val windowHandle = window.handle
-            glfwSetWindowCloseCallback(windowHandle) {
-                window.inputEvent.emit(InputEvent.WindowClosePressed)
-                window.open = false
-            }
-            glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-                window.inputEvent.emit(InputEvent.WindowMove(IntOffset(x, y)))
-            }
 
-            glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
-                if (windowWidth != 0 && windowHeight != 0) {
-                    window.minimized = false
-
-                    dimensionsLifecycle.restart()
-                } else {
-                    window.minimized = true
-                }
-            }
-
-
-
-            glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
-                window.inputEvent.emit(
-                    InputEvent.PointerEvent(
-                        position = glfwGetCursorPos(windowHandle),
-                        eventType = when (action) {
-                            GLFW_PRESS -> PointerEventType.Press
-                            GLFW_RELEASE -> PointerEventType.Release
-                            else -> PointerEventType.Unknown
-                        },
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle)),
-                        button = when (button) {
-                            GLFW_MOUSE_BUTTON_LEFT -> PointerButton.Primary
-                            GLFW_MOUSE_BUTTON_RIGHT -> PointerButton.Secondary
-                            GLFW_MOUSE_BUTTON_MIDDLE -> PointerButton.Tertiary
-                            GLFW_MOUSE_BUTTON_4 -> PointerButton.Back
-                            GLFW_MOUSE_BUTTON_5 -> PointerButton.Forward
-                            else -> PointerButton.Forward // Default to Forward on unknown button
-                        }
-                    )
-                )
-            }
-
-            glfwSetCursorPosCallback(windowHandle) { _, xpos, ypos ->
-                val position = Offset(xpos.toFloat(), ypos.toFloat())
-                window.inputEvent.emit(
-                    InputEvent.PointerEvent(
-                        position = position,
-                        eventType = PointerEventType.Move,
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-
-                    )
-                )
-            }
-
-            glfwSetScrollCallback(windowHandle) { _, xoffset, yoffset ->
-                window.inputEvent.emit(
-                    InputEvent.PointerEvent(
-                        eventType = PointerEventType.Scroll,
-                        position = glfwGetCursorPos(windowHandle),
-                        scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
-                        nativeEvent = AwtMouseWheelEvent(getAwtMods(windowHandle))
-                    )
-                )
-
-
-            }
-
-            glfwSetCursorEnterCallback(windowHandle) { _, entered ->
-                window.inputEvent.emit(
-                    InputEvent.PointerEvent(
-                        position = glfwGetCursorPos(windowHandle),
-                        eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
-                        nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
-                    )
-                )
-            }
-
-            glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
-                val event = glfwToComposeEvent(key, action, mods)
-                if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
-                window.inputEvent.emit(InputEvent.KeyEvent(event))
-            }
-
-            glfwSetCharCallback(windowHandle) { _, codepoint ->
-                for (char in Character.toChars(codepoint)) {
-                    window.inputEvent.emit(
-                        InputEvent.KeyEvent(typedCharacterToComposeEvent(char))
-                    )
-                }
-            }
-
-            glfwSetWindowContentScaleCallback(windowHandle) { _, xscale, _ ->
-                window.densityChangeEvent.emit(Density(xscale))
-            }
             Unit
         }
     }

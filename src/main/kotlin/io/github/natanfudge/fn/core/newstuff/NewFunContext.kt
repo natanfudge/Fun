@@ -1,5 +1,7 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.FunStateManager
 import io.github.natanfudge.fn.core.InputEvent
@@ -9,6 +11,7 @@ import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.core.mapLeft
 import org.lwjgl.glfw.GLFW
+import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
@@ -24,6 +27,12 @@ class NewFunEvents : NewFun("FunEvents") {
     val guiError by event<Throwable>()
     val appClosed by event<Unit>()
     val hotReload by event<Reload>()
+
+    // TODO: route to compose
+    val densityChange by event<Density>()
+
+    // TODO: refresh app on resize
+    val windowResized by event<IntSize>()
 }
 
 
@@ -61,9 +70,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     private var pendingReload: Reload? = null
 
 
-
     fun start() {
-        println("omfg")
         invokeAfterHotReload { _, result ->
             println("Hot Reload")
             result.mapLeft {
@@ -74,6 +81,10 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
         events.hotReload.listenUnscoped {
             reload(it)
+        }
+
+        events.input.listenUnscoped {
+            if (it is InputEvent.WindowClosePressed) exitProcess(0)
         }
 
         appCallback()
@@ -103,7 +114,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
             // But tbh this is an uphill battle, it would be best to interrupt the main thread on reload and do what we need.
             if (pendingReload != null) {
                 // Run reload on main thread
-                events.hotReload.emit(pendingReload!!)
+                events.hotReload(pendingReload!!)
                 pendingReload = null
             }
         }
@@ -153,17 +164,7 @@ class FunBaseApp(window: WindowConfig) : NewFun("FunBaseApp") {
         }
     }
 
-
-    //TODO: test hot reload and then write next steps
     val window = NewGlfwWindow(withOpenGL = false, showWindow = true, window)
-
-    override fun init() {
-        events.frame.listen {
-//            Thread.sleep(30)
-            GLFW.glfwPollEvents()
-//            println("Frame")
-        }
-    }
 }
 
 fun main() {

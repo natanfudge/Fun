@@ -39,14 +39,6 @@ abstract class NewFun internal constructor(
 
     }
 
-//    /**
-//     * If overridden, [init] will not be called on refresh when none of the [keys] change.
-//     */
-//    open fun getKeys(): List<Any?>? {
-//        return null
-//    }
-
-
     override fun toString(): String {
         return id
     }
@@ -61,6 +53,7 @@ abstract class NewFun internal constructor(
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
     internal fun close(unregisterFromParent: Boolean) {
+        context.unregister(this)
         childCloseables.forEach { it.close() }
         cleanup()
         children.forEach { it.close(unregisterFromParent = false) }
