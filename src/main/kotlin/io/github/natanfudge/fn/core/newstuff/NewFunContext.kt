@@ -15,6 +15,11 @@ import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 
+// 3. Setup webgpu world renderer
+// 3.5 Cleanup NewGlfwWindow
+// 4. refresh app on resize
+
+
 class NewFunEvents : NewFun("FunEvents") {
     // see https://github.com/natanfudge/MineTheEarth/issues/115
     val beforeFrame by event<Duration>()
@@ -31,7 +36,6 @@ class NewFunEvents : NewFun("FunEvents") {
     // TODO: route to compose
     val densityChange by event<Density>()
 
-    // TODO: refresh app on resize
     val windowResized by event<IntSize>()
 }
 
@@ -72,7 +76,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     fun start() {
         invokeAfterHotReload { _, result ->
-            println("Hot Reload")
+            println("Hot Reloading app!")
             result.mapLeft {
                 // This runs on a different thread which will cause issues, so we store it and will run it on the main thread later
                 pendingReload = it
@@ -120,9 +124,10 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
         }
     }
 
+
     private fun reload(reload: Reload) {
         events.appClosed(Unit)
-        initializer.prepareForRefresh()
+        initializer.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
         appCallback()
         initializer.finishRefresh()
     }
@@ -169,7 +174,7 @@ class FunBaseApp(window: WindowConfig) : NewFun("FunBaseApp") {
 
 fun main() {
     val context = NewFunContext {
-        val base = FunBaseApp(WindowConfig(initialWindowWidth = 600))
+        val base = FunBaseApp(WindowConfig(initialWindowWidth = 800))
 
     }
 

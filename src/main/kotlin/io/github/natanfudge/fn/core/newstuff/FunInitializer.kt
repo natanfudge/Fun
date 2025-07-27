@@ -5,12 +5,18 @@ package io.github.natanfudge.fn.core.newstuff
 import androidx.compose.runtime.*
 import io.github.natanfudge.fn.compose.utils.composeApp
 import kotlinx.coroutines.delay
+import kotlin.reflect.KClass
 
 class FunInitializer {
     // Stored in a TreeMap so we can track the order of insertions. We want to init by order, and close by reverse order.
 
     /** In general, after refresh, [invalidValues] is very similar to [values] in terms of the type of its content, but with old instances. */
     private val invalidValues = LinkedHashMap<CacheKey, NewFun>()
+
+    /**
+     * Classes that had their bytecode changed, so we will make sure to refresh them
+     */
+    private val invalidTypes = mutableListOf<KClass<*>>()
     /**
      *  [uninitializedValues] is a subset of [values]. Those are values that could not be retrieved from cache and need to be reinitialized.
      *
@@ -31,7 +37,8 @@ class FunInitializer {
      * We run [prepareForRefresh] before stage 1 to have an empty [values] map and track which values are invalid, initially
      * marking all values as invalid. When [requestInitialization] will be called for all components then some will be revalidated, and they won't be closed.
      */
-    fun prepareForRefresh() {
+    fun prepareForRefresh(invalidTypes: List<KClass<*>>) {
+        this.invalidTypes.addAll(invalidTypes)
         invalidValues.putAll(values)
         values.clear()
     }
@@ -51,6 +58,7 @@ class FunInitializer {
             value.init()
         }
         uninitializedValues.clear()
+        invalidTypes.clear()
     }
 
 
@@ -61,16 +69,16 @@ class FunInitializer {
         check(key !in values) { "Two Funs were registered with the same ID: $key" }
         val cached = invalidValues[key]
         val keys = value.keys
-        if (keys != null && cached != null && keys == cached.keys) {
+        if (keys != null && cached != null && keys == cached.keys
+            // Make sure to not cache value if its type is invalid
+            && invalidTypes.none { it.isInstance(value) }) {
             // Cached value - its not invalid and we don't want to close it or reinitialize it
             invalidValues.remove(key)
 
-//            values[key] = value
         } else {
             // New value - we need to initialize it
             uninitializedValues.add(value)
             // Key remains invalid in this case, and the value will be closed in finishRefresh()
-//            values[key] = cached
         }
         values[key] = value
     }
@@ -82,87 +90,6 @@ class FunInitializer {
 }
 
 
-
-
-class WindowBase {
-    fun initialize() {
-        println("Initialize window")
-    }
-
-    fun close() {
-        println("Close WindowBase")
-    }
-}
-
-class SizedWindow {
-    fun initialize() {
-        println("Initialize SizedWindow")
-    }
-
-    fun close() {
-        println("Close SizedWindow")
-    }
-}
-
-fun main() {
-    composeApp {
-        var active by remember { mutableStateOf(true) }
-
-        var variable by remember { mutableStateOf(500) }
-        LaunchedEffect(Unit) {
-//            delay(500)
-//            active = false
-            delay(500)
-            variable = 600
-        }
-        if (active) {
-            val window = key(variable, 200) {
-                val window = remember {
-                    WindowBase().also { it.initialize() }
-                }
-                DisposableEffect(Unit) {
-                    onDispose { window.close() }
-                }
-                window
-            }
-            nested(window)
-
-        }
-    }
-}
-
-@Composable
-fun nested(window: WindowBase) {
-    val sizedWindow = key(window) {
-        val sizedWindow = remember { SizedWindow().also { it.initialize() } }
-        DisposableEffect(Unit) {
-            onDispose { sizedWindow.close() }
-        }
-        sizedWindow
-    }
-}
-
-interface Fun
-
-@Composable
-fun Parent() {
-
-    DisposableEffect(Unit) {
-        onDispose {
-            println("Parent")
-        }
-    }
-    Child()
-}
-
-@Composable
-fun Child() {
-    DisposableEffect(Unit) {
-        onDispose {
-            println("Child")
-        }
-    }
-}
 
 
 

@@ -24,28 +24,17 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.withLock
 import kotlin.properties.Delegates
 
-var onTheFlyDebugRequested = false
 
-data class GlfwConfig(
-    val disableApi: Boolean,
-    val showWindow: Boolean,
-)
-
-interface WindowDimensions {
-    val width: Int
-    val height: Int
-}
-
-
-data class GlfwWindowDimensions(
-    override val width: Int,
-    override val height: Int,
-    val window: NewGlfwWindow,
-) : WindowDimensions
 
 class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow", params) {
+    // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
     var handle by funValue<WindowHandle>(null)
+
+    var width = params.initialWindowWidth
+    var height = params.initialWindowHeight
+
+    val size get() = IntSize(width, height)
 
     override fun init() {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
@@ -162,6 +151,10 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         events.beforeFrame.listen {
             glfwPollEvents()
         }
+        events.windowResized.listen { (width, height) ->
+            this.width = width
+            this.height = height
+        }
     }
 
 
@@ -169,10 +162,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
     override fun toString(): String {
         return "GLFW Window $handle"
     }
-
-
-    var lastFrameTimeNano = System.nanoTime()
-
 
     /**
      * If cursor is not locked, will return the position of the cursor.
@@ -197,83 +186,12 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             }
         }
 
-    var open = true
-
     override fun cleanup() {
         glfwSetWindowCloseCallback(handle, null)
         glfwDestroyWindow(handle)
     }
 }
 
-class GlfwFrame(
-    val window: NewGlfwWindow,
-) {
-    val time = System.nanoTime()
-    val deltaMs = (time - window.lastFrameTimeNano).toDouble() / 1e6
-
-    init {
-        window.lastFrameTimeNano = time
-    }
-
-    override fun toString(): String {
-        return "Frame delta=$deltaMs, window=$window"
-    }
-}
-
-
-// Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
-class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParameters: WindowConfig, parentLifecycle: Lifecycle<Unit> = ProcessLifecycle) {
-
-    val windowLifecycle: Lifecycle<NewGlfwWindow> = parentLifecycle.bind("GLFW $name Window") {
-        NewGlfwWindow(!glfw.disableApi, glfw.showWindow, windowParameters)
-    }
-
-    init {
-        windowLifecycle.bind("GLFW Callbacks ($name)") { window ->
-            val windowHandle = window.handle
-
-            Unit
-        }
-    }
-
-
-    val dimensionsLifecycle: Lifecycle<GlfwWindowDimensions> = windowLifecycle.bind("GLFW Dimensions ($name)") {
-        val w = IntArray(1)
-        val h = IntArray(1)
-        glfwGetWindowSize(it.handle, w, h)
-        GlfwWindowDimensions(w[0], h[0], it)
-    }
-
-    val frameLifecycle = dimensionsLifecycle.bind("GLFW Frame of $name", FunLogLevel.Verbose) {
-        GlfwFrame(it.window)
-    }
-
-    val HotReloadSave = parentLifecycle.bind("GLFW Reload Save of $name") {
-        HotReloadRestarter()
-    }
-
-    val eventPollLifecycle = parentLifecycle.bind("GLFW Event poll of $name", FunLogLevel.Verbose) {
-        glfwPollEvents()
-    }
-
-
-    fun close() {
-        windowLifecycle.value?.open = false
-        windowLifecycle.end()
-    }
-}
-
-
-class HotReloadRestarter : AutoCloseable {
-    var restarted = false
-    val handle = FunHotReload.reloadEnded.listenUnscoped {
-        restarted = true
-    }
-
-    override fun close() {
-        handle.close()
-    }
-}
 
 
 private fun glfwGetCursorPos(window: Long): Offset {

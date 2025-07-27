@@ -57,6 +57,14 @@ class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowCon
         params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
     )
 
+    override fun equals(other: Any?): Boolean {
+        return other is GlfwWindow && other.handle == this.handle
+    }
+
+    override fun hashCode(): Int {
+        return handle.hashCode()
+    }
+
     init {
         if (handle == NULL) {
             glfwTerminate()

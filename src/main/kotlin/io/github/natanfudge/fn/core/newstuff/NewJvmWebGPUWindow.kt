@@ -1,4 +1,4 @@
-package io.github.natanfudge.fn.webgpu
+package io.github.natanfudge.fn.core.newstuff
 
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.Kernel32
@@ -8,7 +8,6 @@ import ffi.LibraryLoader
 import ffi.globalMemory
 import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
-import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
 import io.github.natanfudge.fn.window.*
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
@@ -30,50 +29,47 @@ import org.rococoa.Rococoa
 
 private var contextIndex = 0
 
-class WebGPUContext(
-    val window: GlfwWindow,
+class NewWebGPUContext(
+    val window: NewGlfwWindow,
 ) : AutoCloseable {
+    companion object {
+        val wgpu4k = WGPU.createInstance() ?: error("failed to create wgpu instance")
+    }
+
     override fun toString(): String {
         return "WebGPU Context #$myIndex"
     }
 
     val myIndex = contextIndex++
-    val context = wgpu.getNativeSurface(window.handle)
-    val adapter = wgpu.requestAdapter(context)
+    val context = wgpu4k.getNativeSurface(window.handle)
+    val adapter = wgpu4k.requestAdapter(context)
         ?.also { context.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
-    var error: WebGPUException? = null
+    var error: NewWebGPUException? = null
 
     val presentationFormat = context.supportedFormats.first()
     val device = runBlocking {
         adapter.requestDevice(
             DeviceDescriptor(label = myIndex.toString(), onUncapturedError = {
-                throw WebGPUException(it)
+                throw NewWebGPUException(it)
             })
         ).getOrThrow()
     }
 
-
-    val refreshRate = getRefreshRate(window.handle)
 
     override fun close() {
         closeAll(context, adapter, device)
     }
 }
 
-class WebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
+class NewWebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 
-data class WebGPUFixedSizeSurface(
-    val surface: WebGPUContext,
-    val dimensions: GlfwWindowDimensions,
-//    val window: ComposeGlfwWindow
-)
 
 private var frame = 0
 
 data class WebGPUFrame(
-    val ctx: WebGPUContext,
+    val ctx: NewWebGPUContext,
     val dimensions: GlfwWindowDimensions,
     val deltaMs: Double,
 ) : AutoCloseable {
@@ -96,45 +92,41 @@ data class WebGPUFrame(
     }
 }
 
-class WebGPUWindow(config: WindowConfig) {
-    companion object {
-        const val SurfaceLifecycleLabel = "WebGPU Surface"
-
-        init {
+class NewWebGPUSurface(val window: NewGlfwWindow): NewFun("WebGPUWindow", window) {
+    init {
+        sideEffect(Unit) {
             LibraryLoader.load()
             wgpuSetLogLevel(WGPULogLevel_Info)
-            val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, userdata ->
+            val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, _ ->
                 val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
                 println("$level: $message")
             }
             wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
         }
 
-        val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
+
+        events.windowResized.listen { (width, height) ->
+            webgpu.context.configure(
+                SurfaceConfiguration(
+                    webgpu.device, format = webgpu.presentationFormat
+                ),
+                width = width.toUInt(), height = height.toUInt()
+            )
+        }
     }
 
-    val window = GlfwWindowConfig(GlfwConfig(disableApi = true, showWindow = true), name = "WebGPU", config)
-
-
-    // Surface needs to initialize before the dimensions
-    val surfaceLifecycle = window.windowLifecycle.bind(SurfaceLifecycleLabel) {
-        WebGPUContext(it)
+    lateinit var webgpu: NewWebGPUContext
+    override fun init() {
+        webgpu = NewWebGPUContext(window)
     }
 
-    // HACK: early = true here is just bandaid I feel like for proper close ordering. If you don't do this the wgpu surface can crash on resize.
-    val dimensionsLifecycle = window.dimensionsLifecycle.bind(surfaceLifecycle, "WebGPU Dimensions", early1 = true) { dim, surface ->
-        surface.context.configure(
-            SurfaceConfiguration(
-                surface.device, format = surface.presentationFormat
-            ),
-            width = dim.width.toUInt(), height = dim.height.toUInt()
-        )
-        WebGPUFixedSizeSurface(surface, dim)
+    override fun cleanup() {
+        webgpu.close()
     }
 
-    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle, "WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
-        WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
-    }
+//    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle, "WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
+//        WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
+//    }
 
 
 }
