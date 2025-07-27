@@ -28,27 +28,27 @@ import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
 import org.rococoa.ID
 import org.rococoa.Rococoa
 
-private var contextIndex = 0
+//TODO: merge into implementation when we finished migration
+interface WebGPUContext {
+    val context : NativeSurface
+    val presentationFormat: GPUTextureFormat
+    val device : GPUDevice
+}
 
-class WebGPUContext(
+class WebGPUContextOld(
     val window: GlfwWindow,
-) : AutoCloseable {
-    override fun toString(): String {
-        return "WebGPU Context #$myIndex"
-    }
-
-    val myIndex = contextIndex++
-    val context = wgpu.getNativeSurface(window.handle)
-    val adapter = wgpu.requestAdapter(context)
+) : AutoCloseable, WebGPUContext {
+    override val context = wgpu.getNativeSurface(window.handle)
+    private val adapter = wgpu.requestAdapter(context)
         ?.also { context.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
     var error: WebGPUException? = null
 
-    val presentationFormat = context.supportedFormats.first()
-    val device = runBlocking {
+    override val presentationFormat = context.supportedFormats.first()
+    override val device = runBlocking {
         adapter.requestDevice(
-            DeviceDescriptor(label = myIndex.toString(), onUncapturedError = {
+            DeviceDescriptor(onUncapturedError = {
                 throw WebGPUException(it)
             })
         ).getOrThrow()
@@ -65,7 +65,7 @@ class WebGPUContext(
 class WebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 
 data class WebGPUFixedSizeSurface(
-    val surface: WebGPUContext,
+    val surface: WebGPUContextOld,
     val dimensions: GlfwWindowDimensions,
 //    val window: ComposeGlfwWindow
 )
@@ -73,7 +73,7 @@ data class WebGPUFixedSizeSurface(
 private var frame = 0
 
 data class WebGPUFrame(
-    val ctx: WebGPUContext,
+    val ctx: WebGPUContextOld,
     val dimensions: GlfwWindowDimensions,
     val deltaMs: Double,
 ) : AutoCloseable {
@@ -118,7 +118,7 @@ class WebGPUWindow(config: WindowConfig) {
 
     // Surface needs to initialize before the dimensions
     val surfaceLifecycle = window.windowLifecycle.bind(SurfaceLifecycleLabel) {
-        WebGPUContext(it)
+        WebGPUContextOld(it)
     }
 
     // HACK: early = true here is just bandaid I feel like for proper close ordering. If you don't do this the wgpu surface can crash on resize.

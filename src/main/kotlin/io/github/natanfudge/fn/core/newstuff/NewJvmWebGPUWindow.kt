@@ -6,8 +6,10 @@ import darwin.CAMetalLayer
 import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
-import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.util.closeAll
+import io.github.natanfudge.fn.webgpu.WebGPUContext
+import io.github.natanfudge.fn.webgpu.WebGPUException
+import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
 import io.github.natanfudge.fn.window.*
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
@@ -31,37 +33,28 @@ private var contextIndex = 0
 
 class NewWebGPUContext(
     val window: NewGlfwWindow,
-) : AutoCloseable {
-    companion object {
-        val wgpu4k = WGPU.createInstance() ?: error("failed to create wgpu instance")
-    }
-
-    override fun toString(): String {
-        return "WebGPU Context #$myIndex"
-    }
-
-    val myIndex = contextIndex++
-    val context = wgpu4k.getNativeSurface(window.handle)
-    val adapter = wgpu4k.requestAdapter(context)
+) : AutoCloseable, WebGPUContext {
+    override val context = wgpu.getNativeSurface(window.handle)
+    private val adapter = wgpu.requestAdapter(context)
         ?.also { context.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
-    var error: NewWebGPUException? = null
+    var error: WebGPUException? = null
 
-    val presentationFormat = context.supportedFormats.first()
-    val device = runBlocking {
+    override val presentationFormat = context.supportedFormats.first()
+    override val device = runBlocking {
         adapter.requestDevice(
-            DeviceDescriptor(label = myIndex.toString(), onUncapturedError = {
-                throw NewWebGPUException(it)
+            DeviceDescriptor(onUncapturedError = {
+                throw WebGPUException(it)
             })
         ).getOrThrow()
     }
-
 
     override fun close() {
         closeAll(context, adapter, device)
     }
 }
+
 
 class NewWebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 
@@ -69,7 +62,7 @@ class NewWebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 private var frame = 0
 
 data class WebGPUFrame(
-    val ctx: NewWebGPUContext,
+    val ctx: WebGPUContext,
     val dimensions: GlfwWindowDimensions,
     val deltaMs: Double,
 ) : AutoCloseable {
@@ -93,6 +86,7 @@ data class WebGPUFrame(
 }
 
 class NewWebGPUSurface(val window: NewGlfwWindow): NewFun("WebGPUWindow", window) {
+    val size = window.size
     init {
         sideEffect(Unit) {
             LibraryLoader.load()

@@ -43,24 +43,26 @@ class WorldRender(
     val ctx: WebGPUContext,
     val surface: FunSurface,
 ) : AutoCloseable {
-    val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
-
+    val models = mutableMapOf<ModelId, BoundModel>()
     val rayCasting = RayCastingCache<RenderInstance>()
+
+    val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
+    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
+    val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
+    internal val baseInstanceData: IndirectInstanceBuffer = IndirectInstanceBuffer(
+        ctx, models, maxInstances = 50_000, expectedElementSize = BaseInstanceData.size
+    ) { it.renderId }
+    internal val jointMatrixData: IndirectInstanceBuffer = IndirectInstanceBuffer(ctx, models, maxInstances = 1_000, expectedElementSize = Mat4f.SIZE_BYTES * 50u) {
+        (it.jointMatricesPointer.address / Mat4f.SIZE_BYTES).toInt()
+    }
+
     var selectedObjectId: Int = -1
 
     var hoveredObject: Boundable? by mutableStateOf(null)
 
-    val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
-    val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
 
-    internal val baseInstanceData: IndirectInstanceBuffer = IndirectInstanceBuffer(
-        this, maxInstances = 50_000, expectedElementSize = BaseInstanceData.size
-    ) { it.renderId }
-    internal val jointMatrixData: IndirectInstanceBuffer = IndirectInstanceBuffer(this, maxInstances = 1_000, expectedElementSize = Mat4f.SIZE_BYTES * 50u) {
-        (it.jointMatricesPointer.address / Mat4f.SIZE_BYTES).toInt()
-    }
 
-    val models = mutableMapOf<ModelId, BoundModel>()
+
 
 
     fun createBindGroup(pipeline: GPURenderPipeline) = ctx.device.createBindGroup(
@@ -241,7 +243,8 @@ data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, v
  * @param instanceIndexGetter Gets the index of instance data of the given [RenderInstance].
  */
 internal class IndirectInstanceBuffer(
-    private val world: WorldRender, maxInstances: Int, expectedElementSize: UInt,
+    val ctx: WebGPUContext, val models:  Map<ModelId, BoundModel>,
+    maxInstances: Int, expectedElementSize: UInt,
     private val instanceIndexGetter: (RenderInstance) -> Int,
 ) : AutoCloseable {
     override fun close() {
@@ -249,14 +252,14 @@ internal class IndirectInstanceBuffer(
     }
 
     val instanceBuffer =
-        ManagedGPUMemory(world.ctx, initialSizeBytes = (maxInstances * expectedElementSize.toInt()).toULong(), expandable = false, GPUBufferUsage.Storage)
+        ManagedGPUMemory(ctx, initialSizeBytes = (maxInstances * expectedElementSize.toInt()).toULong(), expandable = false, GPUBufferUsage.Storage)
 
     /**
      * Since instances are not stored contiguously in memory per mesh, we need a separate buffer that IS contiguous per mesh to point each instance
      * to its correct location in the instance buffer.
      */
     val instanceIndexBuffer =
-        ManagedGPUMemory(world.ctx, initialSizeBytes = (maxInstances * Int.SIZE_BYTES).toULong(), expandable = false, GPUBufferUsage.Storage)
+        ManagedGPUMemory(ctx, initialSizeBytes = (maxInstances * Int.SIZE_BYTES).toULong(), expandable = false, GPUBufferUsage.Storage)
 
     fun newInstance(array: Any): GPUPointer<*> {
         if (arrayByteSize(array) > 0) {
@@ -279,7 +282,7 @@ internal class IndirectInstanceBuffer(
      */
     private var dirty = false
 
-    private fun countInstances() = world.models.values.sumOf { it.instances.size }
+    private fun countInstances() = models.values.sumOf { it.instances.size }
 
 
     fun rebuild() {
@@ -287,7 +290,7 @@ internal class IndirectInstanceBuffer(
             dirty = false
             val indices = IntArray(countInstances())
             var globalI = 0
-            for (model in world.models) {
+            for (model in models) {
                 // For each model we have a contiguous block of pointers to the instance index
                 for (instance in model.value.instances) {
                     indices[globalI++] = instanceIndexGetter(instance.value)

@@ -17,7 +17,7 @@ import kotlin.time.Duration
 
 private var samplerIndex = 0
 
-internal class ComposeWebgpuSurface(val ctx: WebGPUContext, val composeWindowLifecycle: ValueHolder<ComposeGlfwWindow>) : AutoCloseable {
+internal class ComposeWebgpuSurface(val ctx: WebGPUContextOld, val composeWindowLifecycle: ValueHolder<ComposeGlfwWindow>) : AutoCloseable {
     // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
     private val inputListener = ctx.window.inputEvent.listenUnscoped { input ->
         val window = composeWindowLifecycle.value ?: return@listenUnscoped

@@ -42,9 +42,7 @@ class NewFunEvents : NewFun("FunEvents") {
 
 private val maxFrameDelta = 300.milliseconds
 
-class RootFun : NewFun(parent = null, id = "", keys = listOf(Unit)) {
-
-}
+class RootFun : NewFun(parent = null, id = "", keys = listOf(Unit))
 
 class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {

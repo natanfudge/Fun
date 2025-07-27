@@ -11,6 +11,7 @@ import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.ShaderSource
 import io.github.natanfudge.fn.webgpu.WebGPUContext
+import io.github.natanfudge.fn.webgpu.WebGPUContextOld
 import io.github.natanfudge.fn.webgpu.WebGPUWindow
 import io.github.natanfudge.fn.webgpu.createReloadingPipeline
 import io.github.natanfudge.fn.window.GlfwWindowDimensions
@@ -81,7 +82,7 @@ class FunWindow(ctx: WebGPUContext, val dims: GlfwWindowDimensions) : AutoClosea
 }
 
 
-class FunSurface(val ctx: WebGPUContext) : AutoCloseable {
+class FunSurface(val ctx: WebGPUContextOld) : AutoCloseable {
     val sampler = ctx.device.createSampler(
         SamplerDescriptor(
             label = "Fun Sampler",
@@ -264,7 +265,7 @@ interface Camera {
 }
 
 
-private fun checkForFrameDrops(window: WebGPUContext, deltaMs: Double) {
+private fun checkForFrameDrops(window: WebGPUContextOld, deltaMs: Double) {
     val normalFrameTimeMs = (1f / window.refreshRate) * 1000
     // It's not exact, but if it's almost twice as long (or more), it means we took too much time to make a frame
     if (deltaMs > normalFrameTimeMs * 1.8f) {
