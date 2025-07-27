@@ -42,13 +42,16 @@ data class GlfwWindowDimensions(
     val window: NewGlfwWindow,
 ) : WindowDimensions
 
-class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow") {
-
-    override val keys = mutableListOf(params)
+class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow", params) {
 
     //TODO: emit events into context
 
     var handle by funValue<WindowHandle>(null)
+    init {
+        val x = 2
+    }
+
+
     override fun init() {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (withOpenGL) {
@@ -73,6 +76,8 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             glfwShowWindow(handle)
         }
     }
+
+
 
     override fun toString(): String {
         return "GLFW Window $handle"

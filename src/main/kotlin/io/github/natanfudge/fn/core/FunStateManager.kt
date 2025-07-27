@@ -216,8 +216,8 @@ class FunStateManager(
         stateHolders[fn] = MapStateHolder()
     }
 
-    internal fun unregister(fn: Fun) {
-        stateHolders.remove(fn.id)
+    internal fun unregister(fn: FunId) {
+        stateHolders.remove(fn)
     }
 
 //    /**

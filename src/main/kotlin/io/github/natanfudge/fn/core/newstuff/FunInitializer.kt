@@ -8,8 +8,19 @@ import kotlinx.coroutines.delay
 
 class FunInitializer {
     // Stored in a TreeMap so we can track the order of insertions. We want to init by order, and close by reverse order.
-    private val invalidValues = LinkedHashMap<CacheKey, CacheValue>()
-    private val values = LinkedHashMap<CacheKey, CacheValue>()
+
+    /** In general, after refresh, [invalidValues] is very similar to [values] in terms of the type of its content, but with old instances. */
+    private val invalidValues = LinkedHashMap<CacheKey, NewFun>()
+    /**
+     *  [uninitializedValues] is a subset of [values]. Those are values that could not be retrieved from cache and need to be reinitialized.
+     *
+     *  Note that it's not necessarily true that "[uninitializedValues] = [values] - [invalidValues] as far as the types" because it could be
+     *  that on a new refresh a new code path was reached, and therefore there is an additional new type that does not exist in [invalidValues],
+     *  and vice versa if an old code path was no longer reached.
+     *  If we only close items in [values] that don't exist in [uninitializedValues], we will miss closing some instances that are not present at all anymore in [values].
+     *  */
+    private val uninitializedValues = mutableListOf<NewFun>()
+    private val values = LinkedHashMap<CacheKey, NewFun>()
 
     /**
      * Refreshing Fun state happens in three stages:
@@ -31,30 +42,46 @@ class FunInitializer {
      * @see prepareForRefresh
      */
     fun finishRefresh() {
-        invalidValues.toList().asReversed().forEach { (_, value) ->
-            value.value.close(unregisterFromParent = false, deleteState = false, unregisterFromContext = false)
-        }
-        values.forEach { (_, value) ->
-            value.value.init()
+        for ((_, invalid) in invalidValues.toList()) {
+            invalid.cleanupInternal()
         }
         invalidValues.clear()
+
+        for (value in uninitializedValues) {
+            value.init()
+        }
+        uninitializedValues.clear()
     }
 
 
-    fun requestInitialization(key: CacheKey, keys: CacheDependencyKeys, value: NewFun) {
+
+
+
+    fun requestInitialization(key: CacheKey, value: NewFun) {
         check(key !in values) { "Two Funs were registered with the same ID: $key" }
         val cached = invalidValues[key]
-
-        if (keys == null || cached == null || keys != cached.dependencies) {
-            // Key remains invalid in this case, and the value will be closed in finishRefresh()
-            values[key] = CacheValue(keys, value)
-        } else {
-            values[key] = cached
-            // Cached value - its not invalid and we don't want to close it
+        val keys = value.keys
+        if (keys != null && cached != null && keys == cached.keys) {
+            // Cached value - its not invalid and we don't want to close it or reinitialize it
             invalidValues.remove(key)
+
+//            values[key] = value
+        } else {
+            // New value - we need to initialize it
+            uninitializedValues.add(value)
+            // Key remains invalid in this case, and the value will be closed in finishRefresh()
+//            values[key] = cached
         }
+        values[key] = value
+    }
+
+
+    fun remove(key: CacheKey) {
+        values.remove(key)
     }
 }
+
+
 
 
 class WindowBase {
@@ -137,12 +164,8 @@ fun Child() {
     }
 }
 
-typealias CacheDependencyKeys = List<Any?>?
 
-data class CacheValue(
-    val dependencies: CacheDependencyKeys,
-    val value: NewFun,
-)
+
 
 typealias CacheKey = String
 

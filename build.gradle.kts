@@ -22,7 +22,7 @@ repositories {
 }
 
 //val mainclass = "io.github.natanfudge.fn.GuiMainKt"
-val mainclass = "io.github.natanfudge.fn.mte.DeepSoulsKt"
+val mainclass = "io.github.natanfudge.fn.core.newstuff.NewFunContextKt"
 graalvmNative {
     binaries {
         all {

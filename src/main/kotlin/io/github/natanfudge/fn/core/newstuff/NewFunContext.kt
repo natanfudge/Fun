@@ -29,15 +29,16 @@ class NewFunEvents : NewFun("FunEvents") {
 
 private val maxFrameDelta = 300.milliseconds
 
-class RootFun : NewFun(null, "") {
+class RootFun : NewFun(parent = null, id = "", keys = listOf(Unit)) {
 
 }
 
-class NewFunContext(val appCallback: () -> Unit): FunStateContext {
+class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {
         NewFunContextRegistry.setContext(this)
     }
-    val initializer = FunInitializer()
+
+    private val initializer = FunInitializer()
     override val stateManager = FunStateManager()
 
     val rootFun = RootFun()
@@ -46,7 +47,12 @@ class NewFunContext(val appCallback: () -> Unit): FunStateContext {
 
     internal fun register(fn: NewFun) {
         stateManager.register(fn.id, allowReregister = true)
-        initializer.requestInitialization(fn.id, fn.keys, fn)
+        initializer.requestInitialization(fn.id, fn)
+    }
+
+    internal fun unregister(fn: NewFun) {
+        stateManager.unregister(fn.id)
+        initializer.remove(fn.id)
     }
 
 
@@ -54,8 +60,12 @@ class NewFunContext(val appCallback: () -> Unit): FunStateContext {
 
     private var pendingReload: Reload? = null
 
+
+
     fun start() {
+        println("omfg")
         invokeAfterHotReload { _, result ->
+            println("Hot Reload")
             result.mapLeft {
                 // This runs on a different thread which will cause issues, so we store it and will run it on the main thread later
                 pendingReload = it
@@ -70,6 +80,11 @@ class NewFunContext(val appCallback: () -> Unit): FunStateContext {
         // Nothing to close, but its fine, it will start everything without closing anything
         initializer.finishRefresh()
 
+        loop()
+    }
+
+
+    private fun loop() {
         while (true) {
             val elapsed = previousFrameTime.elapsedNow()
             previousFrameTime = TimeSource.Monotonic.markNow()
@@ -114,20 +129,20 @@ internal object NewFunContextRegistry {
 
 class StatelessEffect(
     id: String,
-    override val keys: List<Any?>,
+    keys: List<Any?>,
     val initFunc: () -> Unit,
-    val close: () -> Unit,
-) : NewFun(id) {
+    val closeFunc: () -> Unit,
+) : NewFun(parent = NewFunContextRegistry.getContext().rootFun, id, keys) {
     override fun init() {
         initFunc()
     }
 
     override fun cleanup() {
-        close()
+        closeFunc()
     }
 }
 
-fun sideEffect(vararg keys: Any?, name: String = "sideEffect", close: () -> Unit = {}, init: () -> Unit)  {
+fun sideEffect(vararg keys: Any?, name: String = "sideEffect", close: () -> Unit = {}, init: () -> Unit) {
     StatelessEffect(name, keys.toList(), init, close)
 }
 
@@ -144,16 +159,16 @@ class FunBaseApp(window: WindowConfig) : NewFun("FunBaseApp") {
 
     override fun init() {
         events.frame.listen {
-            Thread.sleep(30)
+//            Thread.sleep(30)
             GLFW.glfwPollEvents()
-            println("Frame")
+//            println("Frame")
         }
     }
 }
 
 fun main() {
     val context = NewFunContext {
-        val base = FunBaseApp(WindowConfig())
+        val base = FunBaseApp(WindowConfig(initialWindowWidth = 600))
 
     }
 

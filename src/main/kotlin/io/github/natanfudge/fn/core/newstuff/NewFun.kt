@@ -3,8 +3,6 @@ package io.github.natanfudge.fn.core.newstuff
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.network.state.ClientFunValue
-import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.obtainPropertyName
 import kotlin.properties.PropertyDelegateProvider
@@ -22,8 +20,11 @@ abstract class NewFun internal constructor(
      * will synchronize their state.
      */
     val id: FunId,
+    val keys: List<Any?>?,
 ) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList(), AutoCloseable {
-    constructor(name: String, parent: NewFun = NewFunContextRegistry.getContext().rootFun) : this(parent, parent.id.child(name)) {
+    constructor(name: String, vararg keys: Any?, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
+    // Treat empty key list as null, as in, always restart
+            this(parent, parent.id.child(name), keys.let { if (it.isEmpty()) null else it.toList() }) {
         parent.registerChild(this)
     }
 
@@ -38,10 +39,12 @@ abstract class NewFun internal constructor(
 
     }
 
-    /**
-     * If overridden, [init] will not be called on refresh when none of the [keys] change.
-     */
-    open val keys: List<Any?>? get() = null
+//    /**
+//     * If overridden, [init] will not be called on refresh when none of the [keys] change.
+//     */
+//    open fun getKeys(): List<Any?>? {
+//        return null
+//    }
 
 
     override fun toString(): String {
@@ -49,24 +52,28 @@ abstract class NewFun internal constructor(
     }
 
     final override fun close() {
-        close(unregisterFromParent = true, deleteState = true, unregisterFromContext = true)
+        close(unregisterFromParent = true)
     }
 
-    //TODO:  I don't think we ever want to delete state, that's only relevant when hard restarting, and we can just throw away the state manager.
+
     /**
      * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
-     * @param deleteState If true, the state of this Fun will be deleted.
-     * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state and its place in rootFuns if it had one.
+     * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
-    internal fun close(unregisterFromParent: Boolean, deleteState: Boolean, unregisterFromContext: Boolean) {
-//        if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
+    internal fun close(unregisterFromParent: Boolean) {
         childCloseables.forEach { it.close() }
         cleanup()
-        children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext, deleteState = deleteState) }
+        children.forEach { it.close(unregisterFromParent = false) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }
     }
+
+    /**
+     * Accessor to [cleanup] for internal purposes.
+     * We want to keep [cleanup] protected.
+     */
+    internal fun cleanupInternal() = cleanup()
 
     protected open fun cleanup() {
 
@@ -80,7 +87,7 @@ abstract class NewFun internal constructor(
         initialValue: T?,
         crossinline config: FunValueConfig<T>.() -> Unit = {},
     ): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
-        funValue(initialValue, property.name,  config)
+        funValue(initialValue, property.name, config)
     }
 
 

@@ -121,7 +121,7 @@ class FunContext internal constructor(
             rootFuns.remove(fn.id)
         }
         if (deleteState) {
-            stateContext.stateManager.unregister(fn)
+            stateContext.stateManager.unregister(fn.id)
         }
     }
 
