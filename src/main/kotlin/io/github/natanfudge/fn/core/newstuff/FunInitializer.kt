@@ -50,16 +50,19 @@ class FunInitializer {
      */
     fun finishRefresh() {
         for ((_, invalid) in invalidValues.toList()) {
+            println("Close ${invalid.id}")
             invalid.cleanupInternal()
         }
         invalidValues.clear()
 
         for (value in uninitializedValues) {
+            println("Init ${value.id}")
             value.init()
         }
         uninitializedValues.clear()
         invalidTypes.clear()
     }
+
 
 
 

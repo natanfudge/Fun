@@ -36,6 +36,14 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
 
     val size get() = IntSize(width, height)
 
+    override fun equals(other: Any?): Boolean {
+        return other is NewGlfwWindow && other.handle == this.handle
+    }
+
+    override fun hashCode(): Int {
+        return handle.hashCode()
+    }
+
     override fun init() {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (withOpenGL) {

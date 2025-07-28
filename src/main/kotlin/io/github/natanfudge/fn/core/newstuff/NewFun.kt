@@ -22,11 +22,14 @@ abstract class NewFun internal constructor(
     val id: FunId,
     val keys: List<Any?>?,
 ) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList(), AutoCloseable {
-    constructor(name: String, vararg keys: Any?, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
-    // Treat empty key list as null, as in, always restart
-            this(parent, parent.id.child(name), keys.let { if (it.isEmpty()) null else it.toList() }) {
+    constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
+            this(parent, parent.id.child(name), keys) {
         parent.registerChild(this)
     }
+
+    constructor(name: String, vararg keys: Any?, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
+    // Treat empty key list as null, as in, always restart
+            this(name, keys.let { if (it.isEmpty()) null else it.toList() }, parent)
 
     init {
         context.register(this)

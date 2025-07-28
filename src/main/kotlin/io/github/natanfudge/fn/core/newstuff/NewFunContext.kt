@@ -10,7 +10,9 @@ import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.core.mapLeft
-import org.lwjgl.glfw.GLFW
+import kotlin.properties.PropertyDelegateProvider
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -74,7 +76,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     fun start() {
         invokeAfterHotReload { _, result ->
-            println("Hot Reloading app!")
+            println("Hot Reloading app with classes: ${result.leftOrNull()?.definitions?.map { it.definitionClass.simpleName }}")
             result.mapLeft {
                 // This runs on a different thread which will cause issues, so we store it and will run it on the main thread later
                 pendingReload = it
@@ -132,6 +134,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 }
 
 
+
 internal object NewFunContextRegistry {
     private lateinit var context: NewFunContext
     fun setContext(context: NewFunContext) {
@@ -141,33 +144,43 @@ internal object NewFunContextRegistry {
     fun getContext() = context
 }
 
-class StatelessEffect(
+class SideEffectFun<T : Any>(
+    parent: NewFun,
     id: String,
     keys: List<Any?>,
-    val initFunc: () -> Unit,
-    val closeFunc: () -> Unit,
-) : NewFun(parent = NewFunContextRegistry.getContext().rootFun, id, keys) {
+    val initFunc: () -> T,
+) : NewFun(id, keys, parent = parent), ReadOnlyProperty<Any?, T> {
+    lateinit var value: T
     override fun init() {
-        initFunc()
+        this.value = initFunc()
     }
 
     override fun cleanup() {
-        closeFunc()
+        (value as? AutoCloseable)?.close()
+    }
+
+    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return value
     }
 }
 
-fun sideEffect(vararg keys: Any?, name: String = "sideEffect", close: () -> Unit = {}, init: () -> Unit) {
-    StatelessEffect(name, keys.toList(), init, close)
+// PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
+//    funValue(initialValue, property.name, editor, beforeChange, afterChange)
+//}
+fun <T : Any> NewFun.sideEffect(vararg keys: Any?, init: () -> T): PropertyDelegateProvider<Any, SideEffectFun<T>> = PropertyDelegateProvider { _, property ->
+    SideEffectFun(this, property.name, keys.toList(), init)
 }
 
-class FunBaseApp(window: WindowConfig) : NewFun("FunBaseApp") {
-    init {
-        sideEffect(Unit) {
-            GlfwWindowProvider.initialize()
-        }
+class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
+    @Suppress("unused")
+    val glfwInit by sideEffect(Unit) {
+        GlfwWindowProvider.initialize()
     }
 
-    val window = NewGlfwWindow(withOpenGL = false, showWindow = true, window)
+
+    val window = NewGlfwWindow(withOpenGL = false, showWindow = true, config)
+    val webgpu = NewWebGPUSurface(window)
+    val worldRenderer = NewWorldRenderer(webgpu)
 }
 
 fun main() {

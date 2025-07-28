@@ -10,10 +10,9 @@ import kotlin.math.PI
 
 fun IntSize.toExtend3D(depthOrArrayLayers: Int = 1) = Extent3D(width.toUInt(), height = height.toUInt(), depthOrArrayLayers.toUInt())
 
-class WRWebGPUBinding(ctx: NewWebGPUContext) : AutoCloseable {
 
-     //TODO: this stuff depends on a certain size (needs to be in a separate class, need to see how to nicely integrate it)
-    val extent = ctx.window.size.toExtend3D()
+class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : AutoCloseable {
+    val extent = size.toExtend3D()
 
     // Create z buffer
     val depthTexture = ctx.device.createTexture(
@@ -38,9 +37,13 @@ class WRWebGPUBinding(ctx: NewWebGPUContext) : AutoCloseable {
     )
 
     val msaaTextureView = msaaTexture.createView()
-    // closeAll(depthTexture, depthStencilView, msaaTexture, msaaTextureView, )
-    //TODO: size dependency end
 
+    override fun close() {
+        closeAll(depthTexture, depthStencilView, msaaTexture, msaaTextureView)
+    }
+}
+
+class WorldRendererSurfaceEffect(ctx: NewWebGPUContext) : AutoCloseable {
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
@@ -69,7 +72,16 @@ class WRWebGPUBinding(ctx: NewWebGPUContext) : AutoCloseable {
 val IntSize.aspectRatio get() = width.toFloat() / height
 
 
-class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer") {
+class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", Unit) {
+    val surfaceBinding by sideEffect(surface) {
+        // Recreated on every surface change
+        WorldRendererSurfaceEffect(surface.webgpu)
+    }
+
+    val sizeBinding by sideEffect(surface.size) {
+        // Recreated on every window size change
+        WorldRendererWindowSizeEffect(surface.size, surface.webgpu)
+    }
 
 
     private fun calculateProjectionMatrix() = Mat4f.perspective(
@@ -87,15 +99,4 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer") 
 
 
     val projection = calculateProjectionMatrix()
-
-    lateinit var gpu: WRWebGPUBinding
-
-    //TODO: have a utility for this sorta stuff, it has repeated itself twice now
-    override fun init() {
-        gpu = WRWebGPUBinding(surface.webgpu)
-    }
-
-    override fun cleanup() {
-        gpu.close()
-    }
 }

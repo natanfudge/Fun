@@ -85,7 +85,8 @@ data class WebGPUFrame(
     }
 }
 
-class NewWebGPUSurface(val window: NewGlfwWindow): NewFun("WebGPUWindow", window) {
+data class NewWebGPUSurface(val window: NewGlfwWindow): NewFun("WebGPUSurface", window) {
+
     val size = window.size
     init {
         sideEffect(Unit) {
@@ -109,13 +110,8 @@ class NewWebGPUSurface(val window: NewGlfwWindow): NewFun("WebGPUWindow", window
         }
     }
 
-    lateinit var webgpu: NewWebGPUContext
-    override fun init() {
-        webgpu = NewWebGPUContext(window)
-    }
-
-    override fun cleanup() {
-        webgpu.close()
+    val webgpu by sideEffect(window) {
+        NewWebGPUContext(window)
     }
 
 //    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle, "WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
