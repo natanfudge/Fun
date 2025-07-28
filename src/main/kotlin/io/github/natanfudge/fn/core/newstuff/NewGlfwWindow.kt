@@ -29,7 +29,7 @@ import kotlin.properties.Delegates
 class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow", params) {
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
-    var handle by funValue<WindowHandle>(null)
+    var handle by memo<WindowHandle> { null }
 
     var width = params.initialWindowWidth
     var height = params.initialWindowHeight

@@ -3,14 +3,8 @@
 package io.github.natanfudge.fn.core.newstuff
 
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
-import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
-import io.github.natanfudge.fn.network.state.ClientFunValue
-import io.github.natanfudge.fn.network.state.FunSet
-import io.github.natanfudge.fn.network.state.chooseEditor
-import io.github.natanfudge.fn.network.state.getFunSerializer
-import io.github.natanfudge.fn.network.state.unsafeToNotNull
-import io.github.natanfudge.fn.network.state.useOldStateIfPossible
+import io.github.natanfudge.fn.network.state.*
 import io.github.natanfudge.fn.util.EventEmitter
 import kotlinx.serialization.KSerializer
 import kotlin.reflect.KClass
@@ -25,8 +19,12 @@ import kotlin.reflect.typeOf
 
 class FunValueConfig<T> {
     var editor: ValueEditor<T>? = null
-    @PublishedApi internal var beforeChange: ((value: T) -> Unit)? = null
-    @PublishedApi internal var afterChange: ((value: T) -> Unit)? = null
+
+    @PublishedApi
+    internal var beforeChange: ((value: T) -> Unit)? = null
+
+    @PublishedApi
+    internal var afterChange: ((value: T) -> Unit)? = null
 
     /**
      * The lifecycles of this callback is bound to the FunValue itself - when the FunValue dies the callback dies.
@@ -34,6 +32,7 @@ class FunValueConfig<T> {
     fun beforeChange(func: (value: T) -> Unit) {
         this.beforeChange = func
     }
+
     fun afterChange(func: (value: T) -> Unit) {
         this.afterChange = func
     }
@@ -59,42 +58,63 @@ class FunValueConfig<T> {
 }
 
 /**
+ * Checks if a value is of a given type. Useful to pass around when it's not possible to use a reified type to check if something is of generic type T.
+ */
+typealias TypeChecker = (Any?) -> Boolean
+
+/**
  * When hot reload occurs, the state is not deleted, so when this function is called the state will be retained from before the reload.
  * Without hot reload, this just returns [initialValue]
  */
 @PublishedApi
-internal inline fun <reified T> NewFun.useOldStateIfPossible(initialValue: T, stateId: FunId): T {
+internal
+fun <T> NewFun.useOldStateIfPossible(initialValue: () -> T, stateId: FunId, typeChecker: TypeChecker): T {
     val parentId = this.id
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
-    return if (oldState is T) oldState else {
+    return if (typeChecker(oldState)) oldState as T else {
         if (oldState != null) println("Throwing out incompatible old state for $parentId:$stateId")
-        initialValue
+        initialValue()
     }
 }
 
+inline fun <reified T> NewFun.useOldStateIfPossible(noinline initialValue: () -> T, stateId: FunId): T = useOldStateIfPossible(initialValue, stateId) {
+    it is T
+}
+
 inline fun <reified T> NewFun.funValue(
-    initialValue: T?,
-    stateId: FunId,
+    /**
+     * It's possible to specify a null initial value even when the expected type is not nullable.
+     * This signifies that [initialValue] is not expected to be called, and that we rely on the stored value to be used.
+     */
+    noinline initialValue: () -> T?,
+    stateId: StateId,
     config: FunValueConfig<T>.() -> Unit,
 ): ClientFunValue<T> {
     val config = FunValueConfig<T>().apply(config)
     return config.build(
         type = typeOf<T>(),
         serializer = getFunSerializer(),
-        initialValue = useOldStateIfPossible(unsafeToNotNull(initialValue), stateId),
+        initialValue = useOldStateIfPossible(initialValue as () -> T, stateId),
         ownerId = this.id,
         stateId = stateId
     )
 }
 
-fun <T> NewFun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
-    val list = FunSet(useOldStateIfPossible(items, name), name, this.id, serializer, editor)
-    context.stateManager.registerState(id, name, list)
-    return list
+fun <T> NewFun.funSet(stateId: StateId, serializer: KSerializer<T>, items: () -> MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
+    val set = FunSet(useOldStateIfPossible(items, stateId), stateId, this.id, serializer, editor)
+    context.stateManager.registerState(id, stateId, set)
+    return set
+}
+
+//TODO: we need to key the stuff... can't keep the old webgpu surface for example when it is invalidated
+fun <T> NewFun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () -> T?): FunRememberedValue<T> {
+    val rememberedValue = FunRememberedValue(useOldStateIfPossible(initialValue as () -> T, stateId, typeChecker))
+    context.stateManager.registerState(id, stateId, rememberedValue)
+    return rememberedValue
 }
 
 
-internal fun checkListenersClosed(events: NewFunEvents)  = with(events){
+internal fun checkListenersClosed(events: NewFunEvents) = with(events) {
     checkClosed(beforeFrame, frame, afterFrame, beforePhysics, physics, afterPhysics, input, guiError, appClosed)
 }
 

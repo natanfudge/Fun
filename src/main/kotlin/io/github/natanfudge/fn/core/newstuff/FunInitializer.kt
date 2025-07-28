@@ -11,7 +11,7 @@ class FunInitializer {
     // Stored in a TreeMap so we can track the order of insertions. We want to init by order, and close by reverse order.
 
     /** In general, after refresh, [invalidValues] is very similar to [values] in terms of the type of its content, but with old instances. */
-    private val invalidValues = LinkedHashMap<CacheKey, NewFun>()
+    private val invalidValues = LinkedHashMap<FunId, NewFun>()
 
     /**
      * Classes that had their bytecode changed, so we will make sure to refresh them
@@ -26,7 +26,7 @@ class FunInitializer {
      *  If we only close items in [values] that don't exist in [uninitializedValues], we will miss closing some instances that are not present at all anymore in [values].
      *  */
     private val uninitializedValues = mutableListOf<NewFun>()
-    private val values = LinkedHashMap<CacheKey, NewFun>()
+    private val values = LinkedHashMap<FunId, NewFun>()
 
     /**
      * Refreshing Fun state happens in three stages:
@@ -68,7 +68,8 @@ class FunInitializer {
 
 
 
-    fun requestInitialization(key: CacheKey, value: NewFun) {
+    fun requestInitialization(value: NewFun) {
+        val key = value.id
         check(key !in values) { "Two Funs were registered with the same ID: $key" }
         val cached = invalidValues[key]
         val keys = value.keys
@@ -87,15 +88,10 @@ class FunInitializer {
     }
 
 
-    fun remove(key: CacheKey) {
+    fun remove(key: FunId) {
         values.remove(key)
     }
 }
 
 
-
-
-
-
-typealias CacheKey = String
 

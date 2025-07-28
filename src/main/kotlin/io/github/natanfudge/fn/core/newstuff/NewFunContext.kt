@@ -6,12 +6,7 @@ import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.FunStateManager
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
-import io.github.natanfudge.fn.render.Boundable
-import io.github.natanfudge.fn.render.Mesh
-import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.Tint
-import io.github.natanfudge.fn.render.Transform
+import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
@@ -72,7 +67,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     internal fun register(fn: NewFun) {
         stateManager.register(fn.id, allowReregister = true)
-        initializer.requestInitialization(fn.id, fn)
+        initializer.requestInitialization(fn)
     }
 
     internal fun unregister(fn: NewFun) {
@@ -160,9 +155,10 @@ class SideEffectFun<T : Any>(
     parent: NewFun,
     id: String,
     keys: List<Any?>,
+    typeChecker: TypeChecker,
     val initFunc: () -> T,
 ) : NewFun(id, keys, parent = parent), ReadOnlyProperty<Any?, T> {
-    var value: T? = null
+    var value: T? by memo("value", typeChecker) { null }
     override fun init() {
         this.value = initFunc()
     }
@@ -179,8 +175,8 @@ class SideEffectFun<T : Any>(
 // PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
 //    funValue(initialValue, property.name, editor, beforeChange, afterChange)
 //}
-fun <T : Any> NewFun.sideEffect(vararg keys: Any?, init: () -> T): PropertyDelegateProvider<Any, SideEffectFun<T>> = PropertyDelegateProvider { _, property ->
-    SideEffectFun(this, property.name, keys.toList(), init)
+inline fun <reified T : Any> NewFun.sideEffect(vararg keys: Any?, noinline init: () -> T): PropertyDelegateProvider<Any, SideEffectFun<T>> = PropertyDelegateProvider { _, property ->
+    SideEffectFun(this, property.name, keys.toList(), {it is T},init)
 }
 
 class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
@@ -194,12 +190,11 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
     val webgpu = NewWebGPUSurface(window)
     val worldRenderer = NewWorldRenderer(webgpu)
 }
-//TODO:On refresh:
-// Error in wgpuSurfaceConfigure: Validation Error
-//
-//Caused by:
-//  Invalid surface
-/// 2. Randomly: Attempt to get value of side effect '/WorldRenderer/surfaceBinding' before it has been created
+//TODO: Full refresh causes crasharino:
+// assertion `left == right` failed: Device[Id(0,1)] is no longer alive
+//  left: 1
+// right: 2
+//note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 fun main() {
     val context = NewFunContext {
@@ -208,23 +203,26 @@ fun main() {
 
     }
 
-
-
     context.start()
 
 
 }
 
-class TestApp(val world: NewWorldRenderer) : NewFun("TestApp"){
+class TestApp(val world: NewWorldRenderer) : NewFun("TestApp") {
+    var instance by memo<RenderInstance> { null }
     override fun init() {
-        val model = Model(Mesh.HomogenousCube,"Test")
-        val value = object: Boundable {
+        val model = Model(Mesh.HomogenousCube, "Test")
+        val value = object : Boundable {
             override val boundingBox: AxisAlignedBoundingBox
                 get() = AxisAlignedBoundingBox.UnitAABB
         }
 
-        world.spawn(
+        this.instance = world.spawn(
             id, world.getOrBindModel(model), value, Transform().toMatrix(), Tint()
         )
+    }
+
+    override fun cleanup() {
+        world.remove(instance)
     }
 }

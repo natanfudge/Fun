@@ -4,6 +4,7 @@ import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.network.state.FunRememberedValue
 import io.github.natanfudge.fn.network.state.FunSet
 import io.github.natanfudge.fn.network.state.getFunSerializer
 import io.github.natanfudge.fn.util.Delegate
@@ -25,18 +26,21 @@ abstract class NewFun internal constructor(
      */
     val id: FunId,
     val keys: List<Any?>?,
+    autoRegister: Boolean = true,
 ) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList(), AutoCloseable {
-    constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
-            this(parent, parent.id.child(name), keys) {
+    constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
+            this(parent, parent.id.child(name), keys, autoRegister) {
         parent.registerChild(this)
     }
 
-    constructor(name: String, vararg keys: Any?, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
+    constructor(name: String, vararg keys: Any?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
     // Treat empty key list as null, as in, always restart
-            this(name, keys.let { if (it.isEmpty()) null else it.toList() }, parent)
+            this(name, keys.let { if (it.isEmpty()) null else it.toList() }, parent, autoRegister)
 
     init {
-        context.register(this)
+        if (autoRegister) {
+            context.register(this)
+        }
     }
 
     val context: NewFunContext get() = NewFunContextRegistry.getContext()
@@ -87,13 +91,20 @@ abstract class NewFun internal constructor(
         initialValue: T?,
         crossinline config: FunValueConfig<T>.() -> Unit = {},
     ): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
-        funValue(initialValue, property.name, config)
+        funValue({ initialValue }, property.name, config)
     }
 
     inline fun <reified T> funSet(
-        editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, vararg items: T
+        editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, noinline items: () -> MutableSet<T> = { mutableSetOf() },
     ): Delegate<FunSet<T>> = obtainPropertyName {
-        funSet(it, getFunSerializer(), mutableSetOf(*items), editor)
+        funSet(it, getFunSerializer(), items, editor)
+    }
+
+
+    inline fun <reified T> memo(
+        noinline initialValue: () -> T?,
+    ): PropertyDelegateProvider<Any, FunRememberedValue<T>> = PropertyDelegateProvider { _, property ->
+        memo(property.name, typeChecker = { it is T }, initialValue)
     }
 
 

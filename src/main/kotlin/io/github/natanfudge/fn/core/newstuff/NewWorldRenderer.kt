@@ -1,8 +1,5 @@
 package io.github.natanfudge.fn.core.newstuff
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.Fun
@@ -190,11 +187,11 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", 
 
     var selectedObjectId: Int = -1
 
-    var hoveredObject: Boundable? by mutableStateOf(null)
+    var hoveredObject: Boundable? by funValue(null)
 
     var camera = NewDefaultCamera()
 
-    lateinit var bindgroup: GPUBindGroup
+    var bindgroup: GPUBindGroup by memo { null }
 
     override fun init() {
         pipelineHolder.pipelineLoaded.listen { pipeline ->

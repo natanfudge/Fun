@@ -7,25 +7,22 @@ import io.ygdrasil.webgpu.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import natan.`fun`.generated.resources.Res
-import org.intellij.lang.annotations.Language
 import org.jetbrains.compose.resources.ExperimentalResourceApi
-
 
 
 class NewReloadingPipeline(
     label: String, val surface: NewWebGPUSurface, val vertexSource: ShaderSource, val fragmentSource: ShaderSource = vertexSource,
     val pipelineConfigBuilder: NewWebGPUContext.(vertex: GPUShaderModule, fragment: GPUShaderModule) -> GPURenderPipelineDescriptor,
 ) : NewFun("ReloadingPipeline-$label", surface) {
-    lateinit var pipeline: GPURenderPipeline
-    private var vertexShader: GPUShaderModule? = null
-    private var fragmentShader: GPUShaderModule? = null
+    private var _pipeline: GPURenderPipeline? by memo { null}
+    val pipeline: GPURenderPipeline get() = _pipeline!!
+    private var vertexShader: GPUShaderModule? by memo { null }
+    private var fragmentShader: GPUShaderModule? by memo { null }
 
     val pipelineLoaded by event<GPURenderPipeline>()
 
     private fun closePipeline() {
-        if (::pipeline.isInitialized) {
-            pipeline.close()
-        }
+        _pipeline?.close()
         vertexShader?.close()
         fragmentShader?.close()
     }
@@ -44,8 +41,8 @@ class NewReloadingPipeline(
         val ctx = surface.webgpu
         this.vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertex))
         this.fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragment))
-        this.pipeline = ctx.device.createRenderPipeline(pipelineConfigBuilder(ctx, vertexShader!!, fragmentShader!!))
-        pipelineLoaded(pipeline)
+        this._pipeline = ctx.device.createRenderPipeline(pipelineConfigBuilder(ctx, vertexShader!!, fragmentShader!!))
+        pipelineLoaded(_pipeline!!)
     }
 
     override fun init() {
@@ -69,7 +66,7 @@ class NewReloadingPipeline(
             println("Re-registering callback")
             context.fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
                 // Small hack to see if the new shader source is valid - try to compile it and see if it fails
-                val ctx =  surface.webgpu
+                val ctx = surface.webgpu
                 ctx.device.pushErrorScope(GPUErrorFilter.Validation)
 
                 val (module, error) = runBlocking {

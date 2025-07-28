@@ -30,8 +30,6 @@ import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
 import org.rococoa.ID
 import org.rococoa.Rococoa
 
-private var contextIndex = 0
-
 class NewWebGPUContext(
     val window: NewGlfwWindow,
 ) : AutoCloseable, WebGPUContext {
@@ -72,35 +70,6 @@ class NewWebGPUContext(
 }
 
 
-class NewWebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
-
-
-private var frame = 0
-
-data class WebGPUFrame(
-    val ctx: WebGPUContext,
-    val dimensions: GlfwWindowDimensions,
-    val deltaMs: Double,
-) : AutoCloseable {
-    /**
-     * Used by FunFrame to avoid drawing twice. Not optimal because we gonna have issues with multiple consumers of this WebGPUFrame, but for now
-     * just the single FunFrame consumer is fine.
-     */
-    var isReady = true
-
-    // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
-    // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
-    // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
-    // https://github.com/JetBrains/JetBrainsRuntime/issues/534
-    private val underlyingWindowFrame = ctx.surface.getCurrentTexture()
-    val windowTexture = underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Frame Texture #${frame++}"))
-//    val ctx: WebGPUContext =
-
-    override fun close() {
-        windowTexture.close()
-        underlyingWindowFrame.texture.close()
-    }
-}
 
 data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface", window) {
 
@@ -126,14 +95,6 @@ data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface",
             webgpu.configure(it)
         }
     }
-
-
-
-
-
-//    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle, "WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
-//        WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
-//    }
 
 
 }
