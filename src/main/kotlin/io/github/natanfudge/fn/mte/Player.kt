@@ -54,9 +54,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
         pickaxe.localTransform.rotation = Quatf.identity().rotateZ(-2.3f / 2)
     }
 
-
     val inventory = Inventory(game)
-
 
     private val mineDelay = DelayedStrike(this)
 
@@ -66,8 +64,6 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
     private val breakKey = game.input.registerHotkey("Break", PointerButton.Primary)
 
     private var wasInAirLastFrame = false
-
-
     private var printedStartupTime = false
 
     private val legBones = model.nodesAndTheirChildren("mixamorig:LeftUpLeg.R", "mixamorig:LeftUpLeg.L").toSet()

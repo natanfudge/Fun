@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import androidx.compose.ui.unit.IntSize
 import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.Kernel32
 import darwin.CAMetalLayer
@@ -10,7 +11,7 @@ import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.WebGPUException
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
-import io.github.natanfudge.fn.window.*
+import io.github.natanfudge.fn.window.GlfwWindowDimensions
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
 import io.ygdrasil.wgpu.WGPULogLevel_Info
@@ -34,14 +35,14 @@ private var contextIndex = 0
 class NewWebGPUContext(
     val window: NewGlfwWindow,
 ) : AutoCloseable, WebGPUContext {
-    override val context = wgpu.getNativeSurface(window.handle)
-    private val adapter = wgpu.requestAdapter(context)
-        ?.also { context.computeSurfaceCapabilities(it) }
+    override val surface = wgpu.getNativeSurface(window.handle)
+    private val adapter = wgpu.requestAdapter(surface)
+        ?.also { surface.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
     var error: WebGPUException? = null
 
-    override val presentationFormat = context.supportedFormats.first()
+    override val presentationFormat = surface.supportedFormats.first()
     override val device = runBlocking {
         adapter.requestDevice(
             DeviceDescriptor(onUncapturedError = {
@@ -50,8 +51,23 @@ class NewWebGPUContext(
         ).getOrThrow()
     }
 
+    val refreshRate = getRefreshRate(window.handle)
+
+    internal fun configure(size: IntSize) {
+        surface.configure(
+            SurfaceConfiguration(
+                device, format = presentationFormat
+            ),
+            width = size.width.toUInt(), height = size.height.toUInt()
+        )
+    }
+
+    init {
+        configure(window.size)
+    }
+
     override fun close() {
-        closeAll(context, adapter, device)
+        closeAll(surface, adapter, device)
     }
 }
 
@@ -71,11 +87,12 @@ data class WebGPUFrame(
      * just the single FunFrame consumer is fine.
      */
     var isReady = true
+
     // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
     // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
     // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
     // https://github.com/JetBrains/JetBrainsRuntime/issues/534
-    private val underlyingWindowFrame = ctx.context.getCurrentTexture()
+    private val underlyingWindowFrame = ctx.surface.getCurrentTexture()
     val windowTexture = underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Frame Texture #${frame++}"))
 //    val ctx: WebGPUContext =
 
@@ -85,34 +102,34 @@ data class WebGPUFrame(
     }
 }
 
-data class NewWebGPUSurface(val window: NewGlfwWindow): NewFun("WebGPUSurface", window) {
+data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface", window) {
 
-    val size = window.size
-    init {
-        sideEffect(Unit) {
-            LibraryLoader.load()
-            wgpuSetLogLevel(WGPULogLevel_Info)
-            val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, _ ->
-                val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
-                println("$level: $message")
-            }
-            wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
+    val size get() = window.size
+
+    @Suppress("unused")
+    val wgpuInit by sideEffect(Unit) {
+        LibraryLoader.load()
+        wgpuSetLogLevel(WGPULogLevel_Info)
+        val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, _ ->
+            val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
+            println("$level: $message")
         }
-
-
-        events.windowResized.listen { (width, height) ->
-            webgpu.context.configure(
-                SurfaceConfiguration(
-                    webgpu.device, format = webgpu.presentationFormat
-                ),
-                width = width.toUInt(), height = height.toUInt()
-            )
-        }
+        wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
     }
 
     val webgpu by sideEffect(window) {
         NewWebGPUContext(window)
     }
+
+    override fun init() {
+        events.windowResized.listen {
+            webgpu.configure(it)
+        }
+    }
+
+
+
+
 
 //    val frameLifecycle = window.frameLifecycle.bind(dimensionsLifecycle, "WebGPU Frame", FunLogLevel.Verbose) { frame, dim ->
 //        WebGPUFrame(ctx = dim.surface, dimensions = dim.dimensions, deltaMs = frame.deltaMs)
@@ -171,8 +188,8 @@ private fun WGPU.getNativeSurface(window: Long): NativeSurface = when (os) {
 } ?: error("fail to get surface")
 
 
-
 private fun Long.toPointer(): Pointer = Pointer(this)
+
 /**
  * Currently will give the refresh rate of the initial window until this is fixed: https://github.com/gfx-rs/wgpu/issues/7663
  */

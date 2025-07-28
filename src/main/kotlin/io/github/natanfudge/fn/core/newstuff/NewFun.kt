@@ -1,8 +1,12 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.network.state.FunSet
+import io.github.natanfudge.fn.network.state.getFunSerializer
+import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.obtainPropertyName
 import kotlin.properties.PropertyDelegateProvider
@@ -84,6 +88,12 @@ abstract class NewFun internal constructor(
         crossinline config: FunValueConfig<T>.() -> Unit = {},
     ): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
         funValue(initialValue, property.name, config)
+    }
+
+    inline fun <reified T> funSet(
+        editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, vararg items: T
+    ): Delegate<FunSet<T>> = obtainPropertyName {
+        funSet(it, getFunSerializer(), mutableSetOf(*items), editor)
     }
 
 

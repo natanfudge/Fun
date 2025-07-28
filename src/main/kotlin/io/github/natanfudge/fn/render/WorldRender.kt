@@ -52,17 +52,14 @@ class WorldRender(
     internal val baseInstanceData: IndirectInstanceBuffer = IndirectInstanceBuffer(
         ctx, models, maxInstances = 50_000, expectedElementSize = BaseInstanceData.size
     ) { it.renderId }
-    internal val jointMatrixData: IndirectInstanceBuffer = IndirectInstanceBuffer(ctx, models, maxInstances = 1_000, expectedElementSize = Mat4f.SIZE_BYTES * 50u) {
-        (it.jointMatricesPointer.address / Mat4f.SIZE_BYTES).toInt()
-    }
+    internal val jointMatrixData: IndirectInstanceBuffer =
+        IndirectInstanceBuffer(ctx, models, maxInstances = 1_000, expectedElementSize = Mat4f.SIZE_BYTES * 50u) {
+            (it.jointMatricesPointer.address / Mat4f.SIZE_BYTES).toInt()
+        }
 
     var selectedObjectId: Int = -1
 
     var hoveredObject: Boundable? by mutableStateOf(null)
-
-
-
-
 
 
     fun createBindGroup(pipeline: GPURenderPipeline) = ctx.device.createBindGroup(
@@ -206,20 +203,32 @@ class WorldRender(
             // These values are indices, not bytes, so we need to divide by the size of the value
             firstIndex = (indexPointer.address / Int.SIZE_BYTES.toUInt()).toUInt(),
             baseVertex = (vertexPointer.address / VertexArrayBuffer.StrideBytes).toInt(),
-            world = this
+            pipeline = { pipeline!! }
         )
 
         return bound
     }
 
-
     /**
-     * Note: `model.instances` is updated by [VisibleBoundModel.spawn]
+     * Removes this instance from the world, cleaning up any held resources.
+     * After despawning, attempting to transform this instance will fail.
      */
+    fun despawn(renderInstance: RenderInstance) {
+        remove(renderInstance)
+        baseInstanceData.free(renderInstance.globalInstancePointer, BaseInstanceData.size)
+        if (renderInstance.skin != null) {
+            jointMatrixData.free(renderInstance.jointMatricesPointer, renderInstance.skin.jointMatrixSize)
+        }
+        renderInstance.despawned = true
+    }
+
+
     fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
-        val instance = RenderInstance(id, initialTransform, tint, model, this, value)
+        check(id !in model.instances) { "Instance with id $id already exists" }
+        val instance = RenderInstance(id, initialTransform, tint, model, baseInstanceData, jointMatrixData, value)
         rayCasting.add(instance)
 
+        model.instances[id] = instance
         return instance
     }
 
@@ -235,7 +244,7 @@ class WorldRender(
 }
 
 @Serializable
-data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, val strength: Float = 0.5f)
+data class Tint(val color: @Serializable(with = ColorSerializer::class) Color = Color.White, val strength: Float = 0.5f)
 
 
 /**
@@ -243,7 +252,7 @@ data class Tint(val color: @Serializable(with = ColorSerializer::class) Color, v
  * @param instanceIndexGetter Gets the index of instance data of the given [RenderInstance].
  */
 internal class IndirectInstanceBuffer(
-    val ctx: WebGPUContext, val models:  Map<ModelId, BoundModel>,
+    val ctx: WebGPUContext, val models: Map<ModelId, BoundModel>,
     maxInstances: Int, expectedElementSize: UInt,
     private val instanceIndexGetter: (RenderInstance) -> Int,
 ) : AutoCloseable {

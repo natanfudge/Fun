@@ -4,7 +4,6 @@ import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.FunLogLevel
-import io.github.natanfudge.fn.core.FunLogger
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.Lifecycle
@@ -250,7 +249,7 @@ internal fun WebGPUWindow.bindFunLifecycles(
 
         ctx.device.queue.submit(listOf(commandEncoder.finish()));
 
-        ctx.context.present()
+        ctx.surface.present()
 
         commandEncoder
     }

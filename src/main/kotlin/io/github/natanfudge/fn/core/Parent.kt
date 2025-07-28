@@ -26,7 +26,7 @@ interface Resource {
      * `this` will be closed when this Fun is closed.
      * @return `this`.
      */
-    fun AutoCloseable.closeWithThis() = apply { alsoClose(this@closeWithThis) }
+    fun <T: AutoCloseable> T.closeWithThis(): T = apply { alsoClose(this@closeWithThis) }
 }
 
 class CloseList: Resource {

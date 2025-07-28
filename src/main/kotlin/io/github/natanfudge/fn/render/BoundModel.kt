@@ -10,12 +10,14 @@ import io.github.natanfudge.fn.webgpu.copyExternalImageToTexture
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.ygdrasil.webgpu.*
 
+
+
 /**
  * Stores GPU information about all instances of a [Model].
  */
 class BoundModel(
     val model: Model, private val ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
-    val world: WorldRender,
+    val pipeline: () -> GPURenderPipeline,
 ) : AutoCloseable {
 
      var currentTexture = model.material.texture
@@ -36,7 +38,7 @@ class BoundModel(
             this.textureView.close()
             this.textureBuffer = createTextureBuffer(newTexture)
             this.textureView = this.textureBuffer.createView()
-            this.recreateBindGroup(world.pipeline)
+            this.recreateBindGroup(pipeline())
         }
         updateTextureBuffer(newTexture)
         this.currentTexture = newTexture
@@ -89,17 +91,12 @@ class BoundModel(
     val instances = mutableMapOf<FunId, RenderInstance>()
 
 
-    fun spawn(id: FunId, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
-        check(id !in instances) { "Instance with id $id already exists" }
-        val instance = world.spawn(id, this, value, initialTransform, tint)
-        instances[id] = instance
-        return instance
-    }
+
 
     var bindGroup: GPUBindGroup? = null
 
     init {
-        recreateBindGroup(world.pipeline)
+        recreateBindGroup(pipeline())
     }
 
     fun recreateBindGroup(pipeline: GPURenderPipeline?) {
@@ -110,7 +107,7 @@ class BoundModel(
     }
 
 
-    private fun createBindGroup(pipeline: GPURenderPipeline) = world.ctx.device.createBindGroup(
+    private fun createBindGroup(pipeline: GPURenderPipeline) = ctx.device.createBindGroup(
         BindGroupDescriptor(
             layout = pipeline.getBindGroupLayout(1u),
             entries = listOf(

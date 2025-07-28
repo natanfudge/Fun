@@ -5,6 +5,13 @@ import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.FunStateManager
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
+import io.github.natanfudge.fn.render.Boundable
+import io.github.natanfudge.fn.render.Mesh
+import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.Tint
+import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
@@ -58,6 +65,11 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     val events = NewFunEvents()
 
+    val fsWatcher = FileSystemWatcher()
+
+    val logger = NewFunLogger()
+
+
     internal fun register(fn: NewFun) {
         stateManager.register(fn.id, allowReregister = true)
         initializer.requestInitialization(fn.id, fn)
@@ -105,6 +117,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
             previousFrameTime = TimeSource.Monotonic.markNow()
             val delta = elapsed.coerceAtMost(maxFrameDelta)
 
+            fsWatcher.poll()
             events.beforePhysics(delta)
             events.physics(delta)
             events.afterPhysics(delta)
@@ -134,7 +147,6 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 }
 
 
-
 internal object NewFunContextRegistry {
     private lateinit var context: NewFunContext
     fun setContext(context: NewFunContext) {
@@ -150,7 +162,7 @@ class SideEffectFun<T : Any>(
     keys: List<Any?>,
     val initFunc: () -> T,
 ) : NewFun(id, keys, parent = parent), ReadOnlyProperty<Any?, T> {
-    lateinit var value: T
+    var value: T? = null
     override fun init() {
         this.value = initFunc()
     }
@@ -160,7 +172,7 @@ class SideEffectFun<T : Any>(
     }
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): T {
-        return value
+        return value ?: error("Attempt to get value of side effect '${id}' before it has been created")
     }
 }
 
@@ -182,10 +194,17 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
     val webgpu = NewWebGPUSurface(window)
     val worldRenderer = NewWorldRenderer(webgpu)
 }
+//TODO:On refresh:
+// Error in wgpuSurfaceConfigure: Validation Error
+//
+//Caused by:
+//  Invalid surface
+/// 2. Randomly: Attempt to get value of side effect '/WorldRenderer/surfaceBinding' before it has been created
 
 fun main() {
     val context = NewFunContext {
         val base = FunBaseApp(WindowConfig(initialWindowWidth = 800))
+        TestApp(base.worldRenderer)
 
     }
 
@@ -194,4 +213,18 @@ fun main() {
     context.start()
 
 
+}
+
+class TestApp(val world: NewWorldRenderer) : NewFun("TestApp"){
+    override fun init() {
+        val model = Model(Mesh.HomogenousCube,"Test")
+        val value = object: Boundable {
+            override val boundingBox: AxisAlignedBoundingBox
+                get() = AxisAlignedBoundingBox.UnitAABB
+        }
+
+        world.spawn(
+            id, world.getOrBindModel(model), value, Transform().toMatrix(), Tint()
+        )
+    }
 }

@@ -16,27 +16,28 @@ import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 
 
-class RenderInstance(
+class RenderInstance internal constructor(
     val funId: FunId,
     initialTransform: Mat4f,
     initialTint: Tint,
     val bound: BoundModel,
-    @PublishedApi internal val world: WorldRender,
+    private val instanceBuffer: IndirectInstanceBuffer,
+    private val jointBuffer: IndirectInstanceBuffer,
+//    @PublishedApi internal val world: WorldRender,
     var value: Boundable,
 ) : Boundable {
     // SLOW: should reconsider passing normal matrices always
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
-    internal val globalInstancePointer = world.baseInstanceData.newInstance(
+    internal val globalInstancePointer = instanceBuffer.newInstance(
         BaseInstanceData.toArray(
             initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (bound.currentTexture == null) 0 else 1,
             if (bound.model.skeleton == null) 0 else 1
         )
     ) as GPUPointer<BaseInstanceData>
 
-//    fun j
 
 
-    private val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton, bound.model)
+    internal val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton, bound.model)
 
     /**
      * Allows following the transform of the given node [jointNodeId]
@@ -48,7 +49,7 @@ class RenderInstance(
         )
     }
 
-    internal val jointMatricesPointer = world.jointMatrixData.newInstance(
+    internal val jointMatricesPointer = jointBuffer.newInstance(
         bound.instanceStruct.toArray(
             skin?.getModelSpaceJointTransforms()
             // Note: don't need this when we have proper feature separation
@@ -74,18 +75,7 @@ class RenderInstance(
 
     var despawned = false
 
-    /**
-     * Removes this instance from the world, cleaning up any held resources.
-     * After despawning, attempting to transform this instance will fail.
-     */
-    fun despawn() {
-        world.remove(this)
-        world.baseInstanceData.free(globalInstancePointer, BaseInstanceData.size)
-        if (skin != null) {
-            world.jointMatrixData.free(jointMatricesPointer, skin.jointMatrixSize)
-        }
-        despawned = true
-    }
+
 
     fun setTexture(texture: FunImage) {
         bound.setTexture(texture)
@@ -100,7 +90,7 @@ class RenderInstance(
      * Called once per frame to apply any changes made to the instance values.
      */
     internal fun updateGPU() {
-        val instanceDataBuffer = world.baseInstanceData.instanceBuffer
+        val instanceDataBuffer = instanceBuffer.instanceBuffer
         if (requestedTransform != null) {
             // Without a skin, we just apply the model's root transform directly here, and with a skin the root transform is applied by the skin matrix,
             // since the joints are considered children nodes of the root node.
@@ -133,7 +123,7 @@ class RenderInstance(
         skin.applyLocalTransforms(transforms)
         // Just apply it to the GPU right away, I don't think anyone will try to call this multiple times a frame.
         bound.instanceStruct.setFirst(
-            world.jointMatrixData.instanceBuffer,
+            jointBuffer.instanceBuffer,
             jointMatricesPointer,
             skin.getModelSpaceJointTransforms()
         )

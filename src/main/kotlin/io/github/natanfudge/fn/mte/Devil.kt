@@ -48,7 +48,7 @@ class Devil() : Fun("devil") {
                 Card(Modifier.fillMaxSize()) {
                     Box(Modifier.fillMaxSize()) {
                         Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-                            ResourceImage("drawable/gold.png", Modifier.padding(20.dp).size(140.dp))
+                            ResourceImage("drawable/blocks/gold.png", Modifier.padding(20.dp).size(140.dp))
                             Text("X 10", fontSize = 100.sp, color = Color(150, 150, 0))
                         }
                     }

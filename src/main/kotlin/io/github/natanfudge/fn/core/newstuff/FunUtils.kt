@@ -3,11 +3,14 @@
 package io.github.natanfudge.fn.core.newstuff
 
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.network.state.FunSet
 import io.github.natanfudge.fn.network.state.chooseEditor
 import io.github.natanfudge.fn.network.state.getFunSerializer
 import io.github.natanfudge.fn.network.state.unsafeToNotNull
+import io.github.natanfudge.fn.network.state.useOldStateIfPossible
 import io.github.natanfudge.fn.util.EventEmitter
 import kotlinx.serialization.KSerializer
 import kotlin.reflect.KClass
@@ -84,6 +87,11 @@ inline fun <reified T> NewFun.funValue(
     )
 }
 
+fun <T> NewFun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
+    val list = FunSet(useOldStateIfPossible(items, name), name, this.id, serializer, editor)
+    context.stateManager.registerState(id, name, list)
+    return list
+}
 
 
 internal fun checkListenersClosed(events: NewFunEvents)  = with(events){

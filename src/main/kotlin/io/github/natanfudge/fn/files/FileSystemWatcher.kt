@@ -27,9 +27,9 @@ class FileSystemWatcher(
     }
 
     /** Handle returned from [onFileChanged]; call [cancel] to stop listening. */
-    inner class Key internal constructor(private val file: Path, private val cb: () -> Unit) {
+    inner class Key internal constructor(private val file: Path, private val cb: () -> Unit): AutoCloseable {
         /** Stop receiving events for this specific file-callback pair. */
-        fun cancel() {
+        override fun close() {
             dirCallbacks[file.parent]?.let { list ->
                 list.remove(cb)
                 if (list.isEmpty()) {          // nothing left in this dir – deregister the watch key

@@ -70,9 +70,10 @@ class FunRenderState(
         }
     })
 
-    val renderInstance: RenderInstance = context.world.getOrBindModel(model).spawn(
-        id, this, initialTransform = parentTransform.transform.toMatrix(), tint
+    val renderInstance: RenderInstance = context.world.spawn(
+        id, context.world.getOrBindModel(model), this, parentTransform.transform.toMatrix(), tint
     )
+
 
     fun setTexture(image: FunImage) {
         renderInstance.setTexture(image)
@@ -105,7 +106,7 @@ class FunRenderState(
 
     override fun cleanup() {
         despawned = true
-        renderInstance.despawn()
+        context.world.remove(renderInstance)
     }
 }
 

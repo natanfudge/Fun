@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.network.state
 
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.state.StateChangeValue.*
 import io.github.natanfudge.fn.util.*
@@ -43,7 +44,7 @@ inline fun <reified T> Fun.funSet(editor: ValueEditor<Set<T>> = ValueEditor.Miss
  * @see funList
  */
 fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
-    val list = FunSet(useOldStateIfPossible(items, name), name, this, serializer, editor)
+    val list = FunSet(useOldStateIfPossible(items, name), name, this.id, serializer, editor)
     context.stateManager.registerState(id, name, list)
     return list
 }
@@ -70,12 +71,11 @@ fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T
 class FunSet<T> @PublishedApi internal constructor(
     @InternalFunApi var _items: MutableSet<T>,
     private val name: String,
-    private val owner: Fun,
+    ownerId: FunId,
     private val serializer: KSerializer<T>,
     override val editor: ValueEditor<Set<T>>,
 ) : MutableSet<T>, FunState<Set<T>> {
-
-    val changed by owner.event<SetOp>()
+    val changed = EventStream.create<SetOp>()
 
 //        override
 
@@ -92,7 +92,7 @@ class FunSet<T> @PublishedApi internal constructor(
             changed(SetProperty(value))
         }
 
-    private val key = StateKey(owner.id, name)
+    private val key = StateKey(ownerId, name)
 
     override fun equals(other: Any?): Boolean {
         return _items == other
