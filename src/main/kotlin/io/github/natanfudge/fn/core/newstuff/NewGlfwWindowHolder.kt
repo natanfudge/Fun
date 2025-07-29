@@ -10,41 +10,19 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.hotreload.FunHotReload
-import io.github.natanfudge.fn.util.EventEmitter
-import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.*
+import org.jetbrains.compose.reload.agent.sendAsync
+import org.jetbrains.compose.reload.core.WindowId
+import org.jetbrains.compose.reload.orchestration.OrchestrationMessage
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
-import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.withLock
-import kotlin.properties.Delegates
+import kotlin.reflect.KProperty0
+import kotlin.reflect.jvm.isAccessible
 
-
-
-class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow", params) {
-    // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
-
-    var handle by memo<WindowHandle> { null }
-
-    var width = params.initialWindowWidth
-    var height = params.initialWindowHeight
-
-    val size get() = IntSize(width, height)
-
-    override fun equals(other: Any?): Boolean {
-        return other is NewGlfwWindow && other.handle == this.handle
-    }
-
-    override fun hashCode(): Int {
-        return handle.hashCode()
-    }
-
-    override fun init() {
+class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : AutoCloseable {
+    init {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (withOpenGL) {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API)
@@ -52,11 +30,15 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API)
         }
         glfwWindowHint(GLFW_FLOATING, GLFW_TRUE) // Focus window on open
+    }
 
-        handle = glfwCreateWindow(
-            params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
-        )
 
+    val handle = glfwCreateWindow(
+        params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
+    )
+
+
+    init {
         if (handle == NULL) {
             glfwTerminate()
             throw RuntimeException("Failed to create the GLFW window")
@@ -68,16 +50,18 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             glfwShowWindow(handle)
         }
 
+        notifyCHROfWindowPosition()
+
+
         glfwSetWindowCloseCallback(handle) {
             events.input(InputEvent.WindowClosePressed)
         }
         glfwSetWindowPosCallback(handle) { _, x, y ->
             events.input(InputEvent.WindowMove(IntOffset(x, y)))
+            notifyCHROfWindowPosition()
         }
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
-            minimized = windowWidth == 0 || windowHeight == 0
-
             events.windowResized(IntSize(windowWidth, windowHeight))
         }
 
@@ -86,7 +70,8 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         glfwSetMouseButtonCallback(handle) { _, button, action, mods ->
             events.input(
                 InputEvent.PointerEvent(
-                    position = glfwGetCursorPos(handle
+                    position = glfwGetCursorPos(
+                        handle
                     ),
                     eventType = when (action) {
                         GLFW_PRESS -> PointerEventType.Press
@@ -156,6 +141,69 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             events.densityChange(Density(xscale))
         }
 
+        println("Foo")
+    }
+
+
+
+    override fun equals(other: Any?): Boolean {
+        return other is NewGlfwWindowHolder && other.handle == this.handle
+    }
+
+    override fun hashCode(): Int {
+        return handle.hashCode()
+    }
+
+    private fun notifyCHROfWindowPosition() {
+        val x = IntArray(1)
+        val y = IntArray(1)
+        val w = IntArray(1)
+        val h = IntArray(1)
+
+        glfwGetWindowPos(handle, x, y)
+        glfwGetWindowSize(handle, w, h)
+        //TODO: give it the other events
+        OrchestrationMessage.ApplicationWindowPositioned(WindowId(handle.toString()), x[0], y[0], w[0], h[0], false)
+            .sendAsync()
+    }
+
+
+    override fun toString(): String {
+        return "GLFW Window $handle"
+    }
+
+
+    override fun close() {
+        glfwSetWindowCloseCallback(handle, null)
+        glfwDestroyWindow(handle)
+    }
+}
+
+
+fun KProperty0<*>.getBackingEffect(): SideEffectFun<*> {
+    isAccessible = true
+    val delegate = getDelegate()
+    @Suppress("UNCHECKED_CAST")
+    return delegate as SideEffectFun<*>
+}
+
+class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow") {
+    // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
+
+    val effect by onlyOnChange(params) {
+        GlfwWindowEffect(withOpenGL, showWindow, params, events)
+    }
+
+
+    val windowKey get() = ::effect.getBackingEffect()
+
+    var width by memo { params.initialWindowWidth }
+    var height by memo { params.initialWindowHeight }
+    val size get() = IntSize(width, height)
+
+    val handle get() = effect.handle
+
+    init {
         events.beforeFrame.listen {
             glfwPollEvents()
         }
@@ -163,12 +211,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             this.width = width
             this.height = height
         }
-    }
-
-
-
-    override fun toString(): String {
-        return "GLFW Window $handle"
     }
 
     /**
@@ -194,12 +236,7 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             }
         }
 
-    override fun cleanup() {
-        glfwSetWindowCloseCallback(handle, null)
-        glfwDestroyWindow(handle)
-    }
 }
-
 
 
 private fun glfwGetCursorPos(window: Long): Offset {

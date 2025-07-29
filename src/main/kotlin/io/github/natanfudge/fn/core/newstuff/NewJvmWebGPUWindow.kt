@@ -30,12 +30,13 @@ import org.rococoa.ID
 import org.rococoa.Rococoa
 
 var nextWgpuIndex = 0
+
 class NewWebGPUContext(
-    val window: NewGlfwWindow,
+    val window: NewGlfwWindowHolder,
 ) : AutoCloseable, WebGPUContext {
     override val surface = wgpu.getNativeSurface(window.handle)
-    private val adapter = wgpu.requestAdapter(surface)
-        ?.also { surface.computeSurfaceCapabilities(it) }
+    private val adapter = wgpu.requestAdapter(this@NewWebGPUContext.surface)
+        ?.also { this@NewWebGPUContext.surface.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
 
@@ -47,7 +48,7 @@ class NewWebGPUContext(
 
     var error: WebGPUException? = null
 
-    override val presentationFormat = surface.supportedFormats.first()
+    override val presentationFormat = this@NewWebGPUContext.surface.supportedFormats.first()
     override val device = runBlocking {
         adapter.requestDevice(
             DeviceDescriptor(onUncapturedError = {
@@ -59,7 +60,7 @@ class NewWebGPUContext(
     val refreshRate = getRefreshRate(window.handle)
 
     internal fun configure(size: IntSize) {
-        surface.configure(
+        this@NewWebGPUContext.surface.configure(
             SurfaceConfiguration(
                 device, format = presentationFormat
             ),
@@ -73,7 +74,7 @@ class NewWebGPUContext(
 
     override fun close() {
         println("Closing device $nextWgpuIndex")
-        closeAll(surface, adapter, device)
+        closeAll(this@NewWebGPUContext.surface, adapter, device)
     }
 }
 
@@ -81,13 +82,13 @@ class NewWebGPUContext(
 var surfaceHolderNextIndex = 0
 
 //TODo: I think get rid of the "reload with set in constructor paradigm because it's usually wrong. Usages of sideEffect() with a non-Fun are usually right.
-data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface") {
-    val size get() = window.size
+data class NewWebGPUSurfaceHolder(val windowHolder: NewGlfwWindowHolder) : NewFun("WebGPUSurface") {
+    val size get() = windowHolder.size
 
     val index = surfaceHolderNextIndex++
 
     @Suppress("unused")
-    val wgpuInit by sideEffect(Unit) {
+    val wgpuInit by onlyOnChange(Unit) {
         LibraryLoader.load()
         wgpuSetLogLevel(WGPULogLevel_Info)
         val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, _ ->
@@ -97,15 +98,21 @@ data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface")
         wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
     }
 
-    val webgpu by sideEffect(window) {
-        NewWebGPUContext(window)
+    val surface by onlyOnChange(windowHolder.windowKey) {
+        NewWebGPUContext(windowHolder)
     }
+
+    val surfaceKey get()  = ::surface.getBackingEffect()
+
     override fun toString(): String {
-        return "WebGPUSurface #$index holding context #${webgpu.index}"
+        return "WebGPUSurface #$index holding context #${surface.index}"
     }
-    override fun init() {
+
+    init {
         events.windowResized.listen {
-            webgpu.configure(it)
+            if (it.width != 0 && it.height != 0) {
+                this@NewWebGPUSurfaceHolder.surface.configure(it)
+            }
         }
     }
 

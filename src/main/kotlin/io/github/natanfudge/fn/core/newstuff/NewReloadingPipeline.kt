@@ -4,7 +4,6 @@ import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
 import io.github.natanfudge.fn.files.readString
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.ShaderSource
 import io.ygdrasil.webgpu.*
 import kotlinx.coroutines.runBlocking
@@ -43,19 +42,19 @@ class ActivePipeline(
             }
         }
 
-        println("Loading pipeline with device num ${ctx.index}")
+//        println("Loading pipeline with device num ${ctx.index}")
         val vertexShader = safeCreateShaderModule(vertex)
         val fragmentShader = safeCreateShaderModule(fragment)
-        println("Created shader module")
+//        println("Created shader module")
         if (vertexShader is Left && fragmentShader is Left) {
             // Success: reload pipeline
             close()
             this.vertexShader = vertexShader.value
             this.fragmentShader = fragmentShader.value
-            println("Creating render pipeline, vertex len = ${vertex.length}, fragment len = ${vertex.length}")
+//            println("Creating render pipeline, vertex len = ${vertex.length}, fragment len = ${vertex.length}")
 //            println("Setting pipeline on ReloadingPipeline num $index")
             this.pipeline = ctx.device.createRenderPipeline(pipelineDescriptorBuilder(ctx, this.vertexShader!!, this.fragmentShader!!))
-            println("Created render pipeline")
+//            println("Created render pipeline")
             pipelineLoaded(this.pipeline!!)
         } else {
             // Fail - do nothing
@@ -78,16 +77,15 @@ class ActivePipeline(
     }
 
     override fun close() {
-        println("Closing pipeline dependants")
+//        println("Closing pipeline dependants")
         pipelineClosed.emit(Unit)
-        println("Closing pipeline $pipeline")
-        //TODo: we can't
+//        println("Closing pipeline $pipeline")
         pipeline?.close()
         pipeline = null
-        println("Closing vertex")
+//        println("Closing vertex")
         vertexShader?.close()
         vertexShader = null
-        println("Closing fragment")
+//        println("Closing fragment")
         fragmentShader?.close()
         fragmentShader = null
 //        closeAll(pipeline, vertexShader, fragmentShader)
@@ -111,15 +109,15 @@ class ActivePipeline(
 typealias PipelineDescriptorBuilder = NewWebGPUContext.(vertex: GPUShaderModule, fragment: GPUShaderModule) -> GPURenderPipelineDescriptor
 
 class NewReloadingPipeline(
-    label: String, val surface: NewWebGPUSurface, val vertexSource: ShaderSource, val fragmentSource: ShaderSource = vertexSource,
+    label: String, val surface: NewWebGPUSurfaceHolder, val vertexSource: ShaderSource, val fragmentSource: ShaderSource = vertexSource,
     val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
 ) : NewFun("ReloadingPipeline-$label") {
     val pipelineLoaded by memo { EventStream.create<GPURenderPipeline>() }
     val pipelineClosed by memo { EventStream.create<Unit>() }
     // NOTE: we don't want to depend on the WebGPUSurface directly because it is actually recreated every refresh, in contrast with the window that
     // is recreated when the window is actually recreated. This is kind of confusing and I would like to do something better.
-    val active by sideEffect(surface.window, vertexSource, fragmentSource) {
-        ActivePipeline(surface.webgpu, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded, pipelineClosed)
+    val active by onlyOnChange(surface.windowHolder.windowKey, vertexSource, fragmentSource) {
+        ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded, pipelineClosed)
     }
 
     val pipeline: GPURenderPipeline get() = active.pipeline!!
@@ -127,7 +125,7 @@ class NewReloadingPipeline(
 
     val index = nextPipelineIndex++
 
-    override fun init() {
+     init {
         if (HOT_RELOAD_SHADERS) {
             reloadOnChange(vertexSource)
             if (vertexSource != fragmentSource) {

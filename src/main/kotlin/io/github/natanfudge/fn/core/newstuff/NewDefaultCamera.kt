@@ -31,6 +31,7 @@ class NewDefaultCamera: Camera, NewFun("Camera", Unit) {
      */
      override val position by funValue(Vec3f(5f, 5f, 5f))
 
+
     /**
      * The up vector defining the camera's orientation.
      * Points along the positive Z axis (0, 0, 1) by default.

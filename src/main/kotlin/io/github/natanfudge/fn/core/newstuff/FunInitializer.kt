@@ -80,7 +80,7 @@ class FunInitializer {
             // If FunA is not removed from invalidValues because it is invalid, then FunB will be invalidated.
             && keys.none { it is NewFun && it.id in invalidValues}
             // Make sure to not cache value if its type is invalid
-            && invalidTypes.none { it.isInstance(value) }) {
+            && invalidTypes.none { (value as SideEffectFun<*>).type?.qualifiedName == it?.qualifiedName }) {
             // Cached value - its not invalid and we don't want to close it or reinitialize it
             invalidValues.remove(key)
 

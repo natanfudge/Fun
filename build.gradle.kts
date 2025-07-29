@@ -87,11 +87,11 @@ dependencies {
     implementation(libs.bundles.commonMain)
 
     compileOnly(libs.bundles.jvmMainCompileOnly)
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-runtime-api:1.0.0-beta03")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-agent:1.0.0-beta03")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-core:1.0.0-beta03")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-orchestration:1.0.0-beta03")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-analysis:1.0.0-beta03")
+    implementation("org.jetbrains.compose.hot-reload:hot-reload-runtime-api:1.0.0-beta04")
+    implementation("org.jetbrains.compose.hot-reload:hot-reload-agent:1.0.0-beta04")
+    implementation("org.jetbrains.compose.hot-reload:hot-reload-core:1.0.0-beta04")
+    implementation("org.jetbrains.compose.hot-reload:hot-reload-orchestration:1.0.0-beta04")
+    implementation("org.jetbrains.compose.hot-reload:hot-reload-analysis:1.0.0-beta04")
     implementation(kotlin("reflect"))
 
     implementation(libs.bundles.lwjgl)

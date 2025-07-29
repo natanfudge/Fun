@@ -25,7 +25,13 @@ class RenderInstance internal constructor(
     private val jointBuffer: IndirectInstanceBuffer,
 //    @PublishedApi internal val world: WorldRender,
     var value: Boundable,
-) : Boundable {
+    val onClose: (RenderInstance) -> Unit
+) : Boundable, AutoCloseable {
+
+    override fun close() {
+        onClose(this)
+    }
+
     // SLOW: should reconsider passing normal matrices always
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
     internal val globalInstancePointer = instanceBuffer.newInstance(

@@ -225,7 +225,8 @@ class WorldRender(
 
     fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
         check(id !in model.instances) { "Instance with id $id already exists" }
-        val instance = RenderInstance(id, initialTransform, tint, model, baseInstanceData, jointMatrixData, value)
+        val instance = RenderInstance(id, initialTransform, tint, model, baseInstanceData,
+            jointMatrixData, value, onClose = {remove(it)})
         rayCasting.add(instance)
 
         model.instances[id] = instance

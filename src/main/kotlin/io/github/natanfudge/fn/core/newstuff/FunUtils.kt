@@ -18,6 +18,7 @@ import kotlin.reflect.typeOf
 //}
 
 
+
 class FunValueConfig<T> {
     var editor: ValueEditor<T>? = null
 
@@ -109,7 +110,8 @@ fun <T> NewFun.funSet(stateId: StateId, serializer: KSerializer<T>, items: () ->
 }
 
 fun <T> NewFun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () -> T?): FunRememberedValue<T> {
-    val rememberedValue = FunRememberedValue(useOldStateIfPossible(initialValue as () -> T, stateId, typeChecker))
+    val oldState = useOldStateIfPossible(initialValue as () -> T, stateId, typeChecker)
+    val rememberedValue = FunRememberedValue(oldState)
     context.stateManager.registerState(id, stateId, rememberedValue)
     return rememberedValue
 }

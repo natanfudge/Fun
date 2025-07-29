@@ -56,12 +56,12 @@ abstract class NewFun internal constructor(
     }
 
     final override fun close() {
-        close(unregisterFromParent = true)
+        close(unregisterFromParent = true, deleteState = true)
     }
 
-    override val closeAttachments by memo { mutableListOf<AutoCloseable>() }
+    final override val closeAttachments = mutableListOf<AutoCloseable>()
 
-    override fun alsoClose(closeable: AutoCloseable) {
+    final override fun alsoClose(closeable: AutoCloseable) {
         closeAttachments.add(closeable)
     }
 
@@ -70,15 +70,18 @@ abstract class NewFun internal constructor(
      * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
-    internal fun close(unregisterFromParent: Boolean) {
-        context.unregister(this)
+    internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
+        if(this is SideEffectFun<*>) return //TODo: band aid until we seperate it
+        if (deleteState) context.unregister(this)
+        closeAttachments.forEach { it.close() }
         cleanupInternal()
-        children.forEach { it.close(unregisterFromParent = false) }
+        children.forEach { it.close(unregisterFromParent = false, deleteState = deleteState) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }
     }
 
+    //TODO: we won't need this function once we seperate out the SideEffectFun systen
     /**
      * Cleans up this Fun along with its [closeAttachments].
      * Does not delete any state, only closes things like listeners and resources, that will be recreated anyway in init().
@@ -89,8 +92,6 @@ abstract class NewFun internal constructor(
      * However, when a USER calls Fun#close, we will call close() for those children as well with unregisterFromParent = false.
      */
     internal fun cleanupInternal() {
-        closeAttachments.forEach { it.close() }
-        closeAttachments.clear()
         cleanup()
     }
 
