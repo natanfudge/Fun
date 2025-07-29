@@ -24,11 +24,11 @@ abstract class NewFun internal constructor(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-    val id: FunId,
+    override val id: FunId,
     val keys: List<Any?>?,
     autoRegister: Boolean = true,
 ) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource, AutoCloseable {
-//    var invalid = false
+    //    var invalid = false
     constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
             this(parent, parent.id.child(name), keys, autoRegister) {
         parent.registerChild(this)
@@ -90,6 +90,7 @@ abstract class NewFun internal constructor(
      */
     internal fun cleanupInternal() {
         closeAttachments.forEach { it.close() }
+        closeAttachments.clear()
         cleanup()
     }
 
@@ -124,7 +125,7 @@ abstract class NewFun internal constructor(
 
     fun <T> event() = obtainPropertyName {
         // see https://github.com/natanfudge/MineTheEarth/issues/116
-        EventEmitter<T>()
+        EventEmitter<T>("${this.id}#$it")
     }
 }
 

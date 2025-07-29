@@ -80,13 +80,11 @@ class NewWebGPUContext(
 
 var surfaceHolderNextIndex = 0
 
-data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface", window) {
-
+//TODo: I think get rid of the "reload with set in constructor paradigm because it's usually wrong. Usages of sideEffect() with a non-Fun are usually right.
+data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface") {
     val size get() = window.size
 
     val index = surfaceHolderNextIndex++
-
-
 
     @Suppress("unused")
     val wgpuInit by sideEffect(Unit) {

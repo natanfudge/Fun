@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.util
 
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.FunResource
 import io.github.natanfudge.fn.core.Resource
 import io.github.natanfudge.fn.error.UnallowedFunException
 import java.util.function.Consumer
@@ -31,11 +30,14 @@ interface EventStream<T> {
      * and unnecessary processing.
      * @see EventStream
      */
-    fun listenUnscoped(onEvent: Consumer<T>): Listener<T>
+    fun listenUnscoped(
+        label: String = "Unnamed Listener",
+        onEvent: Consumer<T>,
+    ): Listener<T>
 
     context(resource: Resource)
     fun listen(callback: (T) -> Unit) {
-        val listener = listenUnscoped(callback)
+        val listener = listenUnscoped(resource.id, callback)
         resource.alsoClose(listener)
     }
 }
@@ -69,7 +71,7 @@ fun Listener<*>.compose(other: Listener<*>): Listener<*> = ComposedListener(this
 fun <T, R> Listener<T>.cast() = this as Listener<R>
 
 
-class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: EventEmitter<T>) : Listener<T> {
+class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: EventEmitter<T>, val label: String) : Listener<T> {
 
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
@@ -103,7 +105,7 @@ fun <T> Fun.event() = obtainPropertyName {
  * This is the standard way to create and manage an observable data source.
  * @see EventStream
  */
-class EventEmitter<T> : EventStream<T> {
+class EventEmitter<T>(val label: String = "Unnamed Event Emitter") : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
     val hasListeners get() = listeners.isNotEmpty()
@@ -134,8 +136,8 @@ class EventEmitter<T> : EventStream<T> {
      * ```
      *
      * */
-    override fun listenUnscoped(onEvent: Consumer<T>): Listener<T> {
-        val listener = ListenerImpl(onEvent, this)
+    override fun listenUnscoped(label: String, onEvent: Consumer<T>): Listener<T> {
+        val listener = ListenerImpl(onEvent, this, label)
         listeners.add(listener)
         return listener
     }
@@ -206,7 +208,7 @@ class EventEmitter<T> : EventStream<T> {
             if (listener is Listener.Stub) {
                 throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")
             }
-            println("Warn: Detaching from MutEventStream failed as the listener with callback '${(listener as ListenerImpl).callback}' was probably already detached")
+            println("Warn: Detaching from event stream '$label' failed as the listener '${(listener as ListenerImpl).label}' was probably already detached")
         }
     }
 }

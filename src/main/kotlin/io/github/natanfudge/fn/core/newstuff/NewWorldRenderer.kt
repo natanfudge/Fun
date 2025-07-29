@@ -113,15 +113,17 @@ val IntSize.aspectRatio get() = width.toFloat() / height
 var rendererNextIndex = 0
 
 
-class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", surface) {
-    val surfaceBinding by sideEffect(surface) {
+class NewWorldRenderer(val surface: NewWebGPUSurface, ) : NewFun("WorldRenderer") {
+    val surfaceBinding by sideEffect(surface.window) {
         // Recreated on every surface change
         WorldRendererSurfaceEffect(surface.webgpu)
     }
+    // TODO: getting detachment warnings when reloading NewReloadingPipeline:
+    // Warn: Detaching from MutEventStream failed as the listener with callback 'io.github.natanfudge.fn.util.EventStream$$Lambda/0x000000000a26fc18@34c70b5e' was probably already detached
 
     val index = rendererNextIndex++
 
-    val sizeBinding by sideEffect(surface, surface.size) {
+    val sizeBinding by sideEffect(surface.window, surface.size) {
         // Recreated on every window size change
         WorldRendererWindowSizeEffect(surface.size, surface.webgpu)
     }
@@ -201,16 +203,24 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", 
 
     var camera = NewDefaultCamera()
 
-    var bindgroup: GPUBindGroup by memo { null }
+    var bindgroup: GPUBindGroup? by memo { null }
 
     override fun cleanup() {
         val x = 2
     }
 
-
     override fun init() {
+        pipelineHolder.pipelineClosed.listen {
+            println("Closing world bindgroup")
+            bindgroup?.close()
+            bindgroup = null
+            println("Closing model bindgroups")
+            surfaceBinding.models.forEach { it.value.closeBindGroup() }
+        }
         pipelineHolder.pipelineLoaded.listen { pipeline ->
+            println("Creating bindgroup on new pipeline")
             bindgroup = surfaceBinding.createBindGroup(pipeline)
+            println("Recreating bindgroups for all models on new pipeline")
             surfaceBinding.models.forEach { it.value.recreateBindGroup(pipeline) }
         }
 
@@ -273,8 +283,10 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", 
 
             surfaceBinding.baseInstanceData.rebuild()
             surfaceBinding.jointMatrixData.rebuild()
+//            println("Setting pipeline in frame, pipelineholder num ${pipelineHolder.index}, i am WorldRenderer num $index")
             pass.setPipeline(pipelineHolder.pipeline)
-            pass.setBindGroup(0u, bindgroup)
+//            println("Setting bindgroup in frame")
+            pass.setBindGroup(0u, bindgroup ?: error("Bindgroup not set prior to drawing"))
             pass.setVertexBuffer(0u, surfaceBinding.vertexBuffer.buffer)
             pass.setIndexBuffer(surfaceBinding.indexBuffer.buffer, GPUIndexFormat.Uint32)
 

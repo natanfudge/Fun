@@ -6,6 +6,8 @@ package io.github.natanfudge.fn.core
 
 class CloseList: Resource {
     override val closeAttachments = mutableListOf<AutoCloseable>()
+    override val id: FunId
+        get() = "old"
 
     override fun alsoClose(closeable: AutoCloseable) {
         closeAttachments.add(closeable)
@@ -25,7 +27,7 @@ abstract class Fun(
      * Unique identifier for this component. Components with the same ID across different clients
      * will synchronize their state.
      */
-    val id: FunId,
+    override val id: FunId,
     val parent: Fun? = null,
 ) : AutoCloseable, Taggable by TagMap(), Parent<Fun> by ChildList<Fun>(), FunResource, Resource by CloseList() {
     companion object {

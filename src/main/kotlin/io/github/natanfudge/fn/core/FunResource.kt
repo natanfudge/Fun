@@ -10,12 +10,12 @@ interface FunResource {
 }
 
 fun <T> EventStream<T>.listen(resource: FunResource, callback: (T) -> Unit) {
-    val listener = listenUnscoped(callback)
+    val listener = listenUnscoped("old", callback)
     resource.alsoClose(listener)
 }
 
 context(resource: FunResource)
 fun <T> EventStream<T>.listen(callback: (T) -> Unit) {
-    val listener = listenUnscoped(callback)
+    val listener = listenUnscoped("old", callback)
     resource.alsoClose(listener)
 }

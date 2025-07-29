@@ -20,6 +20,7 @@ class ChildList<T> : Parent<T> {
 
 interface Resource {
     val closeAttachments: List<AutoCloseable>
+    val id: FunId
     fun alsoClose(closeable: AutoCloseable)
 
     /**

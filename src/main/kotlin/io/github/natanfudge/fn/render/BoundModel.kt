@@ -96,6 +96,7 @@ class BoundModel(
     var bindGroup: GPUBindGroup? = null
 
     init {
+        println("Recreating pipeline in init")
         recreateBindGroup(pipeline())
     }
 
@@ -104,6 +105,12 @@ class BoundModel(
             this.bindGroup = createBindGroup(pipeline)
         }
         // If pipeline is null, recreateBindGroup will be re-called once it is not null
+    }
+
+    fun closeBindGroup() {
+        println("Closing model bindgroup")
+        bindGroup?.close()
+        bindGroup = null
     }
 
 

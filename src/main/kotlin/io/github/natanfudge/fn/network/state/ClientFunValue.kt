@@ -132,11 +132,13 @@ class ClientFunValue<T>(
         )
     }
 
+    private val listenerName = "$ownerId#$id"
+
     /**
      * Changes are emitted BEFORE setting a new value, and are passed the new value.
      */
-    override fun beforeChange(callback: (T) -> Unit): Listener<T> = beforeChange.listenUnscoped(callback)
-    fun afterChange(callback: (T) -> Unit): Listener<T> = afterChange.listenUnscoped(callback)
+    override fun beforeChange(callback: (T) -> Unit): Listener<T> = beforeChange.listenUnscoped(listenerName,callback)
+    fun afterChange(callback: (T) -> Unit): Listener<T> = afterChange.listenUnscoped(listenerName, callback)
 
 //    fun afterChange(callback: (T) -> Unit):
 

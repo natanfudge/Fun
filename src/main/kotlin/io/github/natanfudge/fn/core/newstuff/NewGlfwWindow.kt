@@ -40,7 +40,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         return other is NewGlfwWindow && other.handle == this.handle
     }
 
-
     override fun hashCode(): Int {
         return handle.hashCode()
     }
