@@ -24,7 +24,11 @@ import kotlin.time.TimeSource
 // 4. refresh app on resize
 
 
-class NewFunEvents : NewFun("FunEvents") {
+/**
+ * Note: this class is mounted directly on the FunContext which means its not reconstructed, although we could just have made it a normal component
+ * and persisted the state lists.
+ */
+class NewFunEvents : NewFun("FunEvents", Unit) {
     // see https://github.com/natanfudge/MineTheEarth/issues/115
     val beforeFrame by event<Duration>()
     val frame by event<Duration>()
@@ -43,10 +47,21 @@ class NewFunEvents : NewFun("FunEvents") {
     val windowResized by event<IntSize>()
 }
 
+//TODO: setup automated testing where we try to invalidate different subgroups of Funs and see if it crashes
+
+// TODO: compose rendering
+
+// TODo: crasharino when trying to edit shader:
+//
+//thread '<unnamed>' panicked at C:\Users\runneradmin\.cargo\git\checkouts\wgpu-045f9a3b3e40a5c0\8a38f5f\wgpu-core\src\storage.rs:130:9:
+//assertion `left == right` failed: Device[Id(0,1)] is no longer alive
+//left: 1
+//right: 2
+//note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 private val maxFrameDelta = 300.milliseconds
 
-class RootFun : NewFun(parent = null, id = "", keys = listOf(Unit))
+
 
 class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {
@@ -190,11 +205,6 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
     val webgpu = NewWebGPUSurface(window)
     val worldRenderer = NewWorldRenderer(webgpu)
 }
-//TODO: Full refresh causes crasharino:
-// assertion `left == right` failed: Device[Id(0,1)] is no longer alive
-//  left: 1
-// right: 2
-//note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 fun main() {
     val context = NewFunContext {

@@ -49,7 +49,7 @@ class FunInitializer {
      * @see prepareForRefresh
      */
     fun finishRefresh() {
-        for ((_, invalid) in invalidValues.toList()) {
+        for ((_, invalid) in invalidValues.toList().asReversed()) {
             println("Close ${invalid.id}")
             invalid.cleanupInternal()
         }
@@ -65,15 +65,20 @@ class FunInitializer {
 
 
 
-
-
-
     fun requestInitialization(value: NewFun) {
         val key = value.id
         check(key !in values) { "Two Funs were registered with the same ID: $key" }
         val cached = invalidValues[key]
         val keys = value.keys
         if (keys != null && cached != null && keys == cached.keys
+            // Invalidate if any of the keys are invalid as well
+            // Even though invalidValues starts off as all the values, in this case if the key is valid it will not be in the list, because
+            // the key will only be in invalidValues if it has been initialized earlier, e.g.:
+            // | - val a = FunA()
+            // | - FunB(a)
+            // In this case if FunA() is valid, it will be removed from invalidValues and FunB will not invalidate.
+            // If FunA is not removed from invalidValues because it is invalid, then FunB will be invalidated.
+            && keys.none { it is NewFun && it.id in invalidValues}
             // Make sure to not cache value if its type is invalid
             && invalidTypes.none { it.isInstance(value) }) {
             // Cached value - its not invalid and we don't want to close it or reinitialize it

@@ -4,6 +4,14 @@ package io.github.natanfudge.fn.core
 
 
 
+class CloseList: Resource {
+    override val closeAttachments = mutableListOf<AutoCloseable>()
+
+    override fun alsoClose(closeable: AutoCloseable) {
+        closeAttachments.add(closeable)
+    }
+}
+
 /**
  * Base class for components that need to synchronize state between multiple clients in a multiplayer environment.
  *
@@ -49,7 +57,7 @@ abstract class Fun(
      */
     internal fun close(unregisterFromParent: Boolean,  deleteState: Boolean, unregisterFromContext: Boolean) {
         if (unregisterFromContext) context.unregister(this, deleteState = deleteState)
-        childCloseables.forEach { it.close() }
+        closeAttachments.forEach { it.close() }
         cleanup()
         children.forEach { it.close(unregisterFromParent = false, unregisterFromContext = unregisterFromContext, deleteState = deleteState) }
         if (unregisterFromParent) {

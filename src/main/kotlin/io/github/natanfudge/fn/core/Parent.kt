@@ -19,7 +19,7 @@ class ChildList<T> : Parent<T> {
 }
 
 interface Resource {
-    val childCloseables: List<AutoCloseable>
+    val closeAttachments: List<AutoCloseable>
     fun alsoClose(closeable: AutoCloseable)
 
     /**
@@ -29,10 +29,3 @@ interface Resource {
     fun <T: AutoCloseable> T.closeWithThis(): T = apply { alsoClose(this@closeWithThis) }
 }
 
-class CloseList: Resource {
-    override val childCloseables = mutableListOf<AutoCloseable>()
-
-    override fun alsoClose(closeable: AutoCloseable) {
-        childCloseables.add(closeable)
-    }
-}

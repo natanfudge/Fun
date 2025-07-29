@@ -4,6 +4,7 @@ package io.github.natanfudge.fn.core.newstuff
 
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.mte.World
 import io.github.natanfudge.fn.network.state.*
 import io.github.natanfudge.fn.util.EventEmitter
 import kotlinx.serialization.KSerializer
@@ -100,13 +101,13 @@ inline fun <reified T> NewFun.funValue(
     )
 }
 
+
 fun <T> NewFun.funSet(stateId: StateId, serializer: KSerializer<T>, items: () -> MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
     val set = FunSet(useOldStateIfPossible(items, stateId), stateId, this.id, serializer, editor)
     context.stateManager.registerState(id, stateId, set)
     return set
 }
 
-//TODO: we need to key the stuff... can't keep the old webgpu surface for example when it is invalidated
 fun <T> NewFun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () -> T?): FunRememberedValue<T> {
     val rememberedValue = FunRememberedValue(useOldStateIfPossible(initialValue as () -> T, stateId, typeChecker))
     context.stateManager.registerState(id, stateId, rememberedValue)
@@ -123,3 +124,4 @@ private fun checkClosed(vararg events: EventEmitter<*>) {
         check(!event.hasListeners)
     }
 }
+

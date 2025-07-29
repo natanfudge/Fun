@@ -27,7 +27,8 @@ abstract class NewFun internal constructor(
     val id: FunId,
     val keys: List<Any?>?,
     autoRegister: Boolean = true,
-) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource by CloseList(), AutoCloseable {
+) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource, AutoCloseable {
+//    var invalid = false
     constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
             this(parent, parent.id.child(name), keys, autoRegister) {
         parent.registerChild(this)
@@ -58,6 +59,12 @@ abstract class NewFun internal constructor(
         close(unregisterFromParent = true)
     }
 
+    override val closeAttachments by memo { mutableListOf<AutoCloseable>() }
+
+    override fun alsoClose(closeable: AutoCloseable) {
+        closeAttachments.add(closeable)
+    }
+
 
     /**
      * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
@@ -65,8 +72,7 @@ abstract class NewFun internal constructor(
      */
     internal fun close(unregisterFromParent: Boolean) {
         context.unregister(this)
-        childCloseables.forEach { it.close() }
-        cleanup()
+        cleanupInternal()
         children.forEach { it.close(unregisterFromParent = false) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
@@ -74,10 +80,18 @@ abstract class NewFun internal constructor(
     }
 
     /**
-     * Accessor to [cleanup] for internal purposes.
-     * We want to keep [cleanup] protected.
+     * Cleans up this Fun along with its [closeAttachments].
+     * Does not delete any state, only closes things like listeners and resources, that will be recreated anyway in init().
+     * Note that [closeAttachments] != [children].
+     * [closeAttachments] Is known to the outside world by this Fun only, its similar to an attachment, that also needs to be cleaned up.
+     * [children] Are separate Fun components that are considered children of this [Fun], and because they are [Fun] themselves they will have
+     * this function called for them as needed.
+     * However, when a USER calls Fun#close, we will call close() for those children as well with unregisterFromParent = false.
      */
-    internal fun cleanupInternal() = cleanup()
+    internal fun cleanupInternal() {
+        closeAttachments.forEach { it.close() }
+        cleanup()
+    }
 
     protected open fun cleanup() {
 

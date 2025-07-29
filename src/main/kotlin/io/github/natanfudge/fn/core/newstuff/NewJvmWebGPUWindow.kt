@@ -11,7 +11,6 @@ import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.WebGPUContext
 import io.github.natanfudge.fn.webgpu.WebGPUException
 import io.github.natanfudge.fn.webgpu.WebGPUWindow.Companion.wgpu
-import io.github.natanfudge.fn.window.GlfwWindowDimensions
 import io.ygdrasil.webgpu.*
 import io.ygdrasil.wgpu.WGPULogCallback
 import io.ygdrasil.wgpu.WGPULogLevel_Info
@@ -30,6 +29,7 @@ import org.lwjgl.glfw.GLFWNativeX11.glfwGetX11Window
 import org.rococoa.ID
 import org.rococoa.Rococoa
 
+var nextWgpuIndex = 0
 class NewWebGPUContext(
     val window: NewGlfwWindow,
 ) : AutoCloseable, WebGPUContext {
@@ -38,6 +38,13 @@ class NewWebGPUContext(
         ?.also { surface.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
 
+
+    val index = nextWgpuIndex++
+
+    init {
+        println("Init device num $index")
+    }
+
     var error: WebGPUException? = null
 
     override val presentationFormat = surface.supportedFormats.first()
@@ -45,7 +52,7 @@ class NewWebGPUContext(
         adapter.requestDevice(
             DeviceDescriptor(onUncapturedError = {
                 throw WebGPUException(it)
-            })
+            }, label = "Device-${index}")
         ).getOrThrow()
     }
 
@@ -65,15 +72,21 @@ class NewWebGPUContext(
     }
 
     override fun close() {
+        println("Closing device $nextWgpuIndex")
         closeAll(surface, adapter, device)
     }
 }
 
 
+var surfaceHolderNextIndex = 0
 
 data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface", window) {
 
     val size get() = window.size
+
+    val index = surfaceHolderNextIndex++
+
+
 
     @Suppress("unused")
     val wgpuInit by sideEffect(Unit) {
@@ -89,7 +102,9 @@ data class NewWebGPUSurface(val window: NewGlfwWindow) : NewFun("WebGPUSurface",
     val webgpu by sideEffect(window) {
         NewWebGPUContext(window)
     }
-
+    override fun toString(): String {
+        return "WebGPUSurface #$index holding context #${webgpu.index}"
+    }
     override fun init() {
         events.windowResized.listen {
             webgpu.configure(it)

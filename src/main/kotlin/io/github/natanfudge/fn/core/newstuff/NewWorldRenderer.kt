@@ -33,7 +33,7 @@ class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : Auto
             label = "Depth Texture"
         )
     )
-    val depthStencilView = depthTexture.createView()
+    val depthStencilView = depthTexture.createView(TextureViewDescriptor(label = "MSAA Texture View"))
 
     val msaaTexture = ctx.device.createTexture(
         TextureDescriptor(
@@ -45,7 +45,7 @@ class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : Auto
         )
     )
 
-    val msaaTextureView = msaaTexture.createView()
+    val msaaTextureView = msaaTexture.createView(TextureViewDescriptor(label = "MSAA Texture View"))
 
     override fun close() {
         closeAll(depthTexture, depthStencilView, msaaTexture, msaaTextureView)
@@ -53,7 +53,13 @@ class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : Auto
 }
 
 class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : AutoCloseable {
+    init {
+        println("Init WorldRendererSurfaceEffect")
+    }
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
+    init {
+        println("After uniformBuffer")
+    }
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
 
@@ -104,6 +110,8 @@ class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : AutoCloseable {
 
 val IntSize.aspectRatio get() = width.toFloat() / height
 
+var rendererNextIndex = 0
+
 
 class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", surface) {
     val surfaceBinding by sideEffect(surface) {
@@ -111,7 +119,9 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", 
         WorldRendererSurfaceEffect(surface.webgpu)
     }
 
-    val sizeBinding by sideEffect(surface.size) {
+    val index = rendererNextIndex++
+
+    val sizeBinding by sideEffect(surface, surface.size) {
         // Recreated on every window size change
         WorldRendererWindowSizeEffect(surface.size, surface.webgpu)
     }
@@ -193,6 +203,11 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", 
 
     var bindgroup: GPUBindGroup by memo { null }
 
+    override fun cleanup() {
+        val x = 2
+    }
+
+
     override fun init() {
         pipelineHolder.pipelineLoaded.listen { pipeline ->
             bindgroup = surfaceBinding.createBindGroup(pipeline)
@@ -203,17 +218,20 @@ class NewWorldRenderer(val surface: NewWebGPUSurface) : NewFun("WorldRenderer", 
             projection = calculateProjectionMatrix()
         }
 
+        //TODO: another issue: the event list gets reset so we need to persist that
         events.frame.listen { delta ->
             val ctx = surface.webgpu
+//            println("Frame reference, going to use device num ${ctx.index} from $surface, i am renderer #${index}")
             checkForFrameDrops(ctx, delta)
             val encoder = ctx.device.createCommandEncoder()
+//            println("Device used")
 
-            // Interestingly, this call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
+            // This call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
             // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
             // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
             // https://github.com/JetBrains/JetBrainsRuntime/issues/534
             val underlyingWindowFrame = ctx.surface.getCurrentTexture()
-            val windowTexture = underlyingWindowFrame.texture.createView()
+            val windowTexture = underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Texture created directly from device ${ctx.index}"))
 
             val viewProjection = projection * camera.viewMatrix
 

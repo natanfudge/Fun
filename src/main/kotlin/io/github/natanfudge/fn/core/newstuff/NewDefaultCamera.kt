@@ -24,7 +24,7 @@ import kotlin.math.tan
  * - Zooming (moving closer to or further from a focal point)
  * - Rotation around axes
  */
-class NewDefaultCamera: Camera, NewFun("Camera") {
+class NewDefaultCamera: Camera, NewFun("Camera", Unit) {
     /**
      * The current position of the camera in 3D space.
      * Initially positioned at (5, 5, 5).
