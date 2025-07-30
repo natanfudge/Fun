@@ -70,12 +70,10 @@ fun Listener<*>.compose(other: Listener<*>): Listener<*> = ComposedListener(this
 @Suppress("UNCHECKED_CAST")
 fun <T, R> Listener<T>.cast() = this as Listener<R>
 
-var nextId = 0
 
 class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, private val observable: EventEmitter<T>, val label: String) : Listener<T> {
 
-    //TODO: remove
-    val id = nextId++
+
     /**
      * Removes this listener from the [EventStream] it was attached to, ensuring the [callback] will no longer be invoked
      * for future events. It's important to call this when the listener is no longer needed.
@@ -86,7 +84,7 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
     }
 
     override fun toString(): String {
-        return "${observable.label}->$label#$id"
+        return "${observable.label}->$label"
     }
 }
 

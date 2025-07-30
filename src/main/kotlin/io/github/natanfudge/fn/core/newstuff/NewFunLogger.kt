@@ -8,7 +8,7 @@ import io.github.natanfudge.fn.core.ILogger
 import io.github.natanfudge.fn.network.state.funSet
 import io.github.natanfudge.fn.network.state.funValue
 
-class NewFunLogger : NewFun("FunLogger", Unit), ILogger {
+class NewFunLogger : NewFun("FunLogger"), ILogger {
     var level by funValue(FunLogLevel.Info)
     private val allTags = mutableStateSetOf<String>()
     val hiddenTags by funSet<String>(

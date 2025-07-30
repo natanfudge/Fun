@@ -178,7 +178,7 @@ class FunList<T> @PublishedApi internal constructor(
     }
 
     override fun applyChange(change: StateChangeValue) {
-        TODO()
+        error(" TO DO")
 //        when (change) {
 //            !is StateChangeValue.ListOp -> warnMismatchingStateChange(change, "LIST")
 //            StateChangeValue.CollectionClear -> _items.clear()

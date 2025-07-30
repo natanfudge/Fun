@@ -41,7 +41,6 @@ data class CacheValue(
 
 data class InvalidationInfo(
     val key: IInvalidationKey,
-//    val selfClass: KClass<*>,
     /**
      * Often we have cached values stored like this
      * class MyFun : Fun {
@@ -56,32 +55,10 @@ data class InvalidationInfo(
 )
 
 class FunCache {
-    // Stored in a TreeMap so we can track the order of insertions. We want to init by order, and close by reverse order.
-
-//    /** In general, after refresh, [invalidValues] is very similar to [values] in terms of the type of its content, but with old instances. */
-//    private val invalidValues = LinkedHashMap<CacheKey, Any?>()
-
-    //    /**
-//     * Classes that had their bytecode changed, so we will make sure to refresh them
-//     */
-//    private val invalidTypes = mutableListOf<KClass<*>>()
+    // Stored in a LinkedHashMap so we can track the order of insertions. We want to init by order, and close by reverse order.
     private val values = LinkedHashMap<CacheKey, CacheValue>()
 
-//    /**
-//     * - At the start of a refresh, this is empty.
-//     * - Then,  after prepareForRefresh, it contains all values that were not closed.
-//     * - Then, after refreshing the app, it contains all values that were not closed or used by the app.
-//     * - At that point, we should delete the remaining values as they are unused.
-//     */
-//    private val limboValues = LinkedHashMap<CacheKey, CacheValue>()
-
-
     fun prepareForRefresh(invalidTypes: List<KClass<*>>) {
-//        this.invalidTypes.addAll(invalidTypes)
-//        limboValues.putAll(values)
-//        values.clear()
-
-//        limboValues.putAll(values)
         val valueList = values.toList()
         val invalidValues = mutableListOf<AutoCloseable>()
         val invalidTypesSet = invalidTypes.toSet()
@@ -109,38 +86,14 @@ class FunCache {
                     invalidValues.add(cached.value)
                 }
                 values.remove(key)
-                // We will close this now so no need to close it later
-//                limboValues.remove(key)
             }
         }
 
         for (toClose in invalidValues.asReversed()) {
             toClose.close()
         }
-
-
-//        invalidValues.putAll(values)
-//        for ((_, invalid) in invalidValues.toList().asReversed()) {
-//            println("Close ${invalid.id}")
-//            invalid.cleanupInternal()
-//        }
-//        values.clear()
     }
 
-
-    /**
-     * Close all unused ('dangling') values
-     */
-    fun finishRefresh() {
-//        for ((key, unused) in limboValues.toList().asReversed()) {
-//            val value = unused.value
-//            if (value is AutoCloseable) {
-//                value.close()
-//            }
-//            values.remove(key)
-//        }
-//        limboValues.clear()
-    }
 
     /**
      * Will automatically close the old value, but not invalidate it.
@@ -155,11 +108,6 @@ class FunCache {
 
 
     fun <T> get(key: CacheKey, invalidation: InvalidationInfo, ctr: () -> T): T {
-//        val key = value.id
-//        check(key !in values) { "Two Funs were registered with the same ID: $key" }
-
-        // We do not need to close this value as it is being used
-//        limboValues.remove(key)
         val cached = values[key]
         if (cached == null) {
             val newValue = ctr()
@@ -168,29 +116,6 @@ class FunCache {
         } else {
             return cached.value as T
         }
-
-//        val keys = value.keys
-//        if (keys != null && cached != null && keys == cached.keys
-//            // Invalidate if any of the keys are invalid as well
-//            // Even though invalidValues starts off as all the values, in this case if the key is valid it will not be in the list, because
-//            // the key will only be in invalidValues if it has been initialized earlier, e.g.:
-//            // | - val a = FunA()
-//            // | - FunB(a)
-//            // In this case if FunA() is valid, it will be removed from invalidValues and FunB will not invalidate.
-//            // If FunA is not removed from invalidValues because it is invalid, then FunB will be invalidated.
-//            && keys.none { it is NewFun && it.id in invalidValues }
-//            // Make sure to not cache value if its type is invalid
-//            && invalidTypes.none { (value as SideEffectFun<*>).type?.qualifiedName == it?.qualifiedName }
-//        ) {
-//            // Cached value - its not invalid and we don't want to close it or reinitialize it
-//            invalidValues.remove(key)
-//
-//        } else {
-//            // New value - we need to initialize it
-//            uninitializedValues.add(value)
-//            // Key remains invalid in this case, and the value will be closed in finishRefresh()
-//        }
-//        values[key] = value
     }
 
 

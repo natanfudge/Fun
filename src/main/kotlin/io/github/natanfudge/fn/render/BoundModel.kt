@@ -92,6 +92,7 @@ class BoundModel(
 
 
 
+    private var bindGroupIndex = 0
 
     var bindGroup: GPUBindGroup? = null
 
@@ -127,7 +128,8 @@ class BoundModel(
                     binding = 1u,
                     resource = BufferBinding(inverseBindMatricesBuffer.buffer)
                 ),
-            )
+            ),
+            label = "Model bindgroup of ${model.id} #${bindGroupIndex++}"
         )
     )
 

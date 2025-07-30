@@ -14,7 +14,6 @@ import org.jetbrains.compose.reload.core.Left
 import org.jetbrains.compose.reload.core.Right
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
-//TODO: Have a utility for automatically assigning a counter to instances
 
 var nextPipelineIndex = 0
 
@@ -67,10 +66,10 @@ class ActivePipeline(
                 println("Error while compiling fragment shader: ${fragmentShader.value}")
             }
 
-            // TODO: have some sort of plan B in case it fails in first initialization, because we won't have any existing shader code to reuse.
-            this.vertexShader = null
-            this.fragmentShader = null
-            this.pipeline = null
+            // TO DO: have some sort of plan B in case it fails in first initialization, because we won't have any existing shader code to reuse.
+//            this.vertexShader = null
+//            this.fragmentShader = null
+//            this.pipeline = null
         }
     }
 
@@ -156,7 +155,6 @@ suspend fun loadShader(source: ShaderSource): String {
     val code = when (source) {
         // Load directly from source when hot reloading
         is ShaderSource.HotFile -> if (HOT_RELOAD_SHADERS) {
-            Thread.sleep(100) //TODO: seems sus
             val file = source.getSourceFile()
 
             println("Loading shader at '${file}'")

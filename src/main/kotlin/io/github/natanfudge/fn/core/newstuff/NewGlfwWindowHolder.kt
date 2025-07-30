@@ -38,9 +38,6 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
     )
 
 
-
-
-
     init {
         if (handle == NULL) {
             glfwTerminate()
@@ -61,12 +58,13 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
         }
         glfwSetWindowPosCallback(handle) { _, x, y ->
             events.input(InputEvent.WindowMove(IntOffset(x, y)))
-            notifyCHROfWindowPosition()
         }
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
-            events.windowResized(IntSize(windowWidth, windowHeight))
-            events.afterWindowResized(IntSize(windowWidth, windowHeight))
+            val size = IntSize(windowWidth, windowHeight)
+            events.windowResized(size)
+            events.afterWindowResized(size)
+
         }
 
 
@@ -165,7 +163,6 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
 
         glfwGetWindowPos(handle, x, y)
         glfwGetWindowSize(handle, w, h)
-        //TODO: give it the other events
         OrchestrationMessage.ApplicationWindowPositioned(WindowId(handle.toString()), x[0], y[0], w[0], h[0], false)
             .sendAsync()
     }
@@ -177,18 +174,13 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
 
 
     override fun close() {
+        OrchestrationMessage.ApplicationWindowGone(WindowId(handle.toString()))
+            .sendAsync()
         glfwSetWindowCloseCallback(handle, null)
         glfwDestroyWindow(handle)
     }
 }
 
-
-fun KProperty0<*>.getBackingEffect(): SideEffectFun<*> {
-    isAccessible = true
-    val delegate = getDelegate()
-    @Suppress("UNCHECKED_CAST")
-    return delegate as SideEffectFun<*>
-}
 
 
 
@@ -199,15 +191,13 @@ class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val 
         GlfwWindowEffect(withOpenGL, showWindow, params, events)
     }
 
-
-
-
-
-//    val windowKey get() = ::effect.getBackingEffect()
-
     var width by memo { params.initialWindowWidth }
     var height by memo { params.initialWindowHeight }
+    var windowPos by memo { IntOffset(0, 0) }
     val size get() = IntSize(width, height)
+
+    val minimized get() = size.isEmpty
+
 
     val handle get() = effect.handle
 
@@ -216,16 +206,33 @@ class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val 
             glfwPollEvents()
         }
         events.windowResized.listen { (width, height) ->
+            val previouslyMinimized = this.size.isEmpty
+            if (!previouslyMinimized && (width == 0 || height == 0)) {
+                OrchestrationMessage.ApplicationWindowGone(WindowId(handle.toString()))
+                    .sendAsync()
+            }
+            if (previouslyMinimized && width != 0 && height != 0) {
+                notifyCHROfWindowPosition()
+            }
             this.width = width
             this.height = height
         }
+        events.input.listen {
+            if (it is InputEvent.WindowMove) {
+                this.windowPos = it.offset
+                notifyCHROfWindowPosition()
+            }
+        }
     }
 
-    /**
-     * If cursor is not locked, will return the position of the cursor.
-     */
+    private fun notifyCHROfWindowPosition() {
+        OrchestrationMessage.ApplicationWindowPositioned(
+            WindowId(handle.toString()),
+            windowPos.x, windowPos.y, width, height, false
+        ).sendAsync()
+    }
 
-    var minimized = false
+
     var cursorLocked = false
         set(value) {
             if (field != value) {

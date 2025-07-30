@@ -165,7 +165,7 @@ class ClientFunValue<T>(
 
     @InternalFunApi
     override fun applyChange(change: StateChangeValue) {
-        TODO()
+        error(" TO DO")
 //        require(change is StateChangeValue.SetProperty<*>)
 //        this.value = change.value.decode(serializer)
     }

@@ -140,7 +140,7 @@ class FunSet<T> @PublishedApi internal constructor(
 
     @Suppress("UNCHECKED_CAST")
     override fun applyChange(change: StateChangeValue) {
-        TODO()
+        error(" TO DO")
 //        when (change) {
 //            !is SetOp -> warnMismatchingStateChange(change, "SET")
 //            CollectionClear -> _items.clear()

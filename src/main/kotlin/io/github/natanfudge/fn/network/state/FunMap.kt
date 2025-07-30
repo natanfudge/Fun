@@ -155,7 +155,7 @@ class FunMap<K, V> @PublishedApi internal constructor(
 
     override fun get(key: K): V? = _items[key]
     override fun applyChange(change: StateChangeValue) {
-        TODO()
+        error(" TO DO")
 //        when (change) {
 //            !is StateChangeValue.MapOp -> warnMismatchingStateChange(change, "MAP")
 //            StateChangeValue.CollectionClear -> _items.clear()

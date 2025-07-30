@@ -164,4 +164,3 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
 }
 
 
-//TODO: current issue is that renderer is not drawing transparently textures, although it did work before, very weird

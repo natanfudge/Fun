@@ -125,7 +125,7 @@ suspend fun loadShader(source: ShaderSource): String {
     val code = when (source) {
         // Load directly from source when hot reloading
         is ShaderSource.HotFile -> if (HOT_RELOAD_SHADERS) {
-            Thread.sleep(100) //TODO: seems sus
+            Thread.sleep(100)
             val file = source.getSourceFile()
 
             println("Loading shader at '${file}'")

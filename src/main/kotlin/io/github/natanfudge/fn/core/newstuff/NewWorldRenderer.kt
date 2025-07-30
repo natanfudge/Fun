@@ -52,9 +52,8 @@ class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : Inva
         closeAll(depthTexture, depthStencilView, msaaTexture, msaaTextureView)
     }
 }
-// TODO: 1. Getting detachment warnings on reload
-// 2. Selective invalidation not working, everything is under the SideEffectFun class now, so it needs to go deeper and check when the held class is.
 
+private var bindGroupIndex = 0
 class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : InvalidationKey() {
 
     init {
@@ -85,7 +84,7 @@ class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : InvalidationKey() 
         SamplerDescriptor(
             label = "Fun Sampler",
 
-            //TODO: These make world panels look better (esp maxAnisotropy = 8), but are not needed for normal textures and is probably very expensive.
+            //TO DO: These make world panels look better (esp maxAnisotropy = 8), but are not needed for normal textures and is probably very expensive.
             // These should only apply to world panels.
             magFilter = GPUFilterMode.Linear,
             minFilter = GPUFilterMode.Linear,
@@ -104,7 +103,8 @@ class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : InvalidationKey() 
                 BindGroupEntry(binding = 3u, resource = BufferBinding(baseInstanceData.instanceIndexBuffer.buffer)),
                 BindGroupEntry(binding = 4u, resource = BufferBinding(jointMatrixData.instanceBuffer.buffer)),
                 BindGroupEntry(binding = 5u, resource = BufferBinding(jointMatrixData.instanceIndexBuffer.buffer)),
-            )
+            ),
+            label = "World BindGroup #${bindGroupIndex++}"
         )
     )
 
@@ -128,10 +128,7 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
         WorldRendererSurfaceEffect(surfaceHolder.surface)
     }
 
-    val key get() = ::surfaceBinding.getBackingEffect()
 
-    // TODO: getting detachment warnings when reloading NewReloadingPipeline:
-    // Warn: Detaching from MutEventStream failed as the listener with callback 'io.github.natanfudge.fn.util.EventStream$$Lambda/0x000000000a26fc18@34c70b5e' was probably already detached
 
     val index = rendererNextIndex++
 
@@ -153,7 +150,7 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
         vertexSource = ShaderSource.HotFile("object"),
     ) { vertex, fragment ->
         RenderPipelineDescriptor(
-            label = "Fun Object Pipeline #$pipelines",
+            label = "Fun Object Pipeline #${pipelines++}",
             vertex = VertexState(
                 module = vertex,
                 entryPoint = "vs_main",
@@ -254,13 +251,11 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
             projection = calculateProjectionMatrix(it)
         }
 
-        //TODO: another issue: the event list gets reset so we need to persist that
         events.frame.listen { delta ->
             val ctx = surfaceHolder.surface
-//            println("Frame reference, going to use device num ${ctx.index} from $surface, i am renderer #${index}")
+            if (ctx.window.size.isEmpty) return@listen
             checkForFrameDrops(ctx, delta)
             val encoder = ctx.device.createCommandEncoder()
-//            println("Device used")
 
             // This call (context.getCurrentTexture()) invokes VSync (so it stalls here usually)
             // It's important to call this here and not nearby any user code, as the thread will spend a lot of time here,
@@ -311,15 +306,9 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
 
             surfaceBinding.baseInstanceData.rebuild()
             surfaceBinding.jointMatrixData.rebuild()
-//            println("Setting pipeline in frame, pipelineholder num ${pipelineHolder.index}, i am WorldRenderer num $index")
             pass.setPipeline(pipelineHolder.pipeline)
-//            println("Setting bindgroup in frame")
-            //TODO: this errors on restarting ActivePipeline, I get a lot of warnings about "Detaching from event stream '/FunEvents#beforeFrame' failed as the listener '/GlfwWindow' was probably already detached"
-            // so that will probably lead me to the issue.
-            pass.setBindGroup(
-                0u,
-                bindgroup ?: error("Bindgroup not set prior to drawing, pipelineholder num ${pipelineHolder.index}, i am WorldRenderer num $index")
-            )
+
+            pass.setBindGroup(0u, bindgroup)
             pass.setVertexBuffer(0u, surfaceBinding.vertexBuffer.buffer)
             pass.setIndexBuffer(surfaceBinding.indexBuffer.buffer, GPUIndexFormat.Uint32)
 

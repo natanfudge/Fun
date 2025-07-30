@@ -86,8 +86,6 @@ class FunSurface(val ctx: WebGPUContextOld) : AutoCloseable {
         SamplerDescriptor(
             label = "Fun Sampler",
 
-            //TODO: These make world panels look better, but are not needed for normal textures and is probably very expensive.
-            // These should only apply to world panels.
             magFilter = GPUFilterMode.Linear,
             minFilter = GPUFilterMode.Linear,
             mipmapFilter = GPUMipmapFilterMode.Linear,
@@ -114,19 +112,7 @@ internal fun UInt.wgpuAlignInt(): UInt = toULong().wgpuAlign().toUInt()
 var pipelines = 0
 
 
-// TODO: Some Fun API like this could replace lifecycles.
-// We would have a unified API even for rendering, and it wouldn't be a special mechanic.
-//class RenderingStack {
-//    val surface = remember(size){ WebGPUSurface() }
-//}
-//
-//class WebGPUSurface {
-//    val pipeline = remember(shaderSource) { WebGPUPipeline() }
-//}
-//
-//class WebGPUPipeline {
-//
-//}
+
 
 
 @OptIn(ExperimentalAtomicApi::class)

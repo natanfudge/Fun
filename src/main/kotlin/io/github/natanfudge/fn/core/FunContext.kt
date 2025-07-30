@@ -11,7 +11,6 @@ import io.github.natanfudge.fn.util.ValueHolder
 import kotlin.time.Duration
 
 class BaseFunEvents(
-    //TODO: temporary until we consolidate rendering to use a FunContext itself
     val beforeFrame: EventEmitter<Duration>,
 ) {
 
@@ -23,9 +22,7 @@ class BaseFunEvents(
     val appClosed = EventEmitter<Unit>()
 
     internal fun checkListenersClosed() {
-        //TODO: not checking  one because we are breaking some rules currently, the ComposeHudWebGPURenderer registers its beforeFrame once
-        // and doesn't re-register it when the Context is re-created, in the future ComposeHudWebGPURenderer will be re-created and re-register on context
-        // recreation
+
 //        check(!beforeFrame.hasListeners)
 
         // In the future it will be expected that some listeners will remain, as some parts of the app won't reload.
@@ -52,7 +49,6 @@ internal object FunContextRegistry {
 class FunContext internal constructor(
     private val surface: FunSurface, dims: ValueHolder<FunWindow>, private val compose: ComposeHudWebGPURenderer,
     private val stateContext: FunStateContext,
-    //TODO: temporary until we consolidate rendering to use a FunContext itself
     val beforeFrame: EventEmitter<Duration>,
 ) : FunStateContext by stateContext, AutoCloseable {
     init {

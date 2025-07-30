@@ -1,7 +1,9 @@
 package io.github.natanfudge.fn.core.newstuff
 
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
-import io.github.natanfudge.fn.core.*
+import io.github.natanfudge.fn.core.Resource
+import io.github.natanfudge.fn.core.TagMap
+import io.github.natanfudge.fn.core.Taggable
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.FunRememberedValue
@@ -12,13 +14,8 @@ import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.obtainPropertyName
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
-import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
-
-//interface SideEffect : AutoCloseable {
-
-//}
 
 abstract class NewFun internal constructor(
     // Note: we swap the order of parameters here so we can differentiate between this internal constructor and the public one
@@ -28,46 +25,32 @@ abstract class NewFun internal constructor(
      * will synchronize their state.
      */
     override val id: FunId,
-    val keys: List<Any?>?,
-    autoRegister: Boolean = true,
-) : Taggable by TagMap(),  Resource, AutoCloseable {
-    //    var invalid = false
-    constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
-            this(parent, parent.id.child(name), keys, autoRegister) {
+) : Taggable by TagMap(), Resource, AutoCloseable {
+    constructor(name: String, parent: NewFun = NewFunContextRegistry.getContext().rootFun) :
+            this(parent, parent.id.child(name)) {
         parent.registerChild(this)
     }
 
-    constructor(name: String, vararg keys: Any?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
-    // Treat empty key list as null, as in, always restart
-            this(name, keys.let { if (it.isEmpty()) null else it.toList() }, parent, autoRegister)
-
     init {
-        if (autoRegister) {
-            context.register(this)
-        }
+        context.register(this)
     }
 
-     val children = mutableListOf<NewFun>()
+    val children = mutableListOf<NewFun>()
 
-     fun registerChild(child: NewFun) {
+    fun registerChild(child: NewFun) {
         children.add(child)
     }
 
-     fun unregisterChild(child: NewFun) {
+    fun unregisterChild(child: NewFun) {
         children.remove(child)
     }
 
-     fun clearChildren() {
+    fun clearChildren() {
         children.clear()
     }
 
     val context: NewFunContext get() = NewFunContextRegistry.getContext()
     inline val events get() = context.events
-
-    //TODO: remove this
-    open fun init() {
-
-    }
 
     override fun toString(): String {
         return id
@@ -89,10 +72,8 @@ abstract class NewFun internal constructor(
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
     internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
-        if (this is SideEffectFun<*>) return //TODo: band aid until we seperate it
         if (deleteState) context.unregister(this)
         for (attachment in closeAttachments) {
-//            println("Close $attachment")
             attachment.close()
         }
         cleanup()
@@ -103,14 +84,9 @@ abstract class NewFun internal constructor(
     }
 
 
-
     protected open fun cleanup() {
 
     }
-
-//    fun <T> memo(vararg keys: Any?, ctr: () -> T): Delegate<T> = obtainPropertyName { name ->
-//        memo(name, keys.toList(), ctr)
-//    }
 
     inline fun <reified T> funValue(
         initialValue: T?,
@@ -134,13 +110,10 @@ abstract class NewFun internal constructor(
     fun <T> cached(key: IInvalidationKey, ctr: () -> T): PropertyDelegateProvider<Any, CachedValue<T>> = PropertyDelegateProvider { _, property ->
         CachedValue(
             "${this.id}#${property.name}",
-            invalidation = InvalidationInfo(key, parentClass = this::class)
-            , ctr, context.cache
+            invalidation = InvalidationInfo(key, parentClass = this::class), ctr, context.cache
         )
     }
 
-
-    //TODo: can be replaced with cached prob
     inline fun <reified T> memo(
         noinline initialValue: () -> T?,
     ): PropertyDelegateProvider<Any, FunRememberedValue<T>> = PropertyDelegateProvider { _, property ->

@@ -29,7 +29,7 @@ import kotlin.time.TimeSource
  * Note: this class is mounted directly on the FunContext which means its not reconstructed, although we could just have made it a normal component
  * and persisted the state lists.
  */
-class NewFunEvents : NewFun("FunEvents", Unit) {
+class NewFunEvents : NewFun("FunEvents") {
     // see https://github.com/natanfudge/MineTheEarth/issues/115
     val beforeFrame by event<Duration>()
     val frame by event<Duration>()
@@ -49,22 +49,11 @@ class NewFunEvents : NewFun("FunEvents", Unit) {
     val afterWindowResized by event<IntSize>()
 }
 
-//TODO: setup automated testing where we try to invalidate different subgroups of Funs and see if it crashes
 
-// TODO: compose rendering
-
-// TODo: crasharino when trying to edit shader:
-//
-//thread '<unnamed>' panicked at C:\Users\runneradmin\.cargo\git\checkouts\wgpu-045f9a3b3e40a5c0\8a38f5f\wgpu-core\src\storage.rs:130:9:
-//assertion `left == right` failed: Device[Id(0,1)] is no longer alive
-//left: 1
-//right: 2
-//note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
 private val maxFrameDelta = 300.milliseconds
 
-//TODO: 1. Changing shader crasharino
-// 2. Event detachment warnings.
+
 
 class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {
@@ -86,18 +75,10 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     internal fun register(fn: NewFun) {
         stateManager.register(fn.id, allowReregister = true)
-//        if (fn is SideEffectFun<*>) {
-//            // TODO: temporary bandaid to keep the SideEffectFun system, we want to make it so it works with a different system unrelated to Fun.
-//            initializer.requestInitialization(fn)
-//        }
     }
 
     internal fun unregister(fn: NewFun) {
         stateManager.unregister(fn.id)
-//        if (fn is SideEffectFun<*>) {
-//            //TOdo: see comment in register()
-//            initializer.remove(fn.id)
-//        }
     }
 
 
@@ -148,7 +129,7 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
         events.frame(delta)
         events.afterFrame(delta)
 
-        //TODO: it's likely this is too late, and we need to run this pending reload check more often, since e.g. a refresh
+        //SUS: it's likely this is too late, and we need to run this pending reload check more often, since e.g. a refresh
         // might happen after beforePhysics and then physics will have old state.
         // But tbh this is an uphill battle, it would be best to interrupt the main thread on reload and do what we need.
         if (pendingReload != null) {
@@ -167,14 +148,12 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
 
     private fun reload(reload: Reload) {
-        aggregateDirtyClasses(reload)
+//        aggregateDirtyClasses(reload)
         events.appClosed(Unit)
         cache.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
         rootFun.close(unregisterFromParent = false, deleteState = false)
         rootFun.clearChildren()
-        appCallback()
-        cache.finishRefresh()
-    }
+        appCallback() }
 }
 
 
@@ -184,7 +163,6 @@ private fun aggregateDirtyClasses(reload: Reload) {
         classes.add(scope.methodId.classId.value)
     }
     println(classes)
-    val x = 2
 }
 
 
@@ -197,52 +175,7 @@ internal object NewFunContextRegistry {
     fun getContext() = context
 }
 
-//TODO: cleanup!
-
-// TODO: since this is the only way we are using init/cleanup, we could simplify it into simply a keyed memo system, separate from Fun.
-// For funs, we will close them all always.
-class SideEffectFun<T : Any>(
-    parent: NewFun,
-    id: String,
-    keys: List<Any?>,
-    typeChecker: TypeChecker,
-    val type: KClass<T>,
-    val initFunc: () -> T,
-) : NewFun(id, keys, parent = parent), ReadOnlyProperty<Any?, T> {
-    //TODO: this makes no sense
-//    var index = 0
-//    var invalid = false
-    var value: T? by memo("value", typeChecker) { null }
-    override fun init() {
-//        this.index++
-        this.value = initFunc()
-    }
-
-    override fun equals(other: Any?): Boolean {
-        // TODO: looks weird af but hack for key checks, it will invalidate by this check for now: it is NewFun && it.id in invalidValues
-        return true
-//        return other is SideEffectFun<T> && other.index == this.index
-    }
-
-//    override fun hashCode(): Int {
-//        return index
-//    }
-
-    override fun cleanup() {
-        (value as? AutoCloseable)?.close()
-    }
-
-    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
-        return value ?: error("Attempt to get value of side effect '${id}' before it has been created")
-    }
-}
-
-//inline fun <reified T : Any> NewFun.cached(vararg keys: Any?, noinline init: () -> T): PropertyDelegateProvider<Any, SideEffectFun<T>> =
-//    PropertyDelegateProvider { _, property ->
-//        SideEffectFun(this, property.name, keys.toList(), { it is T }, T::class, init)
-//    }
-
-class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
+class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
     @Suppress("unused")
     val glfwInit by cached(InvalidationKey.None) {
         GlfwWindowProvider.initialize()
