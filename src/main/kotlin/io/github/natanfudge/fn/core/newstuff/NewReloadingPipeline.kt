@@ -26,13 +26,15 @@ class ActivePipeline(
     val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
     val pipelineLoaded: EventEmitter<GPURenderPipeline>,
     val pipelineClosed: EventEmitter<Unit>,
-) : AutoCloseable {
+) : InvalidationKey() {
     var pipeline: GPURenderPipeline? = null
     private var vertexShader: GPUShaderModule? = null
     private var fragmentShader: GPUShaderModule? = null
 
 
     fun reload() {
+        check(valid)
+        check(ctx.valid)
         val (vertex, fragment) = runBlocking {
             if (vertexSource == fragmentSource) {
                 val shader = loadShader(vertexSource)
@@ -42,19 +44,19 @@ class ActivePipeline(
             }
         }
 
-//        println("Loading pipeline with device num ${ctx.index}")
+        println("Loading pipeline with device num ${ctx.index}")
         val vertexShader = safeCreateShaderModule(vertex)
         val fragmentShader = safeCreateShaderModule(fragment)
-//        println("Created shader module")
+        println("Created shader module")
         if (vertexShader is Left && fragmentShader is Left) {
             // Success: reload pipeline
             close()
             this.vertexShader = vertexShader.value
             this.fragmentShader = fragmentShader.value
-//            println("Creating render pipeline, vertex len = ${vertex.length}, fragment len = ${vertex.length}")
+            println("Creating render pipeline, vertex len = ${vertex.length}, fragment len = ${vertex.length}")
 //            println("Setting pipeline on ReloadingPipeline num $index")
             this.pipeline = ctx.device.createRenderPipeline(pipelineDescriptorBuilder(ctx, this.vertexShader!!, this.fragmentShader!!))
-//            println("Created render pipeline")
+            println("Created render pipeline")
             pipelineLoaded(this.pipeline!!)
         } else {
             // Fail - do nothing
@@ -116,7 +118,7 @@ class NewReloadingPipeline(
     val pipelineClosed by memo { EventStream.create<Unit>() }
     // NOTE: we don't want to depend on the WebGPUSurface directly because it is actually recreated every refresh, in contrast with the window that
     // is recreated when the window is actually recreated. This is kind of confusing and I would like to do something better.
-    val active by onlyOnChange(surface.windowHolder.windowKey, vertexSource, fragmentSource) {
+    val active by cached(surface.windowHolder.effect) {
         ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded, pipelineClosed)
     }
 
@@ -134,17 +136,20 @@ class NewReloadingPipeline(
         }
     }
 
+
     private fun reloadOnChange(
         shaderSource: ShaderSource,
     ) {
         if (shaderSource is ShaderSource.HotFile) {
-            println("Re-registering callback")
+//            println("Re-registering callback")
+            check(active.valid)
             context.fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
                 active.reload()
             }.closeWithThis()
         }
     }
 }
+
 
 @OptIn(ExperimentalResourceApi::class)
 suspend fun loadShader(source: ShaderSource): String {

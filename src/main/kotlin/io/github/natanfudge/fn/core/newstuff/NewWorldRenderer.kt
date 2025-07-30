@@ -20,7 +20,7 @@ import kotlin.time.Duration
 fun IntSize.toExtend3D(depthOrArrayLayers: Int = 1) = Extent3D(width.toUInt(), height = height.toUInt(), depthOrArrayLayers.toUInt())
 
 
-class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : AutoCloseable {
+class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : InvalidationKey() {
     val extent = size.toExtend3D()
 
 
@@ -55,16 +55,19 @@ class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : Auto
 // TODO: 1. Getting detachment warnings on reload
 // 2. Selective invalidation not working, everything is under the SideEffectFun class now, so it needs to go deeper and check when the held class is.
 
-class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : AutoCloseable {
+class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : InvalidationKey() {
 
     init {
         println("Foo")
         println("Init WorldRendererSurfaceEffect")
     }
+
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
+
     init {
         println("After uniformBuffer")
     }
+
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
 
@@ -114,12 +117,13 @@ class WorldRendererSurfaceEffect(val ctx: NewWebGPUContext) : AutoCloseable {
 }
 
 val IntSize.aspectRatio get() = width.toFloat() / height
+val IntSize.isEmpty get() = width == 0 || height == 0
 
 var rendererNextIndex = 0
 
 
-class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("WorldRenderer") {
-    val surfaceBinding by onlyOnChange(surfaceHolder.surfaceKey) {
+class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("WorldRenderer") {
+    val surfaceBinding by cached(surfaceHolder.surface) {
         // Recreated on every surface change
         WorldRendererSurfaceEffect(surfaceHolder.surface)
     }
@@ -131,9 +135,16 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
 
     val index = rendererNextIndex++
 
-    val sizeBinding by onlyOnChange(surfaceHolder.windowHolder.windowKey, surfaceHolder.size) {
-        // Recreated on every window size change
+    var sizeBinding by cached(surfaceBinding) {
         WorldRendererWindowSizeEffect(surfaceHolder.size, surfaceHolder.surface)
+    }
+
+    init {
+        events.windowResized.listen {
+            if (!it.isEmpty) {
+                sizeBinding = WorldRendererWindowSizeEffect(it, surfaceHolder.surface)
+            }
+        }
     }
 
     val pipelineHolder = NewReloadingPipeline(
@@ -211,20 +222,27 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
 
     var camera = NewDefaultCamera()
 
-    var bindgroup: GPUBindGroup? by memo { null }
+    init {
+        val x = 2
+    }
+
+    var bindgroup: GPUBindGroup by cached(surfaceBinding) {
+        surfaceBinding.createBindGroup(pipelineHolder.pipeline)
+    }
 
     override fun cleanup() {
         val x = 2
     }
 
+
     init {
-        pipelineHolder.pipelineClosed.listen {
-            println("Closing world bindgroup on #${index}")
-            bindgroup?.close()
-            bindgroup = null
-            println("Closing model bindgroups on #${index}")
-            surfaceBinding.models.forEach { it.value.closeBindGroup() }
-        }
+//        pipelineHolder.pipelineClosed.listen {
+//            println("Closing world bindgroup on #${index}")
+//            bindgroup?.close()
+//            bindgroup = null
+//            println("Closing model bindgroups on #${index}")
+//            surfaceBinding.models.forEach { it.value.closeBindGroup() }
+//        }
         pipelineHolder.pipelineLoaded.listen { pipeline ->
             println("Creating bindgroup on new pipeline on #${index}")
             bindgroup = surfaceBinding.createBindGroup(pipeline)
@@ -233,7 +251,7 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
         }
 
         events.windowResized.listen {
-            projection = calculateProjectionMatrix()
+            projection = calculateProjectionMatrix(it)
         }
 
         //TODO: another issue: the event list gets reset so we need to persist that
@@ -249,7 +267,8 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
             // and so if user code both calls this method and changes something, they are at great risk of a crash on DCEVM reload, see
             // https://github.com/JetBrains/JetBrainsRuntime/issues/534
             val underlyingWindowFrame = ctx.surface.getCurrentTexture()
-            val windowTexture = underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Texture created directly from device ${ctx.index}"))
+            val windowTexture =
+                underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Texture created directly from device ${ctx.index}"))
 
             val viewProjection = projection * camera.viewMatrix
 
@@ -268,6 +287,7 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
 
             surfaceBinding.uniformBuffer[GPUPointer(0u)] = uniform
 
+            check(!sizeBinding.invalid)
 
             val renderPassDescriptor = RenderPassDescriptor(
                 colorAttachments = listOf(
@@ -296,7 +316,10 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
 //            println("Setting bindgroup in frame")
             //TODO: this errors on restarting ActivePipeline, I get a lot of warnings about "Detaching from event stream '/FunEvents#beforeFrame' failed as the listener '/GlfwWindow' was probably already detached"
             // so that will probably lead me to the issue.
-            pass.setBindGroup(0u, bindgroup ?: error("Bindgroup not set prior to drawing, pipelineholder num ${pipelineHolder.index}, i am WorldRenderer num $index"))
+            pass.setBindGroup(
+                0u,
+                bindgroup ?: error("Bindgroup not set prior to drawing, pipelineholder num ${pipelineHolder.index}, i am WorldRenderer num $index")
+            )
             pass.setVertexBuffer(0u, surfaceBinding.vertexBuffer.buffer)
             pass.setIndexBuffer(surfaceBinding.indexBuffer.buffer, GPUIndexFormat.Uint32)
 
@@ -342,9 +365,9 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
     }
 
 
-    private fun calculateProjectionMatrix() = Mat4f.perspective(
+    private fun calculateProjectionMatrix(size: IntSize = surfaceHolder.size) = Mat4f.perspective(
         fieldOfViewYInRadians = fovYRadians,
-        aspect = surfaceHolder.size.aspectRatio,
+        aspect = size.aspectRatio,
         zNear = 0.01f,
         zFar = 100f
     )
@@ -397,11 +420,15 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder, ) : NewFun("Wo
 
 
     fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
-        check(id !in model.instances) { "Instance with id $id already exists" }
+//        check(id !in model.instances) { "Instance with id $id already exists" }
+        if (id in model.instances) {
+            println("Note: RenderInstance with ID '$id' was not properly closed prior to being recreated, it will be overwritten.")
+            model.instances[id]!!.close()
+        }
         val instance = RenderInstance(
             id, initialTransform, tint, model, instanceBuffer = surfaceBinding.baseInstanceData,
             jointBuffer = surfaceBinding.jointMatrixData,
-            value, onClose = {remove(it)}
+            value, onClose = { remove(it) }
         )
         surfaceBinding.rayCasting.add(instance)
 

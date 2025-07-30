@@ -11,6 +11,9 @@ import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.obtainPropertyName
 import kotlin.properties.PropertyDelegateProvider
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
 
 
 //interface SideEffect : AutoCloseable {
@@ -27,7 +30,7 @@ abstract class NewFun internal constructor(
     override val id: FunId,
     val keys: List<Any?>?,
     autoRegister: Boolean = true,
-) : Taggable by TagMap(), Parent<NewFun> by ChildList(), Resource, AutoCloseable {
+) : Taggable by TagMap(),  Resource, AutoCloseable {
     //    var invalid = false
     constructor(name: String, keys: List<Any?>?, parent: NewFun = NewFunContextRegistry.getContext().rootFun, autoRegister: Boolean = true) :
             this(parent, parent.id.child(name), keys, autoRegister) {
@@ -44,9 +47,24 @@ abstract class NewFun internal constructor(
         }
     }
 
+     val children = mutableListOf<NewFun>()
+
+     fun registerChild(child: NewFun) {
+        children.add(child)
+    }
+
+     fun unregisterChild(child: NewFun) {
+        children.remove(child)
+    }
+
+     fun clearChildren() {
+        children.clear()
+    }
+
     val context: NewFunContext get() = NewFunContextRegistry.getContext()
     inline val events get() = context.events
 
+    //TODO: remove this
     open fun init() {
 
     }
@@ -71,29 +89,20 @@ abstract class NewFun internal constructor(
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
     internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
-        if(this is SideEffectFun<*>) return //TODo: band aid until we seperate it
+        if (this is SideEffectFun<*>) return //TODo: band aid until we seperate it
         if (deleteState) context.unregister(this)
-        closeAttachments.forEach { it.close() }
-        cleanupInternal()
+        for (attachment in closeAttachments) {
+//            println("Close $attachment")
+            attachment.close()
+        }
+        cleanup()
         children.forEach { it.close(unregisterFromParent = false, deleteState = deleteState) }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }
     }
 
-    //TODO: we won't need this function once we seperate out the SideEffectFun systen
-    /**
-     * Cleans up this Fun along with its [closeAttachments].
-     * Does not delete any state, only closes things like listeners and resources, that will be recreated anyway in init().
-     * Note that [closeAttachments] != [children].
-     * [closeAttachments] Is known to the outside world by this Fun only, its similar to an attachment, that also needs to be cleaned up.
-     * [children] Are separate Fun components that are considered children of this [Fun], and because they are [Fun] themselves they will have
-     * this function called for them as needed.
-     * However, when a USER calls Fun#close, we will call close() for those children as well with unregisterFromParent = false.
-     */
-    internal fun cleanupInternal() {
-        cleanup()
-    }
+
 
     protected open fun cleanup() {
 
@@ -116,7 +125,22 @@ abstract class NewFun internal constructor(
         funSet(it, getFunSerializer(), items, editor)
     }
 
+    /**
+     * Setting this value will automatically close it if it is [AutoCloseable].
+     * If this value is an [IInvalidationKey], Setting it will not automatically invalidate it.
+     * For that, you can set [IInvalidationKey.invalid] to true yourself, and request a refresh.
+     * (NOTE: maybe add a flag to do that, because that's sometimes desirable)
+     */
+    fun <T> cached(key: IInvalidationKey, ctr: () -> T): PropertyDelegateProvider<Any, CachedValue<T>> = PropertyDelegateProvider { _, property ->
+        CachedValue(
+            "${this.id}#${property.name}",
+            invalidation = InvalidationInfo(key, parentClass = this::class)
+            , ctr, context.cache
+        )
+    }
 
+
+    //TODo: can be replaced with cached prob
     inline fun <reified T> memo(
         noinline initialValue: () -> T?,
     ): PropertyDelegateProvider<Any, FunRememberedValue<T>> = PropertyDelegateProvider { _, property ->
@@ -128,6 +152,20 @@ abstract class NewFun internal constructor(
         // see https://github.com/natanfudge/MineTheEarth/issues/116
         EventEmitter<T>("${this.id}#$it")
     }
+}
+
+class CachedValue<T>(val key: String, val invalidation: InvalidationInfo, val init: () -> T, val cache: FunCache) : ReadWriteProperty<Any?, T> {
+    // Avoid talking to the cache whenever we want to get the value
+    private var _value = cache.get(key, invalidation, init)
+    override fun getValue(thisRef: Any?, property: KProperty<*>): T {
+        return _value
+    }
+
+    override fun setValue(thisRef: Any?, property: KProperty<*>, value: T) {
+        _value = value
+        cache.set(key, invalidation, value)
+    }
+
 }
 
 

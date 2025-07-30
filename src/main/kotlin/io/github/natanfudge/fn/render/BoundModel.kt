@@ -96,12 +96,13 @@ class BoundModel(
     var bindGroup: GPUBindGroup? = null
 
     init {
-        println("Recreating pipeline in init")
+        println("Recreating bindgroup in init")
         recreateBindGroup(pipeline())
     }
 
     fun recreateBindGroup(pipeline: GPURenderPipeline?) {
         if (pipeline != null) {
+            this.bindGroup?.close()
             this.bindGroup = createBindGroup(pipeline)
         }
         // If pipeline is null, recreateBindGroup will be re-called once it is not null

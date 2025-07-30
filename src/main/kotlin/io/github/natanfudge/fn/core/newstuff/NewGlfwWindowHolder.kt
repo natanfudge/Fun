@@ -21,7 +21,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.reflect.KProperty0
 import kotlin.reflect.jvm.isAccessible
 
-class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : AutoCloseable {
+class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : InvalidationKey() {
     init {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (withOpenGL) {
@@ -36,6 +36,9 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
     val handle = glfwCreateWindow(
         params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
     )
+
+
+
 
 
     init {
@@ -63,6 +66,7 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
             events.windowResized(IntSize(windowWidth, windowHeight))
+            events.afterWindowResized(IntSize(windowWidth, windowHeight))
         }
 
 
@@ -145,7 +149,6 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
     }
 
 
-
     override fun equals(other: Any?): Boolean {
         return other is NewGlfwWindowHolder && other.handle == this.handle
     }
@@ -187,15 +190,20 @@ fun KProperty0<*>.getBackingEffect(): SideEffectFun<*> {
     return delegate as SideEffectFun<*>
 }
 
+
+
 class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow") {
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
-    val effect by onlyOnChange(params) {
+    val effect by cached(InvalidationKey.None) {
         GlfwWindowEffect(withOpenGL, showWindow, params, events)
     }
 
 
-    val windowKey get() = ::effect.getBackingEffect()
+
+
+
+//    val windowKey get() = ::effect.getBackingEffect()
 
     var width by memo { params.initialWindowWidth }
     var height by memo { params.initialWindowHeight }

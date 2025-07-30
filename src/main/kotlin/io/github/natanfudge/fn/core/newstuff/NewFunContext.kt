@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunStateContext
@@ -12,7 +13,6 @@ import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.core.mapLeft
-import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
@@ -46,6 +46,7 @@ class NewFunEvents : NewFun("FunEvents", Unit) {
     val densityChange by event<Density>()
 
     val windowResized by event<IntSize>()
+    val afterWindowResized by event<IntSize>()
 }
 
 //TODO: setup automated testing where we try to invalidate different subgroups of Funs and see if it crashes
@@ -62,13 +63,16 @@ class NewFunEvents : NewFun("FunEvents", Unit) {
 
 private val maxFrameDelta = 300.milliseconds
 
+//TODO: 1. Changing shader crasharino
+// 2. Event detachment warnings.
 
 class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {
         NewFunContextRegistry.setContext(this)
     }
 
-    private val initializer = FunInitializer()
+
+    val cache = FunCache()
     override val stateManager = FunStateManager()
 
     val rootFun = RootFun()
@@ -82,18 +86,18 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     internal fun register(fn: NewFun) {
         stateManager.register(fn.id, allowReregister = true)
-        if (fn is SideEffectFun<*>) {
-            // TODO: temporary bandaid to keep the SideEffectFun system, we want to make it so it works with a different system unrelated to Fun.
-            initializer.requestInitialization(fn)
-        }
+//        if (fn is SideEffectFun<*>) {
+//            // TODO: temporary bandaid to keep the SideEffectFun system, we want to make it so it works with a different system unrelated to Fun.
+//            initializer.requestInitialization(fn)
+//        }
     }
 
     internal fun unregister(fn: NewFun) {
         stateManager.unregister(fn.id)
-        if (fn is SideEffectFun<*>) {
-            //TOdo: see comment in register()
-            initializer.remove(fn.id)
-        }
+//        if (fn is SideEffectFun<*>) {
+//            //TOdo: see comment in register()
+//            initializer.remove(fn.id)
+//        }
     }
 
 
@@ -119,37 +123,45 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
             if (it is InputEvent.WindowClosePressed) exitProcess(0)
         }
 
+        events.afterWindowResized.listenUnscoped {
+            frame()
+        }
+
         appCallback()
         // Nothing to close, but its fine, it will start everything without closing anything
-        initializer.finishRefresh()
+//        initializer.finishRefresh()
 
         loop()
+    }
+
+    private fun frame() {
+        val elapsed = previousFrameTime.elapsedNow()
+        previousFrameTime = TimeSource.Monotonic.markNow()
+        val delta = elapsed.coerceAtMost(maxFrameDelta)
+
+        fsWatcher.poll()
+        events.beforePhysics(delta)
+        events.physics(delta)
+        events.afterPhysics(delta)
+
+        events.beforeFrame(delta)
+        events.frame(delta)
+        events.afterFrame(delta)
+
+        //TODO: it's likely this is too late, and we need to run this pending reload check more often, since e.g. a refresh
+        // might happen after beforePhysics and then physics will have old state.
+        // But tbh this is an uphill battle, it would be best to interrupt the main thread on reload and do what we need.
+        if (pendingReload != null) {
+            // Run reload on main thread
+            events.hotReload(pendingReload!!)
+            pendingReload = null
+        }
     }
 
 
     private fun loop() {
         while (true) {
-            val elapsed = previousFrameTime.elapsedNow()
-            previousFrameTime = TimeSource.Monotonic.markNow()
-            val delta = elapsed.coerceAtMost(maxFrameDelta)
-
-            fsWatcher.poll()
-            events.beforePhysics(delta)
-            events.physics(delta)
-            events.afterPhysics(delta)
-
-            events.beforeFrame(delta)
-            events.frame(delta)
-            events.afterFrame(delta)
-
-            //TODO: it's likely this is too late, and we need to run this pending reload check more often, since e.g. a refresh
-            // might happen after beforePhysics and then physics will have old state.
-            // But tbh this is an uphill battle, it would be best to interrupt the main thread on reload and do what we need.
-            if (pendingReload != null) {
-                // Run reload on main thread
-                events.hotReload(pendingReload!!)
-                pendingReload = null
-            }
+            frame()
         }
     }
 
@@ -157,10 +169,11 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     private fun reload(reload: Reload) {
         aggregateDirtyClasses(reload)
         events.appClosed(Unit)
+        cache.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
         rootFun.close(unregisterFromParent = false, deleteState = false)
-        initializer.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
+        rootFun.clearChildren()
         appCallback()
-        initializer.finishRefresh()
+        cache.finishRefresh()
     }
 }
 
@@ -183,6 +196,8 @@ internal object NewFunContextRegistry {
 
     fun getContext() = context
 }
+
+//TODO: cleanup!
 
 // TODO: since this is the only way we are using init/cleanup, we could simplify it into simply a keyed memo system, separate from Fun.
 // For funs, we will close them all always.
@@ -222,14 +237,14 @@ class SideEffectFun<T : Any>(
     }
 }
 
-inline fun <reified T : Any> NewFun.onlyOnChange(vararg keys: Any?, noinline init: () -> T): PropertyDelegateProvider<Any, SideEffectFun<T>> =
-    PropertyDelegateProvider { _, property ->
-        SideEffectFun(this, property.name, keys.toList(), { it is T }, T::class, init)
-    }
+//inline fun <reified T : Any> NewFun.cached(vararg keys: Any?, noinline init: () -> T): PropertyDelegateProvider<Any, SideEffectFun<T>> =
+//    PropertyDelegateProvider { _, property ->
+//        SideEffectFun(this, property.name, keys.toList(), { it is T }, T::class, init)
+//    }
 
 class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp", Unit) {
     @Suppress("unused")
-    val glfwInit by onlyOnChange(Unit) {
+    val glfwInit by cached(InvalidationKey.None) {
         GlfwWindowProvider.initialize()
     }
 
@@ -252,14 +267,14 @@ fun main() {
 }
 
 class TestApp(val world: NewWorldRenderer) : NewFun("TestApp") {
-    val instance by onlyOnChange(world.key) {
+    val instance by cached(world.surfaceBinding) {
         val model = Model(Mesh.HomogenousCube, "Test")
         val value = object : Boundable {
             override val boundingBox: AxisAlignedBoundingBox
                 get() = AxisAlignedBoundingBox.UnitAABB
         }
         world.spawn(
-            id, world.getOrBindModel(model), value, Transform().toMatrix(), Tint()
+            id, world.getOrBindModel(model), value, Transform().toMatrix(), Tint(color = Color.Red)
         )
     }
 }

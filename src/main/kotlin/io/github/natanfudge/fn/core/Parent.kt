@@ -4,6 +4,7 @@ interface Parent<T> {
     val children: List<T>
     fun registerChild(child: T)
     fun unregisterChild(child: T)
+    fun clearChildren()
 }
 
 class ChildList<T> : Parent<T> {
@@ -15,6 +16,10 @@ class ChildList<T> : Parent<T> {
 
     override fun unregisterChild(child: T) {
         children.remove(child)
+    }
+
+    override fun clearChildren() {
+        children.clear()
     }
 }
 

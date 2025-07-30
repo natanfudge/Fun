@@ -73,7 +73,7 @@ internal
 fun <T> NewFun.useOldStateIfPossible(initialValue: () -> T, stateId: FunId, typeChecker: TypeChecker): T {
     val parentId = this.id
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
-    return if (typeChecker(oldState)) oldState as T else {
+    return if (oldState != null && typeChecker(oldState)) oldState as T else {
         if (oldState != null) println("Throwing out incompatible old state for $parentId:$stateId")
         initialValue()
     }

@@ -33,7 +33,7 @@ var nextWgpuIndex = 0
 
 class NewWebGPUContext(
     val window: NewGlfwWindowHolder,
-) : AutoCloseable, WebGPUContext {
+) : InvalidationKey(), WebGPUContext {
     override val surface = wgpu.getNativeSurface(window.handle)
     private val adapter = wgpu.requestAdapter(this@NewWebGPUContext.surface)
         ?.also { this@NewWebGPUContext.surface.computeSurfaceCapabilities(it) }
@@ -88,7 +88,7 @@ data class NewWebGPUSurfaceHolder(val windowHolder: NewGlfwWindowHolder) : NewFu
     val index = surfaceHolderNextIndex++
 
     @Suppress("unused")
-    val wgpuInit by onlyOnChange(Unit) {
+    val wgpuInit by cached(InvalidationKey.None) {
         LibraryLoader.load()
         wgpuSetLogLevel(WGPULogLevel_Info)
         val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, _ ->
@@ -98,15 +98,16 @@ data class NewWebGPUSurfaceHolder(val windowHolder: NewGlfwWindowHolder) : NewFu
         wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
     }
 
-    val surface by onlyOnChange(windowHolder.windowKey) {
+    val surface by cached(windowHolder.effect) {
         NewWebGPUContext(windowHolder)
     }
 
-    val surfaceKey get()  = ::surface.getBackingEffect()
+//    val surfaceKey get()  = ::surface.getBackingEffect()
 
     override fun toString(): String {
         return "WebGPUSurface #$index holding context #${surface.index}"
     }
+
 
     init {
         events.windowResized.listen {

@@ -30,12 +30,19 @@ class FileSystemWatcher(
     inner class Key internal constructor(private val file: Path, private val cb: () -> Unit): AutoCloseable {
         /** Stop receiving events for this specific file-callback pair. */
         override fun close() {
-            dirCallbacks[file.parent]?.let { list ->
+            fileCallbacks[file]?.let { list ->
                 list.remove(cb)
-                if (list.isEmpty()) {          // nothing left in this dir – deregister the watch key
-                    watchKeys[file.parent]?.cancel()
-                    watchKeys.remove(file.parent)
-                    dirCallbacks.remove(file.parent)
+                if (list.isEmpty()) fileCallbacks.remove(file)
+            }
+
+            /* ---- per‑directory bookkeeping ---- */
+            val dir = file.parent
+            dirCallbacks[dir]?.let { list ->
+                list.remove(cb)
+                if (list.isEmpty()) {
+                    watchKeys[dir]?.cancel()
+                    watchKeys.remove(dir)
+                    dirCallbacks.remove(dir)
                 }
             }
         }
