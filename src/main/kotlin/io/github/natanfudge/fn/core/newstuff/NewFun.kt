@@ -102,6 +102,12 @@ abstract class NewFun internal constructor(
     }
 
     /**
+     *
+     * CAUTION: Do not store `Fun`s in cached values! Those `Fun`s will become stale as the app refreshes and the instances are reconstructed,
+     * but your cached values will not change and still reference those old values.
+     *  //TODO: eventually, an inspection that forbids this would make sense.
+     *
+     *
      * Setting this value will automatically close it if it is [AutoCloseable].
      * If this value is an [IInvalidationKey], Setting it will not automatically invalidate it.
      * For that, you can set [IInvalidationKey.invalid] to true yourself, and request a refresh.

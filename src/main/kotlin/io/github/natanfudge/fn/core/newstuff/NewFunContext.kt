@@ -189,7 +189,7 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
 
 fun main() {
     val context = NewFunContext {
-        val base = FunBaseApp(WindowConfig(initialWindowWidth = 800))
+        val base = FunBaseApp(WindowConfig())
         TestApp(base.worldRenderer)
 
     }

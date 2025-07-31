@@ -55,6 +55,37 @@ data class InvalidationInfo(
 )
 
 class FunCache {
+    //TODO: actually, the concepts of cached values and refreshing the app are completely separate.
+    // In order to create new cached value when their dependencies change, we can just re-invoke their lambda, without refreshing the app.
+    // When a hot reload occurs, we need to refresh the app (at least the parts that changed) to reinitialize possible new fields
+    //, but that's done completely independently from creating new cached values.
+    // So what we should do, is store the cache lambda themselves, and when their dependency changes
+    // (classfile change OR a value change like window resize) we reinvoke them (close + recreate).
+    // On hot reload, we still want to refresh the app, but that can just be done after a normal invalidation of caches.
+    // The main benefit is it would allow expressing dependencies and having cache values be recreated without refreshing the app.
+    // The behavior is the same for the first re-run, stuff will be executed in-line when cached() is first called.
+    // On reload, the behavior will be a bit different, they will all close before refreshing as before,
+    // HOWEVER all the cached values will be reinitialized together in the order they were previously declared.
+    // This has 3 potential issues:
+    // 1. Cache init order is swapped:
+    // val x by cached {...}
+    // val y by cached {...}
+    // --- Becomes ---
+    // val y by cached {...}
+    // val x by cached {f(y)}
+    // In this case, x will be initialized first and will use an invalid y value.
+    // 2. New cache keys will be ignored.
+    // 3. We may use stale values because all the caches run before the actual app.
+    // class Foo(val someValue: ImportantClass): NewFun {
+    //     val x by cached { f(someValue)}
+    //
+    // It won't gain the someValue from the current refresh, but from the previous refresh. This is not much of a problem
+    // because f() won't expect to have the "newest" value anyway.
+    // And TBH it brings out another point where we are often holding stale values in these cached {} functions.
+    // Not sure its solvable - we always want to recreate instances and yet we don't want to call f() twice.
+    // The usual way this is solved is by having someValue be a mutable variable and then modifying it when it changes.
+    // Not sure its possible to do it automatically.
+
     // Stored in a LinkedHashMap so we can track the order of insertions. We want to init by order, and close by reverse order.
     private val values = LinkedHashMap<CacheKey, CacheValue>()
 

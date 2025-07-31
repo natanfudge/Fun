@@ -39,68 +39,67 @@ import org.lwjgl.system.MemoryUtil
 import kotlin.time.Duration
 
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  🔸 FIXED‑SIZE OFF‑SCREEN COMPOSE WINDOW                                  */
-/* ────────────────────────────────────────────────────────────────────────── */
-
 @OptIn(InternalComposeUiApi::class)
 internal class FixedSizeComposeWindow(
-    val width: Int,
-    val height: Int,
-    val window: ComposeGlfwWindow,
+    val size: IntSize,
+    val sceneWrapper: GlfwComposeScene,
+
 ) : AutoCloseable {
 
     init {
-        GLFW.glfwMakeContextCurrent(window.handle)
-        GL.setCapabilities(window.capabilities)
+        GLFW.glfwMakeContextCurrent(sceneWrapper.handle)
+        GL.setCapabilities(sceneWrapper.capabilities)
+
+        GLFW.glfwSetWindowSize(sceneWrapper.handle, size.width, size.height)
+        sceneWrapper.scene.size = size
+        sceneWrapper.sceneContext.platformContext.windowInfo.containerSize = size
     }
 
     /** Skia surface bound to the current OpenGL FBO. */
     private val surface = glDebugGroup(0, groupName = { "Compose Surface Init" }) {
-        createSurface(width, height, window.context)
+        createSurface(size, sceneWrapper.context)
     }
     val canvas: org.jetbrains.skia.Canvas = surface.canvas
     private val composeCanvas = canvas.asComposeCanvas()
 
-    private val frameBytes = width * height * 4
+    private val frameBytes = size.width * size.height * 4
     private val jvmHeapFramebuffer = ByteArray(frameBytes)
     private val offHeapFrameBuffer = MemoryUtil.memAlloc(frameBytes)
-
 
 
     /* Draw the root scene + every overlay layer. */
     fun renderSkia() {
         // Clear first – Compose does *not* do this every frame.
         glClearColor(0f, 0f, 0f, 0f)
-        glDebugGroup(2, groupName = { "${window.config.name} Canvas Clear" }) {
+        glDebugGroup(2, groupName = { "${sceneWrapper.label} Canvas Clear" }) {
             canvas.clear(Color.TRANSPARENT)
         }
 
         val now = System.nanoTime()
 
         /* 1️⃣  root scene */
-        glDebugGroup(3, groupName = { "${window.config.name} Root Render" }) {
-            window.scene.render(composeCanvas, now)
+        glDebugGroup(3, groupName = { "${sceneWrapper.label} Root Render" }) {
+            sceneWrapper.scene.render(composeCanvas, now)
         }
 
         /* 2️⃣  overlay layers (pop‑ups, tooltips, etc.) */
-        glDebugGroup(3, groupName = { "${window.config.name} Overlays Render" }) {
-            window.overlayLayers.forEach { it.renderOn(canvas, now) }
+        glDebugGroup(3, groupName = { "${sceneWrapper.label} Overlays Render" }) {
+            sceneWrapper.overlayLayers.forEach { it.renderOn(canvas, now) }
         }
 
         /* 3️⃣  flush to GL */
-        glDebugGroup(4, groupName = { "${window.config.name} Flush" }) {
-            window.context.flush()
+        glDebugGroup(4, groupName = { "${sceneWrapper.label} Flush" }) {
+            sceneWrapper.context.flush()
         }
     }
 
     /* Copy back‑buffer into [frame] & emit it. */
-    fun blitFrame() {
+    fun blitFrame(): ComposeFrameEvent {
         // Reset buffer position before OpenGL writes to it
         offHeapFrameBuffer.rewind()
 
         // Copy from GPU to off-heap buffer
-        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, offHeapFrameBuffer)
+        glReadPixels(0, 0, size.width, size.height, GL_RGBA, GL_UNSIGNED_BYTE, offHeapFrameBuffer)
 
         // Reset position again before reading
         offHeapFrameBuffer.rewind()
@@ -108,8 +107,9 @@ internal class FixedSizeComposeWindow(
         // Copy from off-heap buffer to JVM array
         offHeapFrameBuffer.get(jvmHeapFramebuffer)
 
+        return ComposeFrameEvent(jvmHeapFramebuffer, size)
 
-        window.frameStream.emit(ComposeFrameEvent(jvmHeapFramebuffer, width, height))
+//        sceneWrapper.frameStream.emit()
     }
 
     override fun close() {
@@ -270,7 +270,6 @@ class GlfwComposeSceneLayer(
 operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= right && offset.y <= bottom && offset.y >= top
 
 
-
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  🔸 GLFW PLATFORM CONTEXT (POINTER ICON ONLY)                             */
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -315,34 +314,32 @@ internal class WindowInfoImpl : WindowInfo {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 @OptIn(InternalComposeUiApi::class)
-internal class ComposeGlfwWindow(
-    initialWidth: Int,
-    initialHeight: Int,
+internal class GlfwComposeScene(
+    initialSize: IntSize,
     val handle: WindowHandle,
     onSetPointerIcon: (PointerIcon) -> Unit,
     private val density: Density,
-    val config: ComposeOpenGLRenderer,
+    val getWindowSize: () -> IntSize,
+    val label: String,
+//    val config: ComposeOpenGLRenderer,
     onError: (Throwable) -> Unit,
     /** Marks this window invalid – render next frame. */
-    private val onInvalidate: () -> Unit,
+    private val onInvalidate: (GlfwComposeScene) -> Unit,
     val capabilities: GLCapabilities,
 ) : AutoCloseable {
-
-    val frameStream = EventEmitter<ComposeFrameEvent>()
     val context = DirectContext.makeGL()
     var invalid = true
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         System.err.println("Compose async error – restarting window")
         throwable.printStackTrace()
-        config.windowLifecycle.restart()
         onError(throwable)
     }
 
     val dispatcher = GlfwCoroutineDispatcher()
     private val frameDispatcher = FrameDispatcher(dispatcher) {
         /* Called by Compose when *anything* invalidates. */
-        onInvalidate()
+        onInvalidate(this)
     }
 
     val sceneContext = GlfwComposeSceneContext(
@@ -350,19 +347,19 @@ internal class ComposeGlfwWindow(
         frameDispatcher::scheduleFrame,
         onLayerCreated = {
             overlayLayers.add(it)
-            val dim = config.dimensionsLifecycle.value
-            if (dim != null) {
-                // IDK why, but if you don't set this then Compose doesn't properly initialize the layer. There's no need to resize it or anything
-                // on window resize, I think it just needs some initial "push" to compose the initial popup content
-                it.boundsInWindow = IntRect(0, 0, dim.width, dim.height)
-                it.scene.size = IntSize(dim.width, dim.height)
-            }
+            val dim = getWindowSize()
+//            if (dim != null) {
+            // IDK why, but if you don't set this then Compose doesn't properly initialize the layer. There's no need to resize it or anything
+            // on window resize, I think it just needs some initial "push" to compose the initial popup content
+            it.boundsInWindow = IntRect(0, 0, dim.width, dim.height)
+            it.scene.size = IntSize(dim.width, dim.height)
+//            }
         },
         onLayerRemoved = { overlayLayers.remove(it) }
     )
 
     init {
-        sceneContext.platformContext.windowInfo.containerSize = IntSize(initialWidth, initialHeight)
+        sceneContext.platformContext.windowInfo.containerSize = initialSize
     }
 
     var focused by sceneContext.platformContext.windowInfo::isWindowFocused
@@ -386,7 +383,7 @@ internal class ComposeGlfwWindow(
         coroutineContext = dispatcher + exceptionHandler,
         density = density,
         invalidate = frameDispatcher::scheduleFrame,
-        size = IntSize(initialWidth, initialHeight),
+        size = initialSize,
         composeSceneContext = sceneContext
     )
 
@@ -440,9 +437,9 @@ private fun ComposeScene.sendInputEvent(event: InputEvent) {
 /*  🔸 OPENGL RENDERER                                                       */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-private fun createSurface(width: Int, height: Int, context: DirectContext): Surface {
+private fun createSurface(size: IntSize, context: DirectContext): Surface {
     val fbId = glGetInteger(GL_FRAMEBUFFER_BINDING)
-    val renderTarget = BackendRenderTarget.makeGL(width, height, 0, 8, fbId, GR_GL_RGBA8)
+    val renderTarget = BackendRenderTarget.makeGL(size.width, size.height, 0, 8, fbId, GR_GL_RGBA8)
 
     return Surface.makeFromBackendRenderTarget(
         context,
@@ -455,8 +452,7 @@ private fun createSurface(width: Int, height: Int, context: DirectContext): Surf
 
 data class ComposeFrameEvent(
     val bytes: ByteArray,
-    val width: Int,
-    val height: Int,
+    val size: IntSize,
 )
 
 
@@ -467,13 +463,14 @@ internal class ComposeOpenGLRenderer(
     val name: String,
     onSetPointerIcon: (PointerIcon) -> Unit,
     onError: (Throwable) -> Unit,
+    onFrame: (ComposeFrameEvent) -> Unit,
     show: Boolean = false,
     parentLifecycle: Lifecycle<Unit> = ProcessLifecycle,
 ) {
 
     val LifecycleLabel = "$name Compose Window"
 
-    private val glfw = GlfwWindowConfig(
+    private val offscreenGlfw = GlfwWindowConfig(
         GlfwConfig(disableApi = false, showWindow = show),
         name = "Compose $name",
         windowParameters.copy(initialTitle = name),
@@ -481,7 +478,7 @@ internal class ComposeOpenGLRenderer(
     )
 
 
-    val windowLifecycle: Lifecycle<ComposeGlfwWindow> = glfw.windowLifecycle.bind(
+    val offscreenScene: Lifecycle<GlfwComposeScene> = offscreenGlfw.windowLifecycle.bind(
         LifecycleLabel,
         early = true,
     ) {
@@ -489,15 +486,15 @@ internal class ComposeOpenGLRenderer(
         val capabilities = GL.createCapabilities()
 
         glDebugGroup(1, groupName = { "$name Compose Init" }) {
-            var window: ComposeGlfwWindow? = null
-            window = ComposeGlfwWindow(
-                it.params.initialWindowWidth, it.params.initialWindowHeight, it.handle,
+            var window: GlfwComposeScene? = null
+            window = GlfwComposeScene(
+                it.params.size, it.handle,
                 density = Density(glfwGetWindowContentScale(it.handle)),
                 onSetPointerIcon = onSetPointerIcon,
-                config = this@ComposeOpenGLRenderer, onError = onError, capabilities = capabilities, onInvalidate = {
+                onError = onError, capabilities = capabilities, getWindowSize = { dimensionsLifecycle.value?.size ?: IntSize.Zero }, onInvalidate = {
                     // Invalidate Compose frame on change
                     window!!.invalid = true
-                }
+                }, label = name
             )
             window
         }
@@ -505,18 +502,14 @@ internal class ComposeOpenGLRenderer(
 
 
     val dimensionsLifecycle: Lifecycle<FixedSizeComposeWindow> =
-        windowDimensionsLifecycle.bind(windowLifecycle, "$name Fixed Size") { dim, win ->
-            GLFW.glfwSetWindowSize(win.handle, dim.width, dim.height)
-            val size = IntSize(dim.width, dim.height)
-            win.scene.size = size
-            win.sceneContext.platformContext.windowInfo.containerSize = size
-            FixedSizeComposeWindow(dim.width, dim.height, win)
+        windowDimensionsLifecycle.bind(offscreenScene, "$name Fixed Size") { dim, win ->
+            FixedSizeComposeWindow(IntSize(dim.width, dim.height), win)
         }
 
     init {
         beforeFrameEvent.listenUnscoped {
             val dim = dimensionsLifecycle.assertValue
-            val window = dim.window
+            val window = dim.sceneWrapper
 
             window.dispatcher.poll()
 
@@ -525,7 +518,8 @@ internal class ComposeOpenGLRenderer(
                 GL.setCapabilities(window.capabilities)
 
                 dim.renderSkia()
-                dim.blitFrame()
+                val frame = dim.blitFrame()
+                onFrame(frame)
 
                 glfwSwapBuffers(window.handle)
                 window.invalid = false

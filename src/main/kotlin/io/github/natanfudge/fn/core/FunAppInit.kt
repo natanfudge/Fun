@@ -199,7 +199,7 @@ private class FunAppInitializer(private val app: FunAppInit) {
             initFunc(context)
             context // Close context when lifecycle is restarted
         }
-        hud.compose.windowLifecycle.bind(appLifecycle, "App Hud binding") { comp, context ->
+        hud.compose.offscreenScene.bind(appLifecycle, "App Hud binding") { comp, context ->
             comp.setContent {
                 context.gui.PanelSupport()
             }

@@ -17,11 +17,11 @@ import kotlin.math.PI
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 
-fun IntSize.toExtend3D(depthOrArrayLayers: Int = 1) = Extent3D(width.toUInt(), height = height.toUInt(), depthOrArrayLayers.toUInt())
+fun IntSize.toExtent3D(depthOrArrayLayers: Int = 1) = Extent3D(width.toUInt(), height = height.toUInt(), depthOrArrayLayers.toUInt())
 
 
 class WorldRendererWindowSizeEffect(size: IntSize, ctx: NewWebGPUContext) : InvalidationKey() {
-    val extent = size.toExtend3D()
+    val extent = size.toExtent3D()
 
 
     // Create z buffer
@@ -137,6 +137,10 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
     }
 
     init {
+        // I prefer manually reconstructing the WorldRendererWindowSizeEffect on window size change instead of
+        // having the size as an invalidation key and refreshing the app, because this way the app doesn't get refreshed
+        // constantly when the window is resized. I try to keep refreshes to be a dev-only reload thing, and not be a thing
+        // the user experiences all the time like when he resizes the window.
         events.windowResized.listen {
             if (!it.isEmpty) {
                 sizeBinding = WorldRendererWindowSizeEffect(it, surfaceHolder.surface)

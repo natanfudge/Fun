@@ -130,7 +130,7 @@ class FunContext internal constructor(
     }
 
     fun setGUIFocused(focused: Boolean) {
-        compose.compose.windowLifecycle.assertValue.focused = focused
+        compose.compose.offscreenScene.assertValue.focused = focused
     }
 
     fun closeApp(deleteState: Boolean) {

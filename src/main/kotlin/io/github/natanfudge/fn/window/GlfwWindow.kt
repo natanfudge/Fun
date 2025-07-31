@@ -54,7 +54,7 @@ class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowCon
 
 
     val handle = glfwCreateWindow(
-        params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
+        params.size.width, params.size.height, params.initialTitle, NULL, NULL
     )
 
     override fun equals(other: Any?): Boolean {

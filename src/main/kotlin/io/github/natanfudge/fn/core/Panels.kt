@@ -21,8 +21,8 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.window.WindowDimensions
 import io.github.natanfudge.fn.window.WindowConfig
+import io.github.natanfudge.fn.window.WindowDimensions
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: Panels) : AutoCloseable {
     override fun close() {
@@ -100,7 +100,6 @@ class Panels {
     }
 
 
-
 }
 
 
@@ -114,7 +113,7 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
     val render by render(Model(Mesh.UnitSquare, "WorldPanel"))
 
     fun setContent(content: @Composable () -> Unit) {
-        renderer.windowLifecycle.assertValue.setContent {
+        renderer.offscreenScene.assertValue.setContent {
             content()
         }
     }
@@ -138,7 +137,11 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
         , onError = {
             context.events.guiError.emit(it)
         },
-        parentLifecycle = panelLifecycle
+        parentLifecycle = panelLifecycle,
+        onFrame = { (bytes, size) ->
+            val image = FunImage(size, bytes, null)
+            render.setTexture(image)
+        }
     )
 
     override var transform: Transform by render::transform
@@ -150,10 +153,10 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
 //        renderer.glfw.windowLifecycle.start(Unit)
 
 
-        renderer.windowLifecycle.assertValue.frameStream.listen {
-            val image = FunImage(IntSize(it.width, it.height), it.bytes, null)
-            render.setTexture(image)
-        }
+//        renderer.offscreenScene.assertValue.frameStream.listen {
+//            val image = FunImage(IntSize(it.width, it.height), it.bytes, null)
+//            render.setTexture(image)
+//        }
 
         events.appClosed.listen {
             panelLifecycle.end()

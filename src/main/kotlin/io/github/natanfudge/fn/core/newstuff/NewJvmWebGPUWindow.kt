@@ -32,7 +32,8 @@ import org.rococoa.Rococoa
 var nextWgpuIndex = 0
 
 class NewWebGPUContext(
-    val window: NewGlfwWindowHolder,
+    val window: NewGlfwWindow,
+    val size: IntSize,
 ) : InvalidationKey(), WebGPUContext {
     override val surface = wgpu.getNativeSurface(window.handle)
     private val adapter = wgpu.requestAdapter(this@NewWebGPUContext.surface)
@@ -41,10 +42,6 @@ class NewWebGPUContext(
 
 
     val index = nextWgpuIndex++
-
-    init {
-        println("Init device num $index")
-    }
 
     var error: WebGPUException? = null
 
@@ -69,11 +66,10 @@ class NewWebGPUContext(
     }
 
     init {
-        configure(window.size)
+        configure(size)
     }
 
     override fun close() {
-        println("Closing device $nextWgpuIndex")
         closeAll(this@NewWebGPUContext.surface, adapter, device)
     }
 }
@@ -97,8 +93,8 @@ data class NewWebGPUSurfaceHolder(val windowHolder: NewGlfwWindowHolder) : NewFu
         wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
     }
 
-    val surface by cached(windowHolder.effect) {
-        NewWebGPUContext(windowHolder)
+    val surface by cached(windowHolder.window) {
+        NewWebGPUContext(windowHolder.window, size)
     }
 
 //    val surfaceKey get()  = ::surface.getBackingEffect()

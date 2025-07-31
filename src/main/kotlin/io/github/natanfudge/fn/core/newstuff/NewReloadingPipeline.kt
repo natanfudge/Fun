@@ -117,7 +117,7 @@ class NewReloadingPipeline(
     val pipelineClosed by memo { EventStream.create<Unit>() }
     // NOTE: we don't want to depend on the WebGPUSurface directly because it is actually recreated every refresh, in contrast with the window that
     // is recreated when the window is actually recreated. This is kind of confusing and I would like to do something better.
-    val active by cached(surface.windowHolder.effect) {
+    val active by cached(surface.windowHolder.window) {
         ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded, pipelineClosed)
     }
 

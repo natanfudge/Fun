@@ -18,10 +18,8 @@ import org.jetbrains.compose.reload.orchestration.OrchestrationMessage
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.reflect.KProperty0
-import kotlin.reflect.jvm.isAccessible
 
-class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : InvalidationKey() {
+class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : InvalidationKey() {
     init {
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
         if (withOpenGL) {
@@ -34,7 +32,7 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
 
 
     val handle = glfwCreateWindow(
-        params.initialWindowWidth, params.initialWindowHeight, params.initialTitle, NULL, NULL
+        params.size.width, params.size.height, params.initialTitle, NULL, NULL
     )
 
 
@@ -187,35 +185,36 @@ class GlfwWindowEffect(val withOpenGL: Boolean, val showWindow: Boolean, val par
 class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow") {
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
-    val effect by cached(InvalidationKey.None) {
-        GlfwWindowEffect(withOpenGL, showWindow, params, events)
+    val window by cached(InvalidationKey.None) {
+        NewGlfwWindow(withOpenGL, showWindow, params, events)
     }
 
-    var width by memo { params.initialWindowWidth }
-    var height by memo { params.initialWindowHeight }
+//    var width by memo { params.initialWindowWidth }
+//    var height by memo { params.initialWindowHeight }
     var windowPos by memo { IntOffset(0, 0) }
-    val size get() = IntSize(width, height)
+    private set
+    var size by memo { params.size }
+        private set
 
     val minimized get() = size.isEmpty
 
 
-    val handle get() = effect.handle
+    val handle get() = window.handle
 
     init {
         events.beforeFrame.listen {
             glfwPollEvents()
         }
-        events.windowResized.listen { (width, height) ->
+        events.windowResized.listen { newSize ->
             val previouslyMinimized = this.size.isEmpty
-            if (!previouslyMinimized && (width == 0 || height == 0)) {
+            if (!previouslyMinimized && newSize.isEmpty) {
                 OrchestrationMessage.ApplicationWindowGone(WindowId(handle.toString()))
                     .sendAsync()
             }
-            if (previouslyMinimized && width != 0 && height != 0) {
+            if (previouslyMinimized && !newSize.isEmpty) {
                 notifyCHROfWindowPosition()
             }
-            this.width = width
-            this.height = height
+            this.size = newSize
         }
         events.input.listen {
             if (it is InputEvent.WindowMove) {
@@ -228,7 +227,7 @@ class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val 
     private fun notifyCHROfWindowPosition() {
         OrchestrationMessage.ApplicationWindowPositioned(
             WindowId(handle.toString()),
-            windowPos.x, windowPos.y, width, height, false
+            windowPos.x, windowPos.y, size.width, size.height, false
         ).sendAsync()
     }
 

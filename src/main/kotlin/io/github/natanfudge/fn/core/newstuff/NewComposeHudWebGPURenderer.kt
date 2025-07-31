@@ -1,32 +1,33 @@
 @file:OptIn(InternalComposeUiApi::class)
 
-package io.github.natanfudge.fn.compose
+package io.github.natanfudge.fn.core.newstuff
 
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer.ComposeBindGroup
+import io.github.natanfudge.fn.compose.GlfwComposeScene
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.ValueHolder
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.ygdrasil.webgpu.*
-import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
 import kotlin.time.Duration
 
 private var samplerIndex = 0
 
-internal class ComposeWebgpuSurface(val ctx: WebGPUContextOld, val composeWindowLifecycle: ValueHolder<GlfwComposeScene>) : AutoCloseable {
+internal class NewComposeWebgpuSurface(val ctx: NewWebGPUContext, val context: NewFunContext, val composeScene: GlfwComposeScene) : AutoCloseable {
+    // TODO: these listeners should not be here and i will def need to move them for panel input
     // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
-    private val inputListener = ctx.window.inputEvent.listenUnscoped { input ->
-        val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        window.sendInputEvent(input)
+    private val inputListener = context.events.input.listenUnscoped { input ->
+//        val window = composeWindowLifecycle.value ?: return@listenUnscoped
+        composeScene.sendInputEvent(input)
     }
-    private val densityListener = ctx.window.densityChangeEvent.listenUnscoped { newDensity ->
-        val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        if (window.focused) {
-            window.scene.density = newDensity
+    private val densityListener = context.events.densityChange.listenUnscoped { newDensity ->
+//        val window = composeWindowLifecycle.value ?: return@listenUnscoped
+        if (composeScene.focused) {
+            composeScene.scene.density = newDensity
         }
     }
 
@@ -50,35 +51,19 @@ internal class ComposeWebgpuSurface(val ctx: WebGPUContextOld, val composeWindow
 
 private var textureIndex = 0
 
-internal class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: GlfwComposeScene, val ctx: WebGPUContext) : AutoCloseable {
+internal class NewComposeTexture(val ctx: NewWebGPUContext, val size: IntSize) : AutoCloseable {
     val myIndex = textureIndex++
-    val composeTexture = dimensions.surface.device.createTexture(
+    val composeTexture = ctx.device.createTexture(
         TextureDescriptor(
-            size = Extent3D(dimensions.dimensions.width.toUInt(), dimensions.dimensions.height.toUInt(), 1u),
+            size = size.toExtent3D(),
             format = GPUTextureFormat.RGBA8UnormSrgb,
             usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst),
             label = toString()
         )
     )
 
-
-    init {
-        // Need a new compose frame when the texture is recreated
-        bgWindow.invalid = true
-    }
-
-
-//    val listener = bgWindow.frameStream.listenUnscoped { (bytes, width, height) ->
-//        dimensions.surface.device.copyExternalImageToTexture(
-//            source = bytes,
-//            texture = composeTexture,
-//            width = width, height = height
-//        )
-//    }
-
-
     override fun toString(): String {
-        return "Compose Texture #$myIndex w=${dimensions.dimensions.width},h=${dimensions.dimensions.height}"
+        return "Compose Texture #$myIndex $size"
     }
 
 
@@ -87,31 +72,49 @@ internal class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: 
     }
 }
 
-internal class ComposeHudWebGPURenderer(
-    private val hostWindow: WebGPUWindow,
+internal class NewComposeHudWebGPURenderer(
+    private val webGPUHolder: NewWebGPUSurfaceHolder,
     fsWatcher: FileSystemWatcher,
     beforeFrameEvent: EventStream<Duration>,
     onError: (Throwable) -> Unit,
-    name: String,
     show: Boolean = false,
-) {
-    val compose: ComposeOpenGLRenderer = ComposeOpenGLRenderer(
-        hostWindow.window.windowParameters,
-        windowDimensionsLifecycle = hostWindow.window.dimensionsLifecycle,
-        beforeFrameEvent = beforeFrameEvent,
-        show = show, name = name, onError = onError, onSetPointerIcon = {
+) : NewFun("ComposeHudWebGPURenderer") {
+
+
+
+    val offscreenComposeRenderer: NewComposeOpenGLRenderer = NewComposeOpenGLRenderer(
+        webGPUHolder.windowHolder.params,
+        show = show, name = "Compose", onError = onError, onSetPointerIcon = {
             setHostWindowCursorIcon(it)
         },
         onFrame = { (bytes, size) ->
-            hostWindow.dimensionsLifecycle.assertValue.surface.device.copyExternalImageToTexture(
+            webGPUHolder.surface.device.copyExternalImageToTexture(
                 source = bytes,
-                texture = textureLifecycle.assertValue.composeTexture,
+                texture = texture.composeTexture,
                 width = size.width, height = size.height
             )
         }
 
     )
-    val SurfaceLifecycleName = "$name Compose WebGPU Surface"
+
+    val surface = cached(webGPUHolder.surface) {
+        NewComposeWebgpuSurface(webGPUHolder.surface, context,offscreenComposeRenderer.scene)
+    }
+
+    var texture by cached(webGPUHolder.surface) {
+        // Need a new compose frame when the texture is recreated
+        offscreenComposeRenderer.scene.invalid = true
+        NewComposeTexture(webGPUHolder.surface, webGPUHolder.size)
+    }
+
+
+    init {
+        events.windowResized.listen {
+            offscreenComposeRenderer.resize(it)
+            texture =  NewComposeTexture(webGPUHolder.surface, webGPUHolder.size)
+        }
+    }
+
 
     private fun setHostWindowCursorIcon(icon: PointerIcon) {
         // Pick (or build) the native cursor to install
@@ -124,7 +127,7 @@ internal class ComposeHudWebGPURenderer(
             else -> 0L
         }
 
-        GLFW.glfwSetCursor(hostWindow.window.windowLifecycle.assertValue.handle, cursor)
+        glfwSetCursor(webGPUHolder.windowHolder.handle, cursor)
     }
 
     /** Cache of `glfwCreateStandardCursor` results so we don’t create the same cursor twice. */
@@ -134,14 +137,14 @@ internal class ComposeHudWebGPURenderer(
     private fun glfwCursor(shape: Int): Long = stdCursorCache.getOrPut(shape) { glfwCreateStandardCursor(shape) }
 
 
-    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind(SurfaceLifecycleName) { surface ->
-        ComposeWebgpuSurface(surface, compose.offscreenScene)
+    val surfaceLifecycle = hostWindowHolder.surfaceLifecycle.bind(SurfaceLifecycleName) { surface ->
+        NewComposeWebgpuSurface(surface, offscreenComposeRenderer.offscreenScene)
     }
 
 
     val fullscreenQuadLifecycle = createReloadingPipeline(
         "$name Compose Fullscreen Quad",
-        hostWindow.surfaceLifecycle, fsWatcher,
+        hostWindowHolder.surfaceLifecycle, fsWatcher,
         vertexShader = ShaderSource.HotFile("compose/fullscreen_quad.vertex"),
         fragmentShader = ShaderSource.HotFile("compose/fullscreen_quad.fragment"),
     ) { vertex, fragment ->
@@ -182,11 +185,8 @@ internal class ComposeHudWebGPURenderer(
         )
     }
 
-    val textureLifecycle = hostWindow.dimensionsLifecycle.bind(compose.offscreenScene, "$name Compose Texture") { dim, bgWindow ->
-        ComposeTexture(dim, bgWindow, dim.surface)
-    }
 
-    class ComposeBindGroup(pipeline: ReloadingPipeline, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
+    class ComposeBindGroup(pipeline: ReloadingPipeline, texture: ComposeTexture, surface: NewComposeWebgpuSurface) : AutoCloseable {
         val resource = texture.composeTexture.createView()
         val group = texture.ctx.device.createBindGroup(
             BindGroupDescriptor(
