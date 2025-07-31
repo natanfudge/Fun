@@ -21,7 +21,9 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : InvalidationKey() {
     init {
-        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE) // Initially invisible to give us time to move it to the correct place
+        if (!showWindow) {
+            glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
+        }
         if (withOpenGL) {
             glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API)
         } else {
@@ -48,6 +50,7 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
             glfwShowWindow(handle)
         }
 
+        // Should def be handled externally because now all the windows are doing it
         notifyCHROfWindowPosition()
 
 
@@ -59,6 +62,7 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         }
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
+            //TODO: this is very bad because all windows will be emitting this, I think I need to pull it out as a callback and handle it correctly
             val size = IntSize(windowWidth, windowHeight)
             events.windowResized(size)
             events.afterWindowResized(size)
@@ -180,19 +184,17 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
 }
 
 
-
-
-class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig) : NewFun("GlfwWindow") {
+class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val name: String) : NewFun("${name}GlfwWindow") {
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
     val window by cached(InvalidationKey.None) {
         NewGlfwWindow(withOpenGL, showWindow, params, events)
     }
 
-//    var width by memo { params.initialWindowWidth }
+    //    var width by memo { params.initialWindowWidth }
 //    var height by memo { params.initialWindowHeight }
     var windowPos by memo { IntOffset(0, 0) }
-    private set
+        private set
     var size by memo { params.size }
         private set
 

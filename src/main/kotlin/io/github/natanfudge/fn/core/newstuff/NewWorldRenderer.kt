@@ -121,6 +121,10 @@ val IntSize.isEmpty get() = width == 0 || height == 0
 
 var rendererNextIndex = 0
 
+data class BeforeSubmitWebGPUDrawEvent(
+    val encoder: GPUCommandEncoder, val drawTarget: GPUTextureView
+)
+
 
 class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("WorldRenderer") {
     val surfaceBinding by cached(surfaceHolder.surface) {
@@ -235,6 +239,8 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
         val x = 2
     }
 
+    val beforeSubmitDraw by event<BeforeSubmitWebGPUDrawEvent>()
+
 
     init {
 //        pipelineHolder.pipelineClosed.listen {
@@ -257,7 +263,7 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
 
         events.frame.listen { delta ->
             val ctx = surfaceHolder.surface
-            if (ctx.window.size.isEmpty) return@listen
+            if (ctx.size.isEmpty) return@listen
             checkForFrameDrops(ctx, delta)
             val encoder = ctx.device.createCommandEncoder()
 
@@ -346,6 +352,7 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
                 ctx.error = null
                 throw err
             }
+            beforeSubmitDraw(BeforeSubmitWebGPUDrawEvent(encoder, windowTexture))
 
             ctx.device.queue.submit(listOf(encoder.finish()));
 

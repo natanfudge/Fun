@@ -22,12 +22,10 @@ internal class NewComposeOpenGLRenderer(
      params: WindowConfig,
     val name: String,
     onSetPointerIcon: (PointerIcon) -> Unit,
-    onError: (Throwable) -> Unit,
     onFrame: (ComposeFrameEvent) -> Unit,
     show: Boolean = false,
 ): NewFun("ComposeOpenGLRenderer-$name") {
-
-    private val offscreenWindow = NewGlfwWindowHolder(withOpenGL = false, showWindow = show, params)
+    private val offscreenWindow = NewGlfwWindowHolder(withOpenGL = true, showWindow = show, params, name = name)
 
     val scene by cached(offscreenWindow.window) {
         val handle = offscreenWindow.window.handle
@@ -42,14 +40,14 @@ internal class NewComposeOpenGLRenderer(
                 onSetPointerIcon = onSetPointerIcon,
                 label = name,
                 onError = {
+                    events.guiError(it)
                     //TODo
 //                    windowLifecycle.restart()
-                    onError(it)
                 }, capabilities = capabilities, getWindowSize = {
                     offscreenWindow.size
                 }, onInvalidate = {
                     // Invalidate Compose frame on change
-                    it.invalid = true
+                    it.frameInvalid = true
                 }
             )
         }
@@ -60,7 +58,7 @@ internal class NewComposeOpenGLRenderer(
     }
 
     fun resize(size: IntSize) {
-        scene.invalid = true
+        scene.frameInvalid = true
         canvas = FixedSizeComposeWindow(size, scene)
     }
 
@@ -70,7 +68,7 @@ internal class NewComposeOpenGLRenderer(
 
             scene.dispatcher.poll()
 
-            if (scene.invalid) {
+            if (scene.frameInvalid) {
                 GLFW.glfwMakeContextCurrent(scene.handle)
                 GL.setCapabilities(scene.capabilities)
 
@@ -78,7 +76,7 @@ internal class NewComposeOpenGLRenderer(
                 onFrame(canvas.blitFrame())
 
                 glfwSwapBuffers(scene.handle)
-                scene.invalid = false
+                scene.frameInvalid = false
             }
         }
     }

@@ -20,7 +20,7 @@ import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.*
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.util.EventEmitter
+import io.github.natanfudge.fn.core.newstuff.InvalidationKey
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.*
@@ -326,9 +326,9 @@ internal class GlfwComposeScene(
     /** Marks this window invalid – render next frame. */
     private val onInvalidate: (GlfwComposeScene) -> Unit,
     val capabilities: GLCapabilities,
-) : AutoCloseable {
+) : InvalidationKey() {
     val context = DirectContext.makeGL()
-    var invalid = true
+    var frameInvalid = true
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         System.err.println("Compose async error – restarting window")
@@ -493,7 +493,7 @@ internal class ComposeOpenGLRenderer(
                 onSetPointerIcon = onSetPointerIcon,
                 onError = onError, capabilities = capabilities, getWindowSize = { dimensionsLifecycle.value?.size ?: IntSize.Zero }, onInvalidate = {
                     // Invalidate Compose frame on change
-                    window!!.invalid = true
+                    window!!.frameInvalid = true
                 }, label = name
             )
             window
@@ -513,7 +513,7 @@ internal class ComposeOpenGLRenderer(
 
             window.dispatcher.poll()
 
-            if (window.invalid) {
+            if (window.frameInvalid) {
                 GLFW.glfwMakeContextCurrent(window.handle)
                 GL.setCapabilities(window.capabilities)
 
@@ -522,7 +522,7 @@ internal class ComposeOpenGLRenderer(
                 onFrame(frame)
 
                 glfwSwapBuffers(window.handle)
-                window.invalid = false
+                window.frameInvalid = false
             }
         }
     }

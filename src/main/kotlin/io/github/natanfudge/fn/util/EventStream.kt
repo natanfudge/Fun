@@ -13,7 +13,8 @@ import java.util.function.Consumer
  */
 interface EventStream<T> {
     companion object {
-        fun <T> create() = EventEmitter<T>()
+        // TODO: by event() should be used instead of this constructor
+        fun <T> create(label: String = "Unnamed Event Stream (Bug!)") = EventEmitter<T>(label)
     }
 
     /**
@@ -110,7 +111,9 @@ fun <T> Fun.event() = obtainPropertyName {
  * This is the standard way to create and manage an observable data source.
  * @see EventStream
  */
-class EventEmitter<T>(val label: String = "Unnamed Event Emitter") : EventStream<T> {
+
+// TODO: by event() should be used instead of this constructor
+class EventEmitter<T> internal constructor(val label: String = "Unnamed Event Emitter (Bug!)") : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
     val hasListeners get() = listeners.isNotEmpty()

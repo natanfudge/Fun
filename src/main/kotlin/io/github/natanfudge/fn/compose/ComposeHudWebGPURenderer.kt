@@ -64,7 +64,7 @@ internal class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: 
 
     init {
         // Need a new compose frame when the texture is recreated
-        bgWindow.invalid = true
+        bgWindow.frameInvalid = true
     }
 
 

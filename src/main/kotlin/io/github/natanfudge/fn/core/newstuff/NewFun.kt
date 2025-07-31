@@ -11,12 +11,13 @@ import io.github.natanfudge.fn.network.state.FunSet
 import io.github.natanfudge.fn.network.state.getFunSerializer
 import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.EventEmitter
+import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.obtainPropertyName
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-
+// TODO: need better guardrails against using the same ID twice
 abstract class NewFun internal constructor(
     // Note: we swap the order of parameters here so we can differentiate between this internal constructor and the public one
     val parent: NewFun?,
@@ -72,7 +73,9 @@ abstract class NewFun internal constructor(
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
     internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
-        if (deleteState) context.unregister(this)
+        if (deleteState){
+            context.unregister(this)
+        }
         for (attachment in closeAttachments) {
             attachment.close()
         }
@@ -120,16 +123,21 @@ abstract class NewFun internal constructor(
         )
     }
 
+    //TODo: we have a memory leak here with memo and event, when a Fun is closed their cache entry will remain.
+    // We need to delete memo cache entries when a Fun is closed with deleteState = true
     inline fun <reified T> memo(
         noinline initialValue: () -> T?,
     ): PropertyDelegateProvider<Any, FunRememberedValue<T>> = PropertyDelegateProvider { _, property ->
         memo(property.name, typeChecker = { it is T }, initialValue)
     }
 
-
-    fun <T> event() = obtainPropertyName {
+    /**
+     * The event listener will be be memoized, so the list of listeners will be kept even when this [Fun] is reconstructed.
+     */
+    fun <T> event(): PropertyDelegateProvider<Any, FunRememberedValue<EventEmitter<T>>> =  PropertyDelegateProvider {_, property ->
         // see https://github.com/natanfudge/MineTheEarth/issues/116
-        EventEmitter<T>("${this.id}#$it")
+        val name = property.name
+        memo<EventEmitter<T>>(name, typeChecker = {it is EventEmitter<*>}, initialValue = { EventStream.create("${this.id}#$name") })
     }
 }
 

@@ -1,5 +1,7 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
@@ -13,9 +15,6 @@ import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.core.mapLeft
-import kotlin.properties.ReadOnlyProperty
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -50,9 +49,7 @@ class NewFunEvents : NewFun("FunEvents") {
 }
 
 
-
 private val maxFrameDelta = 300.milliseconds
-
 
 
 class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
@@ -153,7 +150,8 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
         cache.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
         rootFun.close(unregisterFromParent = false, deleteState = false)
         rootFun.clearChildren()
-        appCallback() }
+        appCallback()
+    }
 }
 
 
@@ -182,9 +180,19 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
     }
 
 
-    val windowHolder = NewGlfwWindowHolder(withOpenGL = false, showWindow = true, config)
+    val windowHolder = NewGlfwWindowHolder(withOpenGL = false, showWindow = true, config, name = "WebGPU")
     val webgpu = NewWebGPUSurfaceHolder(windowHolder)
     val worldRenderer = NewWorldRenderer(webgpu)
+    internal val compose = NewComposeHudWebGPURenderer(worldRenderer, show = false)
+
+    @Suppress("unused")
+    val setComposeContent by cached(compose.offscreenComposeRenderer.scene) {
+        compose.setContent {
+            Surface(color = Color.White) {
+                Text("Halo!", color = Color.Black)
+            }
+        }
+    }
 }
 
 fun main() {
@@ -195,8 +203,6 @@ fun main() {
     }
 
     context.start()
-
-
 }
 
 class TestApp(val world: NewWorldRenderer) : NewFun("TestApp") {

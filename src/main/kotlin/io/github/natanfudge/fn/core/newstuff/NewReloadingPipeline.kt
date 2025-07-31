@@ -24,7 +24,6 @@ class ActivePipeline(
     val fragmentSource: ShaderSource,
     val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
     val pipelineLoaded: EventEmitter<GPURenderPipeline>,
-    val pipelineClosed: EventEmitter<Unit>,
 ) : InvalidationKey() {
     var pipeline: GPURenderPipeline? = null
     private var vertexShader: GPUShaderModule? = null
@@ -79,7 +78,6 @@ class ActivePipeline(
 
     override fun close() {
 //        println("Closing pipeline dependants")
-        pipelineClosed.emit(Unit)
 //        println("Closing pipeline $pipeline")
         pipeline?.close()
         pipeline = null
@@ -114,11 +112,10 @@ class NewReloadingPipeline(
     val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
 ) : NewFun("ReloadingPipeline-$label") {
     val pipelineLoaded by memo { EventStream.create<GPURenderPipeline>() }
-    val pipelineClosed by memo { EventStream.create<Unit>() }
     // NOTE: we don't want to depend on the WebGPUSurface directly because it is actually recreated every refresh, in contrast with the window that
     // is recreated when the window is actually recreated. This is kind of confusing and I would like to do something better.
     val active by cached(surface.windowHolder.window) {
-        ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded, pipelineClosed)
+        ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded)
     }
 
     val pipeline: GPURenderPipeline get() = active.pipeline!!
