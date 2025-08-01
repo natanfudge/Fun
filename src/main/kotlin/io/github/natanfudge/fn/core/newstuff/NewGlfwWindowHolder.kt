@@ -10,7 +10,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.window.*
 import org.jetbrains.compose.reload.agent.sendAsync
 import org.jetbrains.compose.reload.core.WindowId
@@ -19,7 +19,7 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val events: NewFunEvents) : InvalidationKey() {
+class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val onEvent: (WindowEvent) -> Unit) : InvalidationKey() {
     init {
         if (!showWindow) {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
@@ -51,29 +51,31 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         }
 
         // Should def be handled externally because now all the windows are doing it
-        notifyCHROfWindowPosition()
+        val x = IntArray(1)
+        val y = IntArray(1)
+        glfwGetWindowPos(handle, x, y)
+        onEvent(WindowEvent.WindowMove(IntOffset(x[0], y[0])))
 
 
         glfwSetWindowCloseCallback(handle) {
-            events.input(InputEvent.WindowClosePressed)
+            onEvent(WindowEvent.CloseButtonPressed)
         }
         glfwSetWindowPosCallback(handle) { _, x, y ->
-            events.input(InputEvent.WindowMove(IntOffset(x, y)))
+            onEvent(WindowEvent.WindowMove(IntOffset(x, y)))
         }
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
-            //TODO: this is very bad because all windows will be emitting this, I think I need to pull it out as a callback and handle it correctly
-            val size = IntSize(windowWidth, windowHeight)
-            events.windowResized(size)
-            events.afterWindowResized(size)
+            onEvent(WindowEvent.WindowResize(IntSize(windowWidth, windowHeight)))
+//            events.windowResized(size)
+//            events.afterWindowResized(size)
 
         }
 
 
 
         glfwSetMouseButtonCallback(handle) { _, button, action, mods ->
-            events.input(
-                InputEvent.PointerEvent(
+            onEvent(
+                WindowEvent.PointerEvent(
                     position = glfwGetCursorPos(
                         handle
                     ),
@@ -97,8 +99,8 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
 
         glfwSetCursorPosCallback(handle) { _, xpos, ypos ->
             val position = Offset(xpos.toFloat(), ypos.toFloat())
-            events.input(
-                InputEvent.PointerEvent(
+            onEvent(
+                WindowEvent.PointerEvent(
                     position = position,
                     eventType = PointerEventType.Move,
                     nativeEvent = AwtMouseEvent(getAwtMods(handle))
@@ -107,8 +109,8 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         }
 
         glfwSetScrollCallback(handle) { _, xoffset, yoffset ->
-            events.input(
-                InputEvent.PointerEvent(
+            onEvent(
+                WindowEvent.PointerEvent(
                     eventType = PointerEventType.Scroll,
                     position = glfwGetCursorPos(handle),
                     scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
@@ -118,8 +120,8 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         }
 
         glfwSetCursorEnterCallback(handle) { _, entered ->
-            events.input(
-                InputEvent.PointerEvent(
+            onEvent(
+                WindowEvent.PointerEvent(
                     position = glfwGetCursorPos(handle),
                     eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
                     nativeEvent = AwtMouseEvent(getAwtMods(handle))
@@ -130,22 +132,21 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         glfwSetKeyCallback(handle) { _, key, scancode, action, mods ->
             val event = glfwToComposeEvent(key, action, mods)
             if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
-            events.input(InputEvent.KeyEvent(event))
+            onEvent(WindowEvent.KeyEvent(event))
         }
 
         glfwSetCharCallback(handle) { _, codepoint ->
             for (char in Character.toChars(codepoint)) {
-                events.input(
-                    InputEvent.KeyEvent(typedCharacterToComposeEvent(char))
+                onEvent(
+                    WindowEvent.KeyEvent(typedCharacterToComposeEvent(char))
                 )
             }
         }
 
         glfwSetWindowContentScaleCallback(handle) { _, xscale, _ ->
-            events.densityChange(Density(xscale))
+            onEvent(WindowEvent.DensityChange(Density(xscale)))
         }
 
-        println("Foo")
     }
 
 
@@ -157,18 +158,6 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
         return handle.hashCode()
     }
 
-    private fun notifyCHROfWindowPosition() {
-        val x = IntArray(1)
-        val y = IntArray(1)
-        val w = IntArray(1)
-        val h = IntArray(1)
-
-        glfwGetWindowPos(handle, x, y)
-        glfwGetWindowSize(handle, w, h)
-        OrchestrationMessage.ApplicationWindowPositioned(WindowId(handle.toString()), x[0], y[0], w[0], h[0], false)
-            .sendAsync()
-    }
-
 
     override fun toString(): String {
         return "GLFW Window $handle"
@@ -176,6 +165,7 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
 
 
     override fun close() {
+        onEvent(WindowEvent.WindowClose)
         OrchestrationMessage.ApplicationWindowGone(WindowId(handle.toString()))
             .sendAsync()
         glfwSetWindowCloseCallback(handle, null)
@@ -184,11 +174,12 @@ class NewGlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params
 }
 
 
-class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val name: String) : NewFun("${name}GlfwWindow") {
+class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val name: String, val onEvent: (WindowEvent) -> Unit) :
+    NewFun("${name}GlfwWindow") {
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
     val window by cached(InvalidationKey.None) {
-        NewGlfwWindow(withOpenGL, showWindow, params, events)
+        NewGlfwWindow(withOpenGL, showWindow, params, onEvent)
     }
 
     //    var width by memo { params.initialWindowWidth }
@@ -207,31 +198,15 @@ class NewGlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val 
         events.beforeFrame.listen {
             glfwPollEvents()
         }
-        events.windowResized.listen { newSize ->
-            val previouslyMinimized = this.size.isEmpty
-            if (!previouslyMinimized && newSize.isEmpty) {
-                OrchestrationMessage.ApplicationWindowGone(WindowId(handle.toString()))
-                    .sendAsync()
-            }
-            if (previouslyMinimized && !newSize.isEmpty) {
-                notifyCHROfWindowPosition()
-            }
+        events.windowResize.listen { (newSize) ->
             this.size = newSize
         }
-        events.input.listen {
-            if (it is InputEvent.WindowMove) {
-                this.windowPos = it.offset
-                notifyCHROfWindowPosition()
-            }
+
+        events.windowMove.listen { (offset) ->
+            this.windowPos = offset
         }
     }
 
-    private fun notifyCHROfWindowPosition() {
-        OrchestrationMessage.ApplicationWindowPositioned(
-            WindowId(handle.toString()),
-            windowPos.x, windowPos.y, size.width, size.height, false
-        ).sendAsync()
-    }
 
 
     var cursorLocked = false

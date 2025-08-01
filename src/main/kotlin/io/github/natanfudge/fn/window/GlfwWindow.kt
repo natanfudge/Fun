@@ -10,16 +10,14 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.core.FunLogLevel
-import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.hotreload.FunHotReload
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.util.EventEmitter
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
-import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.withLock
 
 var onTheFlyDebugRequested = false
 
@@ -82,7 +80,7 @@ class GlfwWindow(withOpenGL: Boolean, showWindow: Boolean, val params: WindowCon
         return "GLFW Window $handle"
     }
 
-    val inputEvent = EventEmitter<InputEvent>()
+    val inputEvent = EventEmitter<WindowEvent>()
     val densityChangeEvent = EventEmitter<Density>()
 
 
@@ -152,11 +150,11 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
         windowLifecycle.bind("GLFW Callbacks ($name)") { window ->
             val windowHandle = window.handle
             glfwSetWindowCloseCallback(windowHandle) {
-                window.inputEvent.emit(InputEvent.WindowClosePressed)
+                window.inputEvent.emit(WindowEvent.CloseButtonPressed)
                 window.open = false
             }
             glfwSetWindowPosCallback(windowHandle) { _, x, y ->
-                window.inputEvent.emit(InputEvent.WindowMove(IntOffset(x, y)))
+                window.inputEvent.emit(WindowEvent.WindowMove(IntOffset(x, y)))
             }
 
             glfwSetWindowSizeCallback(windowHandle) { _, windowWidth, windowHeight ->
@@ -173,7 +171,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
 
             glfwSetMouseButtonCallback(windowHandle) { _, button, action, mods ->
                 window.inputEvent.emit(
-                    InputEvent.PointerEvent(
+                    WindowEvent.PointerEvent(
                         position = glfwGetCursorPos(windowHandle),
                         eventType = when (action) {
                             GLFW_PRESS -> PointerEventType.Press
@@ -196,7 +194,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
             glfwSetCursorPosCallback(windowHandle) { _, xpos, ypos ->
                 val position = Offset(xpos.toFloat(), ypos.toFloat())
                 window.inputEvent.emit(
-                    InputEvent.PointerEvent(
+                    WindowEvent.PointerEvent(
                         position = position,
                         eventType = PointerEventType.Move,
                         nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
@@ -207,7 +205,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
 
             glfwSetScrollCallback(windowHandle) { _, xoffset, yoffset ->
                 window.inputEvent.emit(
-                    InputEvent.PointerEvent(
+                    WindowEvent.PointerEvent(
                         eventType = PointerEventType.Scroll,
                         position = glfwGetCursorPos(windowHandle),
                         scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
@@ -220,7 +218,7 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
 
             glfwSetCursorEnterCallback(windowHandle) { _, entered ->
                 window.inputEvent.emit(
-                    InputEvent.PointerEvent(
+                    WindowEvent.PointerEvent(
                         position = glfwGetCursorPos(windowHandle),
                         eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
                         nativeEvent = AwtMouseEvent(getAwtMods(windowHandle))
@@ -231,13 +229,13 @@ class GlfwWindowConfig(val glfw: GlfwConfig, val name: String, val windowParamet
             glfwSetKeyCallback(windowHandle) { _, key, scancode, action, mods ->
                 val event = glfwToComposeEvent(key, action, mods)
                 if (event.key == Key.P) onTheFlyDebugRequested = !onTheFlyDebugRequested
-                window.inputEvent.emit(InputEvent.KeyEvent(event))
+                window.inputEvent.emit(WindowEvent.KeyEvent(event))
             }
 
             glfwSetCharCallback(windowHandle) { _, codepoint ->
                 for (char in Character.toChars(codepoint)) {
                     window.inputEvent.emit(
-                        InputEvent.KeyEvent(typedCharacterToComposeEvent(char))
+                        WindowEvent.KeyEvent(typedCharacterToComposeEvent(char))
                     )
                 }
             }

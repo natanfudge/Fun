@@ -2,16 +2,16 @@
 
 package io.github.natanfudge.fn.core.newstuff
 
-import io.github.natanfudge.fn.compose.GlfwComposeScene
-import io.github.natanfudge.fn.compose.glDebugGroup
-
 
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeFrameEvent
 import io.github.natanfudge.fn.compose.FixedSizeComposeWindow
-import io.github.natanfudge.fn.window.*
+import io.github.natanfudge.fn.compose.GlfwComposeScene
+import io.github.natanfudge.fn.compose.glDebugGroup
+import io.github.natanfudge.fn.window.WindowConfig
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.glfwGetWindowContentScale
 import org.lwjgl.glfw.GLFW.glfwSwapBuffers
@@ -19,13 +19,16 @@ import org.lwjgl.opengl.GL
 
 
 internal class NewComposeOpenGLRenderer(
-     params: WindowConfig,
+    params: WindowConfig,
     val name: String,
     onSetPointerIcon: (PointerIcon) -> Unit,
     onFrame: (ComposeFrameEvent) -> Unit,
     show: Boolean = false,
-): NewFun("ComposeOpenGLRenderer-$name") {
-    private val offscreenWindow = NewGlfwWindowHolder(withOpenGL = true, showWindow = show, params, name = name)
+) : NewFun("ComposeOpenGLRenderer-$name") {
+    private val offscreenWindow = NewGlfwWindowHolder(
+        withOpenGL = true, showWindow = show, params, name = name,
+        onEvent = {} // Ignore events from the offscreen window
+    )
 
     val scene by cached(offscreenWindow.window) {
         val handle = offscreenWindow.window.handle

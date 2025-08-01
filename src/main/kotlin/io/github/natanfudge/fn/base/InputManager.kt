@@ -9,8 +9,7 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.listen
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.util.EventStream
 import korlibs.time.seconds
 
@@ -107,7 +106,7 @@ class InputManager(context: FunContext): Fun("InputManager")  {
         }
         context.events.input.listen { input ->
             when (input) {
-                is InputEvent.KeyEvent -> {
+                is WindowEvent.KeyEvent -> {
                     val event = input.event
                     when (event.type) {
                         KeyEventType.KeyDown -> {
@@ -132,7 +131,7 @@ class InputManager(context: FunContext): Fun("InputManager")  {
                     }
                 }
 
-                is InputEvent.PointerEvent -> {
+                is WindowEvent.PointerEvent -> {
                     when (input.eventType) {
                         PointerEventType.Exit -> {
                             prevCursorPos = null

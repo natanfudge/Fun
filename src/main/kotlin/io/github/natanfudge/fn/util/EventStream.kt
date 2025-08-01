@@ -1,6 +1,5 @@
 package io.github.natanfudge.fn.util
 
-import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.Resource
 import io.github.natanfudge.fn.error.UnallowedFunException
 import java.util.function.Consumer
@@ -33,7 +32,7 @@ interface EventStream<T> {
      */
     fun listenUnscoped(
         label: String = "Unnamed Listener",
-        onEvent: Consumer<T>,
+        onEvent: (T) -> Unit,
     ): Listener<T>
 
     context(resource: Resource)
@@ -41,7 +40,20 @@ interface EventStream<T> {
         val listener = listenUnscoped(resource.id, callback)
         resource.alsoClose(listener)
     }
+
 }
+
+class FilteredEventStream<T, F>(val origStream: EventStream<T>, val filter: (T) -> Boolean) : EventStream<F> {
+    override fun listenUnscoped(label: String, onEvent: (F) -> Unit): Listener<F> {
+        return origStream.listenUnscoped(label) {
+            if (filter(it)) {
+                onEvent(it as F)
+            }
+        } as Listener<F>
+    }
+}
+
+inline fun <reified F> EventStream<out Any?>.filterIsInstance() = FilteredEventStream<Any?, F>(this as EventStream<Any?>) { it is F }
 
 /**
  * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method
@@ -87,11 +99,6 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
     override fun toString(): String {
         return "${observable.label}->$label"
     }
-}
-
-fun <T> Fun.event() = obtainPropertyName {
-    //TODO: use the property name + Fun so we can build some event dependency graph
-    EventEmitter<T>()
 }
 
 
@@ -144,10 +151,16 @@ class EventEmitter<T> internal constructor(val label: String = "Unnamed Event Em
      * ```
      *
      * */
-    override fun listenUnscoped(label: String, onEvent: Consumer<T>): Listener<T> {
+    override fun listenUnscoped(label: String, onEvent: (T) -> Unit): Listener<T> {
         val listener = ListenerImpl(onEvent, this, label)
         listeners.add(listener)
         return listener
+    }
+
+    inline fun <reified F : T> listenUnscoped2(label: String, crossinline callback: (F) -> Unit): Listener<T> = listenUnscoped(label) {
+        if (it is F) {
+            callback(it)
+        }
     }
 
     /**

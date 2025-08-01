@@ -22,8 +22,7 @@ import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.listen
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.render.FunRenderState
@@ -72,7 +71,7 @@ class VisualEditor(
             }
         }
         hoverMod.context.events.input.listen { input ->
-            if (input is InputEvent.PointerEvent && enabled) {
+            if (input is WindowEvent.PointerEvent && enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position
                 }
@@ -89,7 +88,7 @@ class VisualEditor(
         selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
     }
 
-    private fun captureSelectedObject(input: InputEvent.PointerEvent) {
+    private fun captureSelectedObject(input: WindowEvent.PointerEvent) {
         if (input.eventType == PointerEventType.Release) {
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much

@@ -21,7 +21,7 @@ internal class NewComposeWebgpuSurface(val ctx: NewWebGPUContext, val context: N
 //        val window = composeWindowLifecycle.value ?: return@listenUnscoped
         composeScene.sendInputEvent(input)
     }
-    private val densityListener = context.events.densityChange.listenUnscoped { newDensity ->
+    private val densityListener = context.events.densityChange.listenUnscoped { (newDensity) ->
 //        val window = composeWindowLifecycle.value ?: return@listenUnscoped
         if (composeScene.focused) {
             composeScene.scene.density = newDensity
@@ -107,6 +107,7 @@ internal class NewComposeHudWebGPURenderer(
         offscreenComposeRenderer.scene.frameInvalid = true
         NewComposeTexture(webGPUHolder.surface, webGPUHolder.size)
     }
+    // TODO: crash in skiko on refresh [NewComposeBindGroup, NewComposeHudWebGPURenderer] after resizing window
 
     val shader = NewReloadingPipeline(
         "Compose Fullscreen Quad",
@@ -155,9 +156,10 @@ internal class NewComposeHudWebGPURenderer(
         NewComposeBindGroup(shader.pipeline, texture, surface)
     }
 
+
     init {
-        events.windowResized.listen {
-            offscreenComposeRenderer.resize(it)
+        events.windowResize.listen {
+            offscreenComposeRenderer.resize(it.size)
             texture = NewComposeTexture(webGPUHolder.surface, webGPUHolder.size)
             bindGroup = NewComposeBindGroup(shader.pipeline, texture, surface)
         }
@@ -165,6 +167,8 @@ internal class NewComposeHudWebGPURenderer(
             bindGroup = NewComposeBindGroup(shader.pipeline, texture, surface)
         }
         worldRenderer.beforeSubmitDraw.listen { (encoder, drawTarget) ->
+            check(shader.valid)
+            check(bindGroup.valid)
             val renderPassDescriptor = RenderPassDescriptor(
                 colorAttachments = listOf(
                     RenderPassColorAttachment(
@@ -199,7 +203,7 @@ internal class NewComposeHudWebGPURenderer(
     }
 }
 
-internal class NewComposeBindGroup(pipeline: GPURenderPipeline, texture: NewComposeTexture, surface: NewComposeWebgpuSurface) : AutoCloseable {
+internal class NewComposeBindGroup(pipeline: GPURenderPipeline, texture: NewComposeTexture, surface: NewComposeWebgpuSurface) : InvalidationKey() {
     val resource = texture.composeTexture.createView()
     val group = texture.ctx.device.createBindGroup(
         BindGroupDescriptor(

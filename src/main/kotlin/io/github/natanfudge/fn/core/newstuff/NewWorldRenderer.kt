@@ -145,9 +145,9 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
         // having the size as an invalidation key and refreshing the app, because this way the app doesn't get refreshed
         // constantly when the window is resized. I try to keep refreshes to be a dev-only reload thing, and not be a thing
         // the user experiences all the time like when he resizes the window.
-        events.windowResized.listen {
-            if (!it.isEmpty) {
-                sizeBinding = WorldRendererWindowSizeEffect(it, surfaceHolder.surface)
+        events.windowResize.listen { (size) ->
+            if (!size.isEmpty) {
+                sizeBinding = WorldRendererWindowSizeEffect(size, surfaceHolder.surface)
             }
         }
     }
@@ -257,8 +257,8 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
             surfaceBinding.models.forEach { it.value.recreateBindGroup(pipeline) }
         }
 
-        events.windowResized.listen {
-            projection = calculateProjectionMatrix(it)
+        events.windowResize.listen { (size) ->
+            projection = calculateProjectionMatrix(size)
         }
 
         events.frame.listen { delta ->
@@ -312,10 +312,13 @@ class NewWorldRenderer(val surfaceHolder: NewWebGPUSurfaceHolder) : NewFun("Worl
                 ),
             )
 
+
             val pass = encoder.beginRenderPass(renderPassDescriptor)
 
             surfaceBinding.baseInstanceData.rebuild()
             surfaceBinding.jointMatrixData.rebuild()
+            check(pipelineHolder.valid)
+//            check(windowTexture)
             pass.setPipeline(pipelineHolder.pipeline)
 
             pass.setBindGroup(0u, bindgroup)

@@ -17,7 +17,7 @@ class BaseFunEvents(
     val beforePhysics = EventEmitter<Duration>()
     val physics = EventEmitter<Duration>()
     val afterPhysics = EventEmitter<Duration>()
-    val input = EventEmitter<InputEvent>()
+    val input = EventEmitter<WindowEvent>()
     val guiError = EventEmitter<Throwable>()
     val appClosed = EventEmitter<Unit>()
 
@@ -58,7 +58,7 @@ class FunContext internal constructor(
 
     private val inputListener = surface.ctx.window.inputEvent.listenUnscoped { input ->
         // No need to block input with a null cursor position
-        if (world.cursorPosition != null && input is InputEvent.PointerEvent &&
+        if (world.cursorPosition != null && input is WindowEvent.PointerEvent &&
             // Allow blocking input by setting acceptMouseEvents to false
             !gui.acceptMouseEvents
         ) return@listenUnscoped

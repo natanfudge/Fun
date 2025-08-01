@@ -2,7 +2,7 @@ package io.github.natanfudge.fn.window
 
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.WindowEvent
 
 data class WindowConfig(
     val size: IntSize = IntSize(800,600),
@@ -12,7 +12,7 @@ data class WindowConfig(
 )
 
 interface WindowCallbacks {
-    fun onInput(input: InputEvent)
+    fun onInput(input: WindowEvent)
 
     fun densityChange(newDensity: Density) {}
 }

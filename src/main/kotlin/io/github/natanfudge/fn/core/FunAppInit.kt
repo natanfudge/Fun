@@ -4,7 +4,9 @@ package io.github.natanfudge.fn.core
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.hotreload.FunHotReload
@@ -250,11 +252,14 @@ class FunAppBuilder {
  */
 fun startTheFun(init: FunAppInit) {
     run(FunAppInitializer(init))
+
 }
 
+//sealed interface InputEvent : WindowEvent
 
-sealed interface InputEvent {
-    object WindowClosePressed : InputEvent
+
+sealed interface WindowEvent {
+    object CloseButtonPressed : WindowEvent
     data class PointerEvent(
         val eventType: PointerEventType,
         val position: Offset,
@@ -265,10 +270,13 @@ sealed interface InputEvent {
         val keyboardModifiers: PointerKeyboardModifiers? = null,
         val nativeEvent: Any? = null,
         val button: PointerButton? = null,
-    ) : InputEvent
+    ) : WindowEvent
 
-    data class KeyEvent(val event: androidx.compose.ui.input.key.KeyEvent) : InputEvent
-    data class WindowMove(val offset: IntOffset) : InputEvent
+    data class KeyEvent(val event: androidx.compose.ui.input.key.KeyEvent) : WindowEvent
+    data class WindowMove(val offset: IntOffset) : WindowEvent
+    data class WindowResize(val size: IntSize): WindowEvent
+    data class DensityChange(val density: Density): WindowEvent
+    object WindowClose: WindowEvent
 }
 
 

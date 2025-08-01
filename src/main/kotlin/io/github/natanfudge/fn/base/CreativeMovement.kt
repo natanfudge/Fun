@@ -16,8 +16,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.listen
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.CameraMode
 
@@ -116,7 +115,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
         context.events.input.listen { input ->
             with(camera) {
                 when (input) {
-                    is InputEvent.PointerEvent -> {
+                    is WindowEvent.PointerEvent -> {
                         if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
                             context.world.cursorPosition = (input.position)
                         }
@@ -130,7 +129,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
 
                     }
 
-                    is InputEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {
+                    is WindowEvent.KeyEvent if input.event.type == KeyEventType.KeyUp -> {
                         setCameraMode(
                             when (input.event.key) {
                                 Key.Escape -> CameraMode.Off

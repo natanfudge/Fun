@@ -105,9 +105,9 @@ data class NewWebGPUSurfaceHolder(val windowHolder: NewGlfwWindowHolder) : NewFu
 
 
     init {
-        events.windowResized.listen {
-            if (it.width != 0 && it.height != 0) {
-                this@NewWebGPUSurfaceHolder.surface.configure(it)
+        events.windowResize.listen { (size) ->
+            if (size.width != 0 && size.height != 0) {
+                this@NewWebGPUSurfaceHolder.surface.configure(size)
             }
         }
     }

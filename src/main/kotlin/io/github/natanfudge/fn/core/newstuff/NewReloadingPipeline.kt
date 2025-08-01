@@ -118,6 +118,8 @@ class NewReloadingPipeline(
         ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded)
     }
 
+    val valid get() = active.valid
+
     val pipeline: GPURenderPipeline get() = active.pipeline!!
 
 

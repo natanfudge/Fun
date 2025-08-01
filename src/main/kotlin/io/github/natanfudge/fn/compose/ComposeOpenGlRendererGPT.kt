@@ -18,7 +18,7 @@ import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.ComposeSceneLayer
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.*
-import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.core.newstuff.InvalidationKey
 import io.github.natanfudge.fn.util.EventStream
@@ -190,8 +190,8 @@ class GlfwComposeSceneLayer(
         composeSceneContext = parentContext
     )
 
-    fun sendInputEvent(event: InputEvent) {
-        if (event is InputEvent.PointerEvent && event.position !in boundsInWindow) {
+    fun sendInputEvent(event: WindowEvent) {
+        if (event is WindowEvent.PointerEvent && event.position !in boundsInWindow) {
             // Clicked outside - invoke onOutsidePointer, not the normal callback.
             onOutsidePointer?.invoke(event.eventType, event.button)
         } else {
@@ -364,7 +364,7 @@ internal class GlfwComposeScene(
 
     var focused by sceneContext.platformContext.windowInfo::isWindowFocused
 
-    fun sendInputEvent(event: InputEvent) {
+    fun sendInputEvent(event: WindowEvent) {
         if (focused) {
             overlayLayers.asReversed().forEach { it.sendInputEvent(event) }
             scene.sendInputEvent(event)
@@ -398,22 +398,22 @@ internal class GlfwComposeScene(
 /**
  * Offset mouse events by a given amount, to give compose layers a position relative to their own coordinate system (their root is often not at (0,0))
  */
-private fun InputEvent.offset(offset: IntOffset) = when (this) {
-    is InputEvent.PointerEvent -> {
+private fun WindowEvent.offset(offset: IntOffset) = when (this) {
+    is WindowEvent.PointerEvent -> {
         copy(position = position + offset)
     }
 
     else -> this
 }
 
-private fun ComposeScene.sendInputEvent(event: InputEvent) {
+private fun ComposeScene.sendInputEvent(event: WindowEvent) {
     when (event) {
-        is InputEvent.KeyEvent -> {
+        is WindowEvent.KeyEvent -> {
             val key = event.event
             sendKeyEvent(key)
         }
 
-        is InputEvent.PointerEvent -> {
+        is WindowEvent.PointerEvent -> {
             with(event) {
                 sendPointerEvent(
                     eventType,

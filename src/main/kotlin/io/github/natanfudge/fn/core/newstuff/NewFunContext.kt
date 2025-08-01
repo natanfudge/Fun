@@ -3,18 +3,20 @@ package io.github.natanfudge.fn.core.newstuff
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.FunStateManager
-import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.util.filterIsInstance
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
+import org.jetbrains.compose.reload.agent.sendAsync
+import org.jetbrains.compose.reload.core.WindowId
 import org.jetbrains.compose.reload.core.mapLeft
+import org.jetbrains.compose.reload.orchestration.OrchestrationMessage
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -36,16 +38,17 @@ class NewFunEvents : NewFun("FunEvents") {
     val beforePhysics by event<Duration>()
     val physics by event<Duration>()
     val afterPhysics by event<Duration>()
-    val input by event<InputEvent>()
+    val input by event<WindowEvent>()
     val guiError by event<Throwable>()
     val appClosed by event<Unit>()
     val hotReload by event<Reload>()
-
-    // TODO: route to compose
-    val densityChange by event<Density>()
-
-    val windowResized by event<IntSize>()
-    val afterWindowResized by event<IntSize>()
+    val closeButtonPressed = input.filterIsInstance<WindowEvent.CloseButtonPressed>()
+    val pointer = input.filterIsInstance<WindowEvent.PointerEvent>()
+    val key = input.filterIsInstance<WindowEvent.KeyEvent>()
+    val windowMove = input.filterIsInstance<WindowEvent.WindowMove>()
+    val windowResize = input.filterIsInstance<WindowEvent.WindowResize>()
+    val densityChange = input.filterIsInstance<WindowEvent.DensityChange>()
+    val windowClose = input.filterIsInstance<WindowEvent.WindowClose>()
 }
 
 
@@ -56,7 +59,6 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {
         NewFunContextRegistry.setContext(this)
     }
-
 
     val cache = FunCache()
     override val stateManager = FunStateManager()
@@ -97,13 +99,10 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
             reload(it)
         }
 
-        events.input.listenUnscoped {
-            if (it is InputEvent.WindowClosePressed) exitProcess(0)
+        events.closeButtonPressed.listenUnscoped {
+            exitProcess(0)
         }
 
-        events.afterWindowResized.listenUnscoped {
-            frame()
-        }
 
         appCallback()
         // Nothing to close, but its fine, it will start everything without closing anything
@@ -180,7 +179,39 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
     }
 
 
-    val windowHolder = NewGlfwWindowHolder(withOpenGL = false, showWindow = true, config, name = "WebGPU")
+    val windowHolder = NewGlfwWindowHolder(withOpenGL = false, showWindow = true, config, name = "WebGPU") {
+        events.input(it)
+    }
+
+    init {
+        // Update CHR with the window state
+        events.windowResize.listen { (newSize) ->
+            if (newSize.isEmpty) {
+                OrchestrationMessage.ApplicationWindowGone(WindowId(windowHolder.handle.toString())).sendAsync()
+            }
+            if (!newSize.isEmpty) {
+                notifyCHROfWindowPosition()
+            }
+        }
+
+        events.windowMove.listen { (offset) ->
+            notifyCHROfWindowPosition()
+        }
+        events.windowClose.listen {
+            OrchestrationMessage.ApplicationWindowGone(WindowId(windowHolder.handle.toString())).sendAsync()
+        }
+    }
+
+    private fun notifyCHROfWindowPosition() {
+        val pos = windowHolder.windowPos
+        val size = windowHolder.size
+        OrchestrationMessage.ApplicationWindowPositioned(
+            WindowId(windowHolder.handle.toString()),
+            pos.x, pos.y, size.width, size.height, false
+        ).sendAsync()
+    }
+
+
     val webgpu = NewWebGPUSurfaceHolder(windowHolder)
     val worldRenderer = NewWorldRenderer(webgpu)
     internal val compose = NewComposeHudWebGPURenderer(worldRenderer, show = false)
