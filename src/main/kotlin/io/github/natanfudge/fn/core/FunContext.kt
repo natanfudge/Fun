@@ -121,7 +121,7 @@ class FunContext internal constructor(
         }
     }
 
-    val gui: Panels = Panels()
+    val gui: FunPanels = FunPanels()
 
 
     fun setCursorLocked(locked: Boolean) {
@@ -158,7 +158,6 @@ class FunContext internal constructor(
         closeApp(deleteState = false)
         events.checkListenersClosed()
         rootFuns.clear()
-        //TODO: GUIs will have a responsibility to clean up their GUIs once we start selectively initializing components
         gui.clearPanels()
     }
 

@@ -75,7 +75,6 @@ internal class NewComposeOpenGLRenderer(
     }
 
     init {
-
         events.beforeFrame.listen {
 
             check(!closed)
@@ -88,10 +87,8 @@ internal class NewComposeOpenGLRenderer(
 
                 canvas.renderSkia()
                 onFrame(canvas.blitFrame())
-                println("After onFrame")
 
                 glfwSwapBuffers(scene.handle)
-                println("After Compose swapbuffers")
                 scene.frameInvalid = false
             }
         }

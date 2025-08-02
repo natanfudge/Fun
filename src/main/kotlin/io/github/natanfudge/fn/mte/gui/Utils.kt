@@ -10,7 +10,7 @@ import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.render.Transform
 
 fun Fun.addDsHudPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
-    context.gui.addPanel(modifier) {
+    context.gui.addUnscopedPanel(modifier) {
         DsTheme {
             content()
         }

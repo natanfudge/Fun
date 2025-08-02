@@ -83,8 +83,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
             val grounded = physics.isGrounded
 
             // Make devil request quota on first landing
-            //TODO: this should happen in a delay, use a scheduler
-            // TODO: Would be cool to animate it out as well
+            // see https://github.com/natanfudge/MineTheEarth/issues/122
             if (grounded && !game.devil.quotaRequested) game.devil.quotaRequested = true
 
             val isJumping = jump.isPressed && grounded

@@ -80,7 +80,6 @@ internal class NewComposeHudWebGPURenderer(
                 texture = texture.composeTexture,
                 width = size.width, height = size.height
             )
-            println("After copy texture")
         },
         onCreateScene =onCreateScene
     )

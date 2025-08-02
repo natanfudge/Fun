@@ -24,15 +24,16 @@ import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.WindowConfig
 import io.github.natanfudge.fn.window.WindowDimensions
 
-data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: Panels) : AutoCloseable {
+data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: FunPanels) : AutoCloseable {
     override fun close() {
         panels.closePanel(this)
     }
 }
 
 
-class Panels {
+class FunPanels {
     private val panelList = mutableStateListOf<ComposeHudPanel>()
+    //TODO: migrate to use NewFun
     private var worldGui: WorldPanelManager? = null // We only support one panel for now
 //    var worldGui: (ComposeWorldPanel)? by mutableStateOf(null)
 
@@ -51,12 +52,14 @@ class Panels {
         return this.worldGui!!
     }
 
+    //TODo: don't need this anymore
     internal fun clearPanels() {
         panelList.clear()
         this.worldGui = null
     }
 
-    fun addPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit): ComposeHudPanel {
+    @Deprecated("Use scoped addPanel to avoid keeping around a GUI of a dead Fun", replaceWith = ReplaceWith("addPanel(modifier, content)"))
+    fun addUnscopedPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit): ComposeHudPanel {
         val panel = ComposeHudPanel(modifier, content, this)
         panelList.add(panel)
         return panel
@@ -73,7 +76,7 @@ class Panels {
      */
     @OptIn(ExperimentalComposeUiApi::class)
     @Composable
-    fun PanelSupport() {
+    internal fun PanelSupport() {
         Box(Modifier.fillMaxSize()) {
             // Allow clicking outside of the UI to lose focus of the UI
             Box(Modifier.fillMaxSize().focusable().clickableWithNoIndication {})

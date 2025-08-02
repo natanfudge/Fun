@@ -43,7 +43,6 @@ class Devil() : Fun("devil") {
             canvasHeight = 200,
             canvasWidth = 400
         ) {
-            // TODO: kinda ugly
             if (::quotaRequested.listenAsState().value) {
                 Card(Modifier.fillMaxSize()) {
                     Box(Modifier.fillMaxSize()) {

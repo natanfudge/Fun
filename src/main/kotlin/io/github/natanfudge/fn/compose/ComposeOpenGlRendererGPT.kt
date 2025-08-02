@@ -75,7 +75,6 @@ internal class FixedSizeComposeWindow(
         // Clear first – Compose does *not* do this every frame.
         glClearColor(0f, 0f, 0f, 0f)
         glDebugGroup(2, groupName = { "${sceneWrapper.label} Canvas Clear" }) {
-            println("Clearing canvas")
             canvas.clear(Color.TRANSPARENT)
         }
 
@@ -83,21 +82,17 @@ internal class FixedSizeComposeWindow(
 
         /* 1️⃣  root scene */
         glDebugGroup(3, groupName = { "${sceneWrapper.label} Root Render" }) {
-            println("Rendering frame")
             sceneWrapper.scene.render(composeCanvas, now)
         }
 
         /* 2️⃣  overlay layers (pop‑ups, tooltips, etc.) */
         glDebugGroup(3, groupName = { "${sceneWrapper.label} Overlays Render" }) {
-            println("Rendering overlays")
             sceneWrapper.overlayLayers.forEach { it.renderOn(canvas, now) }
         }
 
         /* 3️⃣  flush to GL */
         glDebugGroup(4, groupName = { "${sceneWrapper.label} Flush" }) {
-            println("Flushing")
             sceneWrapper.context.flush()
-            println("After flush")
         }
     }
 

@@ -12,7 +12,8 @@ import java.util.function.Consumer
  */
 interface EventStream<T> {
     companion object {
-        // TODO: by event() should be used instead of this constructor
+        // TODO: by event() should be used instead of this constructor inside a Fun.
+        // Label should not be optional
         fun <T> create(label: String = "Unnamed Event Stream (Bug!)") = EventEmitter<T>(label)
     }
 
@@ -120,6 +121,7 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
  */
 
 // TODO: by event() should be used instead of this constructor
+//         // Label should not be optional
 class EventEmitter<T> internal constructor(val label: String = "Unnamed Event Emitter (Bug!)") : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 

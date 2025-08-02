@@ -104,7 +104,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
         }
     }
     init {
-        context.gui.addPanel {
+        context.gui.addUnscopedPanel {
             if (mode == CameraMode.Fly) {
                 Box(Modifier.fillMaxSize().background(Color.Transparent)) {
                     Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))

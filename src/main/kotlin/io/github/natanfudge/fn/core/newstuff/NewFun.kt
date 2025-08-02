@@ -1,6 +1,10 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
+import io.github.natanfudge.fn.core.ComposeHudPanel
 import io.github.natanfudge.fn.core.Resource
 import io.github.natanfudge.fn.core.TagMap
 import io.github.natanfudge.fn.core.Taggable
@@ -75,7 +79,7 @@ abstract class NewFun internal constructor(
      * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
     internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
-        if (deleteState){
+        if (deleteState) {
             context.unregister(this)
         }
         for (attachment in closeAttachments) {
@@ -107,6 +111,11 @@ abstract class NewFun internal constructor(
         funSet(it, getFunSerializer(), items, editor)
     }
 
+    fun addGui(modifier: BoxScope.() -> Modifier = { Modifier }, gui: @Composable BoxScope.() -> Unit): ComposeHudPanel {
+        @Suppress("DEPRECATION")
+        return context.panels.addUnscopedPanel(modifier, gui).closeWithThis()
+    }
+
     /**
      *
      * CAUTION: Do not store `Fun`s in cached values! Those `Fun`s will become stale as the app refreshes and the instances are reconstructed,
@@ -125,8 +134,8 @@ abstract class NewFun internal constructor(
         )
     }
 
-    //TODo: we have a memory leak here with memo and event, when a Fun is closed their cache entry will remain.
-    // We need to delete memo cache entries when a Fun is closed with deleteState = true
+    // Note: these values are automatically cleaned when a Fun is closed because they are assigned as a part of the entire Fun's
+    // entry in the StateManager.
     inline fun <reified T> memo(
         noinline initialValue: () -> T?,
     ): PropertyDelegateProvider<Any, FunRememberedValue<T>> = PropertyDelegateProvider { _, property ->
@@ -136,10 +145,10 @@ abstract class NewFun internal constructor(
     /**
      * The event listener will be be memoized, so the list of listeners will be kept even when this [Fun] is reconstructed.
      */
-    fun <T> event(): PropertyDelegateProvider<Any, FunRememberedValue<EventEmitter<T>>> =  PropertyDelegateProvider {_, property ->
+    fun <T> event(): PropertyDelegateProvider<Any, FunRememberedValue<EventEmitter<T>>> = PropertyDelegateProvider { _, property ->
         // see https://github.com/natanfudge/MineTheEarth/issues/116
         val name = property.name
-        memo<EventEmitter<T>>(name, typeChecker = {it is EventEmitter<*>}, initialValue = { EventStream.create("${this.id}#$name") })
+        memo<EventEmitter<T>>(name, typeChecker = { it is EventEmitter<*> }, initialValue = { EventStream.create("${this.id}#$name") })
     }
 }
 

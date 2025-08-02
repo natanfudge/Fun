@@ -5,11 +5,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.FunStateManager
+import io.github.natanfudge.fn.core.FunPanels
 import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.render.*
@@ -62,6 +65,14 @@ class NewFunEvents : NewFun("FunEvents") {
 private val maxFrameDelta = 300.milliseconds
 
 
+//TODO
+// 1. Delete olds Funs
+// 2. Remove New prefix
+// 3. Move to correct locations
+// 4. Resolve TODOs
+// 5. Clean up
+
+
 class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     init {
         NewFunContextRegistry.setContext(this)
@@ -73,6 +84,8 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
     val rootFun = RootFun()
 
     val events = NewFunEvents()
+
+    val panels = FunPanels()
 
     val fsWatcher = FileSystemWatcher()
 
@@ -92,7 +105,6 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     private var pendingReload: Reload? = null
 
-    // TODO: 1. Memory leak
     // 2. Panels. Note this issue:   GUIs will have a responsibility to clean up their GUIs once we start selectively initializing components
     // So addPanel should just be tied to the Fun scope and close with the fun.
 
@@ -236,35 +248,10 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
     val worldRenderer = NewWorldRenderer(webgpu)
     internal val compose = NewComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
         scene.setContent {
-            Column {
-                Surface(color = Color.White) {
-                    Text("Halo!", color = Color.Black)
-                }
-                Button(onClick = {
-                    println("Alo")
-                }) {
-                    Text("Foo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo Foo", fontSize = 200.sp)
-                }
-            }
-
-            LaunchedEffect(Unit) {
-                delay(500)
-                if (!crasharino) {
-                    crasharino = true
-                    throw NullPointerException("Alo")
-                }
-            }
+            context.panels.PanelSupport()
         }
     })
 
-//    private fun setComposeContent() {
-//
-//    }
-//
-//    @Suppress("unused")
-//    val setComposeContent by cached(compose.offscreenComposeRenderer.scene) {
-//        setComposeContent()
-//    }
 }
 
 var crasharino = false
@@ -289,5 +276,28 @@ class TestApp(val world: NewWorldRenderer) : NewFun("TestApp") {
         world.spawn(
             id, world.getOrBindModel(model), value, Transform().toMatrix(), Tint(color = Color.Red)
         )
+    }
+
+    init {
+        addGui({ Modifier.align(Alignment.BottomEnd)}) {
+            Column {
+                Surface(color = Color.White) {
+                    Text("Halo!", color = Color.Black)
+                }
+                Button(onClick = {
+                    println("Alo")
+                }) {
+                    Text("Foo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo Foo", fontSize = 20.sp)
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                delay(500)
+                if (!crasharino) {
+                    crasharino = true
+                    throw NullPointerException("Alo")
+                }
+            }
+        }
     }
 }
