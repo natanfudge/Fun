@@ -21,8 +21,9 @@ import org.lwjgl.opengl.GL
 internal class NewComposeOpenGLRenderer(
     params: WindowConfig,
     val name: String,
-    onSetPointerIcon: (PointerIcon) -> Unit,
+    val onSetPointerIcon: (PointerIcon) -> Unit,
     onFrame: (ComposeFrameEvent) -> Unit,
+    val onCreateScene: (scene: GlfwComposeScene) -> Unit,
     show: Boolean = false,
 ) : NewFun("ComposeOpenGLRenderer-$name") {
     private val offscreenWindow = NewGlfwWindowHolder(
@@ -30,13 +31,17 @@ internal class NewComposeOpenGLRenderer(
         onEvent = {} // Ignore events from the offscreen window
     )
 
-    val scene by cached(offscreenWindow.window) {
+    var scene: GlfwComposeScene by cached(offscreenWindow.window) {
+        createComposeScene()
+    }
+
+    private fun createComposeScene(): GlfwComposeScene {
         val handle = offscreenWindow.window.handle
         GLFW.glfwMakeContextCurrent(handle)
         val size = offscreenWindow.size
         val capabilities = GL.createCapabilities()
 
-        glDebugGroup(1, groupName = { "$name Compose Init" }) {
+        val scene = glDebugGroup(1, groupName = { "$name Compose Init" }) {
             GlfwComposeScene(
                 size, handle,
                 density = Density(glfwGetWindowContentScale(handle)),
@@ -44,8 +49,10 @@ internal class NewComposeOpenGLRenderer(
                 label = name,
                 onError = {
                     events.guiError(it)
-                    //TODo
-//                    windowLifecycle.restart()
+
+                    // Refresh compose so it won't die from one exception
+                    scene = createComposeScene()
+                    canvas = FixedSizeComposeWindow(offscreenWindow.size, scene)
                 }, capabilities = capabilities, getWindowSize = {
                     offscreenWindow.size
                 }, onInvalidate = {
@@ -54,6 +61,8 @@ internal class NewComposeOpenGLRenderer(
                 }
             )
         }
+        onCreateScene(scene)
+        return scene
     }
 
     var canvas by cached(offscreenWindow.window) {
@@ -67,8 +76,10 @@ internal class NewComposeOpenGLRenderer(
 
     init {
 
-        events.beforeFrame.listenUnscoped {
+        events.beforeFrame.listen {
 
+            check(!closed)
+            check(scene.valid)
             scene.dispatcher.poll()
 
             if (scene.frameInvalid) {
@@ -77,8 +88,10 @@ internal class NewComposeOpenGLRenderer(
 
                 canvas.renderSkia()
                 onFrame(canvas.blitFrame())
+                println("After onFrame")
 
                 glfwSwapBuffers(scene.handle)
+                println("After Compose swapbuffers")
                 scene.frameInvalid = false
             }
         }

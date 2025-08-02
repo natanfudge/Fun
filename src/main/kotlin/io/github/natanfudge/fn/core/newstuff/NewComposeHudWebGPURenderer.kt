@@ -14,20 +14,7 @@ import org.lwjgl.glfw.GLFW.*
 
 private var samplerIndex = 0
 
-internal class NewComposeWebgpuSurface(val ctx: NewWebGPUContext, val context: NewFunContext, val composeScene: GlfwComposeScene) : InvalidationKey() {
-    // TODO: these listeners should not be here and i will def need to move them for panel input
-    // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
-    private val inputListener = context.events.input.listenUnscoped { input ->
-//        val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        composeScene.sendInputEvent(input)
-    }
-    private val densityListener = context.events.densityChange.listenUnscoped { (newDensity) ->
-//        val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        if (composeScene.focused) {
-            composeScene.scene.density = newDensity
-        }
-    }
-
+internal class NewComposeWebgpuSurface(val ctx: NewWebGPUContext, val context: NewFunContext) : InvalidationKey() {
     val myIndex = samplerIndex++
     val sampler = ctx.device.createSampler(
         SamplerDescriptor(
@@ -38,7 +25,7 @@ internal class NewComposeWebgpuSurface(val ctx: NewWebGPUContext, val context: N
     )
 
     override fun close() {
-        closeAll(sampler, inputListener, densityListener)
+        closeAll(sampler)
     }
 
     override fun toString(): String {
@@ -48,7 +35,7 @@ internal class NewComposeWebgpuSurface(val ctx: NewWebGPUContext, val context: N
 
 private var textureIndex = 0
 
-internal class NewComposeTexture(val ctx: NewWebGPUContext, val size: IntSize) : AutoCloseable {
+internal class NewComposeTexture(val ctx: NewWebGPUContext, val size: IntSize) : InvalidationKey() {
     val myIndex = textureIndex++
     val composeTexture = ctx.device.createTexture(
         TextureDescriptor(
@@ -75,10 +62,10 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
 
 internal class NewComposeHudWebGPURenderer(
     worldRenderer: NewWorldRenderer,
+    onCreateScene: (GlfwComposeScene) -> Unit,
     show: Boolean = false,
 ) : NewFun("ComposeHudWebGPURenderer") {
     private val webGPUHolder = worldRenderer.surfaceHolder
-
 
     val offscreenComposeRenderer: NewComposeOpenGLRenderer = NewComposeOpenGLRenderer(
         webGPUHolder.windowHolder.params,
@@ -86,12 +73,16 @@ internal class NewComposeHudWebGPURenderer(
             setHostWindowCursorIcon(it)
         },
         onFrame = { (bytes, size) ->
+            check(!closed)
+            check(texture.valid)
             webGPUHolder.surface.device.copyExternalImageToTexture(
                 source = bytes,
                 texture = texture.composeTexture,
                 width = size.width, height = size.height
             )
-        }
+            println("After copy texture")
+        },
+        onCreateScene =onCreateScene
     )
 
     fun setContent(content: @Composable () -> Unit) {
@@ -99,7 +90,7 @@ internal class NewComposeHudWebGPURenderer(
     }
 
     val surface by cached(webGPUHolder.surface) {
-        NewComposeWebgpuSurface(webGPUHolder.surface, context, offscreenComposeRenderer.scene)
+        NewComposeWebgpuSurface(webGPUHolder.surface, context)
     }
 
     var texture by cached(webGPUHolder.surface) {
@@ -107,7 +98,6 @@ internal class NewComposeHudWebGPURenderer(
         offscreenComposeRenderer.scene.frameInvalid = true
         NewComposeTexture(webGPUHolder.surface, webGPUHolder.size)
     }
-    // TODO: crash in skiko on refresh [NewComposeBindGroup, NewComposeHudWebGPURenderer] after resizing window
 
     val shader = NewReloadingPipeline(
         "Compose Fullscreen Quad",
@@ -152,12 +142,24 @@ internal class NewComposeHudWebGPURenderer(
             label = "Compose HUD Pipeline",
         )
     }
-    var bindGroup by cached(surface) {
+    var bindGroup by cached(texture) {
+        println("Create CHUD bindgroup")
         NewComposeBindGroup(shader.pipeline, texture, surface)
     }
 
 
     init {
+        // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
+        context.events.input.listen { input ->
+            offscreenComposeRenderer.scene.sendInputEvent(input)
+        }
+        context.events.densityChange.listen { (newDensity) ->
+            val scene = offscreenComposeRenderer.scene
+            if (scene.focused) {
+                scene.scene.density = newDensity
+            }
+        }
+
         events.windowResize.listen {
             offscreenComposeRenderer.resize(it.size)
             texture = NewComposeTexture(webGPUHolder.surface, webGPUHolder.size)
@@ -182,13 +184,14 @@ internal class NewComposeHudWebGPURenderer(
 
             // Create bind group for the sampler, and texture
             val pass = encoder.beginRenderPass(renderPassDescriptor)
+//            println("Before hud render")
             pass.setPipeline(shader.pipeline)
             pass.setBindGroup(0u, bindGroup.group)
             pass.draw(6u)
             pass.end()
+//            println("After hud render")
         }
     }
-
 
     private fun setHostWindowCursorIcon(icon: PointerIcon) {
         val cursor: Long = when (icon) {

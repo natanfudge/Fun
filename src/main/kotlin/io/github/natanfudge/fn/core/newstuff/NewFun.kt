@@ -17,7 +17,7 @@ import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-// TODO: need better guardrails against using the same ID twice
+// https://github.com/natanfudge/Fun/issues/8
 abstract class NewFun internal constructor(
     // Note: we swap the order of parameters here so we can differentiate between this internal constructor and the public one
     val parent: NewFun?,
@@ -67,6 +67,8 @@ abstract class NewFun internal constructor(
         closeAttachments.add(closeable)
     }
 
+    var closed = false
+
 
     /**
      * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
@@ -84,6 +86,7 @@ abstract class NewFun internal constructor(
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }
+        closed = true
     }
 
 
@@ -108,13 +111,12 @@ abstract class NewFun internal constructor(
      *
      * CAUTION: Do not store `Fun`s in cached values! Those `Fun`s will become stale as the app refreshes and the instances are reconstructed,
      * but your cached values will not change and still reference those old values.
-     *  //TODO: eventually, an inspection that forbids this would make sense.
+     * https://github.com/natanfudge/MineTheEarth/issues/120
      *
      *
      * Setting this value will automatically close it if it is [AutoCloseable].
-     * If this value is an [IInvalidationKey], Setting it will not automatically invalidate it.
-     * For that, you can set [IInvalidationKey.invalid] to true yourself, and request a refresh.
-     * (NOTE: maybe add a flag to do that, because that's sometimes desirable)
+     * If this value is an [IInvalidationKey], Overwriting it will automatically invalidate it.
+     * If you want the invalidation to have an effect, you need to refresh the app.
      */
     fun <T> cached(key: IInvalidationKey, ctr: () -> T): PropertyDelegateProvider<Any, CachedValue<T>> = PropertyDelegateProvider { _, property ->
         CachedValue(

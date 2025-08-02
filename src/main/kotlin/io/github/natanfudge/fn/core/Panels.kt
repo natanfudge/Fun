@@ -109,7 +109,7 @@ interface WorldPanel {
 }
 
 //TODO: I really want to memoize this, takes a decent amount of time (>100ms) to start this every hot reload
-private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel { //TODo: only need autoclose and context
+private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel {
     val render by render(Model(Mesh.UnitSquare, "WorldPanel"))
 
     fun setContent(content: @Composable () -> Unit) {
@@ -133,7 +133,7 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
 
     val renderer = ComposeOpenGLRenderer(
         WindowConfig(), windowDimensionsLifecycle = window, beforeFrameEvent = context.beforeFrame,
-        name = "WorldPanel", show = false, onSetPointerIcon = {}//TODO
+        name = "WorldPanel", show = false, onSetPointerIcon = {}// Related to https://github.com/natanfudge/MineTheEarth/issues/121
         , onError = {
             context.events.guiError.emit(it)
         },

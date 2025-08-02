@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.*
 import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.ProcessLifecycle
 import io.github.natanfudge.fn.core.newstuff.InvalidationKey
+import io.github.natanfudge.fn.core.newstuff.valid
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.*
@@ -44,7 +45,7 @@ internal class FixedSizeComposeWindow(
     val size: IntSize,
     val sceneWrapper: GlfwComposeScene,
 
-) : AutoCloseable {
+) : InvalidationKey() {
 
     init {
         GLFW.glfwMakeContextCurrent(sceneWrapper.handle)
@@ -69,9 +70,12 @@ internal class FixedSizeComposeWindow(
 
     /* Draw the root scene + every overlay layer. */
     fun renderSkia() {
+        check(valid)
+        check(sceneWrapper.valid)
         // Clear first – Compose does *not* do this every frame.
         glClearColor(0f, 0f, 0f, 0f)
         glDebugGroup(2, groupName = { "${sceneWrapper.label} Canvas Clear" }) {
+            println("Clearing canvas")
             canvas.clear(Color.TRANSPARENT)
         }
 
@@ -79,17 +83,21 @@ internal class FixedSizeComposeWindow(
 
         /* 1️⃣  root scene */
         glDebugGroup(3, groupName = { "${sceneWrapper.label} Root Render" }) {
+            println("Rendering frame")
             sceneWrapper.scene.render(composeCanvas, now)
         }
 
         /* 2️⃣  overlay layers (pop‑ups, tooltips, etc.) */
         glDebugGroup(3, groupName = { "${sceneWrapper.label} Overlays Render" }) {
+            println("Rendering overlays")
             sceneWrapper.overlayLayers.forEach { it.renderOn(canvas, now) }
         }
 
         /* 3️⃣  flush to GL */
         glDebugGroup(4, groupName = { "${sceneWrapper.label} Flush" }) {
+            println("Flushing")
             sceneWrapper.context.flush()
+            println("After flush")
         }
     }
 

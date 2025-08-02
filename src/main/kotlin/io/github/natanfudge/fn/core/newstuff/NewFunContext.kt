@@ -1,8 +1,13 @@
 package io.github.natanfudge.fn.core.newstuff
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.core.FunStateContext
 import io.github.natanfudge.fn.core.FunStateManager
 import io.github.natanfudge.fn.core.WindowEvent
@@ -11,6 +16,7 @@ import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.filterIsInstance
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.agent.sendAsync
@@ -47,6 +53,7 @@ class NewFunEvents : NewFun("FunEvents") {
     val key = input.filterIsInstance<WindowEvent.KeyEvent>()
     val windowMove = input.filterIsInstance<WindowEvent.WindowMove>()
     val windowResize = input.filterIsInstance<WindowEvent.WindowResize>()
+    val afterWindowResize by event<IntSize>()
     val densityChange = input.filterIsInstance<WindowEvent.DensityChange>()
     val windowClose = input.filterIsInstance<WindowEvent.WindowClose>()
 }
@@ -85,6 +92,10 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
     private var pendingReload: Reload? = null
 
+    // TODO: 1. Memory leak
+    // 2. Panels. Note this issue:   GUIs will have a responsibility to clean up their GUIs once we start selectively initializing components
+    // So addPanel should just be tied to the Fun scope and close with the fun.
+
 
     fun start() {
         invokeAfterHotReload { _, result ->
@@ -101,6 +112,12 @@ class NewFunContext(val appCallback: () -> Unit) : FunStateContext {
 
         events.closeButtonPressed.listenUnscoped {
             exitProcess(0)
+        }
+
+        // Window resizing stalls the main loop, so we want to interject frames when resizing so the content adapts to the resize as soon as the user
+        // does it.
+        events.afterWindowResize.listenUnscoped {
+            frame()
         }
 
 
@@ -181,6 +198,9 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
 
     val windowHolder = NewGlfwWindowHolder(withOpenGL = false, showWindow = true, config, name = "WebGPU") {
         events.input(it)
+        if (it is WindowEvent.WindowResize) {
+            events.afterWindowResize(it.size)
+        }
     }
 
     init {
@@ -214,17 +234,40 @@ class FunBaseApp(config: WindowConfig) : NewFun("FunBaseApp") {
 
     val webgpu = NewWebGPUSurfaceHolder(windowHolder)
     val worldRenderer = NewWorldRenderer(webgpu)
-    internal val compose = NewComposeHudWebGPURenderer(worldRenderer, show = false)
+    internal val compose = NewComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
+        scene.setContent {
+            Column {
+                Surface(color = Color.White) {
+                    Text("Halo!", color = Color.Black)
+                }
+                Button(onClick = {
+                    println("Alo")
+                }) {
+                    Text("Foo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo Foo", fontSize = 200.sp)
+                }
+            }
 
-    @Suppress("unused")
-    val setComposeContent by cached(compose.offscreenComposeRenderer.scene) {
-        compose.setContent {
-            Surface(color = Color.White) {
-                Text("Halo!", color = Color.Black)
+            LaunchedEffect(Unit) {
+                delay(500)
+                if (!crasharino) {
+                    crasharino = true
+                    throw NullPointerException("Alo")
+                }
             }
         }
-    }
+    })
+
+//    private fun setComposeContent() {
+//
+//    }
+//
+//    @Suppress("unused")
+//    val setComposeContent by cached(compose.offscreenComposeRenderer.scene) {
+//        setComposeContent()
+//    }
 }
+
+var crasharino = false
 
 fun main() {
     val context = NewFunContext {

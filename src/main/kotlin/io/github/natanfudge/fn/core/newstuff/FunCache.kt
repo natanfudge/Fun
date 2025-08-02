@@ -55,7 +55,7 @@ data class InvalidationInfo(
 )
 
 class FunCache {
-    //TODO: actually, the concepts of cached values and refreshing the app are completely separate.
+    //IDEA: actually, the concepts of cached values and refreshing the app are completely separate.
     // In order to create new cached value when their dependencies change, we can just re-invoke their lambda, without refreshing the app.
     // When a hot reload occurs, we need to refresh the app (at least the parts that changed) to reinitialize possible new fields
     //, but that's done completely independently from creating new cached values.
@@ -127,12 +127,16 @@ class FunCache {
 
 
     /**
-     * Will automatically close the old value, but not invalidate it.
+     * Will automatically close the old value and invalidate it, but won't refresh the entire app
      */
     fun <T> set(key: CacheKey, invalidation: InvalidationInfo, value: T) {
         val oldValue = values[key]
-        if (oldValue?.value is AutoCloseable) {
-            oldValue.value.close()
+        val obj = oldValue?.value
+        if (obj is AutoCloseable) {
+            obj.close()
+        }
+        if (obj is InvalidationKey) {
+            obj.invalid = true
         }
         values[key] = CacheValue(value, invalidation)
     }
