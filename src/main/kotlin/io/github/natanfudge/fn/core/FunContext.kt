@@ -66,9 +66,6 @@ private val maxFrameDelta = 300.milliseconds
 
 
 //TODO
-// 1. Delete olds Funs
-// 2. Remove New prefix
-// 3. Move to correct locations
 // 4. Resolve TODOs
 // 5. Clean up
 
@@ -85,13 +82,14 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
 
     val events = FunEvents()
 
-    val gui = FunPanels()
 
     val fsWatcher = FileSystemWatcher()
 
     val logger = FunLogger()
 
     val time = FunTime()
+
+    lateinit var gui: FunPanels
 
     // TODO: service registration so we don't need this
     lateinit var world: WorldRenderer
@@ -276,17 +274,15 @@ class FunRenderer(config: WindowConfig) : Fun("FunBaseApp") {
     val webgpu = WebGPUSurfaceHolder(windowHolder)
     val worldRenderer = WorldRenderer(webgpu)
 
-    internal val compose = ComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
-        scene.setContent {
-            context.gui.PanelSupport()
-        }
-    })
-
     init {
         context.world = worldRenderer
-        context.compose = compose
+        context.gui = FunPanels()
+        context.compose = ComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
+            scene.setContent {
+                context.gui.PanelSupport()
+            }
+        })
     }
-
 }
 
 var crasharino = false

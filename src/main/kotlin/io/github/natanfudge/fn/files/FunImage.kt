@@ -2,7 +2,6 @@ package io.github.natanfudge.fn.files
 
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.FunContextRegistry
-import io.github.natanfudge.fn.core.FunLogger
 import natan.`fun`.generated.resources.Res
 import org.jetbrains.compose.resources.MissingResourceException
 import org.lwjgl.stb.STBImage.*
@@ -19,6 +18,13 @@ class FunImage(
     val bytes: ByteArray,
     val path: String?,
 ) {
+    override fun toString(): String {
+        return buildString {
+            append("${size.width}x${size.height}")
+            if (path != null) append(" ${path.substringAfterLast("\\")}")
+        }
+    }
+
     companion object {
         private val placeholder by lazy {
             fromResource("files/placeholder.png")

@@ -19,11 +19,13 @@ import androidx.compose.ui.scene.ComposeSceneLayer
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.*
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.InvalidationKey
-import io.github.natanfudge.fn.window.GlfwWindowHolder
+import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.valid
-import io.github.natanfudge.fn.window.*
+import io.github.natanfudge.fn.window.GlfwCoroutineDispatcher
+import io.github.natanfudge.fn.window.GlfwWindowHolder
+import io.github.natanfudge.fn.window.WindowConfig
+import io.github.natanfudge.fn.window.WindowHandle
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
@@ -39,11 +41,11 @@ import org.lwjgl.system.MemoryUtil
 
 
 @OptIn(InternalComposeUiApi::class)
- class FixedSizeComposeWindow(
+class FixedSizeComposeWindow(
     val size: IntSize,
     val sceneWrapper: GlfwComposeScene,
 
-) : InvalidationKey() {
+    ) : InvalidationKey() {
 
     init {
         GLFW.glfwMakeContextCurrent(sceneWrapper.handle)
@@ -124,7 +126,7 @@ import org.lwjgl.system.MemoryUtil
 /*  🔸 COMPOSE‑SCENE CONTEXT (GLFW)                                          */
 /* ────────────────────────────────────────────────────────────────────────── */
 
- class GlfwComposeSceneContext(
+class GlfwComposeSceneContext(
     private val onSetPointerIcon: (PointerIcon) -> Unit,
     private val onInvalidate: () -> Unit,
     private val onLayerCreated: (GlfwComposeSceneLayer) -> Unit,
@@ -275,7 +277,7 @@ operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= 
 /*  🔸 GLFW PLATFORM CONTEXT (POINTER ICON ONLY)                             */
 /* ────────────────────────────────────────────────────────────────────────── */
 
- class GlfwComposePlatformContext(
+class GlfwComposePlatformContext(
     private val onSetPointerIcon: (PointerIcon) -> Unit,
 ) : PlatformContext by PlatformContext.Empty {
     override val windowInfo = WindowInfoImpl().apply {
@@ -285,7 +287,7 @@ operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= 
     override fun setPointerIcon(pointerIcon: PointerIcon) = onSetPointerIcon(pointerIcon)
 }
 
- class WindowInfoImpl : WindowInfo {
+class WindowInfoImpl : WindowInfo {
     private val _containerSize = mutableStateOf(IntSize.Zero)
 
     override var isWindowFocused: Boolean by mutableStateOf(false)
@@ -315,7 +317,7 @@ operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= 
 /* ────────────────────────────────────────────────────────────────────────── */
 
 @OptIn(InternalComposeUiApi::class)
- class GlfwComposeScene(
+class GlfwComposeScene(
     initialSize: IntSize,
     val handle: WindowHandle,
     onSetPointerIcon: (PointerIcon) -> Unit,
@@ -391,7 +393,10 @@ operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= 
     /** All overlay layers created through the ComposeSceneContext. */
     internal val overlayLayers = mutableListOf<GlfwComposeSceneLayer>()
 
-    fun setContent(content: @Composable () -> Unit) = scene.setContent(content)
+    fun setContent(content: @Composable () -> Unit) {
+        frameInvalid = true
+        scene.setContent(content)
+    }
 
     override fun close() = scene.close()
 }
@@ -456,7 +461,7 @@ data class ComposeFrameEvent(
     val size: IntSize,
 )
 
- class ComposeOpenGLRenderer(
+class ComposeOpenGLRenderer(
     params: WindowConfig,
     val name: String,
     val onSetPointerIcon: (PointerIcon) -> Unit,
@@ -509,6 +514,7 @@ data class ComposeFrameEvent(
 
     fun resize(size: IntSize) {
         scene.frameInvalid = true
+        println("Invalid set to true")
         canvas = FixedSizeComposeWindow(size, scene)
     }
 

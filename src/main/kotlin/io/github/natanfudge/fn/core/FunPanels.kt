@@ -20,6 +20,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.window.WindowConfig
+import java.nio.file.Paths
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: FunPanels) : AutoCloseable {
     override fun close() {
@@ -28,10 +29,9 @@ data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: 
 }
 
 
-class FunPanels {
-    private val panelList = mutableStateListOf<ComposeHudPanel>()
+class FunPanels : Fun("FunPanels") {
+    private val panelList by memo<MutableList<ComposeHudPanel>> { mutableStateListOf() }
 
-    //TODO: migrate to use NewFun
     private var worldGui: WorldPanelManager? = null // We only support one panel for now
 //    var worldGui: (ComposeWorldPanel)? by mutableStateOf(null)
 
@@ -48,12 +48,6 @@ class FunPanels {
         this.worldGui!!.render.localTransform.transform = transform
         this.worldGui!!.setContent(content)
         return this.worldGui!!
-    }
-
-    //TODo: don't need this anymore
-    internal fun clearPanels() {
-        panelList.clear()
-        this.worldGui = null
     }
 
     @Deprecated("Use scoped addPanel to avoid keeping around a GUI of a dead Fun", replaceWith = ReplaceWith("addPanel(modifier, content)"))
@@ -103,11 +97,19 @@ class FunPanels {
 
 }
 
+// TODO: measure refresh time now that WorldPanelManager is cached
+
+// 0. World Panel doesn't work
+//TODO: 1. selection is broken, hover shows background instead of selected item
+// 2. Visual Editor uses light mode incorrectly
+// 3. Seems like collision is not working because I can't collect stuff
 
 interface WorldPanel {
     var transform: Transform
     var canvasSize: IntSize
 }
+
+private var frame = 0
 
 private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel {
     val render by render(Model(Mesh.UnitSquare, "WorldPanel"))
@@ -117,12 +119,13 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
 
 
     private val compose = ComposeOpenGLRenderer(
-        WindowConfig(), show = false,
+        WindowConfig(size = initialPanelSize), show = false,
         onSetPointerIcon = {}, // Not yet
         name = "WorldPanels",
         onFrame = { (bytes, size) ->
             val image = FunImage(size, bytes, null)
             render.setTexture(image)
+            println("Set render texture")
         },
         onCreateScene = { scene ->
             scene.setContent {

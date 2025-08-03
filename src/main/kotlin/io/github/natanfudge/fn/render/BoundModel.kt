@@ -11,16 +11,15 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.ygdrasil.webgpu.*
 
 
-
 /**
  * Stores GPU information about all instances of a [Model].
  */
 class BoundModel(
-    val model: Model, private val ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
+    val data: Model, private val ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
     val pipeline: () -> GPURenderPipeline,
 ) : AutoCloseable {
 
-     var currentTexture = model.material.texture
+    var currentTexture = data.material.texture
 
     var textureBuffer = createTextureBuffer(currentTexture)
     var textureView = textureBuffer.createView()
@@ -31,7 +30,16 @@ class BoundModel(
         }
     }
 
+    /**
+     * This operation is only relevant per model and not per instance
+     */
     fun setTexture(newTexture: FunImage) {
+        if (currentTexture == null) {
+            // Need to set the textured flag to true in case the model was not textured before
+            instances.forEach {
+                it.value.enableTexturing()
+            }
+        }
         if (newTexture.size != currentTexture?.size) {
             // Recreate buffer , view and bindgroup if the texture needs to be resized
             this.textureBuffer.close()
@@ -68,7 +76,7 @@ class BoundModel(
         )
     }
 
-    val jointCount = if (model.skeleton == null) 0uL else model.skeleton.joints.size.toULong()
+    val jointCount = if (this@BoundModel.data.skeleton == null) 0uL else this@BoundModel.data.skeleton.joints.size.toULong()
 
     val instanceStruct = JointMatrix(jointCount.toInt())
 
@@ -79,17 +87,15 @@ class BoundModel(
 
 
     init {
-        if (model.skeleton != null) {
+        if (this@BoundModel.data.skeleton != null) {
             inverseBindMatricesBuffer.write(
-                model.skeleton.inverseBindMatrices.toFloatArray()
+                this@BoundModel.data.skeleton.inverseBindMatrices.toFloatArray()
             )
         }
     }
 
 
-
     val instances = mutableMapOf<FunId, RenderInstance>()
-
 
 
     private var bindGroupIndex = 0
@@ -109,13 +115,6 @@ class BoundModel(
         // If pipeline is null, recreateBindGroup will be re-called once it is not null
     }
 
-    fun closeBindGroup() {
-        println("Closing model bindgroup")
-        bindGroup?.close()
-        bindGroup = null
-    }
-
-
     private fun createBindGroup(pipeline: GPURenderPipeline) = ctx.device.createBindGroup(
         BindGroupDescriptor(
             layout = pipeline.getBindGroupLayout(1u),
@@ -129,7 +128,7 @@ class BoundModel(
                     resource = BufferBinding(inverseBindMatricesBuffer.buffer)
                 ),
             ),
-            label = "Model bindgroup of ${model.id} #${bindGroupIndex++}"
+            label = "Model bindgroup of ${this@BoundModel.data.id} #${bindGroupIndex++}"
         )
     )
 
@@ -138,3 +137,4 @@ class BoundModel(
         closeAll(textureBuffer, textureView, inverseBindMatricesBuffer, bindGroup)
     }
 }
+

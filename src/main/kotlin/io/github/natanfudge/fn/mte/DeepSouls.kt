@@ -76,7 +76,7 @@ class DeepSoulsGame : Fun("Game") {
     val creativeMovement = CreativeMovement(input)
 
     fun initialize() {
-        player.physics.position = Vec3f(0f, 0.5f, 750f)
+        player.physics.position = Vec3f(0f, 0.5f, 110f)
 //        player.physics.position = Vec3f(0f, 0.5f, 105f)
         player.animation.play("jump", loop = false)
 

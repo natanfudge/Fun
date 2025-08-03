@@ -74,7 +74,7 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
 
     val offscreenComposeRenderer: ComposeOpenGLRenderer = ComposeOpenGLRenderer(
         webGPUHolder.windowHolder.params,
-        show = show, name = "Compose", onSetPointerIcon = {
+        show = show, name = "HUD", onSetPointerIcon = {
             setHostWindowCursorIcon(it)
         },
         onFrame = { (bytes, size) ->

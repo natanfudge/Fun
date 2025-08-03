@@ -24,18 +24,18 @@ class World(val game: DeepSoulsGame) : Fun("World") {
         }
     }
 
-    fun worldgenSimple(): List<Block> {
-        return List(width * height) {
-            val x = it % width - width / 2
-            val z = it / width - height + DeepSoulsGame.SurfaceZ
-            val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
-            Block(
-                game,
-                type,
-                BlockPos(x = x, y = 0, z = z), id = "Block-$type-$x-$z"
-            )
-        }
-    }
+//    fun worldgenSimple(): List<Block> {
+//        return List(width * height) {
+//            val x = it % width - width / 2
+//            val z = it / width - height + DeepSoulsGame.SurfaceZ
+//            val type = if (Random.nextInt(1, 11) == 10) BlockType.Gold else BlockType.Dirt
+//            Block(
+//                game,
+//                type,
+//                BlockPos(x = x, y = 0, z = z), id = "Block-$type-$x-$z"
+//            )
+//        }
+//    }
 
     fun worldgen(mapWidth: Int, zLevelStart: Int, zLevelEnd: Int, xLevelStart: Int): List<Block> {
         val blocksList = BlockType.entries

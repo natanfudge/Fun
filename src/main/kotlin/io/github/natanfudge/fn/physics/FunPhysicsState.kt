@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
@@ -15,7 +16,7 @@ class FunPhysicsState(
     funParent: Fun,
     baseAABB: AxisAlignedBoundingBox,
     private val physics: PhysicsSystem,
-) : Fun("physics", funParent), Body, Transformable {
+) : Fun(funParent.id.child("physics"), funParent), Body, Transformable {
     private val transformState = FunTransform(this)
 
     override var transform: Transform by transformState::transform

@@ -7,6 +7,7 @@ import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.getHoveredRoot
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.translation
@@ -287,7 +288,7 @@ private class DelayedStrike(
     parent: Fun,
 
     name: String = "RateLimit",
-) : Fun(name, parent) {
+) : Fun(parent.id.child(name), parent) {
     private var strikeStart: Duration? by funValue(null)
     private var lastStrike: Duration? by funValue(null)
 

@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.core.FunId
-import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.physics.Transformable
 import io.github.natanfudge.fn.render.utils.GPUPointer
 import io.github.natanfudge.fn.util.Listener
@@ -20,7 +19,7 @@ class RenderInstance internal constructor(
     val funId: FunId,
     initialTransform: Mat4f,
     initialTint: Tint,
-    val bound: BoundModel,
+    val model: BoundModel,
     private val instanceBuffer: IndirectInstanceBuffer,
     private val jointBuffer: IndirectInstanceBuffer,
 //    @PublishedApi internal val world: WorldRender,
@@ -36,14 +35,14 @@ class RenderInstance internal constructor(
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
     internal val globalInstancePointer = instanceBuffer.newInstance(
         BaseInstanceData.toArray(
-            initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (bound.currentTexture == null) 0 else 1,
-            if (bound.model.skeleton == null) 0 else 1
+            initialTransform, normalMatrix, initialTint.color, initialTint.strength, if (model.currentTexture == null) 0 else 1,
+            if (this@RenderInstance.model.data.skeleton == null) 0 else 1
         )
     ) as GPUPointer<BaseInstanceData>
 
 
 
-    internal val skin = if (bound.model.skeleton == null) null else SkinManager(bound.model.skeleton, bound.model)
+    internal val skin = if (this@RenderInstance.model.data.skeleton == null) null else SkinManager(this@RenderInstance.model.data.skeleton, this@RenderInstance.model.data)
 
     /**
      * Allows following the transform of the given node [jointNodeId]
@@ -56,7 +55,7 @@ class RenderInstance internal constructor(
     }
 
     internal val jointMatricesPointer = jointBuffer.newInstance(
-        bound.instanceStruct.toArray(
+        model.instanceStruct.toArray(
             skin?.getModelSpaceJointTransforms()
             // Note: don't need this when we have proper feature separation
                 ?: listOf()
@@ -82,9 +81,17 @@ class RenderInstance internal constructor(
     var despawned = false
 
 
+    
+//    fun setTexture(texture: FunImage) {
+//        model.setTexture(texture)
+//    }
 
-    fun setTexture(texture: FunImage) {
-        bound.setTexture(texture)
+    /**
+     * Sets the flag that tells the GPU that this instance has a texture to true
+     */
+    internal fun enableTexturing() {
+        // textured flag
+        BaseInstanceData.setFifth(instanceBuffer.instanceBuffer, globalInstancePointer,  1)
     }
 
     private fun checkDespawned() {
@@ -100,13 +107,13 @@ class RenderInstance internal constructor(
         if (requestedTransform != null) {
             // Without a skin, we just apply the model's root transform directly here, and with a skin the root transform is applied by the skin matrix,
             // since the joints are considered children nodes of the root node.
-            val gpuTransform = if (skin == null) requestedTransform!! * bound.model.baseRootTransform else requestedTransform!!
+            val gpuTransform = if (skin == null) requestedTransform!! * this@RenderInstance.model.data.baseRootTransform else requestedTransform!!
             // Setting all values at once is faster than setting two values individually
             BaseInstanceData.set(
                 instanceDataBuffer, globalInstancePointer,
                 gpuTransform, Mat3f.normalMatrix(requestedTransform!!), gpuTintColor, gpuTintStrength,
-                if (bound.currentTexture == null) 0 else 1,
-                if (bound.model.skeleton == null) 0 else 1
+                if (model.currentTexture == null) 0 else 1,
+                if (this@RenderInstance.model.data.skeleton == null) 0 else 1
             )
             setTransform = requestedTransform!!
             requestedTransform = null
@@ -125,10 +132,10 @@ class RenderInstance internal constructor(
 
     fun setJointTransforms(transforms: SkeletalTransformation) {
         checkDespawned()
-        val skin = skin ?: throw UnallowedFunException("setJointTransforms is not relevant for a model without a skin '${bound.model.id}'")
+        val skin = skin ?: throw UnallowedFunException("setJointTransforms is not relevant for a model without a skin '${this@RenderInstance.model.data.id}'")
         skin.applyLocalTransforms(transforms)
         // Just apply it to the GPU right away, I don't think anyone will try to call this multiple times a frame.
-        bound.instanceStruct.setFirst(
+        model.instanceStruct.setFirst(
             jointBuffer.instanceBuffer,
             jointMatricesPointer,
             skin.getModelSpaceJointTransforms()

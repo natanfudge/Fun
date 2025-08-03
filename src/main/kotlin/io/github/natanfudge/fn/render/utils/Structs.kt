@@ -260,7 +260,7 @@ abstract class Struct6<T1, T2, T3, T4, T5, T6, S : Struct6<T1, T2, T3, T4, T5, T
         mem.write(t4.toArray(d), pointer + layout[3])
     }
 
-    fun setFirth(mem: ManagedGPUMemory, pointer: GPUPointer<S>, e: T5) {
+    fun setFifth(mem: ManagedGPUMemory, pointer: GPUPointer<S>, e: T5) {
         mem.write(t5.toArray(e), pointer + layout[4])
     }
 

@@ -21,19 +21,11 @@ import kotlin.reflect.KProperty
 
 // https://github.com/natanfudge/Fun/issues/8
 abstract class Fun internal constructor(
-    name: String,
-    val parent: Fun? = null,
-//    // Note: we swap the order of parameters here so we can differentiate between this internal constructor and the public one
-//    val parent: Fun?,
-//    /**
-//     * Unique identifier for this component. Components with the same ID across different clients
-//     * will synchronize their state.
-//     */
-//    override val id: FunId,
-
+    override val id: FunId,
+    val parent: Fun? = FunContextRegistry.getContext().rootFun,
 ) : Taggable by TagMap(), Resource, AutoCloseable {
 
-    override val id: FunId = parent?.id?.child(name) ?: name
+//    override val id: FunId = parent?.id?.child(name) ?: name
 
     init {
         parent?.registerChild(this)
@@ -42,10 +34,6 @@ abstract class Fun internal constructor(
     companion object {
         const val DEV = true
     }
-//    constructor(name: String, parent: Fun = FunContextRegistry.getContext().rootFun) :
-//            this(parent, ) {
-//        parent.registerChild(this)
-//    }
 
     init {
         context.register(this)

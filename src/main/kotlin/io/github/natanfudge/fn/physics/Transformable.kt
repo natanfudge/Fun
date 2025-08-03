@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
@@ -30,7 +31,7 @@ object RootTransformable : Transformable {
     }
 }
 
-class FunTransform(parent: Fun) : Fun("transform", parent), Transformable {
+class FunTransform(parent: Fun) : Fun(parent.id.child("transform"), parent), Transformable {
     override var transform: Transform
         get() = _transform
         set(value) {

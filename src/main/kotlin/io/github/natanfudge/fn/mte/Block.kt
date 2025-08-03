@@ -20,7 +20,14 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         }
     }
 
+    init {
+        val x = 2
+    }
     val type by funValue(initialType)
+    init {
+        @Suppress("RedundantRequireNotNullCall")
+        checkNotNull(type)
+    }
 
     val physics = physics(game.physics.system)
     // TODO: type becomes null on refresh (initialType should not be used, but the stored value)

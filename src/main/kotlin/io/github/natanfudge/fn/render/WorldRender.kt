@@ -276,21 +276,11 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
         surfaceBinding.createBindGroup(pipelineHolder.pipeline)
     }
 
-    override fun cleanup() {
-        val x = 2
-    }
 
     val beforeSubmitDraw by event<BeforeSubmitWebGPUDrawEvent>()
 
 
     init {
-//        pipelineHolder.pipelineClosed.listen {
-//            println("Closing world bindgroup on #${index}")
-//            bindgroup?.close()
-//            bindgroup = null
-//            println("Closing model bindgroups on #${index}")
-//            surfaceBinding.models.forEach { it.value.closeBindGroup() }
-//        }
         pipelineHolder.pipelineLoaded.listen { pipeline ->
             println("Creating bindgroup on new pipeline on #${index}")
             bindgroup = surfaceBinding.createBindGroup(pipeline)
@@ -377,7 +367,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
                     pass.setBindGroup(1u, bindGroup)
                     val instances = model.instances.size.toUInt()
                     pass.drawIndexed(
-                        model.model.mesh.indexCount,
+                        model.data.mesh.indexCount,
                         instanceCount = instances,
                         firstIndex = model.firstIndex,
                         baseVertex = model.baseVertex,
@@ -482,7 +472,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
     }
 
     internal fun remove(renderInstance: RenderInstance) {
-        renderInstance.bound.instances.remove(renderInstance.funId)
+        renderInstance.model.instances.remove(renderInstance.funId)
         surfaceBinding.rayCasting.remove(renderInstance)
     }
 

@@ -5,6 +5,7 @@ import io.github.natanfudge.fn.compose.utils.find
 import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.util.*
@@ -36,7 +37,7 @@ class FunRenderState(
     parentFun: Fun,
     val parentTransform: Transformable,
     val model: Model,
-) : Fun(name, parentFun), Boundable, Transformable {
+) : Fun(parentFun.id.child(name), parentFun), Boundable, Transformable {
 
     val localTransform = FunTransform(this)
 
@@ -79,7 +80,7 @@ class FunRenderState(
 
 
     fun setTexture(image: FunImage) {
-        renderInstance.setTexture(image)
+        renderInstance.model.setTexture(image)
     }
 
     init {
