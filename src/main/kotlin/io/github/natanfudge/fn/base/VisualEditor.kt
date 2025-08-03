@@ -28,8 +28,8 @@ import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
-fun FunContext.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
-    gui.addUnscopedPanel(modifier) {
+fun Fun.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
+    addGui(modifier) {
         MaterialTheme(darkColorScheme()) {
             content()
         }
@@ -64,7 +64,7 @@ class VisualEditor(
                 mouseDownPos = null
             }
         })
-        hoverMod.context.addFunPanel({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
+        addGui ({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
             val parent = selectedObject?.parent
             if (parent != null) {
                 FunEditor(parent)

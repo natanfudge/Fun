@@ -1,8 +1,6 @@
 package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.compose.utils.toList
-import io.github.natanfudge.fn.core.FunContextRegistry
-import io.github.natanfudge.fn.core.FunResource
 import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Animation

@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.Model

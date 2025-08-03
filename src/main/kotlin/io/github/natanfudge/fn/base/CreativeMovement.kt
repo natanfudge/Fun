@@ -17,11 +17,11 @@ import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.WindowEvent
-import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.CameraMode
 
 class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Movement") {
-    private val camera = context.camera
+    private val renderer = context.world
+    private val camera = renderer.camera
 
     var mode: CameraMode by funValue(CameraMode.Off)
 
@@ -33,8 +33,8 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
     init {
         with(camera) {
             inputManager.mouseMoved.listen { delta ->
-                val normalizedDeltaX = delta.x / context.window.width
-                val normalizedDeltaY = delta.y / context.window.height
+                val normalizedDeltaX = delta.x / renderer.windowSize.width
+                val normalizedDeltaY = delta.y / renderer.windowSize.height
 
                 when (mode) {
                     CameraMode.Orbital -> {
@@ -104,7 +104,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
         }
     }
     init {
-        context.gui.addUnscopedPanel {
+        addGui {
             if (mode == CameraMode.Fly) {
                 Box(Modifier.fillMaxSize().background(Color.Transparent)) {
                     Box(Modifier.size(2.dp, 20.dp).background(Color.Black).align(Alignment.Center))
@@ -117,7 +117,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
                 when (input) {
                     is WindowEvent.PointerEvent -> {
                         if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
-                            context.world.cursorPosition = (input.position)
+                            renderer.cursorPosition = (input.position)
                         }
 
                         if (input.eventType == PointerEventType.Scroll

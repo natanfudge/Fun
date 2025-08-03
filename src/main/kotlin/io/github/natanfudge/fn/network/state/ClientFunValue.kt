@@ -36,50 +36,50 @@ internal inline fun <reified T> Fun.useOldStateIfPossible(initialValue: T, state
     }
 }
 
-/**
- * Creates a property delegate that automatically synchronizes its value across all clients.
- *
- * This function is used to create properties in [Fun] components that will be automatically
- * synchronized when their value changes.
- *
- * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
- * @see Fun
- */
-inline fun <reified T> Fun.funValue(
-    initialValue: T?,
-    id: FunId,
-    editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
-    /**
-     * If not null, a listener will be automatically registered for [beforeChange].
-     */
-    noinline beforeChange: ((value: T) -> Unit)? = null,
-    noinline afterChange: ((value: T) -> Unit)? = null,
-): ClientFunValue<T> {
-    // SLOW: too much code in inline function
-    val funValue = ClientFunValue(
-        useOldStateIfPossible(unsafeToNotNull(initialValue), id),
-        getFunSerializer<T>(), id, this.id, this.context, editor
-    )
-    if (beforeChange != null) {
-        funValue.beforeChange(beforeChange)
-    }
-    if (afterChange != null) {
-        funValue.afterChange(afterChange)
-    }
-    return funValue
-}
+///**
+// * Creates a property delegate that automatically synchronizes its value across all clients.
+// *
+// * This function is used to create properties in [Fun] components that will be automatically
+// * synchronized when their value changes.
+// *
+// * @sample io.github.natanfudge.fn.test.example.network.state.StateFunValueExamples.funValueExample
+// * @see Fun
+// */
+//inline fun <reified T> Fun.funValue(
+//    initialValue: T?,
+//    id: FunId,
+//    editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
+//    /**
+//     * If not null, a listener will be automatically registered for [beforeChange].
+//     */
+//    noinline beforeChange: ((value: T) -> Unit)? = null,
+//    noinline afterChange: ((value: T) -> Unit)? = null,
+//): ClientFunValue<T> {
+//    // SLOW: too much code in inline function
+//    val funValue = ClientFunValue(
+//        useOldStateIfPossible(unsafeToNotNull(initialValue), id),
+//        getFunSerializer<T>(), id, this.id, this.context, editor
+//    )
+//    if (beforeChange != null) {
+//        funValue.beforeChange(beforeChange)
+//    }
+//    if (afterChange != null) {
+//        funValue.afterChange(afterChange)
+//    }
+//    return funValue
+//}
 
-inline fun <reified T> Fun.funValue(
-    initialValue: T?,
-    editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
-    /**
-     * If not null, a listener will be automatically registered for [beforeChange].
-     */
-    noinline beforeChange: ((value: T) -> Unit)? = null,
-    noinline afterChange: ((value: T) -> Unit)? = null,
-): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
-    funValue(initialValue, property.name, editor, beforeChange, afterChange)
-}
+//inline fun <reified T> Fun.funValue(
+//    initialValue: T?,
+//    editor: ValueEditor<T> = chooseEditor(typeOf<T>().classifier as KClass<T & Any>),
+//    /**
+//     * If not null, a listener will be automatically registered for [beforeChange].
+//     */
+//    noinline beforeChange: ((value: T) -> Unit)? = null,
+//    noinline afterChange: ((value: T) -> Unit)? = null,
+//): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
+//    funValue(initialValue, property.name, editor, beforeChange, afterChange)
+//}
 
 
 @PublishedApi

@@ -1,15 +1,19 @@
 package io.github.natanfudge.fn.webgpu
 
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
-import io.github.natanfudge.fn.files.FileSystemWatcher
+import io.github.natanfudge.fn.core.InvalidationKey
+import io.github.natanfudge.fn.core.valid
 import io.github.natanfudge.fn.files.readString
-import io.github.natanfudge.fn.util.Lifecycle
-import io.github.natanfudge.fn.util.closeAll
+import io.github.natanfudge.fn.util.EventEmitter
 import io.ygdrasil.webgpu.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import natan.`fun`.generated.resources.Res
 import org.intellij.lang.annotations.Language
+import org.jetbrains.compose.reload.core.Either
+import org.jetbrains.compose.reload.core.Left
+import org.jetbrains.compose.reload.core.Right
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
 sealed interface ShaderSource {
@@ -22,99 +26,126 @@ sealed interface ShaderSource {
     data class HotFile(val path: String) : ShaderSource
 }
 
-class ReloadingPipeline(
-    val vertexShader: GPUShaderModule,
-    val fragmentShader: GPUShaderModule,
-    val pipeline: GPURenderPipeline,
-    // On the other hand when the surface changes ctx does change and then you get old values for the children of this
-) : AutoCloseable {
-    companion object {
-        inline fun build(
-            vertexShaderCode: String,
-            fragmentShaderCode: String,
-            descriptorBuilder: (GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-            ctx: WebGPUContext,
-        ): ReloadingPipeline {
-            val vertexShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = vertexShaderCode))
-            val fragmentShader = ctx.device.createShaderModule(ShaderModuleDescriptor(code = fragmentShaderCode))
-            val pipeline = ctx.device.createRenderPipeline(descriptorBuilder(vertexShader, fragmentShader))
-            return ReloadingPipeline(vertexShader, fragmentShader, pipeline)
-        }
-    }
 
-    override fun toString(): String {
-        return "Reloading Pipeline"
-    }
+var nextPipelineIndex = 0
 
 
-    override fun close() {
-        println("CLosing pipeline ${pipeline.label}")
-        closeAll(vertexShader, fragmentShader, pipeline)
-    }
-}
+class ActivePipeline(
+    val ctx: WebGPUContext,
+    val vertexSource: ShaderSource,
+    val fragmentSource: ShaderSource,
+    val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
+    val pipelineLoaded: EventEmitter<GPURenderPipeline>,
+) : InvalidationKey() {
+    var pipeline: GPURenderPipeline? = null
+    private var vertexShader: GPUShaderModule? = null
+    private var fragmentShader: GPUShaderModule? = null
 
 
-inline fun createReloadingPipeline(
-    label: String,
-    surfaceLifecycle: Lifecycle<WebGPUContext>,
-    fsWatcher: FileSystemWatcher,
-    vertexShader: ShaderSource,
-    fragmentShader: ShaderSource = vertexShader,
-    crossinline descriptorBuilder: WebGPUContext.(GPUShaderModule, GPUShaderModule) -> GPURenderPipelineDescriptor,
-): Lifecycle<ReloadingPipeline> {
-    val lifecycle = surfaceLifecycle.bind("Reloading Pipeline of $label") {
-        // SLOW: this should prob not be blocking like this
+    fun reload() {
+        check(valid)
+        check(ctx.valid)
         val (vertex, fragment) = runBlocking {
-            if (vertexShader == fragmentShader) {
-                val shader = loadShader(vertexShader)
+            if (vertexSource == fragmentSource) {
+                val shader = loadShader(vertexSource)
                 shader to shader
             } else {
-                loadShader(vertexShader) to loadShader(fragmentShader)
+                loadShader(vertexSource) to loadShader(fragmentSource)
             }
         }
 
-        ReloadingPipeline.build(
-            vertexShaderCode = vertex,
-            fragmentShaderCode = fragment,
-            { v, f -> it.descriptorBuilder(v, f) }, it
-        )
-    }
+        val vertexShader = safeCreateShaderModule(vertex)
+        val fragmentShader = safeCreateShaderModule(fragment)
+        if (vertexShader is Left && fragmentShader is Left) {
+            // Success: reload pipeline
+            close()
+            this.vertexShader = vertexShader.value
+            this.fragmentShader = fragmentShader.value
+            this.pipeline = ctx.device.createRenderPipeline(pipelineDescriptorBuilder(ctx, this.vertexShader!!, this.fragmentShader!!))
+            pipelineLoaded(this.pipeline!!)
+        } else {
+            // Fail - do nothing
+            if (vertexShader is Right) {
+                println("Error while compiling vertex shader: ${vertexShader.value}")
+            }
+            if (fragmentShader is Right && (vertexSource != fragmentSource || vertexShader is Left)) {
+                println("Error while compiling fragment shader: ${fragmentShader.value}")
+            }
 
-    if (HOT_RELOAD_SHADERS) {
-        reloadOnChange(vertexShader, fsWatcher, surfaceLifecycle, lifecycle)
-        if (fragmentShader != vertexShader) {
-            reloadOnChange(fragmentShader, fsWatcher, surfaceLifecycle, lifecycle)
+            // TO DO: have some sort of plan B in case it fails in first initialization, because we won't have any existing shader code to reuse.
+//            this.vertexShader = null
+//            this.fragmentShader = null
+//            this.pipeline = null
         }
     }
 
-    return lifecycle
+    init {
+        reload()
+    }
+
+    override fun close() {
+        // This might get called multiple times so we make sure not to overdo it
+        pipeline?.close()
+        pipeline = null
+        vertexShader?.close()
+        vertexShader = null
+        fragmentShader?.close()
+        fragmentShader = null
+    }
+
+    private fun safeCreateShaderModule(code: String): Either<GPUShaderModule, GPUError> {
+        // Small hack to see if the new shader source is valid - try to compile it and see if it fails
+        ctx.device.pushErrorScope(GPUErrorFilter.Validation)
+        val module = ctx.device.createShaderModule(ShaderModuleDescriptor(code))
+        val error = runBlocking { ctx.device.popErrorScope().getOrThrow() }
+
+        if (error == null) {
+            return Left(module)
+        } else {
+            module.close()
+            return Right(error)
+        }
+    }
 }
 
+typealias PipelineDescriptorBuilder = WebGPUContext.(vertex: GPUShaderModule, fragment: GPUShaderModule) -> GPURenderPipelineDescriptor
 
-fun reloadOnChange(
-    shaderSource: ShaderSource,
-    fsWatcher: FileSystemWatcher,
-    surfaceLifecycle: Lifecycle< WebGPUContext>,
-    pipelineLifecycle: Lifecycle< *>,
-) {
-    if (shaderSource is ShaderSource.HotFile) {
-        println("Re-registering callback")
-        fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
-            // Small hack to see if the new shader source is valid - try to compile it and see if it fails
-            val surface = surfaceLifecycle.assertValue
-            surface.device.pushErrorScope(GPUErrorFilter.Validation)
+class ReloadingPipeline(
+    label: String, val surface: WebGPUSurfaceHolder, val vertexSource: ShaderSource, val fragmentSource: ShaderSource = vertexSource,
+    val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
+) : Fun("ReloadingPipeline-$label") {
+    val pipelineLoaded by event<GPURenderPipeline>()
+    // NOTE: we don't want to depend on the WebGPUSurface directly because it is actually recreated every refresh, in contrast with the window that
+    // is recreated when the window is actually recreated. This is kind of confusing and I would like to do something better.
+    val active by cached(surface.windowHolder.window) {
+        ActivePipeline(surface.surface, vertexSource, fragmentSource, pipelineDescriptorBuilder, pipelineLoaded)
+    }
 
-            val (module, error) = runBlocking {
-                surfaceLifecycle.assertValue.device.createShaderModule(ShaderModuleDescriptor(loadShader(shaderSource))) to
-                        surface.device.popErrorScope().getOrThrow()
+    val valid get() = active.valid
+
+    val pipeline: GPURenderPipeline get() = active.pipeline!!
+
+
+    val index = nextPipelineIndex++
+
+    init {
+        if (HOT_RELOAD_SHADERS) {
+            reloadOnChange(vertexSource)
+            if (vertexSource != fragmentSource) {
+                reloadOnChange(fragmentSource)
             }
+        }
+    }
 
-            module.close()
-            if (error == null) {
-                pipelineLifecycle.restart()
-            } else {
-                println("Failed to compile new shader for reload: $error")
-            }
+
+    private fun reloadOnChange(
+        shaderSource: ShaderSource,
+    ) {
+        if (shaderSource is ShaderSource.HotFile) {
+            check(active.valid)
+            context.fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
+                active.reload()
+            }.closeWithThis()
         }
     }
 }
@@ -125,7 +156,6 @@ suspend fun loadShader(source: ShaderSource): String {
     val code = when (source) {
         // Load directly from source when hot reloading
         is ShaderSource.HotFile -> if (HOT_RELOAD_SHADERS) {
-            Thread.sleep(100)
             val file = source.getSourceFile()
 
             println("Loading shader at '${file}'")
@@ -142,3 +172,4 @@ private fun ShaderSource.HotFile.fullPath() = "files/shaders/${path}.wgsl"
 
 // HACK: this might not work always
 private fun ShaderSource.HotFile.getSourceFile() = Path("src/main/composeResources/", fullPath())
+

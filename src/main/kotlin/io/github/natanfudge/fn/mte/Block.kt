@@ -1,15 +1,10 @@
 package io.github.natanfudge.fn.mte
 
-import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.network.state.funValue
-import io.github.natanfudge.fn.render.FunRenderState
+import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.physics.translation
-import io.github.natanfudge.fn.render.Material
-import io.github.natanfudge.fn.render.Mesh
-import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
@@ -28,12 +23,15 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
     val type by funValue(initialType)
 
     val physics = physics(game.physics.system)
+    // TODO: type becomes null on refresh (initialType should not be used, but the stored value)
     val render by render(models.getValue(type), physics)
 
     var breakOverlay: FunRenderState? = null
 
     var health by funValue(type.hardness(game)) {
-        updateBreakOverlay(it)
+        afterChange {
+            updateBreakOverlay(it)
+        }
     }
 
     private fun updateBreakOverlay(newHealth: Float) {
@@ -54,9 +52,8 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
             breakOverlay = null
         }
     }
+
     val pos get() = physics.position.toBlockPos()
-
-
 
 
     init {

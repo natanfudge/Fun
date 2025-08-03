@@ -2,34 +2,24 @@
 
 package io.github.natanfudge.fn.compose
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.InternalComposeUiApi
 import androidx.compose.ui.input.pointer.PointerIcon
-import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer.ComposeBindGroup
-import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.ValueHolder
+import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.core.InvalidationKey
+import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.valid
+import io.github.natanfudge.fn.render.WorldRenderer
+import io.github.natanfudge.fn.render.toExtent3D
 import io.github.natanfudge.fn.util.closeAll
 import io.github.natanfudge.fn.webgpu.*
 import io.ygdrasil.webgpu.*
-import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.*
-import kotlin.time.Duration
 
 private var samplerIndex = 0
 
-internal class ComposeWebgpuSurface(val ctx: WebGPUContextOld, val composeWindowLifecycle: ValueHolder<GlfwComposeScene>) : AutoCloseable {
-    // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
-    private val inputListener = ctx.window.inputEvent.listenUnscoped { input ->
-        val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        window.sendInputEvent(input)
-    }
-    private val densityListener = ctx.window.densityChangeEvent.listenUnscoped { newDensity ->
-        val window = composeWindowLifecycle.value ?: return@listenUnscoped
-        if (window.focused) {
-            window.scene.density = newDensity
-        }
-    }
-
+internal class ComposeWebgpuSurface(val ctx: WebGPUContext, val context: FunContext) : InvalidationKey() {
     val myIndex = samplerIndex++
     val sampler = ctx.device.createSampler(
         SamplerDescriptor(
@@ -40,7 +30,7 @@ internal class ComposeWebgpuSurface(val ctx: WebGPUContextOld, val composeWindow
     )
 
     override fun close() {
-        closeAll(sampler, inputListener, densityListener)
+        closeAll(sampler)
     }
 
     override fun toString(): String {
@@ -50,35 +40,19 @@ internal class ComposeWebgpuSurface(val ctx: WebGPUContextOld, val composeWindow
 
 private var textureIndex = 0
 
-internal class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: GlfwComposeScene, val ctx: WebGPUContext) : AutoCloseable {
+internal class ComposeTexture(val ctx: WebGPUContext, val size: IntSize) : InvalidationKey() {
     val myIndex = textureIndex++
-    val composeTexture = dimensions.surface.device.createTexture(
+    val composeTexture = ctx.device.createTexture(
         TextureDescriptor(
-            size = Extent3D(dimensions.dimensions.width.toUInt(), dimensions.dimensions.height.toUInt(), 1u),
+            size = size.toExtent3D(),
             format = GPUTextureFormat.RGBA8UnormSrgb,
             usage = setOf(GPUTextureUsage.TextureBinding, GPUTextureUsage.RenderAttachment, GPUTextureUsage.CopyDst),
             label = toString()
         )
     )
 
-
-    init {
-        // Need a new compose frame when the texture is recreated
-        bgWindow.frameInvalid = true
-    }
-
-
-//    val listener = bgWindow.frameStream.listenUnscoped { (bytes, width, height) ->
-//        dimensions.surface.device.copyExternalImageToTexture(
-//            source = bytes,
-//            texture = composeTexture,
-//            width = width, height = height
-//        )
-//    }
-
-
     override fun toString(): String {
-        return "Compose Texture #$myIndex w=${dimensions.dimensions.width},h=${dimensions.dimensions.height}"
+        return "Compose Texture #$myIndex $size"
     }
 
 
@@ -87,82 +61,54 @@ internal class ComposeTexture(val dimensions: WebGPUFixedSizeSurface, bgWindow: 
     }
 }
 
-internal class ComposeHudWebGPURenderer(
-    private val hostWindow: WebGPUWindow,
-    fsWatcher: FileSystemWatcher,
-    beforeFrameEvent: EventStream<Duration>,
-    onError: (Throwable) -> Unit,
-    name: String,
+val glfwTextCursor = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR)           // I-beam
+val glfwCrossHairCursor = glfwCreateStandardCursor(GLFW_CROSSHAIR_CURSOR)     // Crosshair
+val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
+
+ class ComposeHudWebGPURenderer(
+    worldRenderer: WorldRenderer,
+    onCreateScene: (GlfwComposeScene) -> Unit,
     show: Boolean = false,
-) {
-    val compose: ComposeOpenGLRenderer = ComposeOpenGLRenderer(
-        hostWindow.window.windowParameters,
-        windowDimensionsLifecycle = hostWindow.window.dimensionsLifecycle,
-        beforeFrameEvent = beforeFrameEvent,
-        show = show, name = name, onError = onError, onSetPointerIcon = {
+) : Fun("ComposeHudWebGPURenderer") {
+    private val webGPUHolder = worldRenderer.surfaceHolder
+
+    val offscreenComposeRenderer: ComposeOpenGLRenderer = ComposeOpenGLRenderer(
+        webGPUHolder.windowHolder.params,
+        show = show, name = "Compose", onSetPointerIcon = {
             setHostWindowCursorIcon(it)
         },
         onFrame = { (bytes, size) ->
-            hostWindow.dimensionsLifecycle.assertValue.surface.device.copyExternalImageToTexture(
+            check(!closed)
+            check(texture.valid)
+            webGPUHolder.surface.device.copyExternalImageToTexture(
                 source = bytes,
-                texture = textureLifecycle.assertValue.composeTexture,
+                texture = texture.composeTexture,
                 width = size.width, height = size.height
             )
-        }
-
+        },
+        onCreateScene = onCreateScene
     )
-    val SurfaceLifecycleName = "$name Compose WebGPU Surface"
 
-    private fun setHostWindowCursorIcon(icon: PointerIcon) {
-        // Pick (or build) the native cursor to install
-        val cursor: Long = when (icon) {
-            PointerIcon.Default -> 0L                             // Arrow
-            PointerIcon.Text -> glfwCursor(GLFW_IBEAM_CURSOR)           // I-beam
-            PointerIcon.Crosshair -> glfwCursor(GLFW_CROSSHAIR_CURSOR)     // Crosshair
-            PointerIcon.Hand -> glfwCursor(GLFW_HAND_CURSOR)            // Hand
-            /* ---------- Anything else: just arrow ---------- */
-            else -> 0L
-        }
-
-        GLFW.glfwSetCursor(hostWindow.window.windowLifecycle.assertValue.handle, cursor)
+    fun setContent(content: @Composable () -> Unit) {
+        offscreenComposeRenderer.scene.setContent(content)
     }
 
-    /** Cache of `glfwCreateStandardCursor` results so we don’t create the same cursor twice. */
-    private val stdCursorCache = mutableMapOf<Int, Long>()
-
-    /** Lazily create -– and cache –- one of GLFW’s built-in cursors. */
-    private fun glfwCursor(shape: Int): Long = stdCursorCache.getOrPut(shape) { glfwCreateStandardCursor(shape) }
-
-
-    val surfaceLifecycle = hostWindow.surfaceLifecycle.bind(SurfaceLifecycleName) { surface ->
-        ComposeWebgpuSurface(surface, compose.offscreenScene)
+    private val surface by cached(webGPUHolder.surface) {
+        ComposeWebgpuSurface(webGPUHolder.surface, context)
     }
 
+    private var texture by cached(webGPUHolder.surface) {
+        // Need a new compose frame when the texture is recreated
+        offscreenComposeRenderer.scene.frameInvalid = true
+        ComposeTexture(webGPUHolder.surface, webGPUHolder.size)
+    }
 
-    val fullscreenQuadLifecycle = createReloadingPipeline(
-        "$name Compose Fullscreen Quad",
-        hostWindow.surfaceLifecycle, fsWatcher,
-        vertexShader = ShaderSource.HotFile("compose/fullscreen_quad.vertex"),
-        fragmentShader = ShaderSource.HotFile("compose/fullscreen_quad.fragment"),
+    val shader = ReloadingPipeline(
+        "Compose Fullscreen Quad",
+        webGPUHolder,
+        vertexSource = ShaderSource.HotFile("compose/fullscreen_quad.vertex"),
+        fragmentSource = ShaderSource.HotFile("compose/fullscreen_quad.fragment"),
     ) { vertex, fragment ->
-        // Allow transparency
-        val colorState = ColorTargetState(
-            format = presentationFormat,
-            // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
-            blend = BlendState(
-                color = BlendComponent(
-                    srcFactor = GPUBlendFactor.SrcAlpha,
-                    dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
-                    operation = GPUBlendOperation.Add
-                ),
-                alpha = BlendComponent(
-                    srcFactor = GPUBlendFactor.One,
-                    dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
-                    operation = GPUBlendOperation.Add
-                )
-            ),
-            writeMask = setOf(GPUColorWrite.All)
-        )
 
         RenderPipelineDescriptor(
             layout = null,
@@ -172,81 +118,119 @@ internal class ComposeHudWebGPURenderer(
             ),
             fragment = FragmentState(
                 module = fragment,
-                targets = listOf(colorState),
+                // Allow transparency
+                targets = listOf(
+                    ColorTargetState(
+                        format = presentationFormat,
+                        // Straight‑alpha blending:  out = src.rgb·src.a  +  dst.rgb·(1‑src.a)
+                        blend = BlendState(
+                            color = BlendComponent(
+                                srcFactor = GPUBlendFactor.SrcAlpha,
+                                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                                operation = GPUBlendOperation.Add
+                            ),
+                            alpha = BlendComponent(
+                                srcFactor = GPUBlendFactor.One,
+                                dstFactor = GPUBlendFactor.OneMinusSrcAlpha,
+                                operation = GPUBlendOperation.Add
+                            )
+                        ),
+                        writeMask = setOf(GPUColorWrite.All)
+                    )
+                ),
                 entryPoint = "fs_main",
             ),
             primitive = PrimitiveState(
                 topology = GPUPrimitiveTopology.TriangleList
             ),
-            label = "$name Compose Pipeline",
+            label = "Compose HUD Pipeline",
         )
     }
-
-    val textureLifecycle = hostWindow.dimensionsLifecycle.bind(compose.offscreenScene, "$name Compose Texture") { dim, bgWindow ->
-        ComposeTexture(dim, bgWindow, dim.surface)
+    private var bindGroup by cached(texture) {
+        println("Create CHUD bindgroup")
+        ComposeBindGroup(shader.pipeline, texture, surface)
     }
 
-    class ComposeBindGroup(pipeline: ReloadingPipeline, texture: ComposeTexture, surface: ComposeWebgpuSurface) : AutoCloseable {
-        val resource = texture.composeTexture.createView()
-        val group = texture.ctx.device.createBindGroup(
-            BindGroupDescriptor(
-                layout = pipeline.pipeline.getBindGroupLayout(0u),
-                entries = listOf(
-                    BindGroupEntry(
-                        binding = 0u,
-                        resource = surface.sampler
+
+    init {
+        // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
+        context.events.input.listen { input ->
+            offscreenComposeRenderer.scene.sendInputEvent(input)
+        }
+        context.events.densityChange.listen { (newDensity) ->
+            val scene = offscreenComposeRenderer.scene
+            if (scene.focused) {
+                scene.scene.density = newDensity
+            }
+        }
+
+        events.windowResize.listen {
+            offscreenComposeRenderer.resize(it.size)
+            texture = ComposeTexture(webGPUHolder.surface, webGPUHolder.size)
+            bindGroup = ComposeBindGroup(shader.pipeline, texture, surface)
+        }
+        shader.pipelineLoaded.listen {
+            bindGroup = ComposeBindGroup(shader.pipeline, texture, surface)
+        }
+        worldRenderer.beforeSubmitDraw.listen { (encoder, drawTarget) ->
+            check(shader.valid)
+            check(bindGroup.valid)
+            val renderPassDescriptor = RenderPassDescriptor(
+                colorAttachments = listOf(
+                    RenderPassColorAttachment(
+                        view = drawTarget,
+                        clearValue = Color(0.0, 0.0, 0.0, 0.0),
+                        loadOp = GPULoadOp.Load, // Keep the previous content, we want to overlay on top of it
+                        storeOp = GPUStoreOp.Store
                     ),
-
-                    BindGroupEntry(
-                        binding = 1u,
-                        resource = resource
-                    )
-
-                )
+                ),
             )
 
-
-        )
-
-        override fun close() {
-            closeAll(resource, group)
+            // Create bind group for the sampler, and texture
+            val pass = encoder.beginRenderPass(renderPassDescriptor)
+//            println("Before hud render")
+            pass.setPipeline(shader.pipeline)
+            pass.setBindGroup(0u, bindGroup.group)
+            pass.draw(6u)
+            pass.end()
+//            println("After hud render")
         }
     }
 
+    private fun setHostWindowCursorIcon(icon: PointerIcon) {
+        val cursor: Long = when (icon) {
+            PointerIcon.Default -> 0L   // Arrow
+            PointerIcon.Text -> glfwTextCursor
+            PointerIcon.Crosshair -> glfwCrossHairCursor
+            PointerIcon.Hand -> glfwHandCursor
+            else -> 0L
+        }
 
-    val bindGroupLifecycle = fullscreenQuadLifecycle.bind(textureLifecycle, surfaceLifecycle, "$name Compose BindGroup") { pipeline, tex, surface ->
-        ComposeBindGroup(pipeline, tex, surface)
-    }
-
-    val frameLifecycle = fullscreenQuadLifecycle.bind(bindGroupLifecycle, "$name Compose Frame") { pipeline, group ->
-        ComposeFrame(pipeline, group)
-    }
-
-
-    /**
-     * Should be called every frame to draw Compose content
-     */
-    fun frame(encoder: GPUCommandEncoder, drawTarget: GPUTextureView, composeFrame: ComposeFrame) {
-        val renderPassDescriptor = RenderPassDescriptor(
-            colorAttachments = listOf(
-                RenderPassColorAttachment(
-                    view = drawTarget,
-                    clearValue = Color(0.0, 0.0, 0.0, 0.0),
-                    loadOp = GPULoadOp.Load, // Keep the previous content, we want to overlay on top of it
-                    storeOp = GPUStoreOp.Store
-                ),
-            ),
-        )
-
-        // Create bind group for the sampler, and texture
-        val pass = encoder.beginRenderPass(renderPassDescriptor)
-        pass.setPipeline(composeFrame.pipeline.pipeline)
-        pass.setBindGroup(0u, composeFrame.bindGroup.group)
-        pass.draw(6u)
-        pass.end()
+        glfwSetCursor(webGPUHolder.windowHolder.handle, cursor)
     }
 }
 
-internal data class ComposeFrame(
-    val pipeline: ReloadingPipeline, val bindGroup: ComposeBindGroup,
-)
+internal class ComposeBindGroup(pipeline: GPURenderPipeline, texture: ComposeTexture, surface: ComposeWebgpuSurface) : InvalidationKey() {
+    val resource = texture.composeTexture.createView()
+    val group = texture.ctx.device.createBindGroup(
+        BindGroupDescriptor(
+            layout = pipeline.getBindGroupLayout(0u),
+            entries = listOf(
+                BindGroupEntry(
+                    binding = 0u,
+                    resource = surface.sampler
+                ),
+
+                BindGroupEntry(
+                    binding = 1u,
+                    resource = resource
+                )
+
+            )
+        )
+    )
+
+    override fun close() {
+        closeAll(resource, group)
+    }
+}

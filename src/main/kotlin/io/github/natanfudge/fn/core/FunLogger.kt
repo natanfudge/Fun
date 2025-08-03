@@ -2,8 +2,6 @@ package io.github.natanfudge.fn.core
 
 import androidx.compose.runtime.mutableStateSetOf
 import io.github.natanfudge.fn.compose.funedit.StringSetEditor
-import io.github.natanfudge.fn.network.state.funSet
-import io.github.natanfudge.fn.network.state.funValue
 
 interface ILogger {
     fun log(level: FunLogLevel, tag: String = "General", exception: Throwable? = null, message: () -> String)

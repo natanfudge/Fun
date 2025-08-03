@@ -2,8 +2,6 @@ package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.state.ClientFunValue
-import io.github.natanfudge.fn.network.state.FunState
-import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.fn.util.cast
@@ -32,7 +30,7 @@ object RootTransformable : Transformable {
     }
 }
 
-class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
+class FunTransform(parent: Fun) : Fun("transform", parent), Transformable {
     override var transform: Transform
         get() = _transform
         set(value) {
@@ -42,15 +40,21 @@ class FunTransform(parent: Fun) : Fun(parent, "transform"), Transformable {
             _transform = value
         }
 
-    var translation by funValue<Vec3f>(Vec3f.zero(), afterChange = {
-        _transform = _transform.copy(translation = it)
-    })
-    var rotation by funValue<Quatf>(Quatf.identity(), afterChange = {
-        _transform = _transform.copy(rotation = it)
-    })
-    var scale by funValue<Vec3f>(Vec3f(1f, 1f, 1f), afterChange = {
-        _transform = _transform.copy(scale = it)
-    })
+    var translation by funValue<Vec3f>(Vec3f.zero()){
+        afterChange {
+            _transform = _transform.copy(translation = it)
+        }
+    }
+    var rotation by funValue<Quatf>(Quatf.identity()){
+        afterChange {
+            _transform = _transform.copy(rotation = it)
+        }
+    }
+    var scale by funValue<Vec3f>(Vec3f(1f, 1f, 1f)) {
+        afterChange {
+            _transform = _transform.copy(scale = it)
+        }
+    }
 
     /**
      * Cached object to avoid allocating on every access to the transform

@@ -1,6 +1,6 @@
 @file:Suppress("UNCHECKED_CAST")
 
-package io.github.natanfudge.fn.core.newstuff
+package io.github.natanfudge.fn.core
 
 import kotlin.reflect.KClass
 

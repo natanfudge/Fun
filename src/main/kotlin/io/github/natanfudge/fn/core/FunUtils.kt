@@ -1,21 +1,14 @@
 @file:Suppress("UNCHECKED_CAST")
 
-package io.github.natanfudge.fn.core.newstuff
+package io.github.natanfudge.fn.core
 
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
-import io.github.natanfudge.fn.core.FunId
-import io.github.natanfudge.fn.mte.World
 import io.github.natanfudge.fn.network.state.*
 import io.github.natanfudge.fn.util.EventEmitter
 import kotlinx.serialization.KSerializer
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
-
-//fun <T> NewFun.memo(key: String, dependencies: CacheDependencyKeys, ctr: () -> T): T {
-//    val key = "$id[$key]"
-//    return context.cache.requestInitialization(key, dependencies, ctr)
-//}
 
 
 
@@ -47,7 +40,7 @@ class FunValueConfig<T> {
         // SLOW: too much code in inline function
         val funValue = ClientFunValue(
             initialValue,
-            serializer, id = stateId, ownerId = ownerId, NewFunContextRegistry.getContext(), editor
+            serializer, id = stateId, ownerId = ownerId, FunContextRegistry.getContext(), editor
         )
         if (beforeChange != null) {
             funValue.beforeChange(beforeChange)
@@ -70,7 +63,7 @@ typealias TypeChecker = (Any?) -> Boolean
  */
 @PublishedApi
 internal
-fun <T> NewFun.useOldStateIfPossible(initialValue: () -> T, stateId: FunId, typeChecker: TypeChecker): T {
+fun <T> Fun.useOldStateIfPossible(initialValue: () -> T, stateId: FunId, typeChecker: TypeChecker): T {
     val parentId = this.id
     val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
     return if (oldState != null && typeChecker(oldState)) oldState as T else {
@@ -79,11 +72,11 @@ fun <T> NewFun.useOldStateIfPossible(initialValue: () -> T, stateId: FunId, type
     }
 }
 
-inline fun <reified T> NewFun.useOldStateIfPossible(noinline initialValue: () -> T, stateId: FunId): T = useOldStateIfPossible(initialValue, stateId) {
+inline fun <reified T> Fun.useOldStateIfPossible(noinline initialValue: () -> T, stateId: FunId): T = useOldStateIfPossible(initialValue, stateId) {
     it is T
 }
 
-inline fun <reified T> NewFun.funValue(
+inline fun <reified T> Fun.funValue(
     /**
      * It's possible to specify a null initial value even when the expected type is not nullable.
      * This signifies that [initialValue] is not expected to be called, and that we rely on the stored value to be used.
@@ -103,13 +96,13 @@ inline fun <reified T> NewFun.funValue(
 }
 
 
-fun <T> NewFun.funSet(stateId: StateId, serializer: KSerializer<T>, items: () -> MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
+fun <T> Fun.funSet(stateId: StateId, serializer: KSerializer<T>, items: () -> MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
     val set = FunSet(useOldStateIfPossible(items, stateId), stateId, this.id, serializer, editor)
     context.stateManager.registerState(id, stateId, set)
     return set
 }
 
-fun <T> NewFun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () -> T?): FunRememberedValue<T> {
+fun <T> Fun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () -> T?): FunRememberedValue<T> {
     val oldState = useOldStateIfPossible(initialValue as () -> T, stateId, typeChecker)
     val rememberedValue = FunRememberedValue(oldState)
     context.stateManager.registerState(id, stateId, rememberedValue)
@@ -117,7 +110,7 @@ fun <T> NewFun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: ()
 }
 
 
-internal fun checkListenersClosed(events: NewFunEvents) = with(events) {
+internal fun checkListenersClosed(events: FunEvents) = with(events) {
     checkClosed(beforeFrame, frame, afterFrame, beforePhysics, physics, afterPhysics, input, guiError, appClosed)
 }
 

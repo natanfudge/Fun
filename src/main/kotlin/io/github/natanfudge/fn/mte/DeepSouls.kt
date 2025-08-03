@@ -1,14 +1,10 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import io.github.natanfudge.fn.base.*
-import io.github.natanfudge.fn.compose.funedit.StringSetEditor
-import io.github.natanfudge.fn.compose.utils.composeApp
-import io.github.natanfudge.fn.core.*
+import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.mte.gui.MainMenu
 import io.github.natanfudge.fn.mte.gui.addDsHudPanel
-import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -27,7 +23,6 @@ class DeepSouls() : Fun("DeepSouls") {
         }
     }
 }
-
 
 
 class DeepSoulsGame : Fun("Game") {
@@ -51,10 +46,9 @@ class DeepSoulsGame : Fun("Game") {
     val devil = Devil()
 
 
-
 //    val whale = Whale(this)
 
-    val hoverMod = HoverHighlight( redirectHover = {
+    val hoverMod = HoverHighlight(redirectHover = {
         if (visualEditor.enabled) it
         else if (it is Block) player.targetBlock(it)
         else null
@@ -88,6 +82,7 @@ class DeepSoulsGame : Fun("Game") {
 
         world.initialize()
     }
+
     init {
         physics.system.earthGravityAcceleration = 20f
 
@@ -105,30 +100,14 @@ class DeepSoulsGame : Fun("Game") {
             repositionCamera(player.render.translation)
         }
 
-        FunDebugPanel(context)
+        FunDebugPanel()
         ErrorNotifications()
     }
 }
 
 
 fun main() {
-//    composeApp {
-//        StringSetEditor(
-//            listOf(
-//                "Thing", "Another Thing", "The great", "123"
-//            )
-//        ).EditorUi(
-//            remember {
-//                mutableStateOf(
-//                    setOf("Another Thing")
-//                )
-//            }
-//        )
-//    }
-
     startTheFun {
-        {
-            DeepSouls()
-        }
+        DeepSouls()
     }
 }

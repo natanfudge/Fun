@@ -10,7 +10,7 @@ import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.render.Transform
 
 fun Fun.addDsHudPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: @Composable BoxScope.() -> Unit) {
-    context.gui.addUnscopedPanel(modifier) {
+    addGui(modifier) {
         DsTheme {
             content()
         }
@@ -18,6 +18,7 @@ fun Fun.addDsHudPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content
 }
 
 fun Fun.addDsWorldPanel(transform: Transform, canvasWidth: Int, canvasHeight: Int, content: @Composable () -> Unit) {
+    //TODO: need to scope this properly
     context.gui.addWorldPanel(transform, canvasWidth, canvasHeight) {
         DsTheme {
             content()

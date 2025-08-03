@@ -27,7 +27,7 @@ class ErrorNotifications: Fun("ErrorNotifications") {
         context.events.guiError.listen {
             this.error = it
         }
-        context.addFunPanel {
+        addFunPanel {
             if (error != null) {
                 Card {
                     Row(verticalAlignment = Alignment.CenterVertically) {

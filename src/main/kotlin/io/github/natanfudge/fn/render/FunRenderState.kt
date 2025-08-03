@@ -6,7 +6,6 @@ import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.util.*
 
@@ -37,7 +36,7 @@ class FunRenderState(
     parentFun: Fun,
     val parentTransform: Transformable,
     val model: Model,
-) : Fun(parentFun, name), Boundable, Transformable {
+) : Fun(name, parentFun), Boundable, Transformable {
 
     val localTransform = FunTransform(this)
 
@@ -55,20 +54,24 @@ class FunRenderState(
         return localListener.compose(parentListener).cast()
     }
 
-    var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh), beforeChange = {
-        this.boundingBox = it.transformed(transform.toMatrix())
-    })
+    var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh)){
+        beforeChange {
+            boundingBox = it.transformed(transform.toMatrix())
+        }
+    }
 
 
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
         private set
 
-    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f), beforeChange = {
-        if (tint != it && !despawned) {
-            renderInstance.setTintColor(it.color)
-            renderInstance.setTintStrength(it.strength)
+    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f)){
+        beforeChange {
+            if (tint != it && !despawned) {
+                renderInstance.setTintColor(it.color)
+                renderInstance.setTintStrength(it.strength)
+            }
         }
-    })
+    }
 
     val renderInstance: RenderInstance = context.world.spawn(
         id, context.world.getOrBindModel(model), this, parentTransform.transform.toMatrix(), tint

@@ -15,14 +15,11 @@ import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.mte.PanelWindowDimensions
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
-import io.github.natanfudge.fn.util.Lifecycle
 import io.github.natanfudge.fn.window.WindowConfig
-import io.github.natanfudge.fn.window.WindowDimensions
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: FunPanels) : AutoCloseable {
     override fun close() {
@@ -33,6 +30,7 @@ data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: 
 
 class FunPanels {
     private val panelList = mutableStateListOf<ComposeHudPanel>()
+
     //TODO: migrate to use NewFun
     private var worldGui: WorldPanelManager? = null // We only support one panel for now
 //    var worldGui: (ComposeWorldPanel)? by mutableStateOf(null)
@@ -111,62 +109,40 @@ interface WorldPanel {
     var canvasSize: IntSize
 }
 
-//TODO: I really want to memoize this, takes a decent amount of time (>100ms) to start this every hot reload
 private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel {
     val render by render(Model(Mesh.UnitSquare, "WorldPanel"))
 
+    private var currentContent: @Composable () -> Unit by memo { {} }
+    override var transform: Transform by render::transform
+
+
+    private val compose = ComposeOpenGLRenderer(
+        WindowConfig(), show = false,
+        onSetPointerIcon = {}, // Not yet
+        name = "WorldPanels",
+        onFrame = { (bytes, size) ->
+            val image = FunImage(size, bytes, null)
+            render.setTexture(image)
+        },
+        onCreateScene = { scene ->
+            scene.setContent {
+                currentContent()
+            }
+        })
+
+
     fun setContent(content: @Composable () -> Unit) {
-        renderer.offscreenScene.assertValue.setContent {
-            content()
-        }
+        currentContent = content
+        compose.scene.setContent(content)
     }
 
     override var canvasSize: IntSize = initialPanelSize
         set(value) {
             field = value
-            window.restart()
+            compose.resize(value)
         }
 
-    val panelLifecycle = Lifecycle.create<Unit, Unit>("PanelLifecycle") {}
 
-    val window = panelLifecycle.bind<WindowDimensions>("Bar") {
-        PanelWindowDimensions(canvasSize.width, canvasSize.height)
-    }
-
-
-    val renderer = ComposeOpenGLRenderer(
-        WindowConfig(), windowDimensionsLifecycle = window, beforeFrameEvent = context.beforeFrame,
-        name = "WorldPanel", show = false, onSetPointerIcon = {}// Related to https://github.com/natanfudge/MineTheEarth/issues/121
-        , onError = {
-            context.events.guiError.emit(it)
-        },
-        parentLifecycle = panelLifecycle,
-        onFrame = { (bytes, size) ->
-            val image = FunImage(size, bytes, null)
-            render.setTexture(image)
-        }
-    )
-
-    override var transform: Transform by render::transform
-
-
-    init {
-        panelLifecycle.start(Unit)
-//        window.start(Unit)
-//        renderer.glfw.windowLifecycle.start(Unit)
-
-
-//        renderer.offscreenScene.assertValue.frameStream.listen {
-//            val image = FunImage(IntSize(it.width, it.height), it.bytes, null)
-//            render.setTexture(image)
-//        }
-
-        events.appClosed.listen {
-            panelLifecycle.end()
-//            window.end()
-//            renderer.glfw.windowLifecycle.end()
-        }
-    }
 }
 
 

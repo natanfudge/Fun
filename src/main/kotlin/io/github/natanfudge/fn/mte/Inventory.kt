@@ -86,7 +86,7 @@ class Inventory(val game: DeepSoulsGame) : Fun("Inventory") {
     private val slotWidth = 60.dp
 
     init {
-        game.context.addFunPanel({ Modifier.align(Alignment.BottomCenter) }) {
+        addFunPanel({ Modifier.align(Alignment.BottomCenter) }) {
             val slotBorder = 2.dp
             val totalSlotWidth = slotWidth
             val inventoryWidth = (slotBorder + totalSlotWidth) * itemsPerRow - slotBorder // We have one less border

@@ -1,9 +1,7 @@
-package io.github.natanfudge.fn.core.newstuff
+package io.github.natanfudge.fn.window
 
-import io.github.natanfudge.fn.window.GlfwWindow
 import org.lwjgl.glfw.GLFW.glfwInit
 import org.lwjgl.glfw.GLFWErrorCallback
-
 
 object GlfwWindowProvider {
     fun initialize() {
@@ -17,9 +15,3 @@ object GlfwWindowProvider {
     }
 
 }
-
-
-
-
-
-

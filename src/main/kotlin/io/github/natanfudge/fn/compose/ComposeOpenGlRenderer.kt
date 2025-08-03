@@ -18,12 +18,11 @@ import androidx.compose.ui.scene.ComposeSceneContext
 import androidx.compose.ui.scene.ComposeSceneLayer
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.*
+import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.WindowEvent
-import io.github.natanfudge.fn.core.ProcessLifecycle
-import io.github.natanfudge.fn.core.newstuff.InvalidationKey
-import io.github.natanfudge.fn.core.newstuff.valid
-import io.github.natanfudge.fn.util.EventStream
-import io.github.natanfudge.fn.util.Lifecycle
+import io.github.natanfudge.fn.core.InvalidationKey
+import io.github.natanfudge.fn.window.GlfwWindowHolder
+import io.github.natanfudge.fn.core.valid
 import io.github.natanfudge.fn.window.*
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.jetbrains.skia.*
@@ -37,11 +36,10 @@ import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
-import kotlin.time.Duration
 
 
 @OptIn(InternalComposeUiApi::class)
-internal class FixedSizeComposeWindow(
+ class FixedSizeComposeWindow(
     val size: IntSize,
     val sceneWrapper: GlfwComposeScene,
 
@@ -126,7 +124,7 @@ internal class FixedSizeComposeWindow(
 /*  🔸 COMPOSE‑SCENE CONTEXT (GLFW)                                          */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-internal class GlfwComposeSceneContext(
+ class GlfwComposeSceneContext(
     private val onSetPointerIcon: (PointerIcon) -> Unit,
     private val onInvalidate: () -> Unit,
     private val onLayerCreated: (GlfwComposeSceneLayer) -> Unit,
@@ -277,7 +275,7 @@ operator fun IntRect.contains(offset: Offset) = offset.x >= left && offset.x <= 
 /*  🔸 GLFW PLATFORM CONTEXT (POINTER ICON ONLY)                             */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-internal class GlfwComposePlatformContext(
+ class GlfwComposePlatformContext(
     private val onSetPointerIcon: (PointerIcon) -> Unit,
 ) : PlatformContext by PlatformContext.Empty {
     override val windowInfo = WindowInfoImpl().apply {
@@ -287,7 +285,7 @@ internal class GlfwComposePlatformContext(
     override fun setPointerIcon(pointerIcon: PointerIcon) = onSetPointerIcon(pointerIcon)
 }
 
-internal class WindowInfoImpl : WindowInfo {
+ class WindowInfoImpl : WindowInfo {
     private val _containerSize = mutableStateOf(IntSize.Zero)
 
     override var isWindowFocused: Boolean by mutableStateOf(false)
@@ -317,7 +315,7 @@ internal class WindowInfoImpl : WindowInfo {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 @OptIn(InternalComposeUiApi::class)
-internal class GlfwComposeScene(
+ class GlfwComposeScene(
     initialSize: IntSize,
     val handle: WindowHandle,
     onSetPointerIcon: (PointerIcon) -> Unit,
@@ -458,85 +456,88 @@ data class ComposeFrameEvent(
     val size: IntSize,
 )
 
-
-internal class ComposeOpenGLRenderer(
-    windowParameters: WindowConfig,
-    windowDimensionsLifecycle: Lifecycle<WindowDimensions>,
-    beforeFrameEvent: EventStream<Duration>,
+ class ComposeOpenGLRenderer(
+    params: WindowConfig,
     val name: String,
-    onSetPointerIcon: (PointerIcon) -> Unit,
-    onError: (Throwable) -> Unit,
+    val onSetPointerIcon: (PointerIcon) -> Unit,
     onFrame: (ComposeFrameEvent) -> Unit,
+    val onCreateScene: (scene: GlfwComposeScene) -> Unit,
     show: Boolean = false,
-    parentLifecycle: Lifecycle<Unit> = ProcessLifecycle,
-) {
-
-    val LifecycleLabel = "$name Compose Window"
-
-    private val offscreenGlfw = GlfwWindowConfig(
-        GlfwConfig(disableApi = false, showWindow = show),
-        name = "Compose $name",
-        windowParameters.copy(initialTitle = name),
-        parentLifecycle,
+) : Fun("ComposeOpenGLRenderer-$name") {
+    private val offscreenWindow = GlfwWindowHolder(
+        withOpenGL = true, showWindow = show, params, name = name,
+        onEvent = {} // Ignore events from the offscreen window
     )
 
-
-    val offscreenScene: Lifecycle<GlfwComposeScene> = offscreenGlfw.windowLifecycle.bind(
-        LifecycleLabel,
-        early = true,
-    ) {
-        GLFW.glfwMakeContextCurrent(it.handle)
-        val capabilities = GL.createCapabilities()
-
-        glDebugGroup(1, groupName = { "$name Compose Init" }) {
-            var window: GlfwComposeScene? = null
-            window = GlfwComposeScene(
-                it.params.size, it.handle,
-                density = Density(glfwGetWindowContentScale(it.handle)),
-                onSetPointerIcon = onSetPointerIcon,
-                onError = onError, capabilities = capabilities, getWindowSize = { dimensionsLifecycle.value?.size ?: IntSize.Zero }, onInvalidate = {
-                    // Invalidate Compose frame on change
-                    window!!.frameInvalid = true
-                }, label = name
-            )
-            window
-        }
+    var scene: GlfwComposeScene by cached(offscreenWindow.window) {
+        createComposeScene()
     }
 
+    private fun createComposeScene(): GlfwComposeScene {
+        val handle = offscreenWindow.window.handle
+        GLFW.glfwMakeContextCurrent(handle)
+        val size = offscreenWindow.size
+        val capabilities = GL.createCapabilities()
 
-    val dimensionsLifecycle: Lifecycle<FixedSizeComposeWindow> =
-        windowDimensionsLifecycle.bind(offscreenScene, "$name Fixed Size") { dim, win ->
-            FixedSizeComposeWindow(IntSize(dim.width, dim.height), win)
+        val scene = glDebugGroup(1, groupName = { "$name Compose Init" }) {
+            GlfwComposeScene(
+                size, handle,
+                density = Density(glfwGetWindowContentScale(handle)),
+                onSetPointerIcon = onSetPointerIcon,
+                label = name,
+                onError = {
+                    events.guiError(it)
+
+                    // Refresh compose so it won't die from one exception
+                    scene = createComposeScene()
+                    canvas = FixedSizeComposeWindow(offscreenWindow.size, scene)
+                }, capabilities = capabilities, getWindowSize = {
+                    offscreenWindow.size
+                }, onInvalidate = {
+                    // Invalidate Compose frame on change
+                    it.frameInvalid = true
+                }
+            )
         }
+        onCreateScene(scene)
+        return scene
+    }
+
+    var canvas by cached(offscreenWindow.window) {
+        FixedSizeComposeWindow(offscreenWindow.size, scene)
+    }
+
+    fun resize(size: IntSize) {
+        scene.frameInvalid = true
+        canvas = FixedSizeComposeWindow(size, scene)
+    }
 
     init {
-        beforeFrameEvent.listenUnscoped {
-            val dim = dimensionsLifecycle.assertValue
-            val window = dim.sceneWrapper
+        events.beforeFrame.listen {
 
-            window.dispatcher.poll()
+            check(!closed)
+            check(scene.valid)
+            scene.dispatcher.poll()
 
-            if (window.frameInvalid) {
-                GLFW.glfwMakeContextCurrent(window.handle)
-                GL.setCapabilities(window.capabilities)
+            if (scene.frameInvalid) {
+                GLFW.glfwMakeContextCurrent(scene.handle)
+                GL.setCapabilities(scene.capabilities)
 
-                dim.renderSkia()
-                val frame = dim.blitFrame()
-                onFrame(frame)
+                canvas.renderSkia()
+                onFrame(canvas.blitFrame())
 
-                glfwSwapBuffers(window.handle)
-                window.frameInvalid = false
+                glfwSwapBuffers(scene.handle)
+                scene.frameInvalid = false
             }
         }
     }
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/*  🔸 HELPERS                                                               */
-/* ────────────────────────────────────────────────────────────────────────── */
 
 private fun glfwGetWindowContentScale(window: Long): Float {
     val array = FloatArray(1)
     glfwGetWindowContentScale(window, array, FloatArray(1))
     return array[0]
 }
+
+

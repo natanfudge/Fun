@@ -1,7 +1,6 @@
 package io.github.natanfudge.fn.render
 
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.network.state.funValue
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.max
@@ -15,11 +14,11 @@ enum class CameraMode {
 }
 /**
  * A 3D camera that handles positioning, orientation, and movement in a 3D space.
- * 
+ *
  * The camera maintains its position, orientation vectors (forward, up, right), and provides
  * methods for movement and rotation. It automatically calculates and updates its view matrix
  * which can be used in rendering pipelines.
- * 
+ *
  * The camera supports various movement modes:
  * - Standard movement (forward, backward, left, right, up, down)
  * - Tilting (changing orientation)
@@ -27,12 +26,13 @@ enum class CameraMode {
  * - Zooming (moving closer to or further from a focal point)
  * - Rotation around axes
  */
-class DefaultCamera: Camera, Fun("Camera") {
+class DefaultCamera: Fun("Camera") {
     /**
      * The current position of the camera in 3D space.
      * Initially positioned at (5, 5, 5).
      */
-     override val position by funValue(Vec3f(5f, 5f, 5f))
+     val position by funValue(Vec3f(5f, 5f, 5f))
+
 
     /**
      * The up vector defining the camera's orientation.
@@ -45,7 +45,7 @@ class DefaultCamera: Camera, Fun("Camera") {
      * Always normalized to unit length.
      * Initially points from the starting position toward the origin.
      */
-    override val forward by funValue ((Vec3f.zero() - position).normalize())
+     val forward by funValue ((Vec3f.zero() - position).normalize())
 
     fun setLookAt(position: Vec3f, forward: Vec3f) {
         this.position.set(position)
@@ -85,7 +85,7 @@ class DefaultCamera: Camera, Fun("Camera") {
      * This matrix transforms points from world space to camera space.
      * Used in rendering pipelines, typically combined with a projection matrix.
      */
-    override val viewMatrix = Mat4f.identity()
+     val viewMatrix = Mat4f.identity()
 
     init {
         calculateMatrix()
@@ -176,7 +176,7 @@ class DefaultCamera: Camera, Fun("Camera") {
 
     /**
      * Tilts the camera by adjusting its [forward] direction.
-     * 
+     *
      * @param x Amount to tilt horizontally (positive values tilt right, negative left)
      * @param y Amount to tilt vertically (positive values tilt up, negative down)
      */
@@ -197,7 +197,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Moves the camera forward along its current horizontal direction.
      * Movement is constrained to the horizontal plane (no vertical movement).
-     * 
+     *
      * @param delta Distance to move (positive values move forward, negative backward)
      */
     fun moveForward(delta: Float) {
@@ -207,7 +207,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Moves the camera left along its current horizontal right vector.
      * Movement is constrained to the horizontal plane (no vertical movement).
-     * 
+     *
      * @param delta Distance to move (positive values move left, negative right)
      */
     fun moveLeft(delta: Float) {
@@ -216,7 +216,7 @@ class DefaultCamera: Camera, Fun("Camera") {
 
     /**
      * Moves the camera up along the world up vector.
-     * 
+     *
      * @param delta Distance to move (positive values move up, negative down)
      */
     fun moveUp(delta: Float) {
@@ -227,7 +227,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Pans the camera perpendicular to the view direction.
      * This moves the camera without changing its orientation.
-     * 
+     *
      * @param x Amount to pan horizontally (positive values pan left, negative right)
      * @param y Amount to pan vertically (positive values pan up, negative down)
      */
@@ -246,7 +246,7 @@ class DefaultCamera: Camera, Fun("Camera") {
 
     /**
      * Zooms the camera toward or away from the [focalPoint].
-     * 
+     *
      * @param multiplier Zoom factor (values > 1 zoom out, values < 1 zoom in)
      */
     fun zoom(multiplier: Float) {
@@ -262,7 +262,7 @@ class DefaultCamera: Camera, Fun("Camera") {
      * This method handles the special case when the camera is rotated so far that
      * the coordinate system would flip, by negating the up vector to maintain
      * consistent orientation.
-     * 
+     *
      * @param radians Angle to rotate in radians (positive values rotate right, negative left)
      */
     fun rotateY(radians: Float) {
@@ -286,7 +286,7 @@ class DefaultCamera: Camera, Fun("Camera") {
 
     /**
      * Rotates the camera around the X axis (horizontal rotation).
-     * 
+     *
      * @param radians Angle to rotate in radians (positive values rotate up, negative down)
      */
     fun rotateX(radians: Float) {
@@ -299,7 +299,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Moves the camera down along the world up vector.
      * Convenience method that calls [moveUp] with a negative value.
-     * 
+     *
      * @param delta Distance to move down
      */
     fun moveDown(delta: Float) = moveUp(-delta)
@@ -307,7 +307,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Moves the camera backward along its current horizontal direction.
      * Convenience method that calls [moveForward] with a negative value.
-     * 
+     *
      * @param delta Distance to move backward
      */
     fun moveBackward(delta: Float) = moveForward(-delta)
@@ -315,7 +315,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Moves the camera right along its current horizontal right vector.
      * Convenience method that calls [moveLeft] with a negative value.
-     * 
+     *
      * @param delta Distance to move right
      */
     fun moveRight(delta: Float) = moveLeft(-delta)
@@ -348,7 +348,7 @@ class DefaultCamera: Camera, Fun("Camera") {
      * Moves the camera along a horizontal plane in the given direction.
      * This ensures movement is constrained to the XY plane (no vertical/Z movement),
      * similar to how movement works in Minecraft.
-     * 
+     *
      * @param direction The direction vector to move along
      * @param delta The distance to move
      */
@@ -366,7 +366,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Applies a rotation matrix to the camera's position and forward vector.
      * Used by the rotation methods to update the camera's orientation.
-     * 
+     *
      * @param rotation The rotation matrix to apply
      */
     private fun rotate(rotation: Mat4f) {
@@ -378,7 +378,7 @@ class DefaultCamera: Camera, Fun("Camera") {
     /**
      * Moves the camera in the given direction by the specified distance.
      * Unlike [moveLevel], this allows movement in any direction including vertical.
-     * 
+     *
      * @param direction The direction vector to move along
      * @param delta The distance to move
      */
