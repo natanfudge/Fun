@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.util.filter
 import io.github.natanfudge.fn.util.filterIsInstance
 import io.github.natanfudge.fn.webgpu.WebGPUSurfaceHolder
 import io.github.natanfudge.fn.window.GlfwWindowHolder
@@ -47,18 +48,25 @@ class FunEvents : Fun("FunEvents") {
     val beforePhysics by event<Duration>()
     val physics by event<Duration>()
     val afterPhysics by event<Duration>()
-    val input by event<WindowEvent>()
+    val anyInput by event<WindowEvent>()
+
+    // Events are not emitted here when the user focuses on the GUI
+    val worldInput = anyInput.filter {
+        check(!context.gui.closed)
+        // Don't allow world pointer events when the user is in the GUI
+        it !is WindowEvent.PointerEvent || !context.gui.userInGui.value
+    }
     val guiError by event<Throwable>()
     val appClosed by event<Unit>()
     val hotReload by event<Reload>()
-    val closeButtonPressed = input.filterIsInstance<WindowEvent.CloseButtonPressed>()
-    val pointer = input.filterIsInstance<WindowEvent.PointerEvent>()
-    val key = input.filterIsInstance<WindowEvent.KeyEvent>()
-    val windowMove = input.filterIsInstance<WindowEvent.WindowMove>()
-    val windowResize = input.filterIsInstance<WindowEvent.WindowResize>()
+    val closeButtonPressed = anyInput.filterIsInstance<WindowEvent.CloseButtonPressed>()
+    val pointer = anyInput.filterIsInstance<WindowEvent.PointerEvent>()
+    val key = anyInput.filterIsInstance<WindowEvent.KeyEvent>()
+    val windowMove = anyInput.filterIsInstance<WindowEvent.WindowMove>()
+    val windowResize = anyInput.filterIsInstance<WindowEvent.WindowResize>()
     val afterWindowResize by event<IntSize>()
-    val densityChange = input.filterIsInstance<WindowEvent.DensityChange>()
-    val windowClose = input.filterIsInstance<WindowEvent.WindowClose>()
+    val densityChange = anyInput.filterIsInstance<WindowEvent.DensityChange>()
+    val windowClose = anyInput.filterIsInstance<WindowEvent.WindowClose>()
 }
 
 
@@ -191,7 +199,7 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
 
 
     private fun reload(reload: Reload) {
-//        aggregateDirtyClasses(reload)
+        aggregateDirtyClasses(reload)
         events.appClosed(Unit)
         cache.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
         rootFun.close(unregisterFromParent = false, deleteState = false)
@@ -199,6 +207,7 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
         appCallback()
     }
 }
+// TODO: camera is weirdly positioned when refreshing window
 
 
 private fun aggregateDirtyClasses(reload: Reload) {
@@ -206,7 +215,7 @@ private fun aggregateDirtyClasses(reload: Reload) {
     for (scope in reload.dirty.dirtyScopes) {
         classes.add(scope.methodId.classId.value)
     }
-    println(classes)
+    println("Dirty classes: " + classes)
 }
 
 
@@ -236,7 +245,7 @@ class FunRenderer(config: WindowConfig) : Fun("FunBaseApp") {
 
 
     val windowHolder = GlfwWindowHolder(withOpenGL = false, showWindow = true, config, name = "WebGPU") {
-        events.input(it)
+        events.anyInput(it)
         if (it is WindowEvent.WindowResize) {
             events.afterWindowResize(it.size)
         }

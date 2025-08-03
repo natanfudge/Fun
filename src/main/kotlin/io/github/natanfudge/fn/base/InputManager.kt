@@ -53,6 +53,9 @@ class InputManager(context: FunContext): Fun("InputManager")  {
         registerHotkey(name, FunKey.ScrollKey(defaultScrollKey), ctrl, alt, shift, onPress = onSignificantScrollDelta)
     }
 
+    /**
+     * Note: Registers hotkeys that apply for the world - only when the GUI is not focused. For GUI hotkeys, it's recommended to use Compose APIs.
+     */
     fun registerHotkey(
         name: String, defaultKey: Key,
         ctrl: Boolean = false,
@@ -104,7 +107,7 @@ class InputManager(context: FunContext): Fun("InputManager")  {
                 }
             }
         }
-        context.events.input.listen { input ->
+        context.events.worldInput.listen { input ->
             when (input) {
                 is WindowEvent.KeyEvent -> {
                     val event = input.event

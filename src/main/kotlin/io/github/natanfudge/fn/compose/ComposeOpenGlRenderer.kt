@@ -368,6 +368,8 @@ class GlfwComposeScene(
     var focused by sceneContext.platformContext.windowInfo::isWindowFocused
 
     fun sendInputEvent(event: WindowEvent) {
+        //TODO: hot reload that reloads everything fails this check
+        check(!invalid)
         if (focused) {
             overlayLayers.asReversed().forEach { it.sendInputEvent(event) }
             scene.sendInputEvent(event)

@@ -30,18 +30,17 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
     }
 
     val physics = physics(game.physics.system)
-    // TODO: type becomes null on refresh (initialType should not be used, but the stored value)
     val render by render(models.getValue(type), physics)
 
     var breakOverlay: FunRenderState? = null
 
     var health by funValue(type.hardness(game)) {
         afterChange {
-            updateBreakOverlay(it)
+            applyDamage(it)
         }
     }
 
-    private fun updateBreakOverlay(newHealth: Float) {
+    private fun applyDamage(newHealth: Float) {
         val missingHpFraction = (1 - (newHealth / type.hardness(game))).coerceIn(0f, 1f)
         if (missingHpFraction == 1f) {
             destroy()
@@ -69,7 +68,7 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         }
         physics.affectedByGravity = false
         physics.isImmovable = true
-        updateBreakOverlay(health)
+        applyDamage(health)
     }
 
 

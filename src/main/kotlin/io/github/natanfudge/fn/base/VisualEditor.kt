@@ -64,13 +64,13 @@ class VisualEditor(
                 mouseDownPos = null
             }
         })
-        addGui ({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
+        addFunPanel ({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
             val parent = selectedObject?.parent
             if (parent != null) {
                 FunEditor(parent)
             }
         }
-        hoverMod.context.events.input.listen { input ->
+        hoverMod.context.events.worldInput.listen { input ->
             if (input is WindowEvent.PointerEvent && enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position

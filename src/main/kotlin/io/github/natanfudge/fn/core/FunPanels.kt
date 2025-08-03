@@ -13,6 +13,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.ComposeOpenGLRenderer
+import io.github.natanfudge.fn.compose.utils.Holder
 import io.github.natanfudge.fn.compose.utils.clickableWithNoIndication
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.render.Mesh
@@ -20,7 +21,6 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.window.WindowConfig
-import java.nio.file.Paths
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: FunPanels) : AutoCloseable {
     override fun close() {
@@ -61,7 +61,7 @@ class FunPanels : Fun("FunPanels") {
         panelList.remove(panel)
     }
 
-    var acceptMouseEvents = true
+    internal var userInGui by memo { Holder(false) }
 
     /**
      * Allows placing "Panels", which block clicks from reaching the game when they are clicked.
@@ -69,47 +69,60 @@ class FunPanels : Fun("FunPanels") {
     @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     internal fun PanelSupport() {
-        Box(Modifier.fillMaxSize()) {
-            // Allow clicking outside of the UI to lose focus of the UI
-            Box(Modifier.fillMaxSize().focusable().clickableWithNoIndication {})
-
-            for (panel in panelList) {
-                Box(
-                    panel.modifier(this)
-                        .pointerInput(Unit) {
-                            awaitPointerEventScope {
-                                while (true) {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                    // Exited - accept mouse events
-                                    // Did anything but exit - don't accept mouse events
-                                    acceptMouseEvents = event.type == PointerEventType.Exit
-                                }
-                            }
-                        }
-                ) {
-                    panel.content(this)
-                }
-            }
-
-        }
+        PanelSupportLongLiving(panelList, userInGui)
     }
-
 
 }
 
-// TODO: measure refresh time now that WorldPanelManager is cached
+/**
+ * This Composable can outlive the [FunPanels] instance so we need to make sure this doesn't reference stale values
+ */
+@Composable
+private fun PanelSupportLongLiving(
+    /**
+     * Both of these are eternal objects living in memo {}
+     */
+    panelList: MutableList<ComposeHudPanel>,
+    userInGUI: Holder<Boolean>,
+) {
 
-// 0. World Panel doesn't work
-//TODO: 1. selection is broken, hover shows background instead of selected item
-// 2. Visual Editor uses light mode incorrectly
+    Box(Modifier.fillMaxSize()) {
+        // Allow clicking outside the UI to lose focus of the UI
+        Box(Modifier.fillMaxSize().focusable().clickableWithNoIndication {})
+
+        for (panel in panelList) {
+            Box(
+                panel.modifier(this)
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                // Exited - accept mouse events
+                                // Did anything but exit - don't accept mouse events
+                                userInGUI.value = event.type != PointerEventType.Exit
+                            }
+                        }
+                    }
+            ) {
+                panel.content(this)
+            }
+        }
+
+    }
+}
+
+//TODO: measure refresh time now that WorldPanelManager is cached
 // 3. Seems like collision is not working because I can't collect stuff
+// 4. WRong thing getting mined (probably cause for 3)
+// Leads:
+// - Only a rendering issue, physics reacts correctly
+// - should try without hot reload
 
 interface WorldPanel {
     var transform: Transform
     var canvasSize: IntSize
 }
 
-private var frame = 0
 
 private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel {
     val render by render(Model(Mesh.UnitSquare, "WorldPanel"))

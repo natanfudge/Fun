@@ -55,6 +55,7 @@ class FilteredEventStream<T, F>(val origStream: EventStream<T>, val filter: (T) 
 }
 
 inline fun <reified F> EventStream<out Any?>.filterIsInstance() = FilteredEventStream<Any?, F>(this as EventStream<Any?>) { it is F }
+fun <T> EventStream<T>.filter(condition: (T) -> Boolean) = FilteredEventStream<T, T>(this, condition)
 
 /**
  * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method

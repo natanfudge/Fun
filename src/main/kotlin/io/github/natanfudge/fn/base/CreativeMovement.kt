@@ -112,7 +112,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
                 }
             }
         }
-        context.events.input.listen { input ->
+        context.events.worldInput.listen { input ->
             with(camera) {
                 when (input) {
                     is WindowEvent.PointerEvent -> {

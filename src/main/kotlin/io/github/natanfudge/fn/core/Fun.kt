@@ -17,7 +17,6 @@ import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 
-//TODO: everything is bad
 
 // https://github.com/natanfudge/Fun/issues/8
 abstract class Fun internal constructor(

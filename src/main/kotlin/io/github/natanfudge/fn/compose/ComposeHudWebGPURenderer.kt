@@ -154,7 +154,7 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
 
     init {
         // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
-        context.events.input.listen { input ->
+        context.events.anyInput.listen { input ->
             offscreenComposeRenderer.scene.sendInputEvent(input)
         }
         context.events.densityChange.listen { (newDensity) ->

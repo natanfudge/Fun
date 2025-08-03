@@ -2,10 +2,8 @@ package io.github.natanfudge.fn.base
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.Tag
-import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
@@ -44,7 +42,7 @@ class HoverHighlight(
         private set
 
     private fun colorHoveredObject() {
-        val newRoot = context.getHoveredRoot()
+        val newRoot = context.getHoveredParent()
 //        println("Hovered: ${newRoot?.id}")
         val actualNewRoot = if (newRoot == null) null else redirectHover(newRoot)
 
@@ -52,16 +50,6 @@ class HoverHighlight(
             // We no longer hover over the old object, remove its tint
             if (hoveredObjectRoot != null) {
                 val oldHover = hoveredObjectRoot!!
-
-//                oldHover.forEachChildTyped<FunRenderStateOld> {
-//                    if (it.tint == it.getTag(PostHoverTintTag)) {
-//                        // If the tint has not changed since hovering...
-//                        // Restore the old tint
-//                        it.tint = it.getTag(PreHoverTintTag) ?: error("Missing PreHoverTintTag on FunRenderState that does have PostHoverTag")
-//                    }
-//                    it.removeTag(PostHoverTintTag)
-//                    it.removeTag(PreHoverTintTag)
-//                }
 
                 oldHover.forEachChildTyped<FunRenderState> {
                     if (it.tint == it.getTag(PostHoverTintTag)) {
@@ -73,21 +61,6 @@ class HoverHighlight(
                     it.removeTag(PreHoverTintTag)
                 }
             }
-
-//            actualNewRoot?.forEachChildTyped<FunRenderStateOld> {
-//                // Only apply hover tint when it is allowed
-//                if (hoverRenderPredicate(it)) {
-//                    // Save old tint
-//                    it.setTag(PreHoverTintTag, it.tint)
-//                    // Apply new tint
-//                    it.tint = Tint(
-//                        lerp(it.tint.color, Color.White.copy(alpha = 0.5f), 0.2f), strength = 0.1f
-//                    )
-//                    // Remember new tint
-//                    it.setTag(PostHoverTintTag, it.tint)
-//                }
-//            }
-
             actualNewRoot?.forEachChildTyped<FunRenderState> {
                 // Only apply hover tint when it is allowed
                 if (hoverRenderPredicate(it)) {

@@ -4,7 +4,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.ModelAnimator
-import io.github.natanfudge.fn.base.getHoveredRoot
+import io.github.natanfudge.fn.base.getHoveredParent
 import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
@@ -105,7 +105,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
             // Adapt dig animation speed to actual dig speed
             val digAnimationSpeed = (model.getAnimationLength("dig", withLastFrameTrimmed = true) / strikeInterval).toFloat()
             if (breakKey.isPressed && !game.visualEditor.enabled) {
-                val selectedBlock = context.getHoveredRoot()
+                val selectedBlock = context.getHoveredParent()
                 if (selectedBlock is Block) {
                     val target = targetBlock(selectedBlock)
                     if (target != null) {
