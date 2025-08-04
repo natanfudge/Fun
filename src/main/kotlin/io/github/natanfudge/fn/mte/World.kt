@@ -15,8 +15,11 @@ private data class PositionedBlock(
 )
 
 class World(val game: DeepSoulsGame) : Fun("World") {
-    private val width = 21
-    private val height = 21
+    // TODO
+    //     private val width = 21
+    //    private val height = 21
+    private val width = 2
+    private val height = 2
 
     private inline fun roll(chancePct: Float, crossinline callback: () -> Unit) {
         if ((0..99).random() < chancePct * 100) {
@@ -63,7 +66,8 @@ class World(val game: DeepSoulsGame) : Fun("World") {
         for (z in 0 until height) {
             for (x in 0 until mapWidth) {
                 roll(0.10f) {
-                    val block = weightedBlocksList.random()
+//                    val block = weightedBlocksList.random()
+                    val block = if(z < 5) BlockType.Dirt else BlockType.Gold
                     val veinSize = (block.veinSizeMin(game)..block.veinSizeMax(game)).random()
                     val placed = mutableSetOf<Pair<Int, Int>>()
                     placed.add(Pair(x, z))
@@ -85,8 +89,9 @@ class World(val game: DeepSoulsGame) : Fun("World") {
 
         return matrix.flatten().map {
             Block(
-                game, it.type, it.pos.copy(x = it.pos.x + xLevelStart, z = it.pos.z + zLevelStart),
-                id = "Block-${it.type.name}-${it.pos.x}-${it.pos.y}-${it.pos.z}"
+                //TODo remove + 10
+                game, it.type, it.pos.copy(x = it.pos.x + xLevelStart + 10, z = it.pos.z + zLevelStart ),
+                id = "Block-${it.type.name}-${it.pos.x}-${it.pos.z}"
             )
         }
     }
@@ -112,7 +117,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
     }
 
     fun initialize() {
-        repeat(10) {
+        repeat(1) {
             spawnItem(Item(ItemType.GoldOre, (it + 1) * 4), game.player.physics.position + Vec3f(2f + it, 0f, 0f))
         }
     }

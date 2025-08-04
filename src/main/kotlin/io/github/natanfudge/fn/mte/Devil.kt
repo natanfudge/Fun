@@ -33,26 +33,26 @@ class Devil() : Fun("devil") {
 //        render.localTransform.scale = Vec3f(1f,1f,1f)
 
 //        addDsWorldPanel(
-        context.gui.addWorldPanel(
-            Transform(
-                translation = render.translation.shift(x = 2.2f, z = 1.6f),
-                rotation = FacingCameraRotation,
-                scale = Vec3f(4f, 2f, 1f)
-            ),
-            canvasHeight = 200,
-            canvasWidth = 400
-        ) {
-            if (::quotaRequested.listenAsState().value) {
-                Card(Modifier.fillMaxSize()) {
-                    Box(Modifier.fillMaxSize()) {
-                        Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-                            ResourceImage("drawable/blocks/gold.png", Modifier.padding(20.dp).size(140.dp))
-                            Text("X 10", fontSize = 100.sp, color = Color(150, 150, 0))
-                        }
-                    }
-                }
-            }
-        }
+//        context.gui.addWorldPanel(
+//            Transform(
+//                translation = render.translation.shift(x = 2.2f, z = 1.6f),
+//                rotation = FacingCameraRotation,
+//                scale = Vec3f(4f, 2f, 1f)
+//            ),
+//            canvasHeight = 200,
+//            canvasWidth = 400
+//        ) {
+//            if (::quotaRequested.listenAsState().value) {
+//                Card(Modifier.fillMaxSize()) {
+//                    Box(Modifier.fillMaxSize()) {
+//                        Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+//                            ResourceImage("drawable/blocks/gold.png", Modifier.padding(20.dp).size(140.dp))
+//                            Text("X 10", fontSize = 100.sp, color = Color(150, 150, 0))
+//                        }
+//                    }
+//                }
+//            }
+//        }
 
     }
 

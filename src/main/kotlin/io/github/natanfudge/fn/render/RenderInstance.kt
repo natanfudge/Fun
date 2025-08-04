@@ -22,7 +22,6 @@ class RenderInstance internal constructor(
     val model: BoundModel,
     private val instanceBuffer: IndirectInstanceBuffer,
     private val jointBuffer: IndirectInstanceBuffer,
-//    @PublishedApi internal val world: WorldRender,
     var value: Boundable,
     val onClose: (RenderInstance) -> Unit
 ) : Boundable, AutoCloseable {
@@ -69,14 +68,14 @@ class RenderInstance internal constructor(
     override val boundingBox: AxisAlignedBoundingBox
         get() = value.boundingBox
 
-    private var setTransform: Mat4f = initialTransform
-    private var gpuTintColor: Color = initialTint.color
-    private var gpuTintStrength: Float = initialTint.strength
+    internal var setTransform: Mat4f = initialTransform
+    internal var gpuTintColor: Color = initialTint.color
+    internal var gpuTintStrength: Float = initialTint.strength
 
     // Optimization: only update GPU once per frame, store requested changes in memory and update before frame.
-    private var requestedTransform: Mat4f? = null
-    private var requestedTintColor: Color? = null
-    private var requestedTintStrength: Float? = null
+    internal var requestedTransform: Mat4f? = null
+    internal var requestedTintColor: Color? = null
+    internal var requestedTintStrength: Float? = null
 
     var despawned = false
 

@@ -4,9 +4,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.InvalidationKey
-import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.render.utils.*
 import io.github.natanfudge.fn.util.closeAll
@@ -20,6 +20,9 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import korlibs.time.seconds
 import korlibs.time.times
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -94,6 +97,7 @@ class WorldRendererWindowSizeEffect(size: IntSize, ctx: WebGPUContext) : Invalid
 }
 
 private var bindGroupIndex = 0
+
 class WorldRendererSurfaceEffect(val ctx: WebGPUContext) : InvalidationKey() {
 
     init {
@@ -162,7 +166,7 @@ val IntSize.isEmpty get() = width == 0 || height == 0
 var rendererNextIndex = 0
 
 data class BeforeSubmitWebGPUDrawEvent(
-    val encoder: GPUCommandEncoder, val drawTarget: GPUTextureView
+    val encoder: GPUCommandEncoder, val drawTarget: GPUTextureView,
 )
 
 
@@ -268,10 +272,6 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
     var camera = DefaultCamera()
 
-    init {
-        val x = 2
-    }
-
     var bindgroup: GPUBindGroup by cached(surfaceBinding) {
         surfaceBinding.createBindGroup(pipelineHolder.pipeline)
     }
@@ -282,9 +282,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
     init {
         pipelineHolder.pipelineLoaded.listen { pipeline ->
-            println("Creating bindgroup on new pipeline on #${index}")
             bindgroup = surfaceBinding.createBindGroup(pipeline)
-            println("Recreating bindgroups for all models on new pipeline on #${index}")
             surfaceBinding.models.forEach { it.value.recreateBindGroup(pipeline) }
         }
 
@@ -453,7 +451,6 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
     }
 
 
-
     fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
 //        check(id !in model.instances) { "Instance with id $id already exists" }
         if (id in model.instances) {
@@ -471,9 +468,15 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
         return instance
     }
 
-    internal fun remove(renderInstance: RenderInstance) {
+     fun remove(renderInstance: RenderInstance) {
         renderInstance.model.instances.remove(renderInstance.funId)
         surfaceBinding.rayCasting.remove(renderInstance)
+
+         surfaceBinding.baseInstanceData.free(renderInstance.globalInstancePointer, BaseInstanceData.size)
+         if (renderInstance.skin != null) {
+             surfaceBinding.jointMatrixData.free(renderInstance.jointMatricesPointer, renderInstance.skin.jointMatrixSize)
+         }
+         renderInstance.despawned = true
     }
 
 
@@ -546,6 +549,7 @@ internal class IndirectInstanceBuffer(
 
     fun rebuild() {
         if (dirty) {
+            println("Rebuilding instance buffer, we now have ${countInstances()} instances")
             dirty = false
             val indices = IntArray(countInstances())
             var globalI = 0
@@ -556,6 +560,41 @@ internal class IndirectInstanceBuffer(
                 }
             }
             instanceIndexBuffer.write(indices)
+        }
+    }
+}
+
+
+fun WorldRendererSurfaceEffect.printInstanceDataDebug() {
+    println("=== Instance Data Debug Report ===")
+    println("Total models: ${models.size}")
+
+    if (models.isEmpty()) {
+        println("No models found - buffers are empty")
+        return
+    }
+
+    var totalInstances = 0
+
+    models.forEach { (modelId, boundModel) ->
+        val instances = boundModel.instances
+        totalInstances += instances.size
+
+        println("\n--- Model: $modelId ---")
+        println("  Instance count: ${instances.size}")
+        println("  Model file: ${boundModel.data.id}")
+
+
+        instances.values.forEachIndexed { index, instance ->
+            println("\n  Instance #${index + 1}:")
+            println("    ID: ${instance.funId}")
+            println("    Render ID: ${instance.renderId}")
+
+            // Base Instance Data
+            println("    Base Instance Data:")
+            println("      Transform: ${instance.setTransform}")
+            println("      Global Instance Pointer: ${instance.globalInstancePointer.address}")
+
         }
     }
 }

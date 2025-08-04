@@ -50,7 +50,7 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         if (missingHpFraction > 0) {
             val damageIndex = (missingHpFraction * 5).ceilToInt().coerceAtMost(5)
             breakOverlay?.close()
-            breakOverlay = this@Block.render(breakOverlays[damageIndex - 1], BreakRenderId, render).apply {
+            breakOverlay = render(breakOverlays[damageIndex - 1], BreakRenderId, render).apply {
                 localTransform.scale = Vec3f(1.01f, 1.01f, 1.01f) // It should be slightly around the cube
             }
         } else {

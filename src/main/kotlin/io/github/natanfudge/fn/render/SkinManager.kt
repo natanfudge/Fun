@@ -15,7 +15,7 @@ data class MovingNode(
 )
 
 internal class SkinManager(skeleton: Skeleton, model: Model) {
-    private val jointCount = skeleton.joints.size
+    internal val jointCount = skeleton.joints.size
 
     val jointMatrixSize = jointCount.toUInt() * Mat4f.SIZE_BYTES
 
