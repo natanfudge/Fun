@@ -100,7 +100,7 @@ abstract class Fun internal constructor(
         initialValue: T?,
         crossinline config: FunValueConfig<T>.() -> Unit = {},
     ): PropertyDelegateProvider<Any, ClientFunValue<T>> = PropertyDelegateProvider { _, property ->
-        funValue({ initialValue }, property.name, config)
+        funValue(property.name, { initialValue }, config)
     }
 
     inline fun <reified T> funSet(

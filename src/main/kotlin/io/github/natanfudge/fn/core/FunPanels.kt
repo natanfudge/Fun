@@ -111,13 +111,6 @@ private fun PanelSupportLongLiving(
     }
 }
 
-//TODO: measure refresh time now that WorldPanelManager is cached
-// 3. Seems like collision is not working because I can't collect stuff
-// 4. WRong thing getting mined (probably cause for 3)
-// Leads:
-// - Only a rendering issue, physics reacts correctly
-// - should try without hot reload
-
 interface WorldPanel {
     var transform: Transform
     var canvasSize: IntSize

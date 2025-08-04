@@ -155,8 +155,11 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
     init {
         // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
         context.events.anyInput.listen { input ->
+            check(!closed)
+            check(!offscreenComposeRenderer.closed)
             offscreenComposeRenderer.scene.sendInputEvent(input)
         }
+        println("Registering ComposeHudWebGPURenderer")
         context.events.densityChange.listen { (newDensity) ->
             val scene = offscreenComposeRenderer.scene
             if (scene.focused) {

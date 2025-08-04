@@ -549,7 +549,7 @@ internal class IndirectInstanceBuffer(
 
     fun rebuild() {
         if (dirty) {
-            println("Rebuilding instance buffer, we now have ${countInstances()} instances")
+//            println("Rebuilding instance buffer, we now have ${countInstances()} instances")
             dirty = false
             val indices = IntArray(countInstances())
             var globalI = 0

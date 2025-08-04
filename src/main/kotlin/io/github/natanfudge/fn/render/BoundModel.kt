@@ -103,7 +103,6 @@ class BoundModel(
     var bindGroup: GPUBindGroup? = null
 
     init {
-        println("Recreating bindgroup in init")
         recreateBindGroup(pipeline())
     }
 

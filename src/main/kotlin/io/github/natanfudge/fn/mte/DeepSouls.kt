@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.mte
 
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.funValue
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.mte.gui.MainMenu
 import io.github.natanfudge.fn.mte.gui.addDsHudPanel
@@ -11,7 +12,8 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 
 class DeepSouls() : Fun("DeepSouls") {
-    var inMainMenu by funValue(true)
+    val inMainMenuState = funValue("inMainMenu", {true}){}
+    var inMainMenu by inMainMenuState
 
     init {
         if (!inMainMenu) {

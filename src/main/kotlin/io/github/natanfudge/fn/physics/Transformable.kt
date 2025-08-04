@@ -2,6 +2,7 @@ package io.github.natanfudge.fn.physics
 
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
+import io.github.natanfudge.fn.core.funValue
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
@@ -41,21 +42,24 @@ class FunTransform(parent: Fun) : Fun(parent.id.child("transform"), parent), Tra
             _transform = value
         }
 
-    var translation by funValue<Vec3f>(Vec3f.zero()){
+    val translationState = funValue<Vec3f>("translation", { Vec3f.zero() }){
         afterChange {
             _transform = _transform.copy(translation = it)
         }
     }
-    var rotation by funValue<Quatf>(Quatf.identity()){
+    var translation by translationState
+    val rotationState  = funValue<Quatf>("rotation", { Quatf.identity() }){
         afterChange {
             _transform = _transform.copy(rotation = it)
         }
     }
-    var scale by funValue<Vec3f>(Vec3f(1f, 1f, 1f)) {
+    var rotation by rotationState
+    val scaleState = funValue<Vec3f>("scale", { Vec3f(1f, 1f, 1f) }) {
         afterChange {
             _transform = _transform.copy(scale = it)
         }
     }
+    var scale by scaleState
 
     /**
      * Cached object to avoid allocating on every access to the transform
@@ -63,22 +67,16 @@ class FunTransform(parent: Fun) : Fun(parent.id.child("transform"), parent), Tra
     private var _transform: Transform = Transform(translation, rotation, scale)
 
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        val translationListener = ::translation.getBackingState().beforeChange {
+        val translationListener = translationState.beforeChange {
             callback(transform.copy(translation = it))
         }
-        val rotationListener = ::rotation.getBackingState().beforeChange {
+        val rotationListener = rotationState.beforeChange {
             callback(transform.copy(rotation = it))
         }
-        val scaleListener = ::scale.getBackingState().beforeChange {
+        val scaleListener = scaleState.beforeChange {
             callback(transform.copy(scale = it))
         }
         return translationListener.compose(rotationListener).compose(scaleListener).cast()
     }
 }
 
-fun <T> KProperty0<T>.getBackingState(): ClientFunValue<T> {
-    isAccessible = true
-    val delegate = getDelegate()
-    @Suppress("UNCHECKED_CAST")
-    return delegate as ClientFunValue<T>
-}

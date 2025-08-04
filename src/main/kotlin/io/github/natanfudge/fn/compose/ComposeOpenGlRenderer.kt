@@ -44,8 +44,7 @@ import org.lwjgl.system.MemoryUtil
 class FixedSizeComposeWindow(
     val size: IntSize,
     val sceneWrapper: GlfwComposeScene,
-
-    ) : InvalidationKey() {
+) : InvalidationKey() {
 
     init {
         GLFW.glfwMakeContextCurrent(sceneWrapper.handle)
@@ -368,17 +367,13 @@ class GlfwComposeScene(
     var focused by sceneContext.platformContext.windowInfo::isWindowFocused
 
     fun sendInputEvent(event: WindowEvent) {
-        //TODO: hot reload that reloads everything fails this check
-        check(!invalid)
+        if (event !is WindowEvent.WindowClose) {
+            // WindowClose invalidates it so it's correct for it to be invalid there
+            check(valid)
+        }
         if (focused) {
             overlayLayers.asReversed().forEach { it.sendInputEvent(event) }
             scene.sendInputEvent(event)
-
-//            overlayLayers.asReversed().forEach { it.onPreviewKey?.invoke(key) }
-//            overlayLayers.asReversed().forEach { it.onKey?.invoke(key) }
-//            it.onOutsidePointer?.invoke(eventType, button)
-
-
         }
     }
 

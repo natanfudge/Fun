@@ -8,7 +8,6 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
-import io.github.natanfudge.fn.physics.getBackingState
 import io.github.natanfudge.fn.util.Listener
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
@@ -216,10 +215,7 @@ sealed interface FunState<T> {
     val editor: ValueEditor<T>
 }
 
-@Composable
-fun <T> KProperty0<T>.listenAsState(): State<T> {
-    return getBackingState().listenAsState()
-}
+
 
 @Composable
 fun <T> FunState<T>.listenAsState(): State<T> {

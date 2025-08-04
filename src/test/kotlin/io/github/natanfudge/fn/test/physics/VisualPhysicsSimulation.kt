@@ -44,7 +44,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
      */
     private fun spawnTargetGhosts(block: PhysicsAssertionBlock) {
         for ((body, assertion) in block.assertions) {
-            val renderNode = (body as Fun).getRoot().childrenTyped<FunRenderState>().single()
+            val renderNode = (body as Fun).parent!!.childrenTyped<FunRenderState>().single()
             bodies.add(SimpleRenderObject("target-${index++}", renderNode.model).render.apply {
                 localTransform.translation = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))

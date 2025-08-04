@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.mte.DeepSouls
 import io.github.natanfudge.fn.mte.DeepSoulsGame
 import io.github.natanfudge.fn.network.state.listenAsState
-import io.github.natanfudge.fn.physics.getBackingState
 import natan.`fun`.generated.resources.MainMenuBG
 import natan.`fun`.generated.resources.Res
 import natan.`fun`.generated.resources.TitleText
@@ -26,9 +25,7 @@ import org.jetbrains.compose.resources.painterResource
 
 @Composable
 fun MainMenu(ds: DeepSouls) {
-    println("New main")
-
-    if (!ds::inMainMenu.listenAsState().value) return
+    if (!ds.inMainMenuState.listenAsState().value) return
     Box(Modifier.fillMaxSize()) {
         MainMenuBackground()
         Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -20,10 +20,8 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         }
     }
 
-    init {
-        val x = 2
-    }
     val type by funValue(initialType)
+
     init {
         @Suppress("RedundantRequireNotNullCall")
         checkNotNull(type)
@@ -40,6 +38,15 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         }
     }
 
+    init {
+//        GlobalScope.launch {
+//            while (true) {
+//                delay(30)
+
+//            }
+//        }
+    }
+
     private fun applyDamage(newHealth: Float) {
         val missingHpFraction = (1 - (newHealth / type.hardness(game))).coerceIn(0f, 1f)
         if (missingHpFraction == 1f) {
@@ -50,9 +57,11 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         if (missingHpFraction > 0) {
             val damageIndex = (missingHpFraction * 5).ceilToInt().coerceAtMost(5)
             breakOverlay?.close()
+
             breakOverlay = render(breakOverlays[damageIndex - 1], BreakRenderId, render).apply {
                 localTransform.scale = Vec3f(1.01f, 1.01f, 1.01f) // It should be slightly around the cube
             }
+
         } else {
             breakOverlay?.close()
             breakOverlay = null

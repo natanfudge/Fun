@@ -11,15 +11,15 @@ fun FunContext.getHoveredParent(): Fun? {
     val directHovered = world.hoveredObject as? Fun ?: return null
     return directHovered.parent
 }
-
-fun Fun.getRoot() : Fun {
-    var current = this
-    while (true) {
-        val parent = current.parent
-        if (parent == null) return current
-        current = parent
-    }
-}
+//
+//fun Fun.getRoot() : Fun {
+//    var current = this
+//    while (true) {
+//        val parent = current.parent
+//        if (parent == null) return current
+//        current = parent
+//    }
+//}
 
 inline fun <reified T> Fun.forEachChildTyped(iter: (T) -> Unit) {
     val queue = LinkedList<Fun>()

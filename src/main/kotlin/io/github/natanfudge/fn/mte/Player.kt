@@ -5,7 +5,6 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.unit.IntOffset
 import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.getHoveredParent
-import io.github.natanfudge.fn.base.getRoot
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.physics.Body
@@ -26,6 +25,8 @@ import kotlin.math.atan2
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+
+// TODO: fix tests
 
 
 private fun timeSinceStartup(): Duration {
@@ -170,7 +171,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
 
         game.physics.system.collision.listen { (a, b) ->
-            whenRootFunsTyped<Player, WorldItem>(a, b) { player, item ->
+            whenParentFunsTyped<Player, WorldItem>(a, b) { player, item ->
                 player.collectItem(item)
             }
         }
@@ -326,9 +327,9 @@ private class DelayedStrike(
     }
 }
 
-inline fun <reified R1, reified R2> whenRootFunsTyped(a: Body, b: Body, callback: (R1, R2) -> Unit) {
-    val aRoot = a.getRootFun()
-    val bRoot = b.getRootFun()
+inline fun <reified R1, reified R2> whenParentFunsTyped(a: Body, b: Body, callback: (R1, R2) -> Unit) {
+    val aRoot = a.getParentFun()
+    val bRoot = b.getParentFun()
 
     // Collect item
     if (aRoot is R1 && bRoot is R2) {
@@ -338,4 +339,4 @@ inline fun <reified R1, reified R2> whenRootFunsTyped(a: Body, b: Body, callback
     }
 }
 
-fun Body.getRootFun(): Fun = (this as Fun).getRoot()
+fun Body.getParentFun(): Fun? = (this as Fun).parent

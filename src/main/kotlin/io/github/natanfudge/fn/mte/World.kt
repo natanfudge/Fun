@@ -15,11 +15,8 @@ private data class PositionedBlock(
 )
 
 class World(val game: DeepSoulsGame) : Fun("World") {
-    // TODO
-    //     private val width = 21
-    //    private val height = 21
-    private val width = 2
-    private val height = 2
+    private val width = 21
+    private val height = 21
 
     private inline fun roll(chancePct: Float, crossinline callback: () -> Unit) {
         if ((0..99).random() < chancePct * 100) {
@@ -89,8 +86,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
 
         return matrix.flatten().map {
             Block(
-                //TODo remove + 10
-                game, it.type, it.pos.copy(x = it.pos.x + xLevelStart + 10, z = it.pos.z + zLevelStart ),
+                game, it.type, it.pos.copy(x = it.pos.x + xLevelStart , z = it.pos.z + zLevelStart ),
                 id = "Block-${it.type.name}-${it.pos.x}-${it.pos.z}"
             )
         }

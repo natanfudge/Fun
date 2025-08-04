@@ -77,12 +77,12 @@ inline fun <reified T> Fun.useOldStateIfPossible(noinline initialValue: () -> T,
 }
 
 inline fun <reified T> Fun.funValue(
+    stateId: StateId,
     /**
      * It's possible to specify a null initial value even when the expected type is not nullable.
      * This signifies that [initialValue] is not expected to be called, and that we rely on the stored value to be used.
      */
     noinline initialValue: () -> T?,
-    stateId: StateId,
     config: FunValueConfig<T>.() -> Unit,
 ): ClientFunValue<T> {
     val config = FunValueConfig<T>().apply(config)
