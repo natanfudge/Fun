@@ -12,9 +12,8 @@ import java.util.function.Consumer
  */
 interface EventStream<T> {
     companion object {
-        // TODO: by event() should be used instead of this constructor inside a Fun.
         // Label should not be optional
-        fun <T> create(label: String = "Unnamed Event Stream (Bug!)") = EventEmitter<T>(label)
+        fun <T> create(label: String) = EventEmitter<T>(label)
     }
 
     /**
@@ -32,7 +31,7 @@ interface EventStream<T> {
      * @see EventStream
      */
     fun listenUnscoped(
-        label: String = "Unnamed Listener",
+        label: String,
         onEvent: (T) -> Unit,
     ): Listener<T>
 
@@ -121,12 +120,15 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
  * @see EventStream
  */
 
-// TODO: by event() should be used instead of this constructor
-//         // Label should not be optional
-class EventEmitter<T> internal constructor(val label: String = "Unnamed Event Emitter (Bug!)") : EventStream<T> {
+class EventEmitter<T> internal constructor(val label: String) : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
     val hasListeners get() = listeners.isNotEmpty()
+    val listenerCount get() =listeners.size
+
+    override fun toString(): String {
+        return "$label->[${listeners.joinToString { it.label }}]"
+    }
 
     /**
      * Kept at an instance level in the object so that when we remove an object before the active iteration index,
@@ -160,11 +162,6 @@ class EventEmitter<T> internal constructor(val label: String = "Unnamed Event Em
         return listener
     }
 
-    inline fun <reified F : T> listenUnscoped2(label: String, crossinline callback: (F) -> Unit): Listener<T> = listenUnscoped(label) {
-        if (it is F) {
-            callback(it)
-        }
-    }
 
     /**
      * Sends the given [value] to all currently registered listeners via their respective callbacks.

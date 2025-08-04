@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.funValue
+import io.github.natanfudge.fn.mte.gui.addDsWorldPanel
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.Model
@@ -22,39 +24,38 @@ val FacingCameraRotation = Quatf.xRotation(PIf / -2)
 
 class Devil() : Fun("devil") {
     val render by render(Model.fromGlbResource("files/models/hooded_devil.glb"))
-//    val foo by render(Model.quad("files/background/sky_high.png"), render)
-    var quotaRequested by funValue(false)
-
+    val qoutaRequestedState = funValue("quotaRequested", {false}){}
+    var quotaRequested by qoutaRequestedState
 
     init {
         render.localTransform.translation = Vec3f(-4f, 0.5f, DeepSoulsGame.SurfaceZ + 0.5f)
         render.localTransform.rotation = Quatf.identity().rotateX(PIf / 2).rotateY(PIf / 2)
-
-//        render.localTransform.scale = Vec3f(1f,1f,1f)
-
-//        addDsWorldPanel(
-//        context.gui.addWorldPanel(
-//            Transform(
-//                translation = render.translation.shift(x = 2.2f, z = 1.6f),
-//                rotation = FacingCameraRotation,
-//                scale = Vec3f(4f, 2f, 1f)
-//            ),
-//            canvasHeight = 200,
-//            canvasWidth = 400
-//        ) {
-//            if (::quotaRequested.listenAsState().value) {
-//                Card(Modifier.fillMaxSize()) {
-//                    Box(Modifier.fillMaxSize()) {
-//                        Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-//                            ResourceImage("drawable/blocks/gold.png", Modifier.padding(20.dp).size(140.dp))
-//                            Text("X 10", fontSize = 100.sp, color = Color(150, 150, 0))
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        addDsWorldPanel(
+            Transform(
+                translation = render.translation.shift(x = 2.2f, z = 1.6f),
+                rotation = FacingCameraRotation,
+                scale = Vec3f(4f, 2f, 1f)
+            ),
+            canvasHeight = 200,
+            canvasWidth = 400
+        ) {
+            if (qoutaRequestedState.listenAsState().value) {
+                Card(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize()) {
+                        Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+                            ResourceImage("drawable/blocks/gold.png", Modifier.padding(20.dp).size(140.dp))
+                            Text("X 10", fontSize = 100.sp, color = Color(150, 150, 0))
+                        }
+                    }
+                }
+            }
+        }
 
     }
+
+
+
+
 
 
 }

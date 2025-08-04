@@ -120,8 +120,8 @@ class ClientFunValue<T>(
 //    private var composeValue
 //    private var registered: Boolean = false
 
-    private val beforeChange = EventStream.create<T>()
-    private val afterChange = EventStream.create<T>()
+    private val beforeChange = EventStream.create<T>("beforeChange")
+    private val afterChange = EventStream.create<T>("afterChange")
 
 
     init {

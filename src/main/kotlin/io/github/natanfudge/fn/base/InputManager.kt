@@ -26,7 +26,7 @@ class InputManager(context: FunContext): Fun("InputManager")  {
     /**
      * Passes the movement delta
      */
-    val mouseMoved = EventStream.create<Offset>()
+    val mouseMoved  by event<Offset>()
 
 
     private val _hotkeys: MutableList<Hotkey> = mutableListOf()

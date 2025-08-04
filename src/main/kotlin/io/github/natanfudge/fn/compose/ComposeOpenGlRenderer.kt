@@ -19,6 +19,7 @@ import androidx.compose.ui.scene.ComposeSceneLayer
 import androidx.compose.ui.scene.PlatformLayersComposeScene
 import androidx.compose.ui.unit.*
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.valid
@@ -465,14 +466,17 @@ class ComposeOpenGLRenderer(
     onFrame: (ComposeFrameEvent) -> Unit,
     val onCreateScene: (scene: GlfwComposeScene) -> Unit,
     show: Boolean = false,
-) : Fun("ComposeOpenGLRenderer-$name") {
+    parent: Fun = FunContextRegistry.getContext().rootFun
+) : Fun("ComposeOpenGLRenderer-$name", parent) {
     private val offscreenWindow = GlfwWindowHolder(
         withOpenGL = true, showWindow = show, params, name = name,
         onEvent = {} // Ignore events from the offscreen window
     )
 
     var scene: GlfwComposeScene by cached(offscreenWindow.window) {
-        createComposeScene()
+        val scene = createComposeScene()
+        println("Created new scene:")
+        scene
     }
 
     private fun createComposeScene(): GlfwComposeScene {
@@ -510,16 +514,19 @@ class ComposeOpenGLRenderer(
     }
 
     fun resize(size: IntSize) {
-        scene.frameInvalid = true
-        println("Invalid set to true")
-        canvas = FixedSizeComposeWindow(size, scene)
+        if (canvas.size != size) {
+            scene.frameInvalid = true
+            canvas = FixedSizeComposeWindow(size, scene)
+        }
     }
 
     init {
         events.beforeFrame.listen {
 
             check(!closed)
-            check(scene.valid)
+            check(scene.valid) {
+                "Scene is $scene, i am $this"
+            }
             scene.dispatcher.poll()
 
             if (scene.frameInvalid) {

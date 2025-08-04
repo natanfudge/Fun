@@ -179,7 +179,7 @@ private class JointTransform(val jointId: Int, val skinManager: SkinManager, val
     override var transform: Transform = worldTransform.transform.mul(node.transform)
 
     override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        val localListener = skinManager.jointTransformEvent.listenUnscoped {
+        val localListener = skinManager.jointTransformEvent.listenUnscoped("jointChange") {
             if (it.joint == jointId) {
                 transform = worldTransform.transform.mul(it.transform)
                 callback(transform)

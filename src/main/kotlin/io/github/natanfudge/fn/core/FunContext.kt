@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.filter
 import io.github.natanfudge.fn.util.filterIsInstance
 import io.github.natanfudge.fn.webgpu.WebGPUSurfaceHolder
@@ -23,10 +24,12 @@ import korlibs.time.milliseconds
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
+import org.jetbrains.compose.reload.agent.invokeBeforeHotReload
 import org.jetbrains.compose.reload.agent.sendAsync
 import org.jetbrains.compose.reload.core.WindowId
 import org.jetbrains.compose.reload.core.mapLeft
 import org.jetbrains.compose.reload.orchestration.OrchestrationMessage
+import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -57,7 +60,8 @@ class FunEvents : Fun("FunEvents") {
         it !is WindowEvent.PointerEvent || !context.gui.userInGui.value
     }
     val guiError by event<Throwable>()
-    val appClosed by event<Unit>()
+
+    //    val appClosed by event<Unit>()
     val hotReload by event<Reload>()
     val closeButtonPressed = anyInput.filterIsInstance<WindowEvent.CloseButtonPressed>()
     val pointer = anyInput.filterIsInstance<WindowEvent.PointerEvent>()
@@ -72,10 +76,6 @@ class FunEvents : Fun("FunEvents") {
 
 private val maxFrameDelta = 300.milliseconds
 
-
-//TODO
-// 4. Resolve TODOs
-// 5. Clean up
 
 
 class FunContext(val appCallback: () -> Unit) : FunStateContext {
@@ -93,20 +93,20 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
 
     val fsWatcher = FileSystemWatcher()
 
-    val logger = FunLogger()
 
     val time = FunTime()
 
-    lateinit var gui: FunPanels
+    val services = FunServices()
 
-    // TODO: service registration so we don't need this
-    lateinit var world: WorldRenderer
-        internal set
+    val gui: FunPanels get() = services.get(FunPanels.service)
+
+    val world get() = services.get(WorldRenderer.service)
 
     val camera get() = world.camera
 
-    lateinit var compose: ComposeHudWebGPURenderer
-        internal set
+    val compose get() = services.get(ComposeHudWebGPURenderer.service)
+
+    val logger get() = services.get(FunLogger.service)
 
 
     internal fun register(fn: Fun) {
@@ -121,6 +121,7 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
     private var previousFrameTime = TimeSource.Monotonic.markNow()
 
     private var pendingReload: Reload? = null
+    private var jvmHotswapInProgress = false
 
     fun setCursorLocked(locked: Boolean) {
         world.surfaceHolder.windowHolder.cursorLocked = locked
@@ -132,25 +133,29 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
     }
 
     internal fun start() {
+        invokeBeforeHotReload {
+            jvmHotswapInProgress = true
+        }
         invokeAfterHotReload { _, result ->
             println("Hot Reloading app with classes: ${result.leftOrNull()?.definitions?.map { it.definitionClass.simpleName }}")
             result.mapLeft {
                 // This runs on a different thread which will cause issues, so we store it and will run it on the main thread later
                 pendingReload = it
             }
+            jvmHotswapInProgress = false
         }
 
-        events.hotReload.listenUnscoped {
+        events.hotReload.listenUnscoped("Hot Reload") {
             reload(it)
         }
 
-        events.closeButtonPressed.listenUnscoped {
+        events.closeButtonPressed.listenUnscoped("Exit App") {
             exitProcess(0)
         }
 
         // Window resizing stalls the main loop, so we want to interject frames when resizing so the content adapts to the resize as soon as the user
         // does it.
-        events.afterWindowResize.listenUnscoped {
+        events.afterWindowResize.listenUnscoped("Resize Frame") {
             frame()
         }
 
@@ -162,9 +167,19 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
         loop()
     }
 
+
+    private fun checkClosed(vararg events: EventEmitter<*>) {
+        for (event in events) {
+            check(!event.hasListeners) { event.label }
+        }
+    }
+
     internal fun physics(delta: Duration) {
+        checkHotReload()
         events.beforePhysics(delta)
+        checkHotReload()
         events.physics(delta)
+        checkHotReload()
         events.afterPhysics(delta)
     }
 
@@ -176,13 +191,19 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
         fsWatcher.poll()
         time.advance(delta)
 
+        checkHotReload()
         events.beforeFrame(delta)
+        checkHotReload()
         events.frame(delta)
+        checkHotReload()
         events.afterFrame(delta)
+    }
 
-        //SUS: it's likely this is too late, and we need to run this pending reload check more often, since e.g. a refresh
-        // might happen after beforePhysics and then physics will have old state.
-        // But tbh this is an uphill battle, it would be best to interrupt the main thread on reload and do what we need.
+    private fun checkHotReload() {
+        while (jvmHotswapInProgress) {
+            // Wait for hotswap to finish
+            Thread.yield()
+        }
         if (pendingReload != null) {
             // Run reload on main thread
             events.hotReload(pendingReload!!)
@@ -197,17 +218,50 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
         }
     }
 
+    /**
+     * Closes and re-runs all [Fun]s with entirely new state
+     */
+    fun restartApp() {
+        refreshApp(invalidTypes = null)
+    }
+
+    /**
+     * Closes and re-runs all [Fun]s.
+     * if [invalidTypes] is null, all state will be deleted and all caches will be evicted
+     */
+    fun refreshApp(invalidTypes: List<KClass<*>>? = listOf()) {
+        closeApp(invalidTypes)
+        appCallback()
+    }
+
+    private fun closeApp(invalidTypes: List<KClass<*>>?) {
+        cache.prepareForRefresh(invalidTypes)
+        rootFun.close(unregisterFromParent = false, deleteState = invalidTypes == null)
+        rootFun.clearChildren()
+    }
+
+    /**
+     * Tests if all [Fun]s have correctly closed their callbacks when they have been closed
+     */
+    fun verifyFunsCloseListeners() = with(events) {
+        closeApp(null)
+        check(hotReload.listenerCount == 1) // The FunContext.start() listener
+        check(anyInput.listenerCount == 1){
+            "Input listeners = ${anyInput.listenerCount} != 1: $anyInput"
+        } // The FunContext.start() listener
+        check(afterWindowResize.listenerCount == 1){
+            "Input listeners = ${afterWindowResize.listenerCount} != 1: $afterWindowResize"
+        } // The FunContext.start() listener
+
+        checkClosed(beforeFrame, frame, afterFrame, beforePhysics, physics, afterPhysics, guiError)
+        appCallback()
+    }
 
     private fun reload(reload: Reload) {
         aggregateDirtyClasses(reload)
-        events.appClosed(Unit)
-        cache.prepareForRefresh(reload.definitions.map { it.definitionClass.kotlin })
-        rootFun.close(unregisterFromParent = false, deleteState = false)
-        rootFun.clearChildren()
-        appCallback()
+        refreshApp(reload.definitions.map { it.definitionClass.kotlin })
     }
 }
-// TODO: camera is weirdly positioned when refreshing window
 
 
 private fun aggregateDirtyClasses(reload: Reload) {
@@ -228,16 +282,7 @@ internal object FunContextRegistry {
     fun getContext() = context
 }
 
-// TODO: I think this could just be a component you use, but I should add a way to globally discover it , prob would be good to add
-// a service locator, bound to the context.
-// A dsl like this would make sense
-// funApp(config = {
-//      renderer = Renderer(800,600)
-//      hoverService = null
-// }) {
-//}
-//
-class FunRenderer(config: WindowConfig) : Fun("FunBaseApp") {
+class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
     @Suppress("unused")
     val glfwInit by cached(InvalidationKey.None) {
         GlfwWindowProvider.initialize()
@@ -284,13 +329,13 @@ class FunRenderer(config: WindowConfig) : Fun("FunBaseApp") {
     val worldRenderer = WorldRenderer(webgpu)
 
     init {
-        context.world = worldRenderer
-        context.gui = FunPanels()
-        context.compose = ComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
+        FunPanels()
+        ComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
             scene.setContent {
                 context.gui.PanelSupport()
             }
         })
+        FunLogger()
     }
 }
 
@@ -298,56 +343,7 @@ var crasharino = false
 
 fun startTheFun(callback: () -> Unit) {
     FunContext {
-        FunRenderer(WindowConfig())
+        FunBaseApp(WindowConfig())
         callback()
     }.start()
-}
-
-//fun main() {
-//    val context = FunContext {
-//        val base = FunRenderer(WindowConfig())
-//        TestApp(base.worldRenderer)
-//
-//    }
-//
-//    context.start()
-//}
-
-class TestApp(val world: WorldRenderer) : Fun("TestApp") {
-    val instance by cached(world.surfaceBinding) {
-        val model = Model(Mesh.HomogenousCube, "Test")
-        val value = object : Boundable {
-            override val boundingBox: AxisAlignedBoundingBox
-                get() = AxisAlignedBoundingBox.UnitAABB
-        }
-        world.spawn(
-            id, world.getOrBindModel(model), value, Transform().toMatrix(), Tint(color = Color.Red)
-        )
-    }
-
-    init {
-        addGui({ Modifier.align(Alignment.BottomEnd) }) {
-            Column {
-                Surface(color = Color.White) {
-                    Text("Halo!", color = Color.Black)
-                }
-                Button(onClick = {
-                    println("Alo")
-                }) {
-                    Text(
-                        "Foo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo FooFoo Foo",
-                        fontSize = 20.sp
-                    )
-                }
-            }
-
-            LaunchedEffect(Unit) {
-                delay(500)
-                if (!crasharino) {
-                    crasharino = true
-                    throw NullPointerException("Alo")
-                }
-            }
-        }
-    }
 }

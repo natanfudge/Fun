@@ -30,6 +30,12 @@ data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: 
 
 
 class FunPanels : Fun("FunPanels") {
+    companion object {
+        val service = serviceKey<FunPanels>()
+    }
+    init {
+        exposeAsService(service)
+    }
     private val panelList by memo<MutableList<ComposeHudPanel>> { mutableStateListOf() }
 
     private var worldGui: WorldPanelManager? = null // We only support one panel for now
@@ -41,13 +47,15 @@ class FunPanels : Fun("FunPanels") {
      * Large canvases have more space but might scale badly to the panel placed in the world, which has a much lower pixel size.
      * For this reason its best to choose a canvas size that is close to the size you expect it to be in the player's viewport when displayed in the 3D world.
      */
-    fun addWorldPanel(transform: Transform, canvasWidth: Int, canvasHeight: Int, content: (@Composable () -> Unit)): WorldPanel {
+    fun addUnscopedWorldPanel(transform: Transform, size: IntSize, content: (@Composable () -> Unit)): WorldPanel {
         if (worldGui == null) {
-            this.worldGui = WorldPanelManager(IntSize(canvasWidth, canvasHeight))
+            this.worldGui = WorldPanelManager(size)
+        } else {
+            this.worldGui?.canvasSize = size
         }
         this.worldGui!!.render.localTransform.transform = transform
         this.worldGui!!.setContent(content)
-        return this.worldGui!!
+        return WorldPanel(worldGui!!)
     }
 
     @Deprecated("Use scoped addPanel to avoid keeping around a GUI of a dead Fun", replaceWith = ReplaceWith("addPanel(modifier, content)"))
@@ -111,20 +119,29 @@ private fun PanelSupportLongLiving(
     }
 }
 
-interface WorldPanel {
-    var transform: Transform
-    var canvasSize: IntSize
+
+class WorldPanel internal constructor(private val panelManager: WorldPanelManager) : AutoCloseable {
+    var transform: Transform by panelManager.render::transform
+    var canvasSize: IntSize = panelManager.initialPanelSize
+        set(value) {
+            field = value
+            panelManager.compose.resize(value)
+        }
+
+    override fun close() {
+        // Get rid of the content, simplest way to do this for now
+        panelManager.resetUi()
+    }
 }
 
 
-private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelManager"), WorldPanel {
+internal class WorldPanelManager(val initialPanelSize: IntSize) : Fun("WorldPanelManager") {
     val render by render(Model(Mesh.UnitSquare, "WorldPanel"))
 
     private var currentContent: @Composable () -> Unit by memo { {} }
-    override var transform: Transform by render::transform
 
 
-    private val compose = ComposeOpenGLRenderer(
+    val compose = ComposeOpenGLRenderer(
         WindowConfig(size = initialPanelSize), show = false,
         onSetPointerIcon = {}, // Not yet
         name = "WorldPanels",
@@ -137,21 +154,39 @@ private class WorldPanelManager(initialPanelSize: IntSize) : Fun("WorldPanelMana
             scene.setContent {
                 currentContent()
             }
-        })
+        },
+        parent = this
+    )
 
+    /**
+     * Makes the GUI be blank
+     */
+    fun resetUi() {
+        this.currentContent = {}
+        if (compose.scene.valid) {
+            // Don't want to do this when closing the scene anyway
+            compose.scene.setContent { }
+        }
+    }
 
     fun setContent(content: @Composable () -> Unit) {
         currentContent = content
         compose.scene.setContent(content)
     }
 
-    override var canvasSize: IntSize = initialPanelSize
+    init {
+        compose.resize(initialPanelSize)
+    }
+
+    override fun cleanup() {
+        println("Closing $this")
+    }
+
+    var canvasSize: IntSize = initialPanelSize
         set(value) {
             field = value
             compose.resize(value)
         }
-
-
 }
 
 

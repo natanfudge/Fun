@@ -37,8 +37,8 @@ class DeepSoulsGame : Fun("Game") {
     }
 
     val animation = FunAnimation()
-    // TODO: restore
-//    val background = Background()
+    val background = Background()
+
 
 
     val input = InputManager(context)

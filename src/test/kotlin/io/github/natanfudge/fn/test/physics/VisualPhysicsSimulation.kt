@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.base.*
-import io.github.natanfudge.fn.compose.utils.FunTheme
 import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.Fun
@@ -25,6 +24,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.SimplePhysicsObject
 import io.github.natanfudge.fn.render.SimpleRenderObject
 import io.github.natanfudge.fn.render.Tint
+import io.github.natanfudge.fn.render.aspectRatio
 import io.github.natanfudge.fn.util.toFloat
 import io.github.natanfudge.fn.util.toString
 import io.github.natanfudge.wgpu4k.matrix.Quatf
@@ -63,8 +63,8 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
                 )
             },
             1f,
-            fovYRadians = app.context.window.fovYRadians,
-            aspectRatio = app.context.window.aspectRatio
+            fovYRadians = app.context.world.fovYRadians,
+            aspectRatio = app.context.world.surfaceHolder.size.aspectRatio
         )
     }
 
@@ -112,9 +112,9 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
     }
 }
 
-class PhysicsSimulationApp( val context: FunContext, private val simulation: PhysicsTest, val throwOnFailure: Boolean) {
+class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailure: Boolean): Fun("PhysicsSimulation") {
     val physics = FunPhysics()
-    val scheduler = VisibleSimulationTickerMod(context, physics.system)
+    val scheduler = VisibleSimulationTicker(physics.system)
 
     val input = InputManager(context)
 
@@ -131,7 +131,7 @@ class PhysicsSimulationApp( val context: FunContext, private val simulation: Phy
         CreativeMovement(input)
         runSimulation()
 
-        context.addFunPanel {
+        addFunPanel {
             Box(Modifier.fillMaxSize().background(Color.Transparent)) {
                 Surface(Modifier.align(Alignment.CenterStart).padding(10.dp)) {
                     Column(Modifier.padding(5.dp)) {
@@ -182,7 +182,7 @@ class PhysicsSimulationApp( val context: FunContext, private val simulation: Phy
 
 }
 
-class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSystem)  {
+class VisibleSimulationTicker(val physics: PhysicsSystem): Fun("VisibleSimulationTicker")  {
     private var finishCallback: (() -> Unit)? = null
     private var tickCallback: ((Float) -> Unit)? = null
 
@@ -203,8 +203,8 @@ class VisibleSimulationTickerMod(val context: FunContext, val physics: PhysicsSy
     }
 
     init {
-        context.events.physics.listenUnscoped { delta ->
-            if (finishCallback == null) return@listenUnscoped
+        events.physics.listen { delta ->
+            if (finishCallback == null) return@listen
             val newTime = timeSinceScheduleStart + delta
             if (newTime > scheduleDelay) {
                 val actualDelta = scheduleDelay - timeSinceScheduleStart

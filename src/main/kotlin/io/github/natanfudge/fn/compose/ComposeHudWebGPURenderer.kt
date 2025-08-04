@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.exposeAsService
+import io.github.natanfudge.fn.core.serviceKey
 import io.github.natanfudge.fn.core.valid
 import io.github.natanfudge.fn.render.WorldRenderer
 import io.github.natanfudge.fn.render.toExtent3D
@@ -70,7 +72,11 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
     onCreateScene: (GlfwComposeScene) -> Unit,
     show: Boolean = false,
 ) : Fun("ComposeHudWebGPURenderer") {
+     companion object {
+         val service = serviceKey<ComposeHudWebGPURenderer>()
+     }
     private val webGPUHolder = worldRenderer.surfaceHolder
+
 
     val offscreenComposeRenderer: ComposeOpenGLRenderer = ComposeOpenGLRenderer(
         webGPUHolder.windowHolder.params,
@@ -89,9 +95,6 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
         onCreateScene = onCreateScene
     )
 
-    fun setContent(content: @Composable () -> Unit) {
-        offscreenComposeRenderer.scene.setContent(content)
-    }
 
     private val surface by cached(webGPUHolder.surface) {
         ComposeWebgpuSurface(webGPUHolder.surface, context)
@@ -147,19 +150,18 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
         )
     }
     private var bindGroup by cached(texture) {
-        println("Create CHUD bindgroup")
         ComposeBindGroup(shader.pipeline, texture, surface)
     }
 
 
     init {
+        exposeAsService(service)
         // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
         context.events.anyInput.listen { input ->
             check(!closed)
             check(!offscreenComposeRenderer.closed)
             offscreenComposeRenderer.scene.sendInputEvent(input)
         }
-        println("Registering ComposeHudWebGPURenderer")
         context.events.densityChange.listen { (newDensity) ->
             val scene = offscreenComposeRenderer.scene
             if (scene.focused) {

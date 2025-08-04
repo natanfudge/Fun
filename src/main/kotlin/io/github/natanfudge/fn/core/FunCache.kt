@@ -89,20 +89,25 @@ class FunCache {
     // Stored in a LinkedHashMap so we can track the order of insertions. We want to init by order, and close by reverse order.
     private val values = LinkedHashMap<CacheKey, CacheValue>()
 
-    fun prepareForRefresh(invalidTypes: List<KClass<*>>) {
+    /**
+     * if [invalidTypes] is null, all state will be deleted
+     */
+    fun prepareForRefresh(invalidTypes: List<KClass<*>>?) {
         val valueList = values.toList()
         val invalidValues = mutableListOf<AutoCloseable>()
-        val invalidTypesSet = invalidTypes.toSet()
+        val invalidTypesSet = invalidTypes?.toSet()
         for ((key, cached) in valueList) {
 
             // Invalidate because the key was invalidated (directly or through propagation)
             val invalidKey = cached.invalidation.key.invalid
             // Invalidate because the class of the value changed (null has no class)
-            val selfClassChanged = cached.value != null && cached.value::class in invalidTypesSet
-            val parentClassChanged = cached.invalidation.parentClass in invalidTypesSet
+            val selfClassChanged = cached.value != null && (invalidTypesSet == null || cached.value::class in invalidTypesSet)
+            val parentClassChanged = invalidTypesSet == null ||  cached.invalidation.parentClass in invalidTypesSet
             if (invalidKey || selfClassChanged || parentClassChanged) {
                 val name = "$key:${cached.value}"
-                if (invalidKey) {
+                if (invalidTypesSet == null) {
+                    println("Invalidated $name because a full invalidation was requested")
+                } else if (invalidKey) {
                     println("Invalidated $name because ${cached.invalidation} invalidated")
                 } else if (selfClassChanged) {
                     println("Invalidated $name because its class, ${cached.value::class} changed")

@@ -26,7 +26,6 @@ import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-// TODO: fix tests
 
 
 private fun timeSinceStartup(): Duration {

@@ -47,6 +47,14 @@ class SimpleLogger : ILogger {
 
 
 class FunLogger : Fun("FunLogger"), ILogger {
+    companion object {
+        val service = serviceKey<FunLogger>()
+    }
+
+    init {
+        exposeAsService(service)
+    }
+
     var level by funValue(FunLogLevel.Info)
     private val allTags = mutableStateSetOf<String>()
     val hiddenTags by funSet<String>(

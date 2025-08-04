@@ -110,7 +110,8 @@ class FunRenderState(
 
     override fun cleanup() {
         despawned = true
-        context.world.remove(renderInstance)
+        renderInstance.close()
+//        context.world.remove(renderInstance)
     }
 }
 
@@ -121,5 +122,5 @@ class SimpleRenderObject(id: FunId, model: Model) : Fun(id) {
 
 class SimplePhysicsObject(id: FunId, model: Model, physicsSystem: PhysicsSystem) : Fun(id) {
     val physics = physics(physicsSystem)
-    val render = render(model, physics)
+    val render by render(model, physics)
 }

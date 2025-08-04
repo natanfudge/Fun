@@ -77,7 +77,7 @@ class FileSystemWatcherTest {
         assertEquals(0, firstLatch.count, "First callback should fire")
 
         // Cancel the registration
-        key.cancel()
+        key.close()
 
         // 2nd change → should NOT trigger
         val secondLatch = CountDownLatch(1)

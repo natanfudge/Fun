@@ -75,12 +75,12 @@ class FunSet<T> @PublishedApi internal constructor(
     private val serializer: KSerializer<T>,
     override val editor: ValueEditor<Set<T>>,
 ) : MutableSet<T>, FunState<Set<T>> {
-    val changed = EventStream.create<SetOp>()
+    val changed = EventStream.create<SetOp>("setChanged")
 
 //        override
 
     override fun beforeChange(callback: (Set<T>) -> Unit): Listener<Set<T>> {
-        return changed.listenUnscoped {
+        return changed.listenUnscoped("setChanged") {
             callback(_items)
         }.cast()
     }

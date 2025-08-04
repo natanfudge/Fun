@@ -109,14 +109,5 @@ fun <T> Fun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () ->
     return rememberedValue
 }
 
-// TODO: use this check
-internal fun checkListenersClosed(events: FunEvents) = with(events) {
-    checkClosed(beforeFrame, frame, afterFrame, beforePhysics, physics, afterPhysics, anyInput, guiError, appClosed)
-}
 
-private fun checkClosed(vararg events: EventEmitter<*>) {
-    for (event in events) {
-        check(!event.hasListeners)
-    }
-}
 

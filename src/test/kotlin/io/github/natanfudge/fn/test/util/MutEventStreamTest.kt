@@ -16,14 +16,14 @@ class MutEventStreamTest {
 
     @Test
     fun `multiple listeners receive all emitted values`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("test-stream")
         val receivedValues1 = mutableListOf<String>()
         val receivedValues2 = mutableListOf<String>()
         val receivedValues3 = mutableListOf<String>()
 
-        val listener1 = eventStream.listenUnscoped { receivedValues1.add(it) }
-        val listener2 = eventStream.listenUnscoped { receivedValues2.add(it) }
-        val listener3 = eventStream.listenUnscoped { receivedValues3.add(it) }
+        val listener1 = eventStream.listenUnscoped("listener1") { receivedValues1.add(it) }
+        val listener2 = eventStream.listenUnscoped("listener2") { receivedValues2.add(it) }
+        val listener3 = eventStream.listenUnscoped("listener3") { receivedValues3.add(it) }
 
         eventStream.emit("first")
         eventStream.emit("second")
@@ -39,14 +39,14 @@ class MutEventStreamTest {
 
     @Test
     fun `hasListeners property works correctly`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("hasListeners-test")
         
         assertFalse(eventStream.hasListeners, "Should have no listeners initially")
 
-        val listener1 = eventStream.listenUnscoped { }
+        val listener1 = eventStream.listenUnscoped("listener1") { }
         assertTrue(eventStream.hasListeners, "Should have listeners after adding one")
 
-        val listener2 = eventStream.listenUnscoped { }
+        val listener2 = eventStream.listenUnscoped("listener2") { }
         assertTrue(eventStream.hasListeners, "Should still have listeners with multiple listeners")
 
         listener1.close()
@@ -58,12 +58,12 @@ class MutEventStreamTest {
 
     @Test
     fun `clearListeners removes all listeners`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("clearListeners-test")
         val receivedValues1 = mutableListOf<String>()
         val receivedValues2 = mutableListOf<String>()
 
-        eventStream.listenUnscoped { receivedValues1.add(it) }
-        eventStream.listenUnscoped { receivedValues2.add(it) }
+        eventStream.listenUnscoped("listener1") { receivedValues1.add(it) }
+        eventStream.listenUnscoped("listener2") { receivedValues2.add(it) }
 
         assertTrue(eventStream.hasListeners, "Should have listeners before clearing")
 
@@ -79,12 +79,12 @@ class MutEventStreamTest {
 
     @Test
     fun `detaching listener during emission is handled correctly`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("detaching-test")
         val receivedValues = mutableListOf<String>()
         var listener: Listener<String>? = null
 
         // Create a listener that detaches itself during the first emission
-        listener = eventStream.listenUnscoped { value ->
+        listener = eventStream.listenUnscoped("self-detaching") { value ->
             receivedValues.add(value)
             if (value == "first") {
                 listener?.close() // Detach during emission
@@ -93,7 +93,7 @@ class MutEventStreamTest {
 
         // Add another listener to verify it still works
         val receivedValues2 = mutableListOf<String>()
-        val listener2 = eventStream.listenUnscoped { receivedValues2.add(it) }
+        val listener2 = eventStream.listenUnscoped("persistent") { receivedValues2.add(it) }
 
         eventStream.emit("first")
         eventStream.emit("second")
@@ -106,16 +106,16 @@ class MutEventStreamTest {
 
     @Test
     fun `adding listener during emission is handled correctly`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("adding-test")
         val receivedValues1 = mutableListOf<String>()
         val receivedValues2 = mutableListOf<String>()
 
         // Create a listener that adds another listener during emission
-        val listener1 = eventStream.listenUnscoped { value ->
+        val listener1 = eventStream.listenUnscoped("original") { value ->
             receivedValues1.add(value)
             if (value == "first") {
                 // Add a new listener during emission
-                eventStream.listenUnscoped { receivedValues2.add(it) }
+                eventStream.listenUnscoped("added-during-emission") { receivedValues2.add(it) }
             }
         }
 
@@ -130,12 +130,12 @@ class MutEventStreamTest {
 
     @Test
     fun testRemovingAndAddingInTheSameEmission() {
-        val stream = EventEmitter<String>()
+        val stream = EventStream.create<String>("removing-adding-test")
         val receivedValues = mutableListOf<String>()
-        stream.listenUnscoped {
-            stream.listenUnscoped {  }.close()
+        stream.listenUnscoped("remover") {
+            stream.listenUnscoped("temp") {  }.close()
         }
-        stream.listenUnscoped {
+        stream.listenUnscoped("receiver") {
             receivedValues.add(it)
         }
 
@@ -147,7 +147,7 @@ class MutEventStreamTest {
 
     @Test
     fun `detaching Listener Stub throws exception`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("stub-test")
         
         val exception = assertThrows<UnallowedFunException> {
             eventStream.detach(Listener.Stub)
@@ -161,8 +161,8 @@ class MutEventStreamTest {
 
     @Test
     fun `detaching non-existent listener prints warning`() {
-        val eventStream = EventEmitter<String>()
-        val listener = eventStream.listenUnscoped { }
+        val eventStream = EventStream.create<String>("warning-test")
+        val listener = eventStream.listenUnscoped("test-listener") { }
         
         // Detach the listener twice - second detach should print warning
         listener.close()
@@ -173,14 +173,14 @@ class MutEventStreamTest {
 
     @Test
     fun `ComposedListener closes both listeners`() {
-        val eventStream1 = EventEmitter<String>()
-        val eventStream2 = EventEmitter<Int>()
+        val eventStream1 = EventStream.create<String>("composed-test1")
+        val eventStream2 = EventStream.create<Int>("composed-test2")
         
         val receivedStrings = mutableListOf<String>()
         val receivedInts = mutableListOf<Int>()
         
-        val listener1 = eventStream1.listenUnscoped { receivedStrings.add(it) }
-        val listener2 = eventStream2.listenUnscoped { receivedInts.add(it) }
+        val listener1 = eventStream1.listenUnscoped("string-listener") { receivedStrings.add(it) }
+        val listener2 = eventStream2.listenUnscoped("int-listener") { receivedInts.add(it) }
         
         val composedListener = ComposedListener(listener1, listener2)
         
@@ -201,14 +201,14 @@ class MutEventStreamTest {
 
     @Test
     fun `compose extension function works correctly`() {
-        val eventStream1 = EventEmitter<String>()
-        val eventStream2 = EventEmitter<Int>()
+        val eventStream1 = EventStream.create<String>("compose-test1")
+        val eventStream2 = EventStream.create<Int>("compose-test2")
         
         val receivedStrings = mutableListOf<String>()
         val receivedInts = mutableListOf<Int>()
         
-        val listener1 = eventStream1.listenUnscoped { receivedStrings.add(it) }
-        val listener2 = eventStream2.listenUnscoped { receivedInts.add(it) }
+        val listener1 = eventStream1.listenUnscoped("string-listener") { receivedStrings.add(it) }
+        val listener2 = eventStream2.listenUnscoped("int-listener") { receivedInts.add(it) }
         
         val composedListener = listener1.compose(listener2)
         
@@ -229,10 +229,10 @@ class MutEventStreamTest {
 
     @Test
     fun `listener cast function works correctly`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("cast-test")
         val receivedValues = mutableListOf<Any>()
         
-        val listener = eventStream.listenUnscoped { receivedValues.add(it) }
+        val listener = eventStream.listenUnscoped("cast-listener") { receivedValues.add(it) }
         val castListener: Listener<Any> = listener.cast()
         
         eventStream.emit("test")
@@ -248,10 +248,10 @@ class MutEventStreamTest {
 
     @Test
     fun `EventStream create factory method works`() {
-        val eventStream = EventStream.create<String>()
+        val eventStream = EventStream.create<String>("factory-test")
         val receivedValues = mutableListOf<String>()
         
-        val listener = eventStream.listenUnscoped { receivedValues.add(it) }
+        val listener = eventStream.listenUnscoped("factory-listener") { receivedValues.add(it) }
         
         eventStream.emit("factory test")
         
@@ -262,7 +262,7 @@ class MutEventStreamTest {
 
     @Test
     fun `multiple concurrent modifications during emission`() {
-        val eventStream = EventEmitter<String>()
+        val eventStream = EventStream.create<String>("concurrent-test")
         val receivedValues1 = mutableListOf<String>()
         val receivedValues2 = mutableListOf<String>()
         val receivedValues3 = mutableListOf<String>()
@@ -271,15 +271,15 @@ class MutEventStreamTest {
         var listener3: Listener<String>? = null
         
         // Listener that detaches itself and adds a new listener during emission
-        listener1 = eventStream.listenUnscoped { value ->
+        listener1 = eventStream.listenUnscoped("self-detaching-adder") { value ->
             receivedValues1.add(value)
             if (value == "trigger") {
                 listener1?.close() // Detach self
-                listener3 = eventStream.listenUnscoped { receivedValues3.add(it) } // Add new listener
+                listener3 = eventStream.listenUnscoped("added-during-trigger") { receivedValues3.add(it) } // Add new listener
             }
         }
         
-        val listener2 = eventStream.listenUnscoped { receivedValues2.add(it) }
+        val listener2 = eventStream.listenUnscoped("persistent") { receivedValues2.add(it) }
         
         eventStream.emit("trigger")
         eventStream.emit("after")

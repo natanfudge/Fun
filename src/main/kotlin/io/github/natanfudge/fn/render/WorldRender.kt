@@ -7,6 +7,8 @@ import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.InvalidationKey
+import io.github.natanfudge.fn.core.exposeAsService
+import io.github.natanfudge.fn.core.serviceKey
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.render.utils.*
 import io.github.natanfudge.fn.util.closeAll
@@ -100,16 +102,8 @@ private var bindGroupIndex = 0
 
 class WorldRendererSurfaceEffect(val ctx: WebGPUContext) : InvalidationKey() {
 
-    init {
-        println("Foo")
-        println("Init WorldRendererSurfaceEffect")
-    }
-
     val uniformBuffer = WorldUniform.createBuffer(ctx, 1u, expandable = false, GPUBufferUsage.Uniform)
 
-    init {
-        println("After uniformBuffer")
-    }
 
     val vertexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 100_000_000u, expandable = true, GPUBufferUsage.Vertex)
     val indexBuffer = ManagedGPUMemory(ctx, initialSizeBytes = 20_000_000u, expandable = true, GPUBufferUsage.Index)
@@ -171,6 +165,9 @@ data class BeforeSubmitWebGPUDrawEvent(
 
 
 class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer") {
+    companion object {
+        val service = serviceKey<WorldRenderer>()
+    }
     val surfaceBinding by cached(surfaceHolder.surface) {
         // Recreated on every surface change
         WorldRendererSurfaceEffect(surfaceHolder.surface)
@@ -186,6 +183,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
     }
 
     init {
+        exposeAsService(service)
         // I prefer manually reconstructing the WorldRendererWindowSizeEffect on window size change instead of
         // having the size as an invalidation key and refreshing the app, because this way the app doesn't get refreshed
         // constantly when the window is resized. I try to keep refreshes to be a dev-only reload thing, and not be a thing

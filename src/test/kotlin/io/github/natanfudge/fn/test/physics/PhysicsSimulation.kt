@@ -38,9 +38,7 @@ abstract class PhysicsTest(show: Boolean = false, throwOnFailure: Boolean = !sho
 private fun PhysicsTest.runTest(show: Boolean, throwOnFailure: Boolean) {
     if (show) {
         startTheFun {
-            {
-                PhysicsSimulationApp(it, this@runTest, throwOnFailure)
-            }
+            PhysicsSimulationApp(this@runTest, throwOnFailure)
         }
     } else {
         HeadlessPhysicsSimulation().run()

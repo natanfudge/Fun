@@ -194,6 +194,7 @@ class FunStateManager(
 ) {
 
     internal val stateHolders = mutableMapOf<FunId, MapStateHolder>()
+//    internal val stateHolders = mutableStateMapOf<FunId, MapStateHolder>()
 
     fun getState(id: FunId): FunStateHolder? = stateHolders[id]
 

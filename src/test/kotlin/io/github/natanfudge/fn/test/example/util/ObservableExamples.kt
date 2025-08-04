@@ -8,13 +8,13 @@ class ObservableExamples {
     @Test
     fun observableExample() {
         // Create an observable that emits String values
-        val observable = EventEmitter<String>()
+        val observable = EventEmitter<String>("test2")
 
         // Track emitted values
         val receivedValues = mutableListOf<String>()
 
         // Observe the observable and add received values to our list
-        val listener = observable.listenUnscoped { value ->
+        val listener = observable.listenUnscoped("test") { value ->
             receivedValues.add(value)
         }
 

@@ -24,7 +24,7 @@ class PhysicsSystem(private val logger: ILogger, var gravity: Boolean = true) {
 
     var elasticCollision: Boolean = false
 
-    private val _collision = EventEmitter<CollisionEvent>()
+    private val _collision = EventEmitter<CollisionEvent>("collision")
     val collision: EventStream<CollisionEvent> get() = _collision
 
     companion object {

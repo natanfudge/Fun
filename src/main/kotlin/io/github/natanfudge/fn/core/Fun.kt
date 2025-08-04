@@ -3,11 +3,13 @@ package io.github.natanfudge.fn.core
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.network.state.ClientFunValue
 import io.github.natanfudge.fn.network.state.FunRememberedValue
 import io.github.natanfudge.fn.network.state.FunSet
 import io.github.natanfudge.fn.network.state.getFunSerializer
+import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.EventStream
@@ -15,7 +17,6 @@ import io.github.natanfudge.fn.util.obtainPropertyName
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
-
 
 
 // https://github.com/natanfudge/Fun/issues/8
@@ -84,7 +85,9 @@ abstract class Fun internal constructor(
             attachment.close()
         }
         cleanup()
-        children.forEach { it.close(unregisterFromParent = false, deleteState = deleteState) }
+        for (child in children) {
+            child.close(unregisterFromParent = false, deleteState = deleteState)
+        }
         if (unregisterFromParent) {
             parent?.unregisterChild(this)
         }
@@ -113,6 +116,9 @@ abstract class Fun internal constructor(
         @Suppress("DEPRECATION")
         return context.gui.addUnscopedPanel(modifier, gui).closeWithThis()
     }
+
+    fun addWorldGui(transform: Transform, canvasWidth: Int, canvasHeight: Int, content: (@Composable () -> Unit)) =
+        context.gui.addUnscopedWorldPanel(transform, IntSize(canvasWidth, canvasHeight), content).closeWithThis()
 
     /**
      *
@@ -146,6 +152,8 @@ abstract class Fun internal constructor(
     fun <T> event(): PropertyDelegateProvider<Any, FunRememberedValue<EventEmitter<T>>> = PropertyDelegateProvider { _, property ->
         // see https://github.com/natanfudge/MineTheEarth/issues/116
         val name = property.name
+        // SUS: Using memo here might not be needed because we restart all listeners on refresh anyway.
+        // Although in the future we can def avoid running listeners that are unaffected by classfile changes.
         memo<EventEmitter<T>>(name, typeChecker = { it is EventEmitter<*> }, initialValue = { EventStream.create("${this.id}#$name") })
     }
 }
