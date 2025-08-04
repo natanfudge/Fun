@@ -1,18 +1,10 @@
 package io.github.natanfudge.fn.core
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
-import io.github.natanfudge.fn.render.*
+import io.github.natanfudge.fn.render.WorldRenderer
+import io.github.natanfudge.fn.render.isEmpty
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.filter
 import io.github.natanfudge.fn.util.filterIsInstance
@@ -21,7 +13,6 @@ import io.github.natanfudge.fn.window.GlfwWindowHolder
 import io.github.natanfudge.fn.window.GlfwWindowProvider
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
-import kotlinx.coroutines.delay
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.agent.invokeBeforeHotReload
@@ -33,11 +24,6 @@ import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 import kotlin.time.TimeSource
-
-// 3. Setup webgpu world renderer
-// 3.5 Cleanup NewGlfwWindow
-// 4. refresh app on resize
-
 
 /**
  * Note: this class is mounted directly on the FunContext which means its not reconstructed, although we could just have made it a normal component
@@ -246,10 +232,10 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
     fun verifyFunsCloseListeners() = with(events) {
         closeApp(null)
         check(hotReload.listenerCount == 1) // The FunContext.start() listener
-        check(anyInput.listenerCount == 1){
+        check(anyInput.listenerCount == 1) {
             "Input listeners = ${anyInput.listenerCount} != 1: $anyInput"
         } // The FunContext.start() listener
-        check(afterWindowResize.listenerCount == 1){
+        check(afterWindowResize.listenerCount == 1) {
             "Input listeners = ${afterWindowResize.listenerCount} != 1: $afterWindowResize"
         } // The FunContext.start() listener
 
@@ -338,8 +324,6 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
         FunLogger()
     }
 }
-
-var crasharino = false
 
 fun startTheFun(callback: () -> Unit) {
     FunContext {
