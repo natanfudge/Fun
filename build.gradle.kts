@@ -79,8 +79,6 @@ repositories {
 }
 
 
-
-
 dependencies {
     implementation(platform(libs.lwjgl.bom))
     implementation(libs.bundles.jvmMain)

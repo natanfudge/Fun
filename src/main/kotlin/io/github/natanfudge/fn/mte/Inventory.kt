@@ -30,6 +30,11 @@ import kotlin.math.min
 class Inventory(val game: DeepSoulsGame) : Fun("Inventory") {
     val maxSlots = 15
 
+    override fun toString(): String {
+        val nonEmptyItems = items.filter { it.type != ItemType.Nothing }
+        return "${nonEmptyItems.size} items: ${nonEmptyItems.joinToString ()}"
+    }
+
     private val items = funList<Item>("items", List(maxSlots) {
         Item(ItemType.Nothing, 0)
     }.toMutableStateList())

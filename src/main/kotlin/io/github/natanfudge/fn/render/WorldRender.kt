@@ -25,6 +25,7 @@ import korlibs.time.times
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -391,6 +392,11 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
             windowTexture.close()
             underlyingWindowFrame.texture.close()
             encoder.close()
+
+            // On some driver versions if we don't do this then it will block on the vsync queue only when the queue is empty rather than what is full,
+            // causing an inconsistent block cadence, 0/0/3 instead of 1/1/1/1/1
+            runBlocking { ctx.device.poll() }
+
         }
     }
 

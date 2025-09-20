@@ -14,6 +14,12 @@ private data class PositionedBlock(
     val pos: BlockPos,
 )
 
+fun describeGame(): String {
+    return """
+        You are playing a 2D mining game, akin to Terraria. 
+    """.trimIndent()
+}
+
 class World(val game: DeepSoulsGame) : Fun("World") {
     private val width = 21
     private val height = 21

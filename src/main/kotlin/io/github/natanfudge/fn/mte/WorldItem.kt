@@ -19,6 +19,9 @@ data class Item(
     val type: ItemType,
     val count: Int,
 ) {
+    override fun toString(): String {
+        return "$type X $count"
+    }
     init {
         if (type == ItemType.Nothing) {
             check(count == 0) { "The Nothing item should have a count of 0" }
