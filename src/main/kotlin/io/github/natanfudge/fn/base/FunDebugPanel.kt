@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunContextImpl
+import io.github.natanfudge.fn.core.getContext
 import io.github.natanfudge.fn.render.clearModelCache
 
 class FunDebugPanel : Fun("FunDebugPanel") {
@@ -20,7 +22,7 @@ class FunDebugPanel : Fun("FunDebugPanel") {
                 Column {
                     Button(onClick = {
                         try {
-                            context.restartApp()
+                            restartApp()
                         } catch (e: Throwable) {
                             // Compose likes eating my stack trace
                             e.printStackTrace()
@@ -32,17 +34,17 @@ class FunDebugPanel : Fun("FunDebugPanel") {
                     }
                     Button(onClick = {
                         clearModelCache()
-                        context.refreshApp()
+                        refreshApp()
                     }) {
                         Text("Reload models")
                     }
-                    Button(onClick = { context.refreshApp() }) {
+                    Button(onClick = { refreshApp() }) {
                         Text("Refresh App")
                     }
 
                     Button(onClick = {
                         try {
-                            context.verifyFunsCloseListeners()
+                            (getContext() as FunContextImpl). verifyFunsCloseListeners()
                         } catch (e: Throwable) {
                             // Compose likes eating my stack trace
                             e.printStackTrace()
@@ -59,7 +61,7 @@ class FunDebugPanel : Fun("FunDebugPanel") {
 
     @Composable
     private fun LoggingConfig() {
-        FunEditor(context.logger, Modifier.width(300.dp))
+        FunEditor(logger, Modifier.width(300.dp))
     }
 }
 

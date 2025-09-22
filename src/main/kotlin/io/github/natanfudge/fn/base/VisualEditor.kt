@@ -23,6 +23,7 @@ import io.github.natanfudge.fn.compose.utils.mutableState
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.WindowEvent
+import io.github.natanfudge.fn.core.logInfo
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.render.FunRenderState
@@ -55,7 +56,8 @@ class VisualEditor(
     init {
         inputManagerMod.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
             enabled = !enabled
-            println("Visual Editor=$enabled")
+
+            logInfo("Visual Editor"){"Visual Editor=$enabled"}
             if (!enabled) {
                 restoreOldTint()
                 // Reset state if disabled
@@ -70,7 +72,7 @@ class VisualEditor(
                 FunEditor(parent)
             }
         }
-        hoverMod.context.events.worldInput.listen { input ->
+        events.worldInput.listen { input ->
             if (input is WindowEvent.PointerEvent && enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position
@@ -93,7 +95,7 @@ class VisualEditor(
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
-                val selected = context.world.hoveredObject as? FunRenderState
+                val selected = renderer.hoveredObject as? FunRenderState
                 if (selectedObject != selected) {
                     // Restore the old color
                     restoreOldTint()
@@ -136,7 +138,7 @@ class VisualEditor(
 
 @Composable
 private fun FunEditorRecur(fn: Fun) {
-    val values = fn.context.stateManager.getState(fn.id)
+    val values = fn.stateManager.getState(fn.id)
     if (values != null) {
         Text(fn.id.substringAfterLast("/"), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 30.sp)
         for ((key, state) in values.getCurrentState()) {

@@ -7,6 +7,7 @@ import io.github.natanfudge.fn.base.ModelAnimator
 import io.github.natanfudge.fn.base.getHoveredParent
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
+import io.github.natanfudge.fn.core.logPerformance
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.physics.translation
@@ -25,7 +26,6 @@ import kotlin.math.atan2
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-
 
 
 private fun timeSinceStartup(): Duration {
@@ -77,7 +77,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
             minY = -0.23f, maxY = 0.1f,
         )
 
-        game.context.events.beforePhysics.listen {
+        events.beforePhysics.listen {
             val deltaSecs = it.seconds.toFloat()
             val grounded = physics.isGrounded
 
@@ -87,7 +87,6 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
             val isJumping = jump.isPressed && grounded
 
-//            println("Pressed: ${left.isPressed}")
             if (left.isPressed) {
                 physics.orientation = Quatf.identity().rotateZ(PI.toFloat() / -2)
                 physics.position -= Vec3f(deltaSecs * 3, 0f, 0f)
@@ -105,7 +104,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
             // Adapt dig animation speed to actual dig speed
             val digAnimationSpeed = (model.getAnimationLength("dig", withLastFrameTrimmed = true) / strikeInterval).toFloat()
             if (breakKey.isPressed && !game.visualEditor.enabled) {
-                val selectedBlock = context.getHoveredParent()
+                val selectedBlock = getHoveredParent()
                 if (selectedBlock is Block) {
                     val target = targetBlock(selectedBlock)
                     if (target != null) {
@@ -144,7 +143,6 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
             }
 
 
-//            println("halo??")
 
             if (digging) {
                 animation.play(
@@ -161,7 +159,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
 
             if (!printedStartupTime) {
-//                println("App started in ${timeSinceStartup()}")
+                logPerformance("Startup") { "App started in ${timeSinceStartup()}" }
                 printedStartupTime = true
             }
         }
@@ -299,20 +297,20 @@ private class DelayedStrike(
      *
      */
     fun strike(strikeDelay: Duration, strikeInterval: Duration, strike: () -> Unit) {
-        if (strikeStart == null) strikeStart = context.time.gameTime
+        if (strikeStart == null) strikeStart = time.gameTime
         else {
-            val time = context.time.gameTime
+            val currentTime = time.gameTime
             if (lastStrike == null) {
                 // First strike - happens after strikeDelay
-                if (time - strikeStart!! >= strikeDelay) {
-                    lastStrike = time
+                if (currentTime - strikeStart!! >= strikeDelay) {
+                    lastStrike = currentTime
                     strike()
                 }
                 return
             } else {
                 // Subsequent strikes - happens after strikeInterval
-                if (context.time.gameTime - lastStrike!! >= strikeInterval) {
-                    lastStrike = time
+                if (time.gameTime - lastStrike!! >= strikeInterval) {
+                    lastStrike = currentTime
                     strike()
                 }
             }

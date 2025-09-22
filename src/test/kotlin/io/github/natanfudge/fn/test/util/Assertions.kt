@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.test.util
 
+import io.github.natanfudge.fn.core.SimpleLogger
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.abs
 
@@ -28,7 +29,7 @@ fun Vec3f.shouldRoughlyEqual(other: Vec3f, name: String, throwOnFailure: Boolean
         if (throwOnFailure) {
             throw AssertionError(message)
         } else {
-            System.err.println(message)
+            SimpleLogger.error("AssertionError"){message}
         }
     }
 }

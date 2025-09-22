@@ -20,8 +20,7 @@ import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.render.CameraMode
 
 class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Movement") {
-    private val renderer = context.world
-    private val camera = renderer.camera
+    private val _camera = renderer.camera
 
     var mode: CameraMode by funValue(CameraMode.Off)
 
@@ -31,7 +30,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
     var speed = 0.05f
 
     init {
-        with(camera) {
+        with(_camera) {
             inputManager.mouseMoved.listen { delta ->
                 val normalizedDeltaX = delta.x / renderer.windowSize.width
                 val normalizedDeltaY = delta.y / renderer.windowSize.height
@@ -112,8 +111,8 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
                 }
             }
         }
-        context.events.worldInput.listen { input ->
-            with(camera) {
+        events.worldInput.listen { input ->
+            with(_camera) {
                 when (input) {
                     is WindowEvent.PointerEvent -> {
                         if (input.eventType == PointerEventType.Move && (mode == CameraMode.Orbital || mode == CameraMode.Off)) {
@@ -136,7 +135,7 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
                                 Key.O, Key.Grave -> CameraMode.Orbital
                                 Key.F -> CameraMode.Fly
                                 else -> mode // Keep existing
-                            }, context
+                            }
                         )
                     }
 
@@ -146,11 +145,11 @@ class CreativeMovement(private val inputManager: InputManager): Fun("Creative-Mo
         }
     }
 
-    private fun setCameraMode(mode: CameraMode, context: FunContext) {
+    private fun setCameraMode(mode: CameraMode) {
         this.mode = mode
 
-        context.setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
-        context.setCursorLocked(mode == CameraMode.Fly)
+        setGUIFocused(mode == CameraMode.Off || mode == CameraMode.Orbital)
+        setCursorLocked(mode == CameraMode.Fly)
     }
 }
 

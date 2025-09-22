@@ -41,9 +41,9 @@ class FunEvents : Fun("FunEvents") {
 
     // Events are not emitted here when the user focuses on the GUI
     val worldInput = anyInput.filter {
-        check(!context.gui.closed)
+        check(!gui.closed)
         // Don't allow world pointer events when the user is in the GUI
-        it !is WindowEvent.PointerEvent || !context.gui.userInGui.value
+        it !is WindowEvent.PointerEvent || !gui.userInGui.value
     }
     val guiError by event<Throwable>()
 
@@ -63,43 +63,64 @@ class FunEvents : Fun("FunEvents") {
 private val maxFrameDelta = 300.milliseconds
 
 
+interface FunContext : FunStateContext {
+    val services: FunServices
 
-class FunContext(val appCallback: () -> Unit) : FunStateContext {
+    //TODO: consider making all of these services
+    val events: FunEvents
+    val time: FunTime
+    val rootFun: RootFun
+    val cache: FunCache
+    val fsWatcher: FileSystemWatcher
+
+    val gui: FunPanels get() = services.get(FunPanels.service)
+
+    val renderer get() = services.get(WorldRenderer.service)
+
+    val camera get() = renderer._camera
+
+    val compose get() = services.get(ComposeHudWebGPURenderer.service)
+
+    val logger: FunLogger get() = services.get(FunLogger.service)
+
+    fun restartApp()
+    fun refreshApp(invalidTypes: List<KClass<*>>? = listOf())
+
+    //TODO: these 3 don't seem to belong here
+    fun setCursorLocked(locked: Boolean)
+    fun setGUIFocused(focused: Boolean)
+    fun runPhysics(delta: Duration)
+
+    fun register(fn: Fun)
+
+    fun unregister(fn: Fun)
+}
+
+class FunContextImpl(val appCallback: () -> Unit) : FunContext {
     init {
         FunContextRegistry.setContext(this)
     }
 
-    val cache = FunCache()
+    override val cache = FunCache()
     override val stateManager = FunStateManager()
 
-    val rootFun = RootFun()
+    override val rootFun = RootFun()
 
-    val events = FunEvents()
-
-
-    val fsWatcher = FileSystemWatcher()
+    override val events = FunEvents()
 
 
-    val time = FunTime()
-
-    val services = FunServices()
-
-    val gui: FunPanels get() = services.get(FunPanels.service)
-
-    val world get() = services.get(WorldRenderer.service)
-
-    val camera get() = world.camera
-
-    val compose get() = services.get(ComposeHudWebGPURenderer.service)
-
-    val logger get() = services.get(FunLogger.service)
+    override val fsWatcher = FileSystemWatcher()
 
 
-    internal fun register(fn: Fun) {
+    override val time = FunTime()
+
+    override val services = FunServices()
+
+    override fun register(fn: Fun) {
         stateManager.register(fn.id, allowReregister = true)
     }
 
-    internal fun unregister(fn: Fun) {
+    override fun unregister(fn: Fun) {
         stateManager.unregister(fn.id)
     }
 
@@ -109,12 +130,12 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
     private var pendingReload: Reload? = null
     private var jvmHotswapInProgress = false
 
-    fun setCursorLocked(locked: Boolean) {
-        world.surfaceHolder.windowHolder.cursorLocked = locked
-        if (locked) world.cursorPosition = (null)
+    override fun setCursorLocked(locked: Boolean) {
+        renderer.surfaceHolder.windowHolder._cursorLocked = locked
+        if (locked) renderer.cursorPosition = (null)
     }
 
-    fun setGUIFocused(focused: Boolean) {
+    override fun setGUIFocused(focused: Boolean) {
         compose.offscreenComposeRenderer.scene.focused = focused
     }
 
@@ -147,9 +168,6 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
 
 
         appCallback()
-        // Nothing to close, but its fine, it will start everything without closing anything
-//        initializer.finishRefresh()
-
         loop()
     }
 
@@ -160,7 +178,7 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
         }
     }
 
-    internal fun physics(delta: Duration) {
+    override fun runPhysics(delta: Duration) {
         checkHotReload()
         events.beforePhysics(delta)
         checkHotReload()
@@ -207,7 +225,7 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
     /**
      * Closes and re-runs all [Fun]s with entirely new state
      */
-    fun restartApp() {
+    override fun restartApp() {
         refreshApp(invalidTypes = null)
     }
 
@@ -215,7 +233,7 @@ class FunContext(val appCallback: () -> Unit) : FunStateContext {
      * Closes and re-runs all [Fun]s.
      * if [invalidTypes] is null, all state will be deleted and all caches will be evicted
      */
-    fun refreshApp(invalidTypes: List<KClass<*>>? = listOf()) {
+    override fun refreshApp(invalidTypes: List<KClass<*>>?) {
         closeApp(invalidTypes)
         appCallback()
     }
@@ -268,6 +286,9 @@ internal object FunContextRegistry {
     fun getContext() = context
 }
 
+fun getContext() = FunContextRegistry.getContext()
+
+
 class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
     @Suppress("unused")
     val glfwInit by cached(InvalidationKey.None) {
@@ -312,13 +333,13 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
 
 
     val webgpu = WebGPUSurfaceHolder(windowHolder)
-    val worldRenderer = WorldRenderer(webgpu)
+    val _worldRenderer = WorldRenderer(webgpu)
 
     init {
         FunPanels()
-        ComposeHudWebGPURenderer(worldRenderer, show = false, onCreateScene = { scene ->
+        ComposeHudWebGPURenderer(_worldRenderer, show = false, onCreateScene = { scene ->
             scene.setContent {
-                context.gui.PanelSupport()
+                gui.PanelSupport()
             }
         })
         FunLogger()
@@ -326,7 +347,7 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
 }
 
 fun startTheFun(callback: () -> Unit) {
-    FunContext {
+    FunContextImpl {
         FunBaseApp(WindowConfig())
         callback()
     }.start()

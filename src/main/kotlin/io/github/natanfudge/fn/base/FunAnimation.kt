@@ -9,7 +9,7 @@ import kotlin.time.Duration
 // SUS: I kinda wanna consider getting rid of some mods in favor of letting stuff hook into the lifecycles.
 class FunAnimation: Fun("FunAnimation")  {
     init {
-        context.events.beforeFrame.listen { delta ->
+        events.beforeFrame.listen { delta ->
             for (animation in animations) {
                 animation.loopTimePassed = min(animation.loopDuration, animation.loopTimePassed + delta)
                 if (animation.loopTimePassed >= animation.loopDuration) animation.loopTimePassed -= animation.loopDuration

@@ -65,7 +65,7 @@ class ModelAnimator(private val render: FunRenderState) {
 
 
     init {
-        render.context.events.beforeFrame.listen(render) { delta ->
+        render.events.beforeFrame.listen(render) { delta ->
             // Copy list to avoid ConcurrentModificationException
             for (animation in activeAnimations.toList()) {
                 animation.currentTime = animation.currentTime + (delta * animation.speed)

@@ -6,11 +6,11 @@ import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.physics.PhysicsSystem
 
 class FunPhysics: Fun("FunPhysics") {
-    val system = PhysicsSystem(context.logger)
+    val system = PhysicsSystem(logger)
 
     init {
-        context.events.physics.listen {
-            system.tick(it, spedUp = context.time.speed > 1.2f)
+        events.physics.listen {
+            system.tick(it, spedUp = time.speed > 1.2f)
         }
     }
 }

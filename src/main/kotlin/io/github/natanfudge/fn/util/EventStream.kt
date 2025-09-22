@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.util
 
 import io.github.natanfudge.fn.core.Resource
+import io.github.natanfudge.fn.core.logWarn
 import io.github.natanfudge.fn.error.UnallowedFunException
 import java.util.function.Consumer
 
@@ -229,7 +230,7 @@ class EventEmitter<T> internal constructor(val label: String) : EventStream<T> {
             if (listener is Listener.Stub) {
                 throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")
             }
-            println("Warn: Detaching $listener failed as the listener was probably already detached. Existing attachments: $listeners")
+            logWarn("Events"){"Detaching $listener failed as the listener was probably already detached. Existing attachments: $listeners"}
         }
     }
 }

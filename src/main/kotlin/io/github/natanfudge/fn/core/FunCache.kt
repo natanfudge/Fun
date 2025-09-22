@@ -106,13 +106,13 @@ class FunCache {
             if (invalidKey || selfClassChanged || parentClassChanged) {
                 val name = "$key:${cached.value}"
                 if (invalidTypesSet == null) {
-                    println("Invalidated $name because a full invalidation was requested")
+                    logVerbose("Refresh"){"Invalidated $name because a full invalidation was requested"}
                 } else if (invalidKey) {
-                    println("Invalidated $name because ${cached.invalidation} invalidated")
+                    logVerbose("Refresh") { "Invalidated $name because ${cached.invalidation} invalidated" }
                 } else if (selfClassChanged) {
-                    println("Invalidated $name because its class, ${cached.value::class} changed")
+                    logVerbose("Refresh") { "Invalidated $name because its class, ${cached.value::class} changed" }
                 } else {
-                    println("Invalidated $name because its parent class, ${cached.invalidation.parentClass} changed")
+                    logVerbose("Refresh") { "Invalidated $name because its parent class, ${cached.invalidation.parentClass} changed" }
                 }
 
                 if (cached.value is IInvalidationKey) {

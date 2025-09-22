@@ -1,9 +1,6 @@
 package io.github.natanfudge.fn.webgpu
 
-import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.HOT_RELOAD_SHADERS
-import io.github.natanfudge.fn.core.InvalidationKey
-import io.github.natanfudge.fn.core.valid
+import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.files.readString
 import io.github.natanfudge.fn.util.EventEmitter
 import io.ygdrasil.webgpu.*
@@ -66,10 +63,10 @@ class ActivePipeline(
         } else {
             // Fail - do nothing
             if (vertexShader is Right) {
-                println("Error while compiling vertex shader: ${vertexShader.value}")
+                logError("Shaders", null) { "Error while compiling vertex shader: ${vertexShader.value}" }
             }
             if (fragmentShader is Right && (vertexSource != fragmentSource || vertexShader is Left)) {
-                println("Error while compiling fragment shader: ${fragmentShader.value}")
+                logError("Shaders", null) { "Error while compiling fragment shader: ${fragmentShader.value}" }
             }
 
             // TO DO: have some sort of plan B in case it fails in first initialization, because we won't have any existing shader code to reuse.
@@ -115,6 +112,7 @@ class ReloadingPipeline(
     val pipelineDescriptorBuilder: PipelineDescriptorBuilder,
 ) : Fun("ReloadingPipeline-$label") {
     val pipelineLoaded by event<GPURenderPipeline>()
+
     // NOTE: we don't want to depend on the WebGPUSurface directly because it is actually recreated every refresh, in contrast with the window that
     // is recreated when the window is actually recreated. This is kind of confusing and I would like to do something better.
     val active by cached(surface.windowHolder.window) {
@@ -143,7 +141,7 @@ class ReloadingPipeline(
     ) {
         if (shaderSource is ShaderSource.HotFile) {
             check(active.valid)
-            context.fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
+            fsWatcher.onFileChanged(shaderSource.getSourceFile()) {
                 active.reload()
             }.closeWithThis()
         }

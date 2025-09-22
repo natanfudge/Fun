@@ -6,7 +6,7 @@ import kotlin.time.TimeSource
 class FunTime : Fun("time") {
     var speed by funValue(1f)
     fun skip(time: Duration) {
-        context.physics(time)
+        runPhysics(time)
     }
 
     var stopped by funValue(false)
@@ -30,7 +30,7 @@ class FunTime : Fun("time") {
         val actualDelta = realTimeDelta * speed.toDouble()
         gameTime += actualDelta
 
-        context.physics(actualDelta)
+        runPhysics(actualDelta)
     }
 
 }

@@ -22,8 +22,8 @@ class FunServices {
 class MissingFunException(message: String) : Exception(message)
 
 fun <T : Fun> T.exposeAsService(key: ServiceKey<T>) {
-    context.services.registerUnscoped(this, key)
-    alsoClose { context.services.unregister(key) }
+    services.registerUnscoped(this, key)
+    alsoClose { services.unregister(key) }
 }
 
 
@@ -31,5 +31,5 @@ inline fun <reified T> serviceKey(name: String = T::class.simpleName ?: "") = Se
 
 class ServiceKey<T>(val name: String) {
     context(fn: Fun)
-    val current: T get() = fn.context.services.get(this)
+    val current: T get() = fn.services.get(this)
 }

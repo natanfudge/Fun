@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.*
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.InvalidationKey
+import io.github.natanfudge.fn.core.SimpleLogger
 import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.core.valid
 import io.github.natanfudge.fn.window.GlfwCoroutineDispatcher
@@ -334,7 +335,7 @@ class GlfwComposeScene(
     var frameInvalid = true
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        System.err.println("Compose async error – restarting window")
+        SimpleLogger.error("ComposeError"){"Compose async error – restarting window"}
         throwable.printStackTrace()
         onError(throwable)
     }

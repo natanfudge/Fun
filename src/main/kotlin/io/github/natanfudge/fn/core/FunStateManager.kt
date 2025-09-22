@@ -156,7 +156,7 @@ class FunClient(internal val comm: FunCommunication) : FunStateContext {
         if (holder != null) {
             holder.applyChange(key.property, change)
         } else {
-            println("WARNING: Received a value to the Fun component '${key.holder}', but no such ID exists, so the value was discarded. (value = $change)")
+            logWarn("FunClient"){"WARNING: Received a value to the Fun component '${key.holder}', but no such ID exists, so the value was discarded. (value = $change)"}
         }
     }
 }

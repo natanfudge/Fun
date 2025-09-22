@@ -15,7 +15,7 @@ import korlibs.time.seconds
 
 
 
-class InputManager(context: FunContext): Fun("InputManager")  {
+class InputManager(): Fun("InputManager")  {
     val heldKeys = mutableSetOf<FunKey>()
 
     var prevCursorPos: Offset? = null
@@ -100,14 +100,14 @@ class InputManager(context: FunContext): Fun("InputManager")  {
     }
 
     init {
-        context.events.beforePhysics.listen { delta ->
+        events.beforePhysics.listen { delta ->
             if (focused) {
                 for (hotkey in hotkeys) {
                     if (hotkey.key in heldKeys && hotkey.modifiersPressed()) hotkey.onHold?.invoke(delta.seconds.toFloat())
                 }
             }
         }
-        context.events.worldInput.listen { input ->
+        events.worldInput.listen { input ->
             when (input) {
                 is WindowEvent.KeyEvent -> {
                     val event = input.event

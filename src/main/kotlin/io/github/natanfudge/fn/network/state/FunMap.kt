@@ -6,6 +6,7 @@ import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.core.sendStateChange
+import io.github.natanfudge.fn.core.useOldStateIfPossible
 import io.github.natanfudge.fn.error.UnallowedFunException
 import io.github.natanfudge.fn.util.ImmutableCollection
 import io.github.natanfudge.fn.util.ImmutableSet
@@ -14,46 +15,46 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 
 
-/**
- * Creates a synchronized map that automatically propagates changes to all clients.
- * 
- * This function creates a [FunMap] with the specified name and initial items. The map's
- * contents will be automatically synchronized across all clients in the multiplayer environment.
- * 
- * This version uses Kotlin's reified type parameters to automatically determine the serializers
- * for both keys and values.
- * 
- * @sample io.github.natanfudge.fn.test.example.network.state.StateFunMapExamples.funMapExample
- * @see FunMap
- * @see funSet
- * @see funList
- */
-inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
-    funMap(name, mutableMapOf(*items))
-
-
-inline fun <reified K, reified V> Fun.funMap(name: String, items: MutableMap<K,V>): FunMap<K, V> {
-    if (Fun::class.java.isAssignableFrom(V::class.java)) throw UnallowedFunException("funMap is not intended for Fun values, use mapOfFuns for that.")
-    return funMap(name, getFunSerializer(), getFunSerializer(), items)
-}
-
-/**
- * Creates a synchronized map that automatically propagates changes to all clients.
- * 
- * This function creates a [FunMap] with the specified name, serializers, and initial items.
- * The map's contents will be automatically synchronized across all clients in the multiplayer environment.
- * 
- * Use this version when you need to specify custom serializers for keys and values.
- * 
- * @see FunMap
- * @see funSet
- * @see funList
- */
-fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
-    val map = FunMap(useOldStateIfPossible(items,name), name, this, keySerializer, valueSerializer)
-    context.stateManager.registerState(id, name, map)
-    return map
-}
+///**
+// * Creates a synchronized map that automatically propagates changes to all clients.
+// *
+// * This function creates a [FunMap] with the specified name and initial items. The map's
+// * contents will be automatically synchronized across all clients in the multiplayer environment.
+// *
+// * This version uses Kotlin's reified type parameters to automatically determine the serializers
+// * for both keys and values.
+// *
+// * @sample io.github.natanfudge.fn.test.example.network.state.StateFunMapExamples.funMapExample
+// * @see FunMap
+// * @see funSet
+// * @see funList
+// */
+//inline fun <reified K, reified V> Fun.funMap(name: String, vararg items: Pair<K,V>): FunMap<K, V> =
+//    funMap(name, mutableMapOf(*items))
+//
+//
+//inline fun <reified K, reified V> Fun.funMap(name: String, items: MutableMap<K,V>): FunMap<K, V> {
+//    if (Fun::class.java.isAssignableFrom(V::class.java)) throw UnallowedFunException("funMap is not intended for Fun values, use mapOfFuns for that.")
+//    return funMap(name, getFunSerializer(), getFunSerializer(), items)
+//}
+//
+///**
+// * Creates a synchronized map that automatically propagates changes to all clients.
+// *
+// * This function creates a [FunMap] with the specified name, serializers, and initial items.
+// * The map's contents will be automatically synchronized across all clients in the multiplayer environment.
+// *
+// * Use this version when you need to specify custom serializers for keys and values.
+// *
+// * @see FunMap
+// * @see funSet
+// * @see funList
+// */
+//fun <K, V> Fun.funMap(name: String, keySerializer: KSerializer<K>, valueSerializer: KSerializer<V>, items: MutableMap<K, V>): FunMap<K, V> {
+//    val map = FunMap(useOldStateIfPossible(items,name), name, this, keySerializer, valueSerializer)
+//    context.stateManager.registerState(id, name, map)
+//    return map
+//}
 
 
 /**
@@ -126,22 +127,22 @@ class FunMap<K, V> @PublishedApi internal constructor(
 
     override fun put(key: K, value: V): V? {
         //TO DO: do this only in a ServerFunValue
-        owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key, value))
+//        owner.context.sendStateChange(this.key, StateChangeValue.MapPut(key, value))
         return _items.put(key, value)
     }
 
     override fun remove(key: K): V? {
-        owner.context.sendStateChange(this.key, StateChangeValue.MapRemove(key))
+//        owner.context.sendStateChange(this.key, StateChangeValue.MapRemove(key))
         return _items.remove(key)
     }
 
     override fun putAll(from: Map<out K, V>) {
-        owner.context.sendStateChange(key, StateChangeValue.MapPutAll(from))
+//        owner.context.sendStateChange(key, StateChangeValue.MapPutAll(from))
         _items.putAll(from)
     }
 
     override fun clear() {
-        owner.context.sendStateChange(key, StateChangeValue.CollectionClear)
+//        owner.context.sendStateChange(key, StateChangeValue.CollectionClear)
         _items.clear()
     }
 

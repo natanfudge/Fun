@@ -65,9 +65,9 @@ typealias TypeChecker = (Any?) -> Boolean
 internal
 fun <T> Fun.useOldStateIfPossible(initialValue: () -> T, stateId: FunId, typeChecker: TypeChecker): T {
     val parentId = this.id
-    val oldState = context.stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
+    val oldState = stateManager.getState(parentId)?.getCurrentState()?.get(stateId)?.value
     return if (oldState != null && typeChecker(oldState)) oldState as T else {
-        if (oldState != null) println("Throwing out incompatible old state for $parentId:$stateId")
+        if (oldState != null) logWarn("State"){"Throwing out incompatible old state for $parentId:$stateId"}
         initialValue()
     }
 }
@@ -95,17 +95,22 @@ inline fun <reified T> Fun.funValue(
     )
 }
 
+fun <T> Fun.funList(stateId: StateId, serializer: KSerializer<T>, items: () -> MutableList<T>, editor: ValueEditor<List<T>>): FunList<T> {
+    val set = FunList(useOldStateIfPossible(items, stateId), stateId, this.id, serializer, editor)
+    stateManager.registerState(id, stateId, set)
+    return set
+}
 
 fun <T> Fun.funSet(stateId: StateId, serializer: KSerializer<T>, items: () -> MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
     val set = FunSet(useOldStateIfPossible(items, stateId), stateId, this.id, serializer, editor)
-    context.stateManager.registerState(id, stateId, set)
+    stateManager.registerState(id, stateId, set)
     return set
 }
 
 fun <T> Fun.memo(stateId: StateId, typeChecker: TypeChecker, initialValue: () -> T?): FunRememberedValue<T> {
     val oldState = useOldStateIfPossible(initialValue as () -> T, stateId, typeChecker)
     val rememberedValue = FunRememberedValue(oldState)
-    context.stateManager.registerState(id, stateId, rememberedValue)
+    stateManager.registerState(id, stateId, rememberedValue)
     return rememberedValue
 }
 

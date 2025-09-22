@@ -74,8 +74,8 @@ class FunRenderState(
         }
     }
 
-    val renderInstance: RenderInstance = context.world.spawn(
-        id, context.world.getOrBindModel(model), this, parentTransform.transform.toMatrix(), tint
+    val renderInstance: RenderInstance = renderer.spawn(
+        id, renderer.getOrBindModel(model), this, parentTransform.transform.toMatrix(), tint
     )
 
 

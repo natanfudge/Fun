@@ -16,7 +16,6 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import io.github.natanfudge.fn.base.addFunPanel
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.network.state.funList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import natan.`fun`.generated.resources.Res
@@ -32,12 +31,14 @@ class Inventory(val game: DeepSoulsGame) : Fun("Inventory") {
 
     override fun toString(): String {
         val nonEmptyItems = items.filter { it.type != ItemType.Nothing }
-        return "${nonEmptyItems.size} items: ${nonEmptyItems.joinToString ()}"
+        return "${nonEmptyItems.size} items: ${nonEmptyItems.joinToString()}"
     }
 
-    private val items = funList<Item>("items", List(maxSlots) {
-        Item(ItemType.Nothing, 0)
-    }.toMutableStateList())
+    private val items by funList<Item> {
+        List(maxSlots) {
+            Item(ItemType.Nothing, 0)
+        }.toMutableStateList()
+    }
 
 
     private val maxStackSize = 10
@@ -176,7 +177,6 @@ fun rememberResourceImageState(path: String): ImageLoadState {
     }
     return stage
 }
-
 
 
 @Composable

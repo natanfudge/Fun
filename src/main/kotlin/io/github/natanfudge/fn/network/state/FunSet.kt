@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.network.state
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.core.useOldStateIfPossible
 import io.github.natanfudge.fn.network.StateKey
 import io.github.natanfudge.fn.network.state.StateChangeValue.*
 import io.github.natanfudge.fn.util.*
@@ -10,44 +11,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import java.util.function.IntFunction
 
-/**
- * Creates a synchronized set that automatically propagates changes to all clients.
- *
- * This function creates a [FunSet] with the specified name and initial items. The set's
- * contents will be automatically synchronized across all clients in the multiplayer environment.
- *
- * This version uses Kotlin's reified type parameters to automatically determine the serializer.
- *
- * @sample io.github.natanfudge.fn.test.example.network.state.StateFunSetExamples.funSetExample
- * @see FunSet
- * @see funMap
- * @see funList
- */
-inline fun <reified T> Fun.funSet(name: String, editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, vararg items: T): FunSet<T> =
-    funSet(name, getFunSerializer(), mutableSetOf(*items), editor)
 
-inline fun <reified T> Fun.funSet(editor: ValueEditor<Set<T>> = ValueEditor.Missing as ValueEditor<Set<T>>, vararg items: T): Delegate<FunSet<T>> =
-    obtainPropertyName {
-        funSet(it, getFunSerializer(), mutableSetOf(*items), editor)
-    }
-
-/**
- * Creates a synchronized set that automatically propagates changes to all clients.
- *
- * This function creates a [FunSet] with the specified name, serializer, and initial items.
- * The set's contents will be automatically synchronized across all clients in the multiplayer environment.
- *
- * Use this version when you need to specify a custom serializer.
- *
- * @see FunSet
- * @see funMap
- * @see funList
- */
-fun <T> Fun.funSet(name: String, serializer: KSerializer<T>, items: MutableSet<T>, editor: ValueEditor<Set<T>>): FunSet<T> {
-    val list = FunSet(useOldStateIfPossible(items, name), name, this.id, serializer, editor)
-    context.stateManager.registerState(id, name, list)
-    return list
-}
 
 /**
  * A synchronized set that automatically propagates changes to all clients.

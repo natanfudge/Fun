@@ -13,7 +13,7 @@ interface ILogger {
     fun error(tag: String = "General", exception: Throwable? = null, message: () -> String)
 }
 
-class SimpleLogger : ILogger {
+object SimpleLogger : ILogger {
     override fun log(level: FunLogLevel, tag: String, exception: Throwable?, message: () -> String) {
         println("$level: [$tag]: ${message()}")
         exception?.printStackTrace()
@@ -135,3 +135,60 @@ enum class FunLogLevel {
 }
 
 
+fun getLogger() = FunContextRegistry.getContext().logger
+
+fun FunContext.log(level: FunLogLevel, tag: String, exception: Throwable?, message: () -> String) {
+    logger.log(level, tag, exception, message)
+}
+
+fun FunContext.logVerbose(tag: String, message: () -> String) {
+    logger.verbose(tag,  message)
+}
+
+fun FunContext.logDebug(tag: String, message: () -> String) {
+    logger.debug(tag, message)
+}
+
+fun FunContext.logPerformance(tag: String, message: () -> String) {
+    logger.performance(tag, message)
+}
+
+fun FunContext.logInfo(tag: String, message: () -> String) {
+    logger.info(tag, message)
+}
+
+fun FunContext.logWarn(tag: String, exception: Throwable? = null, message: () -> String) {
+    logger.warn(tag, exception, message)
+}
+
+fun FunContext.logError(tag: String, exception: Throwable?, message: () -> String) {
+    logger.error(tag, exception, message)
+}
+
+fun log(level: FunLogLevel, tag: String, exception: Throwable?, message: () -> String) {
+    getLogger().log(level, tag, exception, message)
+}
+
+fun logVerbose(tag: String, message: () -> String) {
+    getLogger().verbose(tag,  message)
+}
+
+fun logDebug(tag: String, message: () -> String) {
+    getLogger().debug(tag, message)
+}
+
+fun logPerformance(tag: String, message: () -> String) {
+    getLogger().performance(tag, message)
+}
+
+fun logInfo(tag: String, message: () -> String) {
+    getLogger().info(tag, message)
+}
+
+fun logWarn(tag: String, exception: Throwable? = null, message: () -> String) {
+    getLogger().warn(tag, exception, message)
+}
+
+fun logError(tag: String, exception: Throwable?, message: () -> String) {
+    getLogger().error(tag, exception, message)
+}

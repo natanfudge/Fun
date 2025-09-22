@@ -10,6 +10,7 @@ import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.exposeAsService
+import io.github.natanfudge.fn.core.getContext
 import io.github.natanfudge.fn.core.serviceKey
 import io.github.natanfudge.fn.core.valid
 import io.github.natanfudge.fn.render.WorldRenderer
@@ -97,7 +98,7 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
 
 
     private val surface by cached(webGPUHolder.surface) {
-        ComposeWebgpuSurface(webGPUHolder.surface, context)
+        ComposeWebgpuSurface(webGPUHolder.surface, getContext())
     }
 
     private var texture by cached(webGPUHolder.surface) {
@@ -157,12 +158,12 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
     init {
         exposeAsService(service)
         // For world input events, we need to ray trace to gui boxes, take the (x,y) on that surface, and pipe that (x,y) to the surface.
-        context.events.anyInput.listen { input ->
+        events.anyInput.listen { input ->
             check(!closed)
             check(!offscreenComposeRenderer.closed)
             offscreenComposeRenderer.scene.sendInputEvent(input)
         }
-        context.events.densityChange.listen { (newDensity) ->
+        events.densityChange.listen { (newDensity) ->
             val scene = offscreenComposeRenderer.scene
             if (scene.focused) {
                 scene.scene.density = newDensity

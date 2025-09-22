@@ -24,7 +24,7 @@ class ErrorNotifications: Fun("ErrorNotifications") {
     private var error: Throwable? by mutableStateOf(null)
 
     init {
-        context.events.guiError.listen {
+        events.guiError.listen {
             this.error = it
         }
         addFunPanel {

@@ -3,8 +3,6 @@
 package io.github.natanfudge.fn.window
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.Density
@@ -14,7 +12,6 @@ import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.WindowEvent
 import io.github.natanfudge.fn.render.isEmpty
-import io.github.natanfudge.fn.window.*
 import org.jetbrains.compose.reload.agent.sendAsync
 import org.jetbrains.compose.reload.core.WindowId
 import org.jetbrains.compose.reload.orchestration.OrchestrationMessage
@@ -211,7 +208,7 @@ class GlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val par
 
 
 
-    var cursorLocked = false
+    var _cursorLocked = false
         set(value) {
             if (field != value) {
                 field = value

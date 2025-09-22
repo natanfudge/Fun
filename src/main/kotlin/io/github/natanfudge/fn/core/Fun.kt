@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.network.state.FunList
 import io.github.natanfudge.fn.network.state.FunRememberedValue
 import io.github.natanfudge.fn.network.state.FunSet
 import io.github.natanfudge.fn.network.state.getFunSerializer
@@ -23,9 +24,7 @@ import kotlin.reflect.KProperty
 abstract class Fun internal constructor(
     override val id: FunId,
     val parent: Fun? = FunContextRegistry.getContext().rootFun,
-) : Taggable by TagMap(), Resource, AutoCloseable {
-
-//    override val id: FunId = parent?.id?.child(name) ?: name
+) : Taggable by TagMap(), Resource, AutoCloseable, FunContext by FunContextRegistry.getContext() {
 
     init {
         parent?.registerChild(this)
@@ -36,7 +35,7 @@ abstract class Fun internal constructor(
     }
 
     init {
-        context.register(this)
+        register(this)
     }
 
     val children = mutableListOf<Fun>()
@@ -53,8 +52,6 @@ abstract class Fun internal constructor(
         children.clear()
     }
 
-    val context: FunContext get() = FunContextRegistry.getContext()
-    inline val events get() = context.events
 
     override fun toString(): String {
         return id
@@ -79,7 +76,7 @@ abstract class Fun internal constructor(
      */
     internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
         if (deleteState) {
-            context.unregister(this)
+            unregister(this)
         }
         for (attachment in closeAttachments) {
             attachment.close()
@@ -112,13 +109,19 @@ abstract class Fun internal constructor(
         funSet(it, getFunSerializer(), items, editor)
     }
 
-    fun addGui(modifier: BoxScope.() -> Modifier = { Modifier }, gui: @Composable BoxScope.() -> Unit): ComposeHudPanel {
+    inline fun <reified T> funList(
+        editor: ValueEditor<List<T>> = ValueEditor.Missing as ValueEditor<List<T>>, noinline items: () -> MutableList<T> = { mutableListOf() },
+    ): Delegate<FunList<T>> = obtainPropertyName {
+        funList (it, getFunSerializer(), items, editor)
+    }
+
+    fun addGui(modifier: BoxScope.() -> Modifier = { Modifier }, guiCode: @Composable BoxScope.() -> Unit): ComposeHudPanel {
         @Suppress("DEPRECATION")
-        return context.gui.addUnscopedPanel(modifier, gui).closeWithThis()
+        return gui.addUnscopedPanel(modifier, guiCode).closeWithThis()
     }
 
     fun addWorldGui(transform: Transform, canvasWidth: Int, canvasHeight: Int, content: (@Composable () -> Unit)) =
-        context.gui.addUnscopedWorldPanel(transform, IntSize(canvasWidth, canvasHeight), content).closeWithThis()
+        gui.addUnscopedWorldPanel(transform, IntSize(canvasWidth, canvasHeight), content).closeWithThis()
 
     /**
      *
@@ -134,7 +137,7 @@ abstract class Fun internal constructor(
     fun <T> cached(key: IInvalidationKey, ctr: () -> T): PropertyDelegateProvider<Any, CachedValue<T>> = PropertyDelegateProvider { _, property ->
         CachedValue(
             "${this.id}#${property.name}",
-            invalidation = InvalidationInfo(key, parentClass = this::class), ctr, context.cache
+            invalidation = InvalidationInfo(key, parentClass = this::class), ctr, cache
         )
     }
 

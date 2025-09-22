@@ -41,7 +41,7 @@ class DeepSoulsGame : Fun("Game") {
 
 
 
-    val input = InputManager(context)
+    val input = InputManager()
 
     val physics = FunPhysics()
     val player = Player(this)
@@ -70,9 +70,9 @@ class DeepSoulsGame : Fun("Game") {
 
     private fun repositionCamera(playerPos: Vec3f) {
         if (creativeMovement.mode == CameraMode.Off) {
-            context.camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
+            camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
             // This one is mostly for zooming in
-            context.camera.focus(playerPos, distance = cameraDistance)
+            camera.focus(playerPos, distance = cameraDistance)
         }
     }
 

@@ -125,7 +125,7 @@ class WorldPanel internal constructor(private val panelManager: WorldPanelManage
     var canvasSize: IntSize = panelManager.initialPanelSize
         set(value) {
             field = value
-            panelManager.compose.resize(value)
+            panelManager._compose.resize(value)
         }
 
     override fun close() {
@@ -141,7 +141,7 @@ internal class WorldPanelManager(val initialPanelSize: IntSize) : Fun("WorldPane
     private var currentContent: @Composable () -> Unit by memo { {} }
 
 
-    val compose = ComposeOpenGLRenderer(
+    val _compose = ComposeOpenGLRenderer(
         WindowConfig(size = initialPanelSize), show = false,
         onSetPointerIcon = {}, // Not yet
         name = "WorldPanels",
@@ -163,19 +163,19 @@ internal class WorldPanelManager(val initialPanelSize: IntSize) : Fun("WorldPane
      */
     fun resetUi() {
         this.currentContent = {}
-        if (compose.scene.valid) {
+        if (_compose.scene.valid) {
             // Don't want to do this when closing the scene anyway
-            compose.scene.setContent { }
+            _compose.scene.setContent { }
         }
     }
 
     fun setContent(content: @Composable () -> Unit) {
         currentContent = content
-        compose.scene.setContent(content)
+        _compose.scene.setContent(content)
     }
 
     init {
-        compose.resize(initialPanelSize)
+        _compose.resize(initialPanelSize)
     }
 
     override fun cleanup() {
@@ -185,7 +185,7 @@ internal class WorldPanelManager(val initialPanelSize: IntSize) : Fun("WorldPane
     var canvasSize: IntSize = initialPanelSize
         set(value) {
             field = value
-            compose.resize(value)
+            _compose.resize(value)
         }
 }
 

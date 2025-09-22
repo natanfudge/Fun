@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.mte
 
+import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.network.state.FunList
@@ -113,7 +114,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
     }
 
     fun spawnItem(item: Item, pos: Vec3f) {
-        items.add(WorldItem(game, "Item-${item.type}-${items.size}-${context.time.gameTime}", item).apply {
+        items.add(WorldItem(game, "Item-${item.type}-${items.size}-${time.gameTime}", item).apply {
             physics.position = pos
         })
     }
@@ -128,7 +129,7 @@ class World(val game: DeepSoulsGame) : Fun("World") {
 @Suppress("UNCHECKED_CAST")
 inline fun <reified K, reified V : Fun> Fun.mapOfFuns(name: String, constructor: (FunId) -> V): FunMap<K, V> {
     // SLOW: too much code in inline function
-    val oldState = context.stateManager.getState(id)?.getCurrentState()?.get(name)?.value
+    val oldState = stateManager.getState(id)?.getCurrentState()?.get(name)?.value
     val keySerializer = getFunSerializer<K>()
     val valueSerializer = getFunSerializer<V>()
     val map = if (oldState is Map<*, *> && oldState.all { it.value is V }) {
@@ -140,24 +141,24 @@ inline fun <reified K, reified V : Fun> Fun.mapOfFuns(name: String, constructor:
         if (oldState != null) println("Throwing out incompatible old state for $id:$name")
         FunMap(mutableMapOf(), name, this, keySerializer, valueSerializer)
     }
-    context.stateManager.registerState(id, name, map)
+    stateManager.registerState(id, name, map)
     return map
 }
 
 
 inline fun <reified T : Fun> Fun.listOfFuns(name: String, constructor: (FunId) -> T): FunList<T> {
     // SLOW: too much code in inline function
-    val oldState = context.stateManager.getState(id)?.getCurrentState()?.get(name)?.value
+    val oldState = stateManager.getState(id)?.getCurrentState()?.get(name)?.value
     val serializer = getFunSerializer<T>()
     val list = if (oldState is List<*> && oldState.all { it is T }) {
         val converted = oldState.map {
             constructor((it as Fun).id)
         }
-        FunList(converted.toMutableList(), name, this, serializer)
+        FunList(converted.toMutableList(), name, this.id, serializer, ValueEditor.Missing as ValueEditor<List<T>>)
     } else {
         if (oldState != null) println("Throwing out incompatible old state for $id:$name")
-        FunList(mutableListOf(), name, this, serializer)
+        FunList(mutableListOf(), name, this.id, serializer, ValueEditor.Missing as ValueEditor<List<T>>)
     }
-    context.stateManager.registerState(id, name, list)
+    stateManager.registerState(id, name, list)
     return list
 }

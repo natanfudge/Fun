@@ -33,7 +33,7 @@ class HoverHighlight(
     }
 
     init {
-        context.events.beforeFrame.listen {
+        events.beforeFrame.listen {
             colorHoveredObject()
         }
     }
@@ -42,8 +42,7 @@ class HoverHighlight(
         private set
 
     private fun colorHoveredObject() {
-        val newRoot = context.getHoveredParent()
-//        println("Hovered: ${newRoot?.id}")
+        val newRoot = getHoveredParent()
         val actualNewRoot = if (newRoot == null) null else redirectHover(newRoot)
 
         if (actualNewRoot != hoveredObjectRoot) {

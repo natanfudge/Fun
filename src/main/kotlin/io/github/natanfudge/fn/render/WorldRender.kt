@@ -8,6 +8,7 @@ import io.github.natanfudge.fn.core.FunContextRegistry
 import io.github.natanfudge.fn.core.FunId
 import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.exposeAsService
+import io.github.natanfudge.fn.core.logWarn
 import io.github.natanfudge.fn.core.serviceKey
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.render.utils.*
@@ -22,9 +23,6 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.ygdrasil.webgpu.*
 import korlibs.time.seconds
 import korlibs.time.times
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlin.math.PI
@@ -269,7 +267,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
     var hoveredObject: Boundable? by funValue(null)
 
-    var camera = DefaultCamera()
+    var _camera = DefaultCamera()
 
     var bindgroup: GPUBindGroup by cached(surfaceBinding) {
         surfaceBinding.createBindGroup(pipelineHolder.pipeline)
@@ -303,17 +301,17 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
             val windowTexture =
                 underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Texture created directly from device ${ctx.index}"))
 
-            val viewProjection = projection * camera.viewMatrix
+            val viewProjection = projection * _camera.viewMatrix
 
             val dimensions = surfaceHolder.size
 
             // Update selected object based on ray casting
-            val rayCast = surfaceBinding.rayCasting.rayCast(getCursorRay(camera, cursorPosition, viewProjection, dimensions))
+            val rayCast = surfaceBinding.rayCasting.rayCast(getCursorRay(_camera, cursorPosition, viewProjection, dimensions))
             hoveredObject = rayCast?.value
             selectedObjectId = rayCast?.renderId ?: -1
 
             val uniform = WorldUniform(
-                viewProjection, camera.position, lightPos,
+                viewProjection, _camera.position, lightPos,
                 dimensions.width.toUInt(), dimensions.height.toUInt()
             )
 
@@ -372,7 +370,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
                     )
                     instanceIndex += instances
                 } else {
-                    println("Skipping model because its bindgroup is null, not sure if this will work correctly")
+                    logWarn("WorldRenderer"){"Skipping model because its bindgroup is null, not sure if this will work correctly"}
                 }
 
             }
