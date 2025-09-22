@@ -3,6 +3,7 @@ package io.github.natanfudge.fn.mte
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
+import io.github.natanfudge.fn.core.logWarn
 import io.github.natanfudge.fn.network.state.FunList
 import io.github.natanfudge.fn.network.state.FunMap
 import io.github.natanfudge.fn.network.state.getFunSerializer
@@ -138,7 +139,7 @@ inline fun <reified K, reified V : Fun> Fun.mapOfFuns(name: String, constructor:
         } as Map<K, V>
         FunMap(converted.toMutableMap(), name, this, keySerializer, valueSerializer)
     } else {
-        if (oldState != null) println("Throwing out incompatible old state for $id:$name")
+        if (oldState != null) logWarn("FunState"){"Throwing out incompatible old state for $id:$name"}
         FunMap(mutableMapOf(), name, this, keySerializer, valueSerializer)
     }
     stateManager.registerState(id, name, map)
@@ -156,7 +157,7 @@ inline fun <reified T : Fun> Fun.listOfFuns(name: String, constructor: (FunId) -
         }
         FunList(converted.toMutableList(), name, this.id, serializer, ValueEditor.Missing as ValueEditor<List<T>>)
     } else {
-        if (oldState != null) println("Throwing out incompatible old state for $id:$name")
+        if (oldState != null) logWarn("FunState"){"Throwing out incompatible old state for $id:$name"}
         FunList(mutableListOf(), name, this.id, serializer, ValueEditor.Missing as ValueEditor<List<T>>)
     }
     stateManager.registerState(id, name, list)

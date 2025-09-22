@@ -11,11 +11,9 @@ class TransformTest {
 
     @Test
     fun testTransformBasicOperations() {
-        println("[DEBUG_LOG] Testing basic transform operations")
 
         // Test initial transform
         val transform = Transform()
-        println("[DEBUG_LOG] Initial transform: translation=${transform.translation}, rotation=${transform.rotation}, scale=${transform.scale}")
 
         assertEquals(Vec3f.zero(), transform.translation, "Initial translation should be zero")
         assertEquals(Vec3f(1f, 1f, 1f), transform.scale, "Initial scale should be (1,1,1)")
@@ -38,7 +36,6 @@ class TransformTest {
 
     @Test
     fun testTransformCopy() {
-        println("[DEBUG_LOG] Testing transform copy operations")
 
         val original = Transform(
             translation = Vec3f(1f, 2f, 3f),
@@ -59,7 +56,6 @@ class TransformTest {
 
     @Test
     fun testTransformMatrix() {
-        println("[DEBUG_LOG] Testing transform matrix conversion")
 
         val transform = Transform(
             translation = Vec3f(1f, 2f, 3f),
@@ -68,7 +64,6 @@ class TransformTest {
         )
 
         val matrix = transform.toMatrix()
-        println("[DEBUG_LOG] Transform matrix: $matrix")
 
         // The matrix should not be zero/identity when there's translation
         assertNotEquals(0f, matrix.m03, "Matrix should have translation component")

@@ -10,7 +10,6 @@
 //import kotlin.test.assertTrue
 //
 //fun main() {
-//    println(Int.MIN_VALUE)
 //}
 //
 //class StateFunSetExamples {

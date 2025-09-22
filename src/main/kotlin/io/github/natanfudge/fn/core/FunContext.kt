@@ -144,7 +144,7 @@ class FunContextImpl(val appCallback: () -> Unit) : FunContext {
             jvmHotswapInProgress = true
         }
         invokeAfterHotReload { _, result ->
-            println("Hot Reloading app with classes: ${result.leftOrNull()?.definitions?.map { it.definitionClass.simpleName }}")
+            logDebug("HotReload"){"Hot Reloading app with classes: ${result.leftOrNull()?.definitions?.map { it.definitionClass.simpleName }}"}
             result.mapLeft {
                 // This runs on a different thread which will cause issues, so we store it and will run it on the main thread later
                 pendingReload = it
@@ -273,7 +273,7 @@ private fun aggregateDirtyClasses(reload: Reload) {
     for (scope in reload.dirty.dirtyScopes) {
         classes.add(scope.methodId.classId.value)
     }
-    println("Dirty classes: " + classes)
+    logVerbose("HotReload"){ "Dirty classes: $classes" }
 }
 
 

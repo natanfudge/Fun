@@ -137,7 +137,7 @@ enum class FunLogLevel {
 
 fun getLogger() = FunContextRegistry.getContext().logger
 
-fun FunContext.log(level: FunLogLevel, tag: String, exception: Throwable?, message: () -> String) {
+fun FunContext.log(level: FunLogLevel, tag: String, exception: Throwable? = null, message: () -> String) {
     logger.log(level, tag, exception, message)
 }
 

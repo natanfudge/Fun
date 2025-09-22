@@ -194,12 +194,10 @@ val glfwHandCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR)
 
             // Create bind group for the sampler, and texture
             val pass = encoder.beginRenderPass(renderPassDescriptor)
-//            println("Before hud render")
             pass.setPipeline(shader.pipeline)
             pass.setBindGroup(0u, bindGroup.group)
             pass.draw(6u)
             pass.end()
-//            println("After hud render")
         }
     }
 

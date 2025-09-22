@@ -454,9 +454,8 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
 
     fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
-//        check(id !in model.instances) { "Instance with id $id already exists" }
         if (id in model.instances) {
-            println("Note: RenderInstance with ID '$id' was not properly closed prior to being recreated, it will be overwritten.")
+            logWarn("Render"){"RenderInstance with ID '$id' was not properly closed prior to being recreated, it will be overwritten."}
             model.instances[id]!!.close()
         }
         val instance = RenderInstance(
@@ -551,7 +550,6 @@ internal class IndirectInstanceBuffer(
 
     fun rebuild() {
         if (dirty) {
-//            println("Rebuilding instance buffer, we now have ${countInstances()} instances")
             dirty = false
             val indices = IntArray(countInstances())
             var globalI = 0
@@ -565,39 +563,3 @@ internal class IndirectInstanceBuffer(
         }
     }
 }
-
-
-fun WorldRendererSurfaceEffect.printInstanceDataDebug() {
-    println("=== Instance Data Debug Report ===")
-    println("Total models: ${models.size}")
-
-    if (models.isEmpty()) {
-        println("No models found - buffers are empty")
-        return
-    }
-
-    var totalInstances = 0
-
-    models.forEach { (modelId, boundModel) ->
-        val instances = boundModel.instances
-        totalInstances += instances.size
-
-        println("\n--- Model: $modelId ---")
-        println("  Instance count: ${instances.size}")
-        println("  Model file: ${boundModel.data.id}")
-
-
-        instances.values.forEachIndexed { index, instance ->
-            println("\n  Instance #${index + 1}:")
-            println("    ID: ${instance.funId}")
-            println("    Render ID: ${instance.renderId}")
-
-            // Base Instance Data
-            println("    Base Instance Data:")
-            println("      Transform: ${instance.setTransform}")
-            println("      Global Instance Pointer: ${instance.globalInstancePointer.address}")
-
-        }
-    }
-}
-

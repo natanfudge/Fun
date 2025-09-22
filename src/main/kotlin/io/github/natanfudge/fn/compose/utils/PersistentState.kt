@@ -6,6 +6,7 @@ import com.russhwolf.settings.Settings
 import com.russhwolf.settings.serialization.decodeValueOrNull
 import com.russhwolf.settings.serialization.encodeValue
 import com.russhwolf.settings.set
+import io.github.natanfudge.fn.core.logWarn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -128,7 +129,7 @@ fun <T> persistentStateList(key: String, serializer: KSerializer<T>, debouncer: 
     val storedList = try {
         settings.decodeValueOrNull(listSerializer, key)
     } catch (e: SerializationException) {
-        println("Warn: failed to decode stored value in key '$key': ${e.stackTraceToString()}")
+        logWarn("Serialization", e) { "Failed to decode stored value in key '$key'" }
         settings[key] = null
         null
     }

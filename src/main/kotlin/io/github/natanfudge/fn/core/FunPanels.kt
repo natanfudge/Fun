@@ -148,7 +148,6 @@ internal class WorldPanelManager(val initialPanelSize: IntSize) : Fun("WorldPane
         onFrame = { (bytes, size) ->
             val image = FunImage(size, bytes, null)
             render.setTexture(image)
-            println("Set render texture")
         },
         onCreateScene = { scene ->
             scene.setContent {
@@ -178,9 +177,6 @@ internal class WorldPanelManager(val initialPanelSize: IntSize) : Fun("WorldPane
         _compose.resize(initialPanelSize)
     }
 
-    override fun cleanup() {
-        println("Closing $this")
-    }
 
     var canvasSize: IntSize = initialPanelSize
         set(value) {

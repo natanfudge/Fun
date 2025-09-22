@@ -8,14 +8,15 @@ import darwin.NSWindow
 import ffi.LibraryLoader
 import ffi.globalMemory
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunLogLevel
 import io.github.natanfudge.fn.core.InvalidationKey
+import io.github.natanfudge.fn.core.SimpleLogger
+import io.github.natanfudge.fn.core.log
 import io.github.natanfudge.fn.util.closeAll
-import io.github.natanfudge.fn.window.*
+import io.github.natanfudge.fn.window.GlfwWindow
+import io.github.natanfudge.fn.window.GlfwWindowHolder
 import io.ygdrasil.webgpu.*
-import io.ygdrasil.wgpu.WGPULogCallback
-import io.ygdrasil.wgpu.WGPULogLevel_Info
-import io.ygdrasil.wgpu.wgpuSetLogCallback
-import io.ygdrasil.wgpu.wgpuSetLogLevel
+import io.ygdrasil.wgpu.*
 import kotlinx.coroutines.runBlocking
 import org.lwjgl.glfw.GLFW
 import org.lwjgl.glfw.GLFW.glfwGetVideoMode
@@ -30,8 +31,6 @@ import org.rococoa.ID
 import org.rococoa.Rococoa
 
 
-
-
 class WebGPUException(error: GPUError) : Exception("WebGPU Error: $error")
 
 var nextWgpuIndex = 0
@@ -43,7 +42,8 @@ class WebGPUContext(
     companion object {
         val wgpu = WGPU.createInstance() ?: error("failed to create wgpu instance")
     }
-     val surface = wgpu.getNativeSurface(window.handle)
+
+    val surface = wgpu.getNativeSurface(window.handle)
     private val adapter = wgpu.requestAdapter(surface)
         ?.also { surface.computeSurfaceCapabilities(it) }
         ?: error("Could not get wgpu adapter")
@@ -53,8 +53,8 @@ class WebGPUContext(
 
     var error: WebGPUException? = null
 
-     val presentationFormat = surface.supportedFormats.first()
-     val device = runBlocking {
+    val presentationFormat = surface.supportedFormats.first()
+    val device = runBlocking {
         adapter.requestDevice(
             DeviceDescriptor(onUncapturedError = {
                 throw WebGPUException(it)
@@ -96,11 +96,19 @@ data class WebGPUSurfaceHolder(val windowHolder: GlfwWindowHolder) : Fun("WebGPU
         wgpuSetLogLevel(WGPULogLevel_Info)
         val callback = WGPULogCallback.allocate(globalMemory) { level, cMessage, _ ->
             val message = cMessage?.data?.toKString(cMessage.length) ?: "empty message"
-            println("$level: $message")
+            val funLevel = when (level) {
+                WGPULogLevel_Off -> FunLogLevel.Verbose
+                WGPULogLevel_Error -> FunLogLevel.Error
+                WGPULogLevel_Warn -> FunLogLevel.Warn
+                WGPULogLevel_Info -> FunLogLevel.Info
+                WGPULogLevel_Debug -> FunLogLevel.Debug
+                WGPULogLevel_Trace -> FunLogLevel.Verbose
+                else -> error("Unexpected log level: $level")
+            }
+            SimpleLogger.log(funLevel, "WGPU") { message }
         }
         wgpuSetLogCallback(callback, globalMemory.bufferOfAddress(callback.handler).handler)
     }
-
     val surface by cached(windowHolder.window) {
         WebGPUContext(windowHolder.window, size)
     }
@@ -141,14 +149,14 @@ private val os = System.getProperty("os.name").let { name ->
 private fun WGPU.getNativeSurface(window: Long): NativeSurface = when (os) {
     Os.Linux -> when {
         glfwGetWaylandWindow(window) == 0L -> {
-            println("running on X11")
+            SimpleLogger.debug("OS"){"running on X11"}
             val display = glfwGetX11Display().toNativeAddress()
             val x11_window = glfwGetX11Window(window).toULong()
             getSurfaceFromX11Window(display, x11_window) ?: error("fail to get surface on Linux")
         }
 
         else -> {
-            println("running on Wayland")
+            SimpleLogger.debug("OS"){"running on Wayland"}
             val display = glfwGetWaylandDisplay().toNativeAddress()
             val wayland_window = glfwGetWaylandWindow(window).toNativeAddress()
             getSurfaceFromWaylandWindow(display, wayland_window)

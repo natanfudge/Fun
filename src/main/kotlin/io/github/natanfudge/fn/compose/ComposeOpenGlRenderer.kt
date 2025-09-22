@@ -475,9 +475,7 @@ class ComposeOpenGLRenderer(
     )
 
     var scene: GlfwComposeScene by cached(offscreenWindow.window) {
-        val scene = createComposeScene()
-        println("Created new scene:")
-        scene
+        createComposeScene()
     }
 
     private fun createComposeScene(): GlfwComposeScene {

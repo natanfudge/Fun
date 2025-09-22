@@ -19,8 +19,7 @@ class TransformBugTest {
 
     @Test
     fun testTransformExtensionProperties() {
-        println("[DEBUG_LOG] Testing transform extension properties")
-        
+
         // Create a transform with non-zero values
         val transform = Transform(
             translation = Vec3f(1f, 2f, 3f),
@@ -37,13 +36,11 @@ class TransformBugTest {
         assertNotEquals(Vec3f.zero(), transform.translation, "Translation should not be compressed to zero")
         assertNotEquals(Vec3f.zero(), transform.scale, "Scale should not be compressed to zero")
         
-        println("[DEBUG_LOG] Extension properties work correctly: translation=${transform.translation}, scale=${transform.scale}")
     }
     
     @Test
     fun testTransformConsistency() {
-        println("[DEBUG_LOG] Testing transform getter/setter consistency")
-        
+
         // Create a transform
         val transform = Transform()
         
@@ -66,13 +63,11 @@ class TransformBugTest {
         assertEquals(Vec3f(5f, 6f, 7f), translationViaExtension, "Translation should maintain its value")
         assertEquals(Vec3f(1f, 1f, 1f), scaleViaExtension, "Scale should maintain its value")
         
-        println("[DEBUG_LOG] Transform consistency verified: translation=${translationViaExtension}, scale=${scaleViaExtension}")
     }
     
     @Test
     fun testTransformMatrixGeneration() {
-        println("[DEBUG_LOG] Testing transform matrix generation")
-        
+
         // Create a transform with specific values
         val transform = Transform(
             translation = Vec3f(10f, 20f, 30f),
@@ -97,6 +92,5 @@ class TransformBugTest {
         assertNotEquals(0f, matrix.m03, "Matrix should not have zero translation")
         assertNotEquals(1f, matrix.m00, "Matrix should not have identity scale")
         
-        println("[DEBUG_LOG] Matrix generation verified: translation components (${matrix.m03}, ${matrix.m13}, ${matrix.m23}), scale components (${matrix.m00}, ${matrix.m11}, ${matrix.m22})")
     }
 }
