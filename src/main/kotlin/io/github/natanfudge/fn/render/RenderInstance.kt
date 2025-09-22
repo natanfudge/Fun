@@ -30,6 +30,8 @@ class RenderInstance internal constructor(
         onClose(this)
     }
 
+
+
     // SLOW: should reconsider passing normal matrices always
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
     internal val globalInstancePointer = instanceBuffer.newInstance(

@@ -3,13 +3,7 @@ package io.github.natanfudge.fn.render
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.FunContextRegistry
-import io.github.natanfudge.fn.core.FunId
-import io.github.natanfudge.fn.core.InvalidationKey
-import io.github.natanfudge.fn.core.exposeAsService
-import io.github.natanfudge.fn.core.logWarn
-import io.github.natanfudge.fn.core.serviceKey
+import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.network.ColorSerializer
 import io.github.natanfudge.fn.render.utils.*
 import io.github.natanfudge.fn.util.closeAll
@@ -146,10 +140,10 @@ class WorldRendererSurfaceEffect(val ctx: WebGPUContext) : InvalidationKey() {
     )
 
     override fun close() {
+        models.forEach { it.value.close() }
         closeAll(
             vertexBuffer, indexBuffer, uniformBuffer, baseInstanceData, jointMatrixData
         )
-        models.forEach { it.value.close() }
     }
 }
 
@@ -167,6 +161,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
     companion object {
         val service = serviceKey<WorldRenderer>()
     }
+
     val surfaceBinding by cached(surfaceHolder.surface) {
         // Recreated on every surface change
         WorldRendererSurfaceEffect(surfaceHolder.surface)
@@ -370,7 +365,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
                     )
                     instanceIndex += instances
                 } else {
-                    logWarn("WorldRenderer"){"Skipping model because its bindgroup is null, not sure if this will work correctly"}
+                    logWarn("WorldRenderer") { "Skipping model because its bindgroup is null, not sure if this will work correctly" }
                 }
 
             }
@@ -435,6 +430,13 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
         return surfaceBinding.models[model.id]!!
     }
 
+    fun clearModels() {
+        for (model in surfaceBinding.models) {
+            model.value.close()
+        }
+        surfaceBinding.models.clear()
+    }
+
     /**
      * Note: [models] is updated by [getOrBindModel]
      */
@@ -447,6 +449,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
             firstIndex = (indexPointer.address / Int.SIZE_BYTES.toUInt()).toUInt(),
             baseVertex = (vertexPointer.address / VertexArrayBuffer.StrideBytes).toInt(),
             pipeline = { pipelineHolder.pipeline },
+            this
         )
 
         return bound
@@ -455,13 +458,13 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
     fun spawn(id: FunId, model: BoundModel, value: Boundable, initialTransform: Mat4f, tint: Tint): RenderInstance {
         if (id in model.instances) {
-            logWarn("Render"){"RenderInstance with ID '$id' was not properly closed prior to being recreated, it will be overwritten."}
+            logWarn("Render") { "RenderInstance with ID '$id' was not properly closed prior to being recreated, it will be overwritten." }
             model.instances[id]!!.close()
         }
         val instance = RenderInstance(
             id, initialTransform, tint, model, instanceBuffer = surfaceBinding.baseInstanceData,
             jointBuffer = surfaceBinding.jointMatrixData,
-            value, onClose = { remove(it) }
+            value, onClose = { remove(it, removeFromModel = true) }
         )
         surfaceBinding.rayCasting.add(instance)
 
@@ -469,15 +472,17 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
         return instance
     }
 
-     fun remove(renderInstance: RenderInstance) {
-        renderInstance.model.instances.remove(renderInstance.funId)
+    fun remove(renderInstance: RenderInstance, removeFromModel: Boolean) {
+        if(removeFromModel) renderInstance.model.instances.remove(renderInstance.funId)
         surfaceBinding.rayCasting.remove(renderInstance)
 
-         surfaceBinding.baseInstanceData.free(renderInstance.globalInstancePointer, BaseInstanceData.size)
-         if (renderInstance.skin != null) {
-             surfaceBinding.jointMatrixData.free(renderInstance.jointMatricesPointer, renderInstance.skin.jointMatrixSize)
-         }
-         renderInstance.despawned = true
+        surfaceBinding.baseInstanceData.free(renderInstance.globalInstancePointer, BaseInstanceData.size)
+        if (renderInstance.skin != null) {
+            surfaceBinding.jointMatrixData.free(renderInstance.jointMatricesPointer, renderInstance.skin.jointMatrixSize)
+        }
+        renderInstance.despawned = true
+
+        // SLOW: should consider freeing the model when it runs out of instances
     }
 
 

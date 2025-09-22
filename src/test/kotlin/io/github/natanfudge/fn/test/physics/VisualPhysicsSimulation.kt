@@ -55,7 +55,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
 
 
     private fun placeCameraToShowEverything(block: PhysicsAssertionBlock) {
-        app.context.camera.viewAll(
+        app.camera.viewAll(
             positions = block.assertions.flatMap {
                 listOf(
                     it.first.position,
@@ -63,8 +63,8 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
                 )
             },
             1f,
-            fovYRadians = app.context.world.fovYRadians,
-            aspectRatio = app.context.world.surfaceHolder.size.aspectRatio
+            fovYRadians = app.renderer.fovYRadians,
+            aspectRatio = app.renderer.surfaceHolder.size.aspectRatio
         )
     }
 
@@ -116,7 +116,7 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
     val physics = FunPhysics()
     val scheduler = VisibleSimulationTicker(physics.system)
 
-    val input = InputManager(context)
+    val input = InputManager()
 
     val simulationRunner = VisualPhysicsSimulation(this)
 
@@ -138,9 +138,9 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
                         var stopped by remember { mutableStateOf(false) }
                         IconButton(onClick = {
                             if (stopped) {
-                                context.time.resume()
+                                time.resume()
                             } else {
-                                context.time.stop()
+                                time.stop()
                             }
                             stopped = !stopped
                         }) {
@@ -162,7 +162,7 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
                         }
                         var simulationSpeed by rememberPersistentFloat("simulation-speed") { 1f }
                         LaunchedEffect(simulationSpeed) {
-                            context.time.speed = simulationSpeed
+                            time.speed = simulationSpeed
                         }
                         Text("x${simulationSpeed.toString(2)}", Modifier.align(Alignment.CenterHorizontally))
                         Row {

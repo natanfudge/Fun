@@ -114,7 +114,8 @@ class PhysicsSystem(private val logger: ILogger, var gravity: Boolean = true) {
         val deltaSeconds = delta.seconds
         for (body in bodies) {
             if (!body.isImmovable) {
-                if (gravity) applyGravity(body, deltaSeconds)
+                //TODO: don't apply gravity to grounded objects
+                if (gravity && !body.isGrounded) applyGravity(body, deltaSeconds)
                 applyDisplacement(body, deltaSeconds)
             }
         }
@@ -169,6 +170,8 @@ class PhysicsSystem(private val logger: ILogger, var gravity: Boolean = true) {
         // Push the body apart along the axis with the smallest overlap, so it stops and doesn't sink into the surface.
         val pushoutAxis = overlapByAxis.minBy { it.second }.first
 
+        // If there's no overlap, no need to do anything
+        if (overlapByAxis[pushoutAxis].second <= 0f) return
 
         if (body.boundingBox.min(pushoutAxis) >= surface.boundingBox.min(pushoutAxis)) {
             val sinkAmount = surface.boundingBox.max(pushoutAxis) - body.boundingBox.min(pushoutAxis)
@@ -246,16 +249,21 @@ class PhysicsSystem(private val logger: ILogger, var gravity: Boolean = true) {
     }
 
     private fun applyDisplacement(body: Body, deltaSeconds: Double) {
-        body.velocity = applyChange(deltaSeconds, body.velocity, body.acceleration)
-        body.position = applyChange(deltaSeconds, body.position, body.velocity)
-        body.orientation = updateRotation(body.orientation, body.angularVelocity, deltaSeconds.toFloat())
+        if (!body.acceleration.isZero) {
+            body.velocity = applyChange(deltaSeconds, body.velocity, body.acceleration)
+        }
+        if (!body.velocity.isZero) {
+            body.position = applyChange(deltaSeconds, body.position, body.velocity)
+        }
+        if (!body.angularVelocity.isZero) {
+            body.orientation = updateRotation(body.orientation, body.angularVelocity, deltaSeconds.toFloat())
+        }
     }
 
     /**
      * Applies changes in value like velocity or acceleration in a way that works better with small floating point numbers.
      */
     private fun applyChange(delta: Double, prevValue: Vec3f, change: Vec3f): Vec3f {
-        if (change.isZero) return prevValue
         val xIncrement = if (change.x == 0f) 0f else {
             // If the change is non-zero we want the new value to actually change. If we don't do this, extremely small values might not cause any change in
             // the final value, so we change by at least some small value

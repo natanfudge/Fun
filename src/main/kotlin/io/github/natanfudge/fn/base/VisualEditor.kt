@@ -52,6 +52,7 @@ class VisualEditor(
         HoverHighlight(), inputManagerMod, enabled
     )
 
+    //TODO: on visual editor->s how arrows
 
     init {
         inputManagerMod.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {

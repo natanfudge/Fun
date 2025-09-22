@@ -47,7 +47,7 @@ private fun PhysicsTest.runTest(show: Boolean, throwOnFailure: Boolean) {
 
 
 class HeadlessPhysicsSimulation : PhysicsSimulation {
-    override val physics = PhysicsSystem(SimpleLogger())
+    override val physics = PhysicsSystem(SimpleLogger)
     override fun cube(
         position: Vec3f,
         rotation: Quatf,

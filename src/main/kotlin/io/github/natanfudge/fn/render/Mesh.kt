@@ -93,6 +93,194 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
             Mesh(indices, vba)
         }
 
+        /**
+         * Creates an arrowhead with length = 1, thickness = 1, and where the point forms a [angleRad] angle
+         *     /\
+         *    /  \
+         *   /    \
+         *  /      \
+         * /        \
+         ***/
+        fun arrowHead(angleRad: Float): Mesh {
+            val L = 1.0f
+            val thickness: Float = 1f
+            val halfThickness = thickness / 2f
+            val halfAngle = angleRad / 2f
+            val halfWidth = kotlin.math.tan(halfAngle).toFloat() * L
+
+            val yTip = 0.5f
+            val yBase = yTip - L // = -0.5f
+            val zFront = halfThickness
+            val zBack = -halfThickness
+
+            val positions = mutableListOf<Point3f>()
+            val uvs = mutableListOf<UV>()
+            val indices = mutableListOf<Int>()
+
+            // Helper to add a triangle with given 3 vertices and simple UV mapping
+            fun addTriangle(a: Point3f, b: Point3f, c: Point3f) {
+                val start = positions.size
+                positions += a; positions += b; positions += c
+                // Simple UVs for a triangle
+                uvs += UV(0.5f, 1f) // tip-ish
+                uvs += UV(0f, 0f)
+                uvs += UV(1f, 0f)
+                indices += start; indices += start + 1; indices += start + 2
+            }
+
+            // Helper to add a quad (two triangles) with 4 vertices and simple UVs
+            fun addQuad(a: Point3f, b: Point3f, c: Point3f, d: Point3f) {
+                val start = positions.size
+                positions += a; positions += b; positions += c; positions += d
+                // UVs arranged as a rectangle
+                uvs += UV(0f, 0f)
+                uvs += UV(1f, 0f)
+                uvs += UV(1f, 1f)
+                uvs += UV(0f, 1f)
+                // two triangles with CCW winding from outside
+                indices += start; indices += start + 1; indices += start + 2
+                indices += start; indices += start + 2; indices += start + 3
+            }
+
+            // Front face (triangle) at z = +halfThickness
+            val tipFront = Point3f(0f, yTip, zFront)
+            val baseLeftFront = Point3f(-halfWidth, yBase, zFront)
+            val baseRightFront = Point3f(halfWidth, yBase, zFront)
+            addTriangle(tipFront, baseLeftFront, baseRightFront)
+
+            // Back face (triangle) at z = -halfThickness (winding chosen so outward normal points to -Z)
+            val tipBack = Point3f(0f, yTip, zBack)
+            val baseRightBack = Point3f(halfWidth, yBase, zBack)
+            val baseLeftBack = Point3f(-halfWidth, yBase, zBack)
+            addTriangle(tipBack, baseRightBack, baseLeftBack)
+
+            // Left sloped side (quad between left edge front/back)
+            addQuad(
+                a = tipBack,
+                b = tipFront,
+                c = baseLeftFront,
+                d = baseLeftBack,
+            )
+
+            // Right sloped side
+            addQuad(
+                a = tipFront,
+                b = tipBack,
+                c = baseRightBack,
+                d = baseRightFront,
+            )
+
+            // Base face (quad closing the back of the head)
+            addQuad(
+                a = baseLeftBack,
+                b = baseLeftFront,
+                c = baseRightFront,
+                d = baseRightBack,
+            )
+
+            val indexArray = TriangleIndexArray(indices.toIntArray())
+            val normals = inferNormals(indexArray, positions)
+            val vba = VertexArrayBuffer.of(
+                positions, normals, uvs,
+                jointList = listOf(),
+                weightList = listOf()
+            )
+            return Mesh(indexArray, vba)
+        }
+
+        /**
+         * Creates a cylinder with radius = 1 with length = [length] centered at the origin.
+         */
+        fun cylinder(length: Float): Mesh {
+            val segments = 64
+            val half = length / 2f
+
+            val positions = mutableListOf<Point3f>()
+            val uvs = mutableListOf<UV>()
+            val indices = mutableListOf<Int>()
+
+            // Side vertices (shared between side faces for smooth shading)
+            // For each segment we add bottom and top vertices
+            val sideStart = positions.size
+            for (j in 0 until segments) {
+                val theta = (2.0 * PI * j) / segments
+                val x = cos(theta).toFloat()
+                val y = sin(theta).toFloat()
+
+                // bottom
+                positions += Point3f(x, y, -half)
+                uvs += UV(j.toFloat() / segments, 0f)
+                // top
+                positions += Point3f(x, y, half)
+                uvs += UV(j.toFloat() / segments, 1f)
+            }
+
+            // Side indices
+            for (j in 0 until segments) {
+                val next = (j + 1) % segments
+                val i0 = sideStart + j * 2       // bottom j
+                val i1 = sideStart + j * 2 + 1   // top j
+                val i2 = sideStart + next * 2    // bottom next
+                val i3 = sideStart + next * 2 + 1// top next
+
+                // First triangle (counter-clockwise from outside)
+                indices += i0; indices += i1; indices += i2
+                // Second triangle
+                indices += i2; indices += i1; indices += i3
+            }
+
+            // Top cap (flat); duplicate vertices to avoid averaging with side normals
+            val topCenterIndex = positions.size
+            positions += Point3f(0f, 0f, half)
+            uvs += UV(0.5f, 0.5f)
+            val topRingStart = positions.size
+            for (j in 0 until segments) {
+                val theta = (2.0 * PI * j) / segments
+                val x = cos(theta).toFloat()
+                val y = sin(theta).toFloat()
+                positions += Point3f(x, y, half)
+                uvs += UV(0.5f + 0.5f * x, 0.5f + 0.5f * y)
+            }
+            for (j in 0 until segments) {
+                val next = (j + 1) % segments
+                val a = topCenterIndex
+                val b = topRingStart + j
+                val c = topRingStart + next
+                // Winding chosen so that normal points +Z
+                indices += a; indices += b; indices += c
+            }
+
+            // Bottom cap (flat)
+            val bottomCenterIndex = positions.size
+            positions += Point3f(0f, 0f, -half)
+            uvs += UV(0.5f, 0.5f)
+            val bottomRingStart = positions.size
+            for (j in 0 until segments) {
+                val theta = (2.0 * PI * j) / segments
+                val x = cos(theta).toFloat()
+                val y = sin(theta).toFloat()
+                positions += Point3f(x, y, -half)
+                uvs += UV(0.5f + 0.5f * x, 0.5f + 0.5f * y)
+            }
+            for (j in 0 until segments) {
+                val next = (j + 1) % segments
+                val a = bottomCenterIndex
+                val b = bottomRingStart + next
+                val c = bottomRingStart + j
+                // Winding chosen so that normal points -Z
+                indices += a; indices += b; indices += c
+            }
+
+            val indexArray = TriangleIndexArray(indices.toIntArray())
+            val normals = inferNormals(indexArray, positions)
+            val vba = VertexArrayBuffer.of(
+                positions, normals, uvs,
+                jointList = listOf(),
+                weightList = listOf()
+            )
+            return Mesh(indexArray, vba)
+        }
+
 
         // There is actually only 24 unique positions, we don't need 36
         /**
@@ -141,8 +329,6 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                     )
 
                     CubeUv.Grid3x2 -> listOf(
-
-
                         // Top
                         UV(0f, 0.5f), UV(1f / 3f, 0.5f), UV(1f / 3f, 0f), UV(0f, 0f),
                         // Bottom
@@ -322,6 +508,7 @@ class VertexArrayBuffer(val array: FloatArray) {
     override fun hashCode(): Int {
         return array.contentHashCode()
     }
+
     companion object {
         //SLOW: should have a way to turn on/off attributes of the vertex
         const val StrideFloats = 16
@@ -369,16 +556,6 @@ class VertexArrayBuffer(val array: FloatArray) {
         }
     }
 
-//    constructor(points: List<Point3f>) : this(
-//        FloatArray(points.size * 3).also { arr ->
-//            var i = 0
-//            for (point in points) {
-//                arr[i++] = point.x
-//                arr[i++] = point.y
-//                arr[i++] = point.z
-//            }
-//        }
-//    )
 
     val size get() = array.size / StrideFloats
     val byteSize get() = (array.size * Float.SIZE_BYTES).toULong()
@@ -417,6 +594,21 @@ class VertexArrayBuffer(val array: FloatArray) {
                 )
             )
         }
+    }
+
+    /**
+     * Shifts the position of all vertices by the given [vector]
+     */
+    fun shiftedBy(vector: Vec3f): VertexArrayBuffer {
+        val copy = array.copyOf()
+        var i = 0
+        while (i < copy.size) {
+            copy[i] += vector.x
+            copy[i + 1] += vector.y
+            copy[i + 2] += vector.z
+            i += StrideFloats
+        }
+        return VertexArrayBuffer(copy)
     }
 
     inline fun forEachPosition(iter: (p: Point3f) -> Unit) {

@@ -17,6 +17,7 @@ import io.ygdrasil.webgpu.*
 class BoundModel(
     val data: Model, private val ctx: WebGPUContext, val firstIndex: UInt, val baseVertex: Int,
     val pipeline: () -> GPURenderPipeline,
+    val renderer: WorldRenderer,
 ) : AutoCloseable {
 
     var currentTexture = data.material.texture
@@ -133,6 +134,10 @@ class BoundModel(
 
 
     override fun close() {
+        for (instance in instances) {
+            renderer.remove(instance.value, removeFromModel = false)
+        }
+        instances.clear()
         closeAll(textureBuffer, textureView, inverseBindMatricesBuffer, bindGroup)
     }
 }

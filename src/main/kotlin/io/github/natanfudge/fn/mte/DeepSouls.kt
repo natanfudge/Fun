@@ -1,5 +1,6 @@
 package io.github.natanfudge.fn.mte
 
+import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.funValue
@@ -45,7 +46,9 @@ class DeepSoulsGame : Fun("Game") {
 
     val physics = FunPhysics()
     val player = Player(this)
-
+    val testArrow = SimpleArrow(Color.Magenta, "Test").apply {
+        cylinder.localTransform.translation = player.render.translation + Vec3f(0f,0f,2f)
+    }
     val devil = Devil()
 
 
@@ -89,9 +92,12 @@ class DeepSoulsGame : Fun("Game") {
     init {
         physics.system.earthGravityAcceleration = 20f
 
+        //TODO: physics is trigerring reposition callback because of gravity all the time... Need to fix it again...
+        // I think look up some paper on physics or some shit
         player.render.onTransformChange {
             repositionCamera(it.translation)
         }
+
 
         input.registerHotkey("Zoom Out", ScrollDirection.Down, ctrl = true) {
             cameraDistance += 1f

@@ -7,7 +7,7 @@ power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = 
 
 [versions]
 kotlin = "2.2.0"
-compose = "1.8.0"
+compose = "1.8.2"
 lwjgl = "3.3.6"
 serializationJson = "1.8.0"
 multiplatformSettings = "1.3.0"

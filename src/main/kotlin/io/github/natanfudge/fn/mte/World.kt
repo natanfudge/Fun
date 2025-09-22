@@ -1,5 +1,7 @@
 package io.github.natanfudge.fn.mte
 
+import androidx.compose.ui.graphics.Color
+import io.github.natanfudge.fn.base.SimpleArrow
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
@@ -7,6 +9,7 @@ import io.github.natanfudge.fn.core.logWarn
 import io.github.natanfudge.fn.network.state.FunList
 import io.github.natanfudge.fn.network.state.FunMap
 import io.github.natanfudge.fn.network.state.getFunSerializer
+import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -103,6 +106,8 @@ class World(val game: DeepSoulsGame) : Fun("World") {
     val blocks = mapOfFuns<BlockPos, Block>("blocks") {
         Block(game, null, null, it)
     }
+
+
 
     init {
         if (blocks.isEmpty()) {

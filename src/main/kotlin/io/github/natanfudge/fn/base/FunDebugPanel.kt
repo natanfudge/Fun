@@ -34,6 +34,7 @@ class FunDebugPanel : Fun("FunDebugPanel") {
                     }
                     Button(onClick = {
                         clearModelCache()
+                        renderer.clearModels()
                         refreshApp()
                     }) {
                         Text("Reload models")
