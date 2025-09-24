@@ -1,10 +1,20 @@
 package io.github.natanfudge.fn.physics
 
+import androidx.compose.ui.graphics.Color
+import io.github.natanfudge.fn.compose.utils.find
+import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.core.funValue
+import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.network.state.ClientFunValue
+import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
+import io.github.natanfudge.fn.render.Boundable
+import io.github.natanfudge.fn.render.Model
+import io.github.natanfudge.fn.render.RenderInstance
+import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.render.Transform
+import io.github.natanfudge.fn.render.getAxisAlignedBoundingBox
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.fn.util.cast
 import io.github.natanfudge.fn.util.compose
@@ -17,6 +27,25 @@ import kotlin.reflect.jvm.javaField
 interface Transformable {
     val transform: Transform
     fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform>
+}
+
+//TODO: would like to have a ChildTransformable that accepts parent Transformable
+
+/**
+ * For now this is immutable, which is simpler and doesn't require making it a Fun I think
+ */
+class TransformNode(
+    val localTransform: Transform,
+    val parentTransform: Transformable,
+) : Transformable {
+    override var transform: Transform = parentTransform.transform.mul(localTransform)
+    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        val parentListener = parentTransform.onTransformChange {
+            transform = it.mul(localTransform)
+            callback(transform)
+        }
+        return parentListener
+    }
 }
 
 

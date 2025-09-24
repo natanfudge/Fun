@@ -111,7 +111,6 @@ class FunRenderState(
     override fun cleanup() {
         despawned = true
         renderInstance.close()
-//        context.world.remove(renderInstance)
     }
 }
 

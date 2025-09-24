@@ -46,9 +46,11 @@ class DeepSoulsGame : Fun("Game") {
 
     val physics = FunPhysics()
     val player = Player(this)
-    val testArrow = SimpleArrow(Color.Magenta, "Test").apply {
-        cylinder.localTransform.translation = player.render.translation + Vec3f(0f,0f,2f)
-    }
+//    val testArrow = SimpleArrow(Color.Magenta, "Test").apply {
+//        root.localTransform.translation = player.render.translation + Vec3f(0f,0f,2f)
+//    }
+
+    val testTransformEditor = PositionEditor("Test", player.render)
     val devil = Devil()
 
 
@@ -72,12 +74,16 @@ class DeepSoulsGame : Fun("Game") {
     var cameraDistance by funValue(15f)
 
     private fun repositionCamera(playerPos: Vec3f) {
+        println("Movement mode: ${creativeMovement.mode}")
         if (creativeMovement.mode == CameraMode.Off) {
             camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
             // This one is mostly for zooming in
             camera.focus(playerPos, distance = cameraDistance)
         }
     }
+
+
+
 
     val creativeMovement = CreativeMovement(input)
 

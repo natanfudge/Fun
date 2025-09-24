@@ -78,7 +78,7 @@ class VisualEditor(
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position
                 }
-                captureSelectedObject(input)
+                checkObjectSelect(input)
             }
         }
     }
@@ -91,7 +91,7 @@ class VisualEditor(
         selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
     }
 
-    private fun captureSelectedObject(input: WindowEvent.PointerEvent) {
+    private fun checkObjectSelect(input: WindowEvent.PointerEvent) {
         if (input.eventType == PointerEventType.Release) {
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much
@@ -105,22 +105,27 @@ class VisualEditor(
                     selectedObject = selected
                     // Save color to restore later
                     selectedObjectOldTint = selected?.getTag(HoverHighlight.PreHoverTintTag) ?: selected?.tint
-                    val oldTint = selectedObjectOldTint
                     if (selected != null) {
-                        // Don't hover-highlight when selecting
-                        selected.setTag(HoverHighlight.DoNotHighlightTag, true)
-                        selected.tint = Tint(
-                            lerp(
-                                oldTint!!.color,
-                                Color.White.copy(alpha = 0.5f),
-                                0.8f
-                            ), strength = 0.6f
-                        )
+                        selectObject(selected)
                     }
                 }
 
             }
         }
+    }
+
+    private fun selectObject(selected: FunRenderState) {
+        // Don't hover-highlight when selecting
+        selected.setTag(HoverHighlight.DoNotHighlightTag, true)
+        selected.tint = Tint(
+            lerp(
+                selectedObjectOldTint!!.color,
+                Color.White.copy(alpha = 0.5f),
+                0.8f
+            ), strength = 0.6f
+        )
+
+
     }
 
 
