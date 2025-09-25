@@ -180,14 +180,14 @@ private class JointTransform(val jointId: Int, val skinManager: SkinManager, val
 
     override var transform: Transform = worldTransform.transform.mul(node.transform)
 
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
         val localListener = skinManager.jointTransformEvent.listenUnscoped("jointChange") {
             if (it.joint == jointId) {
                 transform = worldTransform.transform.mul(it.transform)
                 callback(transform)
             }
         }
-        val parentListener = worldTransform.onTransformChange {
+        val parentListener = worldTransform.beforeTransformChange {
             transform = it.mul(node.transform)
             callback(transform)
         }

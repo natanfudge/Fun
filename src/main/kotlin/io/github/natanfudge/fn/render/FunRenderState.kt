@@ -43,12 +43,20 @@ class FunRenderState(
 
     override var transform: Transform = parentTransform.transform.mul(localTransform.transform)
 
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        val localListener = localTransform.onTransformChange {
+
+    init {
+//        println(id)
+        if (id.contains("Test")) {
+            val x = 2
+        }
+    }
+
+    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        val localListener = localTransform.beforeTransformChange {
             transform = parentTransform.transform.mul(it)
             callback(transform)
         }
-        val parentListener = parentTransform.onTransformChange {
+        val parentListener = parentTransform.beforeTransformChange {
             transform = it.mul(localTransform.transform)
             callback(transform)
         }
@@ -84,7 +92,7 @@ class FunRenderState(
     }
 
     init {
-        onTransformChange {
+        beforeTransformChange {
             updateTransform(it)
         }
     }

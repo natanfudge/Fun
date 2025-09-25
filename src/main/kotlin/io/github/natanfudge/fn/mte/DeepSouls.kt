@@ -1,12 +1,12 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.ui.graphics.Color
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.funValue
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.mte.gui.MainMenu
 import io.github.natanfudge.fn.mte.gui.addDsHudPanel
+import io.github.natanfudge.fn.physics.RootTransformable
 import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -50,7 +50,7 @@ class DeepSoulsGame : Fun("Game") {
 //        root.localTransform.translation = player.render.translation + Vec3f(0f,0f,2f)
 //    }
 
-    val testTransformEditor = PositionEditor("Test", player.render)
+    val testTransformEditor = PositionEditor("Test", RootTransformable,Vec3f(0f, 0.5f, 103f))
     val devil = Devil()
 
 
@@ -100,8 +100,8 @@ class DeepSoulsGame : Fun("Game") {
 
         //TODO: physics is trigerring reposition callback because of gravity all the time... Need to fix it again...
         // I think look up some paper on physics or some shit
-        player.render.onTransformChange {
-            repositionCamera(it.translation)
+        player.physics.positionState.afterChange {
+            repositionCamera(it)
         }
 
 

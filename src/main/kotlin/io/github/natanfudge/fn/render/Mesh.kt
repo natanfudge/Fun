@@ -191,7 +191,8 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
         /**
          * Creates a cylinder with radius = 1 with length = [length] centered at the origin.
          */
-        fun cylinder(length: Float): Mesh {
+        val Cylinder: Mesh = run {
+            val length = 1f
             val segments = 64
             val half = length / 2f
 
@@ -278,7 +279,7 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 jointList = listOf(),
                 weightList = listOf()
             )
-            return Mesh(indexArray, vba)
+             Mesh(indexArray, vba)
         }
 
 

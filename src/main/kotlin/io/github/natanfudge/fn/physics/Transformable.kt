@@ -1,32 +1,25 @@
 package io.github.natanfudge.fn.physics
 
-import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.compose.utils.find
-import io.github.natanfudge.fn.compose.utils.toList
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.core.funValue
-import io.github.natanfudge.fn.files.FunImage
-import io.github.natanfudge.fn.network.state.ClientFunValue
-import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
-import io.github.natanfudge.fn.render.Boundable
-import io.github.natanfudge.fn.render.Model
-import io.github.natanfudge.fn.render.RenderInstance
-import io.github.natanfudge.fn.render.Tint
 import io.github.natanfudge.fn.render.Transform
-import io.github.natanfudge.fn.render.getAxisAlignedBoundingBox
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.fn.util.cast
 import io.github.natanfudge.fn.util.compose
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlin.reflect.KProperty0
-import kotlin.reflect.jvm.isAccessible
-import kotlin.reflect.jvm.javaField
 
+//TODO: the issue is bad Transform.mul, need to think about replacing this with a Matrix and storing a seperate Transform where applicable.
+// But note we do onTransformChange {it.translation}, so seems like we do depend on knowing the decomposed multiplied values.
+// So our options are probably either fix mul and hope it's correct and fast enough, or try multiplying real Mat4f and then decomposing the matrix when we need.
+// Seems like currently we only access translation so decomposition would be easy for that - just get the last column.
+// If the dev wants to access render-wise rotation or scaling, that seems pretty uncommon so we could have a slow operator for that.
+// If he wants position or rotation he usually just means the physical position or rotation so he could access those values from there and it would be more correct.
+// Generally beforeTransformChange should be a lower level construct that passes along a matrix. If we want to listen to physics changes
 interface Transformable {
     val transform: Transform
-    fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform>
+    fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform>
 }
 
 //TODO: would like to have a ChildTransformable that accepts parent Transformable
@@ -39,12 +32,16 @@ class TransformNode(
     val parentTransform: Transformable,
 ) : Transformable {
     override var transform: Transform = parentTransform.transform.mul(localTransform)
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        val parentListener = parentTransform.onTransformChange {
+    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        val parentListener = parentTransform.beforeTransformChange {
             transform = it.mul(localTransform)
             callback(transform)
         }
         return parentListener
+    }
+
+    override fun toString(): String {
+        return "Locally[$localTransform] Globally[$transform]"
     }
 }
 
@@ -56,7 +53,7 @@ val Transformable.scale get() = transform.scale
 
 object RootTransformable : Transformable {
     override val transform: Transform = Transform()
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
         return Listener.Stub
     }
 }
@@ -95,7 +92,11 @@ class FunTransform(parent: Fun) : Fun(parent.id.child("transform"), parent), Tra
      */
     private var _transform: Transform = Transform(translation, rotation, scale)
 
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun toString(): String {
+        return "Fun$_transform"
+    }
+
+    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
         val translationListener = translationState.beforeChange {
             callback(transform.copy(translation = it))
         }

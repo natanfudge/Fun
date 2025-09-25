@@ -21,19 +21,20 @@ class SimpleArrow(
         transform,
         parent
     )
-    val cylinder by render(Model(Mesh.cylinder(4.0f), "ArrowCylinder"), root)
+    val cylinder by render(Model(Mesh.Cylinder, "ArrowCylinder"), root)
     private val tip by render(Model(Mesh.arrowHead(PIf / 2.5f), "ArrowHead"), root)
 
     init {
         cylinder.tint = Tint(color, 0.5f)
         tip.tint = Tint(color, 0.5f)
-        tip.localTransform.translation = Vec3f(0f, 0f, 4f)
+        tip.localTransform.translation = Vec3f(0f, 0f, 1f)
         tip.localTransform.rotation = Quatf.xRotation(PIf / 2)
-        tip.localTransform.scale = Vec3f(2f, 4f, 2f)
+//        tip.localTransform.scale = Vec3f(2f, 4f, 2f)
+
 
 //                tip.localTransform.translation = Vec3f(0f, 0f, 2f)
 //        tip.localTransform.rotation = Quatf()
-//        tip.localTransform.scale = Vec3f(1f, 1f, 1f)
+        tip.localTransform.scale = Vec3f(1f, 1f, 1f)
     }
 }
 
@@ -41,27 +42,28 @@ class SimpleArrow(
 // be scaled in the z axis, even if its rotated. Need to better understand this in general and see where we are getting it wrong, because right now
 // the z axis scale is rotated and then it becomes like a x axis scale which mathemtically makes sense but isn't really what we want with "parent z scale"
 
-class PositionEditor(id: FunId, parent: Transformable = RootTransformable) : Fun(id) {
+class PositionEditor(id: FunId, parent: Transformable = RootTransformable, pos: Vec3f) : Fun(id) {
     val root = TransformNode(
         Transform(
-            translation = Vec3f(0f, 0f, 3f),
-            scale = Vec3f(1f, 1f, 4f) / 10f
+            translation = pos,
+            scale = Vec3f(1f, 1f, 5f) / 10f
         ),
         parent
     )
-    val x = SimpleArrow(
-        Color.Red, id.child("x"),
-        Transform(rotation = Quatf.xRotation(PIf / 2)),
-        root
-    )
-    val y = SimpleArrow(
-        Color.Green, id.child("y"),
-        Transform(rotation = Quatf.yRotation(PIf / 2)),
-        root
-    )
+//    val x = SimpleArrow(
+//        Color.Red, id.child("x"),
+//        Transform(rotation = Quatf.xRotation(PIf / 2)),
+//        root
+//    )
+//    val y = SimpleArrow(
+//        Color.Green, id.child("y"),
+//        Transform(rotation = Quatf.yRotation(PIf / 2)),
+//        root
+//    )
     val z = SimpleArrow(
         Color.Blue, id.child("z"),
-        Transform(rotation = Quatf.zRotation(PIf / 2)),
+//        Transform(rotation = Quatf.zRotation(PIf / 2)),
+        Transform(),
         root
     )
 

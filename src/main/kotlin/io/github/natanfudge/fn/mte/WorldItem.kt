@@ -63,10 +63,10 @@ class WorldItem(val game: DeepSoulsGame, id: String, item: Item?) : Fun(id) {
             render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = down * 0.15f)
         }.closeWithThis()
 
-        physics.onTransformChange {
+        physics.positionState.afterChange {
             // Despawn items that have fallen out of the world
             if (!deleted) {
-                if (it.translation.z < WORLD_LOWEST_Z) {
+                if (it.z < WORLD_LOWEST_Z) {
                     delete()
                     deleted = true
                 }

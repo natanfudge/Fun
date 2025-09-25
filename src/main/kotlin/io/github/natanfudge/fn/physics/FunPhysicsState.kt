@@ -17,12 +17,17 @@ class FunPhysicsState(
     baseAABB: AxisAlignedBoundingBox,
     private val physics: PhysicsSystem,
 ) : Fun(funParent.id.child("physics"), funParent), Body, Transformable {
+    /**
+     * Stores the global transforms of this physics object.
+     * Note that while in reality things do not become smaller or larger (modify the scale property), it makes sense
+     * to make things "physically smaller" in a game and modify `physics.scale` (and not just "visually smaller" with `render.scale`).
+     */
     private val transformState = FunTransform(this)
 
     override var transform: Transform by transformState::transform
 
-    override fun onTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
-        return transformState.onTransformChange(callback)
+    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+        return transformState.beforeTransformChange(callback)
     }
 
     override fun toString(): String {
@@ -30,6 +35,7 @@ class FunPhysicsState(
     }
 
 
+    val positionState = transformState.translationState
     override var position by transformState::translation
 
     /**
@@ -50,7 +56,7 @@ class FunPhysicsState(
     }
 
     init {
-        onTransformChange {
+        beforeTransformChange {
             updateAABB(it)
         }
     }

@@ -8,6 +8,7 @@ import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.gltf.PartialTransform
 import io.github.natanfudge.fn.gltf.fromGlbResourceImpl
 import io.github.natanfudge.fn.util.Tree
+import io.github.natanfudge.wgpu4k.matrix.Mat3f
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -77,23 +78,41 @@ data class Transform(
     fun mul(other: Transform, dst: Transform = Transform()): Transform {
         require(dst !== this && dst !== other)
 
-        // 1️⃣ combined scale
-        scale.mul(other.scale, dst.scale)
+        // Step 1: Combine scales (component-wise multiplication)
+        // This works correctly for non-uniform scales
+        val newScale = Vec3f(
+            scale.x * other.scale.x,
+            scale.y * other.scale.y,
+            scale.z * other.scale.z
+        )
 
+        // Step 2: Combine rotations (quaternion multiplication)
+        val newRotation = rotation * other.rotation
 
-        // 2️⃣ combined rotation (apply `other` then `this`)
-        rotation.mul(other.rotation, dst.rotation)
+        // Step 3: Transform the other's translation by this transform's scale and rotation
+        // CRITICAL: We scale FIRST, then rotate. This is the correct order for non-uniform scales.
+        val scaledTranslation = Vec3f(
+            other.translation.x * scale.x,
+            other.translation.y * scale.y,
+            other.translation.z * scale.z
+        )
 
+        // Then rotate the scaled translation
+        val rotatedTranslation = rotation.rotate(scaledTranslation)
 
-        // 3️⃣ combined translation
-        //    step A: scale `other`’s translation by this scale
-        val temp = Vec3f()
-        other.translation.mul(scale, temp)
-        //    step B: rotate it by this rotation
-        rotation.rotate(temp, temp)
-        //    step C: finally add this translation
-        temp.add(translation, dst.translation)
-        return dst
+        // Finally add this transform's translation
+        val newTranslation = translation + rotatedTranslation
+
+        // Return the result
+        return if (dst === this || dst === other) {
+            Transform(newTranslation, newRotation, newScale)
+        } else {
+            dst.copy(
+                translation = newTranslation,
+                rotation = newRotation,
+                scale = newScale
+            )
+        }
     }
 
     companion object {
