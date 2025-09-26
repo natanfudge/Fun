@@ -5,6 +5,7 @@ import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 fun Fun.physics(
@@ -24,14 +25,14 @@ class FunPhysicsState(
      */
     private val transformState = FunTransform(this)
 
-    override var transform: Transform by transformState::transform
+    override val transform: Mat4f get() = transformState.transform
 
-    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         return transformState.beforeTransformChange(callback)
     }
 
     override fun toString(): String {
-        return "$id at ${transform.translation}"
+        return "$id at $position"
     }
 
 
@@ -47,12 +48,12 @@ class FunPhysicsState(
 
     var baseAABB by funValue(baseAABB)
 
-    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
+    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform)
         private set
 
 
-    private fun updateAABB(transform: Transform) {
-        boundingBox = baseAABB.transformed(transform.toMatrix())
+    private fun updateAABB(transform: Mat4f) {
+        boundingBox = baseAABB.transformed(transform)
     }
 
     init {

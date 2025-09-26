@@ -11,7 +11,7 @@ data class MovingNode(
     /**
      * Changes over time
      */
-    val transform: Transform,
+    val transform: Mat4f,
 )
 
 internal class SkinManager(skeleton: Skeleton, model: Model) {
@@ -27,7 +27,7 @@ internal class SkinManager(skeleton: Skeleton, model: Model) {
     }
 
     val nodeTree = model.nodeHierarchy.map {
-        MovingNode(it.id, Transform())
+        MovingNode(it.id, Mat4f.identity())
     }.toMutableTree()
 
 
@@ -40,7 +40,7 @@ internal class SkinManager(skeleton: Skeleton, model: Model) {
         nodeTree.visit { (nodeIndex, transform) ->
             val jointIndex = nodeIndexToJointIndex[nodeIndex]
             if (jointIndex != null) {
-                list[jointIndex] = transform.toMatrix()
+                list[jointIndex] = transform
             }
         }
         // This process is supposed to fill up the list completely
@@ -75,7 +75,7 @@ internal class SkinManager(skeleton: Skeleton, model: Model) {
     init {
         val initialTransform = buildMap {
             model.nodeHierarchy.visit { (id, _, baseTransform) ->
-                put(id, baseTransform)
+                put(id, baseTransform.toMatrix())
             }
         }
         // Apply initial transform (bind pose)
@@ -87,12 +87,12 @@ typealias NodeId = Int
 
 internal class JointTransformEvent(
     val joint: NodeId,
-    val transform: Transform,
+    val transform: Mat4f,
 )
 
 /**
  * Map from node index to the local transform to apply to the node.
  * Specifies the interpolated values
  */
-typealias SkeletalTransformation = Map<NodeId, Transform>
+typealias SkeletalTransformation = Map<NodeId, Mat4f>
 

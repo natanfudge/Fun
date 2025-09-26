@@ -7,6 +7,7 @@ import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.fn.util.cast
 import io.github.natanfudge.fn.util.compose
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
@@ -17,9 +18,10 @@ import io.github.natanfudge.wgpu4k.matrix.Vec3f
 // If the dev wants to access render-wise rotation or scaling, that seems pretty uncommon so we could have a slow operator for that.
 // If he wants position or rotation he usually just means the physical position or rotation so he could access those values from there and it would be more correct.
 // Generally beforeTransformChange should be a lower level construct that passes along a matrix. If we want to listen to physics changes
+
 interface Transformable {
-    val transform: Transform
-    fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform>
+    val transform: Mat4f
+    fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f>
 }
 
 //TODO: would like to have a ChildTransformable that accepts parent Transformable
@@ -31,10 +33,11 @@ class TransformNode(
     val localTransform: Transform,
     val parentTransform: Transformable,
 ) : Transformable {
-    override var transform: Transform = parentTransform.transform.mul(localTransform)
-    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    private val localMatrix = localTransform.toMatrix()
+    override var transform: Mat4f = parentTransform.transform.mul(localMatrix)
+    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         val parentListener = parentTransform.beforeTransformChange {
-            transform = it.mul(localTransform)
+            transform = it.mul(localMatrix)
             callback(transform)
         }
         return parentListener
@@ -46,43 +49,46 @@ class TransformNode(
 }
 
 
-val Transformable.translation get() = transform.translation
-val Transformable.rotation get() = transform.rotation
-val Transformable.scale get() = transform.scale
+//val Transformable.translation get() = transform.translation
+//val Transformable.rotation get() = transform.rotation
+//val Transformable.scale get() = transform.scale
 
 
 object RootTransformable : Transformable {
-    override val transform: Transform = Transform()
-    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override val transform: Mat4f = Mat4f.identity()
+    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         return Listener.Stub
     }
 }
 
 class FunTransform(parent: Fun) : Fun(parent.id.child("transform"), parent), Transformable {
-    override var transform: Transform
-        get() = _transform
-        set(value) {
-            translation = value.translation
-            rotation = value.rotation
-            scale = value.scale
-            _transform = value
-        }
+//    override val transform: Mat4f
+//        get() = _transform
+//        set(value) {
+//            translation = value.translation
+//            rotation = value.rotation
+//            scale = value.scale
+//            _transform = value
+//        }
 
-    val translationState = funValue<Vec3f>("translation", { Vec3f.zero() }){
+    private fun withTransform(translate: Vec3f = translationState.value, rotate: Quatf = rotationState.value, scale: Vec3f = scaleState.value) =
+        Mat4f.translateRotateScale(translate, rotate, scale)
+
+    val translationState = funValue<Vec3f>("translation", { Vec3f.zero() }) {
         afterChange {
-            _transform = _transform.copy(translation = it)
+            transform = withTransform(translate = it)
         }
     }
     var translation by translationState
-    val rotationState  = funValue<Quatf>("rotation", { Quatf.identity() }){
+    val rotationState = funValue<Quatf>("rotation", { Quatf.identity() }) {
         afterChange {
-            _transform = _transform.copy(rotation = it)
+            transform = withTransform(rotate = it)
         }
     }
     var rotation by rotationState
     val scaleState = funValue<Vec3f>("scale", { Vec3f(1f, 1f, 1f) }) {
         afterChange {
-            _transform = _transform.copy(scale = it)
+            transform = withTransform(scale = it)
         }
     }
     var scale by scaleState
@@ -90,21 +96,30 @@ class FunTransform(parent: Fun) : Fun(parent.id.child("transform"), parent), Tra
     /**
      * Cached object to avoid allocating on every access to the transform
      */
-    private var _transform: Transform = Transform(translation, rotation, scale)
+    override var transform: Mat4f = Mat4f.translateRotateScale(translation, rotation, scale)
+        private set
 
-    override fun toString(): String {
-        return "Fun$_transform"
+    fun set(transform: Transform) {
+        translation = transform.translation
+        rotation = transform.rotation
+        scale = transform.scale
     }
 
-    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun toString(): String {
+        return "FunTransform[translate=$translation, rotate=$rotation, scale=$scale]"
+    }
+
+    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         val translationListener = translationState.beforeChange {
-            callback(transform.copy(translation = it))
+            //TODo: slow, would like to reuse the new transform we have in afterChange of the translation/rotate/scaleState,
+            // make it be beforeChange there and then afterChange here. But I remember making it be beforeChange can cause bugs so need to test that first.
+            callback(withTransform(translate = it))
         }
         val rotationListener = rotationState.beforeChange {
-            callback(transform.copy(rotation = it))
+            callback(withTransform(rotate = it))
         }
         val scaleListener = scaleState.beforeChange {
-            callback(transform.copy(scale = it))
+            callback(withTransform(scale = it))
         }
         return translationListener.compose(rotationListener).compose(scaleListener).cast()
     }

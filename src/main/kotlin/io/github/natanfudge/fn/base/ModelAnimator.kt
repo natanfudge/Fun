@@ -5,10 +5,12 @@ import io.github.natanfudge.fn.core.listen
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Animation
 import io.github.natanfudge.fn.render.ModelNode
+import io.github.natanfudge.fn.render.NodeId
 import io.github.natanfudge.fn.render.SkeletalTransformation
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.visit
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import korlibs.time.times
@@ -89,7 +91,7 @@ class ModelAnimator(private val render: FunRenderState) {
 
                 // 1 - Use all bones from the first animation, independent of its mask, because we treat the mask as having an effect only
                 // when other animations exist.
-                val finalTransform: MutableMap<Int, Transform> = initialAnim.animation.sample(initialAnim.currentTime, nodes).toMutableMap()
+                val finalTransform: MutableMap<Int, Mat4f> = initialAnim.animation.sample(initialAnim.currentTime, nodes).toMutableMap()
 
                 // 2. Layer additional animations, using only the masked joints.
                 for (layeredAnimation in orderedLeftoverAnimations.dropLast(1)) {
@@ -172,7 +174,7 @@ class ModelAnimator(private val render: FunRenderState) {
 fun Animation.sample(
     time: Duration,
     nodes: List<ModelNode>,
-): SkeletalTransformation {
+):  SkeletalTransformation {
     if (keyFrames.isEmpty() || nodes.isEmpty()) return emptyMap()
 
     /* ------------------------------------------------------------------ *
@@ -195,7 +197,7 @@ fun Animation.sample(
     /* ------------------------------------------------------------------ *
      * 1.  Build pose                                                     *
      * ------------------------------------------------------------------ */
-    val pose = HashMap<Int, Transform>(nodes.size)
+    val pose = HashMap<Int, Mat4f>(nodes.size)
 
     nodes.forEach { joint ->
         val node = joint.id
@@ -252,7 +254,7 @@ fun Animation.sample(
             else -> base.scale
         }
 
-        pose[node] = Transform(tr, rot, sc)
+        pose[node] = Mat4f.translateRotateScale(tr, rot, sc)
     }
 
     return pose

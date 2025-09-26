@@ -176,11 +176,12 @@ class RenderInstance internal constructor(
  * Follows the transformation of a specific joint
  */
 private class JointTransform(val jointId: Int, val skinManager: SkinManager, val worldTransform: Transformable) : Transformable {
-    private val node = skinManager.nodeTree.find { it.nodeIndex == jointId } ?: error("Cannot find joint with id ${jointId} in node tree")
+    private val node: MovingNode = skinManager.nodeTree.find { it.nodeIndex == jointId } ?: error("Cannot find joint with id ${jointId} in node tree")
+    private var nodeTransform = node.transform
 
-    override var transform: Transform = worldTransform.transform.mul(node.transform)
+    override var transform: Mat4f = worldTransform.transform.mul(node.transform)
 
-    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         val localListener = skinManager.jointTransformEvent.listenUnscoped("jointChange") {
             if (it.joint == jointId) {
                 transform = worldTransform.transform.mul(it.transform)
@@ -188,6 +189,8 @@ private class JointTransform(val jointId: Int, val skinManager: SkinManager, val
             }
         }
         val parentListener = worldTransform.beforeTransformChange {
+            //TODo: this is a bug, node.transform could change over time so we need to check if it changed and return the new value if needed.
+            // It's a bit annoying to do efficiently though.
             transform = it.mul(node.transform)
             callback(transform)
         }

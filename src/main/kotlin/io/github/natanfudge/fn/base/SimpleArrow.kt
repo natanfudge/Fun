@@ -27,14 +27,14 @@ class SimpleArrow(
     init {
         cylinder.tint = Tint(color, 0.5f)
         tip.tint = Tint(color, 0.5f)
-        tip.localTransform.translation = Vec3f(0f, 0f, 1f)
+        tip.localTransform.translation = Vec3f(0f, 0f, 1.5f)
         tip.localTransform.rotation = Quatf.xRotation(PIf / 2)
-//        tip.localTransform.scale = Vec3f(2f, 4f, 2f)
+        tip.localTransform.scale = Vec3f(2f, 2f, 2f)
 
 
 //                tip.localTransform.translation = Vec3f(0f, 0f, 2f)
 //        tip.localTransform.rotation = Quatf()
-        tip.localTransform.scale = Vec3f(1f, 1f, 1f)
+//        tip.localTransform.scale = Vec3f(1f, 1f, 1f)
     }
 }
 

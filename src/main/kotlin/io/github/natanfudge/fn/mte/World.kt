@@ -9,7 +9,6 @@ import io.github.natanfudge.fn.core.logWarn
 import io.github.natanfudge.fn.network.state.FunList
 import io.github.natanfudge.fn.network.state.FunMap
 import io.github.natanfudge.fn.network.state.getFunSerializer
-import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.roundToInt
 import kotlin.random.Random
@@ -19,11 +18,7 @@ private data class PositionedBlock(
     val pos: BlockPos,
 )
 
-fun describeGame(): String {
-    return """
-        You are playing a 2D mining game, akin to Terraria. 
-    """.trimIndent()
-}
+
 
 class World(val game: DeepSoulsGame) : Fun("World") {
     private val width = 21

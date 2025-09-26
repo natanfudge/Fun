@@ -7,7 +7,6 @@ import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.mte.gui.MainMenu
 import io.github.natanfudge.fn.mte.gui.addDsHudPanel
 import io.github.natanfudge.fn.physics.RootTransformable
-import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.CameraMode
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
@@ -107,12 +106,12 @@ class DeepSoulsGame : Fun("Game") {
 
         input.registerHotkey("Zoom Out", ScrollDirection.Down, ctrl = true) {
             cameraDistance += 1f
-            repositionCamera(player.render.translation)
+            repositionCamera(player.physics.position)
         }
 
         input.registerHotkey("Zoom In", ScrollDirection.Up, ctrl = true) {
             cameraDistance -= 1f
-            repositionCamera(player.render.translation)
+            repositionCamera(player.physics.position)
         }
 
         FunDebugPanel()

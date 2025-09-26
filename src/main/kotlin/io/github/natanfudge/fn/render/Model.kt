@@ -72,48 +72,48 @@ data class Transform(
     val scale: Vec3f = Vec3f(1f, 1f, 1f),
 ) {
 
-    /**
-     * Important note: [dst] should be different from `this` and [other]!
-     */
-    fun mul(other: Transform, dst: Transform = Transform()): Transform {
-        require(dst !== this && dst !== other)
-
-        // Step 1: Combine scales (component-wise multiplication)
-        // This works correctly for non-uniform scales
-        val newScale = Vec3f(
-            scale.x * other.scale.x,
-            scale.y * other.scale.y,
-            scale.z * other.scale.z
-        )
-
-        // Step 2: Combine rotations (quaternion multiplication)
-        val newRotation = rotation * other.rotation
-
-        // Step 3: Transform the other's translation by this transform's scale and rotation
-        // CRITICAL: We scale FIRST, then rotate. This is the correct order for non-uniform scales.
-        val scaledTranslation = Vec3f(
-            other.translation.x * scale.x,
-            other.translation.y * scale.y,
-            other.translation.z * scale.z
-        )
-
-        // Then rotate the scaled translation
-        val rotatedTranslation = rotation.rotate(scaledTranslation)
-
-        // Finally add this transform's translation
-        val newTranslation = translation + rotatedTranslation
-
-        // Return the result
-        return if (dst === this || dst === other) {
-            Transform(newTranslation, newRotation, newScale)
-        } else {
-            dst.copy(
-                translation = newTranslation,
-                rotation = newRotation,
-                scale = newScale
-            )
-        }
-    }
+//    /**
+//     * Important note: [dst] should be different from `this` and [other]!
+//     */
+//    fun mul(other: Transform, dst: Transform = Transform()): Transform {
+//        require(dst !== this && dst !== other)
+//
+//        // Step 1: Combine scales (component-wise multiplication)
+//        // This works correctly for non-uniform scales
+//        val newScale = Vec3f(
+//            scale.x * other.scale.x,
+//            scale.y * other.scale.y,
+//            scale.z * other.scale.z
+//        )
+//
+//        // Step 2: Combine rotations (quaternion multiplication)
+//        val newRotation = rotation * other.rotation
+//
+//        // Step 3: Transform the other's translation by this transform's scale and rotation
+//        // CRITICAL: We scale FIRST, then rotate. This is the correct order for non-uniform scales.
+//        val scaledTranslation = Vec3f(
+//            other.translation.x * scale.x,
+//            other.translation.y * scale.y,
+//            other.translation.z * scale.z
+//        )
+//
+//        // Then rotate the scaled translation
+//        val rotatedTranslation = rotation.rotate(scaledTranslation)
+//
+//        // Finally add this transform's translation
+//        val newTranslation = translation + rotatedTranslation
+//
+//        // Return the result
+//        return if (dst === this || dst === other) {
+//            Transform(newTranslation, newRotation, newScale)
+//        } else {
+//            dst.copy(
+//                translation = newTranslation,
+//                rotation = newRotation,
+//                scale = newScale
+//            )
+//        }
+//    }
 
     companion object {
         fun fromMatrix(matrix: Mat4f): Transform {

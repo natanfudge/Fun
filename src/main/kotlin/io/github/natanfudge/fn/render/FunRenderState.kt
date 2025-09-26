@@ -9,6 +9,7 @@ import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.physics.*
 import io.github.natanfudge.fn.util.*
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 
 
 fun Fun.render(model: Model, name: String, parent: Transformable = RootTransformable): FunRenderState {
@@ -41,7 +42,8 @@ class FunRenderState(
 
     val localTransform = FunTransform(this)
 
-    override var transform: Transform = parentTransform.transform.mul(localTransform.transform)
+    override var transform: Mat4f = parentTransform.transform.mul(localTransform.transform)
+        private set
 
 
     init {
@@ -51,8 +53,10 @@ class FunRenderState(
         }
     }
 
-    override fun beforeTransformChange(callback: (Transform) -> Unit): Listener<Transform> {
+    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         val localListener = localTransform.beforeTransformChange {
+            //TODO: that's not right, transform should be updated independently, and then this callback should call callback() with the new transform
+            // updated elsewhere.
             transform = parentTransform.transform.mul(it)
             callback(transform)
         }
@@ -65,12 +69,12 @@ class FunRenderState(
 
     var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh)){
         beforeChange {
-            boundingBox = it.transformed(transform.toMatrix())
+            boundingBox = it.transformed(transform)
         }
     }
 
 
-    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform.toMatrix())
+    override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform)
         private set
 
     var tint: Tint by funValue<Tint>(Tint(Color.White, 0f)){
@@ -83,7 +87,7 @@ class FunRenderState(
     }
 
     val renderInstance: RenderInstance = renderer.spawn(
-        id, renderer.getOrBindModel(model), this, parentTransform.transform.toMatrix(), tint
+        id, renderer.getOrBindModel(model), this, parentTransform.transform, tint
     )
 
 
@@ -97,11 +101,10 @@ class FunRenderState(
         }
     }
 
-    private fun updateTransform(transform: Transform) {
+    private fun updateTransform(transform: Mat4f) {
         if (despawned) return
-        val matrix = transform.toMatrix()
-        this.boundingBox = baseAABB.transformed(matrix)
-        renderInstance.setTransform(matrix)
+        this.boundingBox = baseAABB.transformed(transform)
+        renderInstance.setTransform(transform)
     }
 
 

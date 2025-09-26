@@ -12,7 +12,7 @@ import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.funValue
 import io.github.natanfudge.fn.mte.gui.addDsWorldPanel
 import io.github.natanfudge.fn.network.state.listenAsState
-import io.github.natanfudge.fn.physics.translation
+import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
@@ -32,7 +32,7 @@ class Devil() : Fun("devil") {
         render.localTransform.rotation = Quatf.identity().rotateX(PIf / 2).rotateY(PIf / 2)
         addDsWorldPanel(
             Transform(
-                translation = render.translation.shift(x = 2.2f, z = 1.6f),
+                translation = render.localTransform.translation.shift(x = 2.2f, z = 1.6f),
                 rotation = FacingCameraRotation,
                 scale = Vec3f(4f, 2f, 1f)
             ),

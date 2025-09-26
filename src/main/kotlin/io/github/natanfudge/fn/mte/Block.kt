@@ -3,7 +3,6 @@ package io.github.natanfudge.fn.mte
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.files.FunImage
 import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.fn.util.ceilToInt
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -83,7 +82,7 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
 
     fun destroy() {
         if (type == BlockType.Gold) {
-            game.world.spawnItem(Item(ItemType.GoldOre, 1), physics.translation)
+            game.world.spawnItem(Item(ItemType.GoldOre, 1), physics.position)
         }
         game.world.blocks.remove(pos)
         close()

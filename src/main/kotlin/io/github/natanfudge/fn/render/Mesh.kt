@@ -142,33 +142,22 @@ class Mesh(val indices: TriangleIndexArray, val vertices: VertexArrayBuffer) {
                 indices += start; indices += start + 2; indices += start + 3
             }
 
-            // Front face (triangle) at z = +halfThickness
-            val tipFront = Point3f(0f, yTip, zFront)
+            // Create a sharp tip by merging the front/back tip vertices into a single point at z = 0
+            val tip = Point3f(0f, yTip, 0f)
             val baseLeftFront = Point3f(-halfWidth, yBase, zFront)
             val baseRightFront = Point3f(halfWidth, yBase, zFront)
-            addTriangle(tipFront, baseLeftFront, baseRightFront)
-
-            // Back face (triangle) at z = -halfThickness (winding chosen so outward normal points to -Z)
-            val tipBack = Point3f(0f, yTip, zBack)
             val baseRightBack = Point3f(halfWidth, yBase, zBack)
             val baseLeftBack = Point3f(-halfWidth, yBase, zBack)
-            addTriangle(tipBack, baseRightBack, baseLeftBack)
 
-            // Left sloped side (quad between left edge front/back)
-            addQuad(
-                a = tipBack,
-                b = tipFront,
-                c = baseLeftFront,
-                d = baseLeftBack,
-            )
-
-            // Right sloped side
-            addQuad(
-                a = tipFront,
-                b = tipBack,
-                c = baseRightBack,
-                d = baseRightFront,
-            )
+            // Four sloped triangular faces meeting at the sharp tip
+            // Front face (generally facing +Z)
+            addTriangle(tip, baseLeftFront, baseRightFront)
+            // Back face (generally facing -Z)
+            addTriangle(tip, baseRightBack, baseLeftBack)
+            // Left face (generally facing -X)
+            addTriangle(tip, baseLeftBack, baseLeftFront)
+            // Right face (generally facing +X)
+            addTriangle(tip, baseRightFront, baseRightBack)
 
             // Base face (quad closing the back of the head)
             addQuad(

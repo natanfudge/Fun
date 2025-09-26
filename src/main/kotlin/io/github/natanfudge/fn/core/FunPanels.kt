@@ -21,6 +21,7 @@ import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.render.render
 import io.github.natanfudge.fn.window.WindowConfig
+import io.github.natanfudge.wgpu4k.matrix.Mat4f
 
 data class ComposeHudPanel(val modifier: BoxScope. () -> Modifier, val content: @Composable BoxScope.() -> Unit, val panels: FunPanels) : AutoCloseable {
     override fun close() {
@@ -53,7 +54,7 @@ class FunPanels : Fun("FunPanels") {
         } else {
             this.worldGui?.canvasSize = size
         }
-        this.worldGui!!.render.localTransform.transform = transform
+        this.worldGui!!.render.localTransform.set(transform)
         this.worldGui!!.setContent(content)
         return WorldPanel(worldGui!!)
     }
@@ -121,7 +122,8 @@ private fun PanelSupportLongLiving(
 
 
 class WorldPanel internal constructor(private val panelManager: WorldPanelManager) : AutoCloseable {
-    var transform: Transform by panelManager.render::transform
+    //TODo: in the future it would be useful to be able to transform world panels
+//    val transform: Mat4f by panelManager.render::transform
     var canvasSize: IntSize = panelManager.initialPanelSize
         set(value) {
             field = value

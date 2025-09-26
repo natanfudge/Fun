@@ -10,7 +10,6 @@ import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.core.logPerformance
 import io.github.natanfudge.fn.physics.Body
 import io.github.natanfudge.fn.physics.physics
-import io.github.natanfudge.fn.physics.translation
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
 import io.github.natanfudge.fn.render.Model
 import io.github.natanfudge.fn.render.render
@@ -110,7 +109,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
                     if (target != null) {
                         digging = true
                         if (!running) {
-                            val targetOrientation = getRotationTo(physics.translation, Quatf(), target.pos.toVec3())
+                            val targetOrientation = getRotationTo(physics.position, Quatf(), target.pos.toVec3())
                             physics.orientation = targetOrientation
                         }
                         // 200 millseconds because that's the point in the animation where the character strikes. We must divide it by the multiplier of dig
@@ -229,14 +228,14 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
     }
 
 
-    val blockPos get() = physics.translation.toBlockPos()
+    val blockPos get() = physics.position.toBlockPos()
 
 
     /**
      * We target the first block near the player, because the selected block might be "covered" by the perspective of the player character.
      */
     fun targetBlock(directlyHoveredBlock: Block): Block? {
-        if (directlyHoveredBlock.pos.squaredDistance(physics.translation) > game.balance.breakReach.squared()) return null
+        if (directlyHoveredBlock.pos.squaredDistance(physics.position) > game.balance.breakReach.squared()) return null
         return firstBlockAlong(blockPos.to2D(), directlyHoveredBlock.pos.to2D())
     }
 
