@@ -13,7 +13,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("com.google.osdetector") version "1.7.3"
-    id("org.jetbrains.compose.hot-reload") version "1.0.0-beta08"
+    alias(libs.plugins.chr)
 }
 
 
@@ -85,12 +85,7 @@ dependencies {
     implementation(libs.bundles.commonMain)
 
     compileOnly(libs.bundles.jvmMainCompileOnly)
-    //TODO: add properly as deps
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-runtime-api:1.0.0-beta08")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-agent:1.0.0-beta08")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-core:1.0.0-beta08")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-orchestration:1.0.0-beta08")
-    implementation("org.jetbrains.compose.hot-reload:hot-reload-analysis:1.0.0-beta08")
+    implementation(libs.bundles.composeHotReload)
     implementation(kotlin("reflect"))
 
     implementation(libs.bundles.lwjgl)

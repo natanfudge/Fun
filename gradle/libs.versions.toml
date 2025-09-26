@@ -4,6 +4,7 @@ compose = { id = "org.jetbrains.compose", version.ref = "compose" }
 kotlin-plugin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 power-assert = { id = "org.jetbrains.kotlin.plugin.power-assert", version.ref = "kotlin" }
+chr = {id = "org.jetbrains.compose.hot-reload", version.ref = "compose-hot-reload"}
 
 [versions]
 kotlin = "2.2.0"
@@ -15,6 +16,7 @@ coroutines = "1.10.2"
 logback = "1.5.16"
 junit = "5.10.2"
 hotswap-agent = "2.0.2"
+compose-hot-reload = "1.0.0-beta08"
 
 wgpu4k = "0.1.0"
 
@@ -35,6 +37,11 @@ junit-jupiter-engine = { group = "org.junit.jupiter", name = "junit-jupiter-engi
 hotswap-agent = { group = "org.hotswapagent", name = "hotswap-agent-core", version.ref = "hotswap-agent" }
 # Supposed to be wgpu4k-toolkit, but wgpu4k-scenes has nice GLTF utilities so we'll use it for now
 wgpu4k = { module = "io.ygdrasil:wgpu4k-scenes", version.ref = "wgpu4k" }
+compose-hot-reload-runtime-api = { group = "org.jetbrains.compose.hot-reload", name = "hot-reload-runtime-api", version.ref = "compose-hot-reload" }
+compose-hot-reload-agent = { group = "org.jetbrains.compose.hot-reload", name = "hot-reload-agent", version.ref = "compose-hot-reload" }
+compose-hot-reload-core = { group = "org.jetbrains.compose.hot-reload", name = "hot-reload-core", version.ref = "compose-hot-reload" }
+compose-hot-reload-orchestration = { group = "org.jetbrains.compose.hot-reload", name = "hot-reload-orchestration", version.ref = "compose-hot-reload" }
+compose-hot-reload-analysis = { group = "org.jetbrains.compose.hot-reload", name = "hot-reload-analysis", version.ref = "compose-hot-reload" }
 
 [bundles]
 lwjgl = [
@@ -55,4 +62,11 @@ commonMain = [
 ]
 commonTest = [
     "kotlin-test"
+]
+composeHotReload = [
+    "compose-hot-reload-runtime-api",
+    "compose-hot-reload-agent",
+    "compose-hot-reload-core",
+    "compose-hot-reload-orchestration",
+    "compose-hot-reload-analysis"
 ]

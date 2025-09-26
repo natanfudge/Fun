@@ -47,21 +47,23 @@ class FunRenderState(
 
 
     init {
-//        println(id)
-        if (id.contains("Test")) {
-            val x = 2
-        }
+        // These 2 are called earliest so the transform field will be updated in time for its usage in this class's override of afterTransformChange.
+        localTransform.afterTransformChange {
+            transform = parentTransform.transform.mul(it)
+        }.closeWithThis()
+        parentTransform.afterTransformChange {
+            transform = it.mul(localTransform.transform)
+        }.closeWithThis()
+        afterTransformChange {
+            updateTransform(it)
+        }.closeWithThis()
     }
 
-    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
-        val localListener = localTransform.beforeTransformChange {
-            //TODO: that's not right, transform should be updated independently, and then this callback should call callback() with the new transform
-            // updated elsewhere.
-            transform = parentTransform.transform.mul(it)
+    override fun afterTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
+        val localListener = localTransform.afterTransformChange {
             callback(transform)
         }
-        val parentListener = parentTransform.beforeTransformChange {
-            transform = it.mul(localTransform.transform)
+        val parentListener = parentTransform.afterTransformChange {
             callback(transform)
         }
         return localListener.compose(parentListener).cast()
@@ -95,11 +97,6 @@ class FunRenderState(
         renderInstance.model.setTexture(image)
     }
 
-    init {
-        beforeTransformChange {
-            updateTransform(it)
-        }
-    }
 
     private fun updateTransform(transform: Mat4f) {
         if (despawned) return
@@ -114,7 +111,7 @@ class FunRenderState(
                 model.nodeHierarchy.toList().map { it.name }
             })"
         )
-        return renderInstance.jointTransform(this, nodeId)
+        return renderInstance.jointTransform(this, nodeId).closeWithThis()
     }
 
     var despawned = false

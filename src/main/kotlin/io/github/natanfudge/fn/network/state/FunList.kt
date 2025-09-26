@@ -109,7 +109,7 @@ class FunList<T> @PublishedApi internal constructor(
     override fun add(element: T): Boolean {
         //TO DO: do this only in a ServerFunValue
 
-        //TODO: to restore this, add a _changed like in FunSet
+        //TO DO: to restore this, add a _changed like in FunSet
 //        owner.context.sendStateChange(key, StateChangeValue.CollectionAdd(element))
         return _items.add(element)
     }

@@ -39,7 +39,6 @@
 //        assertEquals(e.z, a.z, eps, "z")
 //    }
 //
-//    //TODO: very nice test, need more tests for this if we want to keep Transform.mul.
 //    @Test
 //    fun `parent z-scale with child Rx(90) matches expected TRS`() {
 //        // Parent (global)

@@ -66,7 +66,7 @@ private val maxFrameDelta = 300.milliseconds
 interface FunContext : FunStateContext {
     val services: FunServices
 
-    //TODO: consider making all of these services
+    //SUS: consider making all of these services
     val events: FunEvents
     val time: FunTime
     val rootFun: RootFun
@@ -86,7 +86,7 @@ interface FunContext : FunStateContext {
     fun restartApp()
     fun refreshApp(invalidTypes: List<KClass<*>>? = listOf())
 
-    //TODO: these 3 don't seem to belong here
+    //SUS: these 3 don't seem to belong here
     fun setCursorLocked(locked: Boolean)
     fun setGUIFocused(focused: Boolean)
     fun runPhysics(delta: Duration)

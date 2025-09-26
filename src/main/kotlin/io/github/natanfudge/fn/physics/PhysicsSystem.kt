@@ -114,7 +114,6 @@ class PhysicsSystem(private val logger: ILogger, var gravity: Boolean = true) {
         val deltaSeconds = delta.seconds
         for (body in bodies) {
             if (!body.isImmovable) {
-                //TODO: don't apply gravity to grounded objects
                 if (gravity && !body.isGrounded) applyGravity(body, deltaSeconds)
                 applyDisplacement(body, deltaSeconds)
             }

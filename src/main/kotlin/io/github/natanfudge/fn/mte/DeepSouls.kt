@@ -73,7 +73,6 @@ class DeepSoulsGame : Fun("Game") {
     var cameraDistance by funValue(15f)
 
     private fun repositionCamera(playerPos: Vec3f) {
-        println("Movement mode: ${creativeMovement.mode}")
         if (creativeMovement.mode == CameraMode.Off) {
             camera.setLookAt(playerPos + Vec3f(0f, -cameraDistance, 0f), forward = Vec3f(0f, 1f, 0f))
             // This one is mostly for zooming in
@@ -97,8 +96,6 @@ class DeepSoulsGame : Fun("Game") {
     init {
         physics.system.earthGravityAcceleration = 20f
 
-        //TODO: physics is trigerring reposition callback because of gravity all the time... Need to fix it again...
-        // I think look up some paper on physics or some shit
         player.physics.positionState.afterChange {
             repositionCamera(it)
         }

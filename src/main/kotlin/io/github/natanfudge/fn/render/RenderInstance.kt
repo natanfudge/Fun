@@ -48,7 +48,7 @@ class RenderInstance internal constructor(
     /**
      * Allows following the transform of the given node [jointNodeId]
      */
-    fun jointTransform(worldTransform: Transformable, jointNodeId: NodeId): Transformable {
+    fun jointTransform(worldTransform: Transformable, jointNodeId: NodeId): JointTransform {
         return JointTransform(
             jointNodeId, skin ?: throw UnallowedFunException("jointTransform must only be called for models with a skeleton!"),
             worldTransform
@@ -174,26 +174,40 @@ class RenderInstance internal constructor(
 
 /**
  * Follows the transformation of a specific joint
+ *
+ * Must be closed once not needed.
  */
-private class JointTransform(val jointId: Int, val skinManager: SkinManager, val worldTransform: Transformable) : Transformable {
+ class JointTransform internal constructor(val jointId: Int, private val skinManager: SkinManager, val worldTransform: Transformable) : Transformable, AutoCloseable {
     private val node: MovingNode = skinManager.nodeTree.find { it.nodeIndex == jointId } ?: error("Cannot find joint with id ${jointId} in node tree")
-    private var nodeTransform = node.transform
 
     override var transform: Mat4f = worldTransform.transform.mul(node.transform)
+        private set
 
-    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
+    // These 2 listeners will be called to update the transform before its needed by callers of this class's afterTransformChange
+    private val jointTransformListener = skinManager.jointTransformEvent.listenUnscoped("jointChange") {
+        if (it.joint == jointId) {
+            transform = worldTransform.transform.mul(it.transform)
+        }
+    }
+
+    private val worldTransformListener = worldTransform.afterTransformChange {
+        transform = it.mul(node.transform)
+    }
+
+    override fun afterTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
         val localListener = skinManager.jointTransformEvent.listenUnscoped("jointChange") {
             if (it.joint == jointId) {
-                transform = worldTransform.transform.mul(it.transform)
                 callback(transform)
             }
         }
-        val parentListener = worldTransform.beforeTransformChange {
-            //TODo: this is a bug, node.transform could change over time so we need to check if it changed and return the new value if needed.
-            // It's a bit annoying to do efficiently though.
-            transform = it.mul(node.transform)
+        val parentListener = worldTransform.afterTransformChange {
             callback(transform)
         }
         return localListener.compose(parentListener).cast()
+    }
+
+    override fun close() {
+        jointTransformListener.close()
+        worldTransformListener.close()
     }
 }

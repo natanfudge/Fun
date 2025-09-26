@@ -67,8 +67,16 @@ class ClientFunValue<T>(
 
     /**
      * Changes are emitted BEFORE setting a new value, and are passed the new value.
+     *
+     * The [callback] callbacks of multiple [beforeChange] calls will always be called in the order that the [afterChange] were called.
      */
     override fun beforeChange(callback: (T) -> Unit): Listener<T> = beforeChange.listenUnscoped(listenerName, callback)
+
+    /**
+     *  Call [callback] AFTER this value changes, passing the new value as a parameter.
+     *
+     *   The [callback] callbacks of multiple [afterChange] calls will always be called in the order that the [afterChange] were called.
+     */
     fun afterChange(callback: (T) -> Unit): Listener<T> = afterChange.listenUnscoped(listenerName, callback)
     override var value: T = value
         set(value) {

@@ -122,8 +122,6 @@ private fun PanelSupportLongLiving(
 
 
 class WorldPanel internal constructor(private val panelManager: WorldPanelManager) : AutoCloseable {
-    //TODo: in the future it would be useful to be able to transform world panels
-//    val transform: Mat4f by panelManager.render::transform
     var canvasSize: IntSize = panelManager.initialPanelSize
         set(value) {
             field = value

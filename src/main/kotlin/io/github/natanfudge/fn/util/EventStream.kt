@@ -149,6 +149,10 @@ class EventEmitter<T> internal constructor(val label: String) : EventStream<T> {
     }
 
     /**
+     * Call [onEvent] when an event is emitted to this [EventEmitter].
+     *
+     * The [onEvent] callbacks of multiple [listenUnscoped] calls will always be called in the order that the [listenUnscoped] were called.
+     *
      * This may be called while inside yet another [listenUnscoped], and events will begin to be emitted AFTER the current event:
      * ```
      * stream.listenUnscoped {

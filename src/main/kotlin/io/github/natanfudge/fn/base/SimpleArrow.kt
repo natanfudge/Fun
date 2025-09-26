@@ -30,17 +30,9 @@ class SimpleArrow(
         tip.localTransform.translation = Vec3f(0f, 0f, 1.5f)
         tip.localTransform.rotation = Quatf.xRotation(PIf / 2)
         tip.localTransform.scale = Vec3f(2f, 2f, 2f)
-
-
-//                tip.localTransform.translation = Vec3f(0f, 0f, 2f)
-//        tip.localTransform.rotation = Quatf()
-//        tip.localTransform.scale = Vec3f(1f, 1f, 1f)
     }
 }
 
-//TODO: there's definitely some dissonance in the way we propogate transforms in the transform tree, If I scale the parent in Z axis, the child should globally
-// be scaled in the z axis, even if its rotated. Need to better understand this in general and see where we are getting it wrong, because right now
-// the z axis scale is rotated and then it becomes like a x axis scale which mathemtically makes sense but isn't really what we want with "parent z scale"
 
 class PositionEditor(id: FunId, parent: Transformable = RootTransformable, pos: Vec3f) : Fun(id) {
     val root = TransformNode(
@@ -74,10 +66,6 @@ class PositionEditor(id: FunId, parent: Transformable = RootTransformable, pos: 
 //    }
 }
 
-//TODO: make orbital movement less trash, the issue is with the focal point I think
 
-//TODO: visual editor should show the global transform of a renderobject
 
-//TODO: visual editor should have a way to go up/down in the hierarchy, with an outline to go with it.
 
-// TODO BUG: when we go from game selection to visual editor selection the gray marker remains on the selected block

@@ -3,7 +3,6 @@ package io.github.natanfudge.fn.physics
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.child
 import io.github.natanfudge.fn.render.AxisAlignedBoundingBox
-import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.fn.util.Listener
 import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
@@ -27,8 +26,8 @@ class FunPhysicsState(
 
     override val transform: Mat4f get() = transformState.transform
 
-    override fun beforeTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
-        return transformState.beforeTransformChange(callback)
+    override fun afterTransformChange(callback: (Mat4f) -> Unit): Listener<Mat4f> {
+        return transformState.afterTransformChange(callback)
     }
 
     override fun toString(): String {
@@ -57,9 +56,9 @@ class FunPhysicsState(
     }
 
     init {
-        beforeTransformChange {
+        afterTransformChange {
             updateAABB(it)
-        }
+        }.closeWithThis()
     }
 
     override var velocity: Vec3f by funValue(Vec3f.zero())
