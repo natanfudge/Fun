@@ -1,6 +1,7 @@
 package io.github.natanfudge.fn.core
 
 import androidx.compose.ui.unit.IntSize
+import io.github.natanfudge.fn.base.InputManager
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.render.WorldRenderer
@@ -82,6 +83,8 @@ interface FunContext : FunStateContext {
     val compose get() = services.get(ComposeHudWebGPURenderer.service)
 
     val logger: FunLogger get() = services.get(FunLogger.service)
+
+    val input: InputManager get() = services.get(InputManager.service)
 
     fun restartApp()
     fun refreshApp(invalidTypes: List<KClass<*>>? = listOf())
@@ -342,13 +345,14 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
                 gui.PanelSupport()
             }
         })
-        FunLogger()
     }
 }
 
 fun startTheFun(callback: () -> Unit) {
     FunContextImpl {
         FunBaseApp(WindowConfig())
+        FunLogger()
+        InputManager()
         callback()
     }.start()
 }

@@ -42,20 +42,17 @@ fun Fun.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: 
  * If you use [HoverHighlight], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditor].
  */
 class VisualEditor(
-    private val hoverMod: HoverHighlight, private val inputManagerMod: InputManager,
     /**
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
     var enabled: Boolean = true,
 ) : Fun("Visual Editor") {
-    constructor(inputManagerMod: InputManager, enabled: Boolean = true) : this(
-        HoverHighlight(), inputManagerMod, enabled
-    )
+
 
     //TODO: on visual editor->s how arrows
 
     init {
-        inputManagerMod.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
+        input.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
             enabled = !enabled
 
             logInfo("Visual Editor"){"Visual Editor=$enabled"}
@@ -73,8 +70,8 @@ class VisualEditor(
                 FunEditor(parent)
             }
         }
-        events.worldInput.listen { input ->
-            if (input is WindowEvent.PointerEvent && enabled) {
+        events.pointer.listen { input ->
+            if (enabled) {
                 if (input.eventType == PointerEventType.Press) {
                     mouseDownPos = input.position
                 }

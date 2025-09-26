@@ -260,7 +260,16 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
     var selectedObjectId: Int = -1
 
-    var hoveredObject: Boundable? by funValue(null)
+    /**
+     * The object currently being hovered by the mouse.
+     * Usually a [FunRenderState].
+     */
+    var hoveredObject: Boundable? = null
+
+    /**
+     * The position in space where the mouse is hovering, if it is hovering over something.
+     */
+    var hoverPos: Vec3f? = null
 
     var _camera = DefaultCamera()
 
@@ -302,8 +311,9 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
             // Update selected object based on ray casting
             val rayCast = surfaceBinding.rayCasting.rayCast(getCursorRay(_camera, cursorPosition, viewProjection, dimensions))
-            hoveredObject = rayCast?.value
-            selectedObjectId = rayCast?.renderId ?: -1
+            hoveredObject = rayCast?.obj?.value
+            selectedObjectId = rayCast?.obj?.renderId ?: -1
+            hoverPos = rayCast?.pos
 
             val uniform = WorldUniform(
                 viewProjection, _camera.position, lightPos,

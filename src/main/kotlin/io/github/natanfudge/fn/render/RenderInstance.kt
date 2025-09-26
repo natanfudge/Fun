@@ -22,7 +22,7 @@ class RenderInstance internal constructor(
     val model: BoundModel,
     private val instanceBuffer: IndirectInstanceBuffer,
     private val jointBuffer: IndirectInstanceBuffer,
-    var value: Boundable,
+    val value: Boundable,
     val onClose: (RenderInstance) -> Unit
 ) : Boundable, AutoCloseable {
 

@@ -169,6 +169,11 @@ interface Boundable {
 //    //  LATER: a proper containment test, that is more precise than the AABB check
 //)
 
+data class RayCastResult<T>(
+    val obj: T,
+    val pos: Vec3f
+)
+
 class RayCastingCache<T : Boundable> {
     private val items = mutableListOf<T>()
 
@@ -180,7 +185,10 @@ class RayCastingCache<T : Boundable> {
         items.remove(item)
     }
 
-    fun rayCast(ray: Ray): T? {
+    /**
+     * Returns the object intersecting with the ray [ray] and where it intersected with it.
+     */
+    fun rayCast(ray: Ray): RayCastResult<T>? {
         // SLOW: This check iterates over every mesh every frame, so ideally a better data structure is used
         // for ray-picking. I couldn't find any good library for it though.
         var closestDistance = Float.MAX_VALUE
@@ -188,19 +196,21 @@ class RayCastingCache<T : Boundable> {
         val currentDistanceVector = Vec2f()
         for (item in items) {
             if (intersectRayAab(ray.start, ray.direction, item.boundingBox, currentDistanceVector)) {
-                // Check it's actually closer...
-                if (currentDistanceVector.x < closestDistance) {
-
-                    // LATER: Möller–Trumbore triaanglation intersection check
+                // LATER: Möller–Trumbore triaanglation intersection check
 //                    val intersectionPoint = ray.start + (ray.direction * currentDistanceVector.x)
 //                    if (mesh.containmentFunc.contains(intersectionPoint.toPoint3D())) {
+
+                // Check it's actually closer...
+                if (currentDistanceVector.x < closestDistance) {
                     closestDistance = currentDistanceVector.x
                     closest = item
-//                    }
                 }
             }
         }
-        return closest
+        return if (closest != null && closestDistance.isFinite()) {
+            val intersectionPoint = ray.start + (ray.direction * closestDistance)
+            RayCastResult(closest, intersectionPoint)
+        } else null
     }
 
     /**

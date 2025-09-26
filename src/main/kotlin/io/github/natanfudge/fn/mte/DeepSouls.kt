@@ -38,11 +38,6 @@ class DeepSoulsGame : Fun("Game") {
 
     val animation = FunAnimation()
     val background = Background()
-
-
-
-    val input = InputManager()
-
     val physics = FunPhysics()
     val player = Player(this)
 //    val testArrow = SimpleArrow(Color.Magenta, "Test").apply {
@@ -53,19 +48,7 @@ class DeepSoulsGame : Fun("Game") {
     val devil = Devil()
 
 
-//    val whale = Whale(this)
-
-    val hoverMod = HoverHighlight(redirectHover = {
-        if (visualEditor.enabled) it
-        else if (it is Block) player.targetBlock(it)
-        else null
-    }, hoverRenderPredicate = {
-        if (visualEditor.enabled) true
-        // Don't highlight the break overlay
-        else !it.id.endsWith(Block.BreakRenderId)
-    })
-
-    val visualEditor: VisualEditor = VisualEditor(hoverMod, input, enabled = false)
+    val visualEditor = VisualEditor(enabled = false)
 
     val world = World(this)
 
@@ -113,6 +96,15 @@ class DeepSoulsGame : Fun("Game") {
 
         FunDebugPanel()
         ErrorNotifications()
+        HoverHighlight(redirectHover = {
+            if (visualEditor.enabled) it
+            else if (it is Block) player.targetBlock(it)
+            else null
+        }, hoverRenderPredicate = {
+            if (visualEditor.enabled) true
+            // Don't highlight the break overlay
+            else !it.id.endsWith(Block.BreakRenderId)
+        })
     }
 }
 

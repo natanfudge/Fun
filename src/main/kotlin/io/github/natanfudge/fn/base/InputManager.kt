@@ -10,12 +10,23 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.WindowEvent
+import io.github.natanfudge.fn.core.exposeAsService
+import io.github.natanfudge.fn.core.serviceKey
+import io.github.natanfudge.fn.render.WorldRenderer
 import io.github.natanfudge.fn.util.EventStream
 import korlibs.time.seconds
 
 
 
-class InputManager(): Fun("InputManager")  {
+class InputManager: Fun("InputManager")  {
+    companion object {
+        val service = serviceKey<InputManager>()
+    }
+
+    init {
+        exposeAsService(service)
+    }
+
     val heldKeys = mutableSetOf<FunKey>()
 
     var prevCursorPos: Offset? = null

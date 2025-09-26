@@ -5,7 +5,7 @@ import io.github.natanfudge.fn.core.Fun
 import java.util.LinkedList
 
 /**
- * Returns the root [Fun] node of the render [Fun] that is currently being hovered by the mouse.
+ * Returns the [Fun] parent node of the render [Fun] that is currently being hovered by the mouse.
  */
 fun FunContext.getHoveredParent(): Fun? {
     val directHovered = renderer.hoveredObject as? Fun ?: return null
