@@ -96,7 +96,7 @@ class RenderInstance internal constructor(
     }
 
     private fun checkDespawned() {
-        if (despawned) throw IllegalStateException("Attempt to transform despawned object")
+        if (despawned) throw IllegalStateException("Attempt to transform despawned object '$funId'")
     }
 
 

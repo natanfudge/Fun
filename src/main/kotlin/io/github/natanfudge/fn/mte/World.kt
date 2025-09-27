@@ -1,7 +1,5 @@
 package io.github.natanfudge.fn.mte
 
-import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.base.SimpleArrow
 import io.github.natanfudge.fn.compose.funedit.ValueEditor
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunId
@@ -11,7 +9,6 @@ import io.github.natanfudge.fn.network.state.FunMap
 import io.github.natanfudge.fn.network.state.getFunSerializer
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import kotlin.math.roundToInt
-import kotlin.random.Random
 
 private data class PositionedBlock(
     val type: BlockType,

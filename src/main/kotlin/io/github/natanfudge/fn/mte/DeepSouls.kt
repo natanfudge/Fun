@@ -44,7 +44,7 @@ class DeepSoulsGame : Fun("Game") {
 //        root.localTransform.translation = player.render.translation + Vec3f(0f,0f,2f)
 //    }
 
-    val testTransformEditor = PositionEditor("Test", RootTransformable,Vec3f(0f, 0.5f, 103f))
+//    val testTransformEditor = VisualPositionEditor("Test", RootTransformable,Vec3f(0f, 0.5f, 103f))
     val devil = Devil()
 
 

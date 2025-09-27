@@ -20,10 +20,7 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.natanfudge.fn.compose.utils.mutableState
-import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.WindowEvent
-import io.github.natanfudge.fn.core.logInfo
+import io.github.natanfudge.fn.core.*
 import io.github.natanfudge.fn.network.state.FunState
 import io.github.natanfudge.fn.network.state.listenAsState
 import io.github.natanfudge.fn.render.FunRenderState
@@ -48,23 +45,31 @@ class VisualEditor(
     var enabled: Boolean = true,
 ) : Fun("Visual Editor") {
 
+    private var posEditor: VisualPositionEditor? = null
 
-    //TODO: on visual editor->s how arrows
+    companion object {
+        /**
+         * Add this tag to an object to prevent it from being edited when clicked.
+         */
+        val CannotBeVisuallyEditedTag = Tag<Unit>("VisualEditor-DoNotEdit")
+    }
 
     init {
         input.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
             enabled = !enabled
 
-            logInfo("Visual Editor"){"Visual Editor=$enabled"}
+            logInfo("Visual Editor") { "Visual Editor=$enabled" }
             if (!enabled) {
                 restoreOldTint()
                 // Reset state if disabled
+                posEditor?.close()
+                posEditor = null
                 selectedObject = null
                 selectedObjectOldTint = null
                 mouseDownPos = null
             }
         })
-        addFunPanel ({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
+        addFunPanel({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
             val parent = selectedObject?.parent
             if (parent != null) {
                 FunEditor(parent)
@@ -94,7 +99,10 @@ class VisualEditor(
             // Don't reassign selected object if we dragged around too much
             if ((mouseDownPos - input.position).getDistanceSquared() < 100f) {
                 val selected = renderer.hoveredObject as? FunRenderState
+                // Ignore objects with CannotBeVisuallyEditedTag
+                if (selected != null && selected.hasTag(CannotBeVisuallyEditedTag)) return
                 if (selectedObject != selected) {
+                    posEditor?.close()
                     // Restore the old color
                     restoreOldTint()
                     // We can hover-highlight again
@@ -104,6 +112,8 @@ class VisualEditor(
                     selectedObjectOldTint = selected?.getTag(HoverHighlight.PreHoverTintTag) ?: selected?.tint
                     if (selected != null) {
                         selectObject(selected)
+                    } else {
+                        posEditor = null
                     }
                 }
 
@@ -122,13 +132,17 @@ class VisualEditor(
             ), strength = 0.6f
         )
 
-
+        posEditor = VisualPositionEditor("Fun_VisualPosEditor", selected, onMove = {
+            // Move object when position editor requests it
+            selected.localTransform.translation += it
+        })
     }
 
 
 }
 
-@Composable fun FunEditor(root: Fun, modifier: Modifier = Modifier) {
+@Composable
+fun FunEditor(root: Fun, modifier: Modifier = Modifier) {
     Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))) {
         Column(
             Modifier.padding(5.dp).width(IntrinsicSize.Max)

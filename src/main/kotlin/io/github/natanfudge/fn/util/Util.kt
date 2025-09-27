@@ -20,6 +20,8 @@ fun Float.ceilToInt(): Int = ceil(this).toInt()
 fun Float.toString(decimalPlaces: Int) = String.format("%.${decimalPlaces}f", this)
 
 
+fun average(num1: Float, num2: Float, num3: Float) = (num1 + num2 + num3) / 3
+
 fun <K, V> Map<K, V>.withValue(key: K, value: V): Map<K, V> {
     val newMap = toMutableMap()
     newMap[key] = value

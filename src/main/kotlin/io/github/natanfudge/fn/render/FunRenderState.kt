@@ -69,7 +69,7 @@ class FunRenderState(
         return localListener.compose(parentListener).cast()
     }
 
-    var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh)){
+    var baseAABB by funValue(getAxisAlignedBoundingBox(model.mesh)) {
         beforeChange {
             boundingBox = it.transformed(transform)
         }
@@ -79,8 +79,9 @@ class FunRenderState(
     override var boundingBox: AxisAlignedBoundingBox = baseAABB.transformed(transform)
         private set
 
-    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f)){
+    var tint: Tint by funValue<Tint>(Tint(Color.White, 0f)) {
         beforeChange {
+            checkConsistentDespawnStatus()
             if (tint != it && !despawned) {
                 renderInstance.setTintColor(it.color)
                 renderInstance.setTintStrength(it.strength)
@@ -97,8 +98,13 @@ class FunRenderState(
         renderInstance.model.setTexture(image)
     }
 
+    private fun checkConsistentDespawnStatus() {
+        check(despawned == renderInstance.despawned) { "Despawn status of FunRenderState '$id' does not match despawn status of its RenderInstance ($despawned != ${renderInstance.despawned})" }
+    }
+
 
     private fun updateTransform(transform: Mat4f) {
+        checkConsistentDespawnStatus()
         if (despawned) return
         this.boundingBox = baseAABB.transformed(transform)
         renderInstance.setTransform(transform)

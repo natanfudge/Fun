@@ -53,6 +53,11 @@ data class AxisAlignedBoundingBox(
     val width get() = maxX - minX
     val depth get() = maxY - minY
     val height get() = maxZ - minZ
+    fun getCenter() = Vec3f(
+        (maxX + minX) / 2,
+        (maxY + minY) / 2,
+        (maxZ + minZ) / 2
+    )
     fun size(axis: Int) = when (axis) {
         0 -> width
         1 -> depth
