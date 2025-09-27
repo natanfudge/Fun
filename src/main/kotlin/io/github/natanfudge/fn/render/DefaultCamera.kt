@@ -38,7 +38,7 @@ class DefaultCamera: Fun("Camera") {
      * The up vector defining the camera's orientation.
      * Points along the positive Z axis (0, 0, 1) by default.
      */
-    private val up by funValue(Vec3f(0f, 0f, 1f))
+     val up by funValue(Vec3f(0f, 0f, 1f))
 
     /**
      * The direction the camera is looking.

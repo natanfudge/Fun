@@ -63,7 +63,7 @@ class PositionEditor(id: FunId, parent: Transformable = RootTransformable, pos: 
 
     private val arrows = listOf(x, y, z)
 
-    private var heldObject: FunRenderState? = null
+    private var heldArrow: FunRenderState? = null
     private var prevGripPos: Vec3f? = null
 
     init {
@@ -88,31 +88,27 @@ class PositionEditor(id: FunId, parent: Transformable = RootTransformable, pos: 
                     val obj = renderer.hoveredObject as? FunRenderState ?: return@listen
                     // Make sure to only move one of the 3 arrows.
                     if (obj.parent in arrows) {
-                        heldObject = obj
-                        prevGripPos = renderer.hoverPos
+                        // Hold Arrow
+                        heldArrow = obj
+                        prevGripPos = getCursorPosOnPlane(obj)
                     }
                 }
 
                 PointerEventType.Release -> {
-                    heldObject = null
+                    heldArrow = null
                     prevGripPos = null
                 }
 
                 PointerEventType.Move -> {
-                    // TODO: make it possible to move the mouse away from the target arrow, need to think how we can measure distance at that point.
-                    // Needs to be absolute mouse movement I think, but we need to determine ahead of time how that relates to the axis.
-                    // So step 1: Determine axis direction in screen space.
-                    // Step 2: move object according to screen-space mouse movements.
-                    // This needs to happen constantly because we might move the camera during movement of the arrow.
-                    if ((renderer.hoveredObject as? FunRenderState)?.parent !in arrows) return@listen
-                    val prevPos = prevGripPos ?: return@listen
-                    val newPos = renderer.hoverPos ?: return@listen
+                    // Drag arrow
+                    val arrow = heldArrow ?: return@listen
+                    val prevPos =  prevGripPos ?: return@listen
+                    val newPos = getCursorPosOnPlane(arrow) ?: return@listen
                     val diff = newPos - prevPos
-                    println("Diff = $diff")
-                    when (heldObject?.parent) {
+                    println(" Diff: $diff")
+                    when (heldArrow?.parent) {
                         //TODO: this should move the parent transform instead and everything will move with it
                         x -> {
-                            println("Translation: ${x.root.localTransform.translation} -> ${x.root.localTransform.translation.plusX(diff.x)}")
                             x.root.localTransform.translation = x.root.localTransform.translation.plusX(diff.x)
                         }
 
@@ -124,11 +120,24 @@ class PositionEditor(id: FunId, parent: Transformable = RootTransformable, pos: 
                             z.root.localTransform.translation = z.root.localTransform.translation.plusZ(diff.z)
                         }
                     }
-                    prevGripPos = renderer.hoverPos
+                    prevGripPos = newPos
                 }
             }
 
         }
+    }
+
+    private fun getAxis(arrow: FunRenderState) = when(arrow.parent) {
+        x -> Vec3f(1f,0f,0f)
+        y -> Vec3f(0f,1f,0f)
+        z -> Vec3f(0f,0f,1f)
+        else -> error("Expected arrow but got: ${arrow.parent}")
+    }
+
+    private fun getCursorPosOnPlane(obj: FunRenderState): Vec3f? {
+        val pos = obj.transform.getTranslation()
+        val dir = getAxis(obj)
+        return renderer.getCursorPositionAlongCameraPlane(pos, dir)
     }
 
 }

@@ -7,6 +7,7 @@ import io.github.natanfudge.wgpu4k.matrix.Vec2f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 import io.github.natanfudge.wgpu4k.matrix.Vec4f
 import kotlinx.serialization.Serializable
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -78,7 +79,7 @@ data class AxisAlignedBoundingBox(
     }
 
     fun intersects(other: AxisAlignedBoundingBox, epsilon: Float = 1e-5f): Boolean = intersects(other, epsilon, epsilon, epsilon)
-    fun intersects(other: AxisAlignedBoundingBox,xEpsilon: Float = 1e-5f, yEpsilon: Float = 1e-5f, zEpsilon: Float = 1e-5f): Boolean {
+    fun intersects(other: AxisAlignedBoundingBox, xEpsilon: Float = 1e-5f, yEpsilon: Float = 1e-5f, zEpsilon: Float = 1e-5f): Boolean {
         return (minX - xEpsilon <= other.maxX && maxX + xEpsilon >= other.minX) &&
                 (minY - yEpsilon <= other.maxY && maxY + yEpsilon >= other.minY) &&
                 (minZ - zEpsilon <= other.maxZ && maxZ + zEpsilon >= other.minZ)
@@ -86,8 +87,8 @@ data class AxisAlignedBoundingBox(
 
     fun intersects(other: AxisAlignedBoundingBox): Boolean {
         return (minX <= other.maxX && maxX >= other.minX) &&
-                (minY <= other.maxY && maxY  >= other.minY) &&
-                (minZ<= other.maxZ && maxZ >= other.minZ)
+                (minY <= other.maxY && maxY >= other.minY) &&
+                (minZ <= other.maxZ && maxZ >= other.minZ)
     }
 
     fun transformed(mat: Mat4f): AxisAlignedBoundingBox {
@@ -171,7 +172,7 @@ interface Boundable {
 
 data class RayCastResult<T>(
     val obj: T,
-    val pos: Vec3f
+    val pos: Vec3f,
 )
 
 class RayCastingCache<T : Boundable> {
@@ -287,12 +288,89 @@ class RayCastingCache<T : Boundable> {
 
 }
 
-object Selection {
+object RayCastUtil {
+    fun rayPlaneIntersection(
+        ray: Ray, planeNormal: Vec3f, planePos: Vec3f, epsilon: Float = 1e-6f,
+    ): Vec3f? {
+        val r0 = ray.start
+        val rd = ray.direction
+
+        val denom = rd.dot(planeNormal)
+
+        // Parallel (or nearly): either no hit or coplanar
+        if (abs(denom) < epsilon) {
+            return null
+        }
+
+        val s = (planePos - r0).dot(planeNormal) / denom
+
+        if (s < 0f) return null
+        if (!s.isFinite()) return null
+
+        return r0 + rd * s
+    }
+
+    /**
+     * Computes a stable work-plane normal for axis-constrained dragging.
+     *
+     * The plane is defined to:
+     *  - pass through the gizmo origin (not needed here, only the normal is returned), and
+     *  - contain the drag axis `axis`.
+     *
+     * We build the normal as n = normalize( (b × axis) ), where `b` is a vector
+     * chosen to be as close as possible to the camera's view direction while
+     * remaining non-parallel to `axis`. Concretely:
+     *
+     *   1) Try base = axis × camDir.
+     *   2) If |base| is very small (axis ~ parallel to camera), fall back to
+     *      base = axis × up.
+     *   3) The final normal is normalize(base × axis).
+     *
+     * This ensures the work plane contains `axis` and stays well-conditioned
+     * for mouse ray intersections in perspective cameras.
+     *
+     * @param epsilon Threshold below which two vectors are considered nearly parallel.
+     * @return A unit-length normal vector for the work plane.
+     */
+    fun workPlaneNormal(
+        /**
+         * Must be a unit vector
+         */
+        axis: Vec3f,
+        camera: DefaultCamera,
+        epsilon: Float = 1e-4f,
+    ): Vec3f {
+        // Primary base: perpendicular to both axis and camera direction
+        var base = axis.cross(camera.forward)
+        if (base.lengthSquared() < epsilon) {
+            // Fallback if axis ~ parallel to camera: use world up instead
+            base = axis.cross(camera.up)
+            // If still degenerate (e.g., up also ~ parallel), perturb with a different hint
+            if (base.lengthSquared() < epsilon) {
+                // Create a tiny orthogonal nudge to break degeneracy
+                val tweak = if (abs(axis.y) < 0.9) Vec3f(0f, 1f, 0f) else Vec3f(1f, 0f, 0f)
+                base = axis.cross(tweak)
+
+                if (base.lengthSquared() < epsilon) {
+                    // Final fallback: arbitrary orthogonal via permutation (guaranteed non-zero for unit a)
+                    base = axis.cross(
+                        if (abs(axis.x) <= abs(axis.y) && abs(axis.x) <= abs(axis.z)) Vec3f(1f, 0f, 0f)
+                        else if (abs(axis.y) <= abs(axis.z)) Vec3f(0f, 1f, 0f)
+                        else Vec3f(0f, 0f, 1f)
+                    )
+                }
+            }
+        }
+
+        // The plane normal is perpendicular to both base and axis, and lies in the span {axis, camDir/up}
+        val n = base.cross(axis).normalized()
+        return n
+    }
 
     /**
      * Returns the ray that is pointed by the cursor in the orbital view, in world space.
      */
-    fun orbitalSelectionRay(
+    fun mouseRay(
         cursorCoords: Offset, // e.g. (mouseX, mouseY)
         screenSize: IntSize,   // e.g. (width, height)
         viewProjectionMatrix: Mat4f,

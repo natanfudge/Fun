@@ -169,7 +169,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
 
     val windowSize get() = surfaceHolder.size
-
+    var _camera = DefaultCamera()
     val index = rendererNextIndex++
 
     var sizeBinding by cached(surfaceBinding) {
@@ -257,6 +257,7 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
 
 
     var projection = calculateProjectionMatrix()
+    private var viewProjection = projection * _camera.viewMatrix
 
     var selectedObjectId: Int = -1
 
@@ -271,7 +272,22 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
      */
     var hoverPos: Vec3f? = null
 
-    var _camera = DefaultCamera()
+    /**
+     * Gets the position of the cursor on the plane located at [pos], pointing at [direction], and facing the camera.
+     * @param planeDirection Must be a unit vector
+     */
+    fun getCursorPositionAlongCameraPlane(pos: Vec3f, direction: Vec3f): Vec3f? {
+        val normal = RayCastUtil.workPlaneNormal(direction,_camera)
+        val ray = getCursorRay()
+        return RayCastUtil.rayPlaneIntersection(ray, normal, pos)
+        // chatgpt suggests doing this:
+        //   if (!X){ // fallback plane if needed
+        //    n = workPlaneNormal(a, up, camDir); // swap helpers
+        //    X = rayPlaneIntersection(ray.origin, ray.dir, G, n);
+        //  }
+        // But IDK about that.
+    }
+
 
     var bindgroup: GPUBindGroup by cached(surfaceBinding) {
         surfaceBinding.createBindGroup(pipelineHolder.pipeline)
@@ -305,12 +321,12 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
             val windowTexture =
                 underlyingWindowFrame.texture.createView(descriptor = TextureViewDescriptor(label = "Texture created directly from device ${ctx.index}"))
 
-            val viewProjection = projection * _camera.viewMatrix
+            this.viewProjection = projection * _camera.viewMatrix
 
             val dimensions = surfaceHolder.size
 
             // Update selected object based on ray casting
-            val rayCast = surfaceBinding.rayCasting.rayCast(getCursorRay(_camera, cursorPosition, viewProjection, dimensions))
+            val rayCast = surfaceBinding.rayCasting.rayCast(getCursorRay())
             hoveredObject = rayCast?.obj?.value
             selectedObjectId = rayCast?.obj?.renderId ?: -1
             hoverPos = rayCast?.pos
@@ -415,10 +431,11 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
     /**
      * Returns where the use is pointing at in world space
      */
-    private fun getCursorRay(camera: DefaultCamera, cursorPosition: Offset?, viewProjection: Mat4f, dimensions: IntSize): Ray {
+    private fun getCursorRay(): Ray {
+        val dimensions = surfaceHolder.size
         if (cursorPosition != null) {
-            val ray = Selection.orbitalSelectionRay(
-                cursorPosition,
+            val ray = RayCastUtil.mouseRay(
+                cursorPosition!!,
                 IntSize(dimensions.width, dimensions.height),
                 viewProjection
             )
