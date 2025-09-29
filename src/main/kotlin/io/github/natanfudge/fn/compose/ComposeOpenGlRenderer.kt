@@ -24,11 +24,14 @@ import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.SimpleLogger
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.valid
-import io.github.natanfudge.fn.window.GlfwCoroutineDispatcher
+import io.github.natanfudge.fn.window.MainThreadCoroutineDispatcher
 import io.github.natanfudge.fn.window.GlfwWindowHolder
 import io.github.natanfudge.fn.window.WindowConfig
 import io.github.natanfudge.fn.window.WindowHandle
+import korlibs.io.async.launchUnscoped
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
@@ -340,7 +343,8 @@ class GlfwComposeScene(
         onError(throwable)
     }
 
-    val dispatcher = GlfwCoroutineDispatcher()
+    //TODO: bubble this up and run it directly in the main loop
+    val dispatcher = MainThreadCoroutineDispatcher()
     private val frameDispatcher = FrameDispatcher(dispatcher) {
         /* Called by Compose when *anything* invalidates. */
         onInvalidate(this)

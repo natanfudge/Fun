@@ -65,6 +65,9 @@ private val maxFrameDelta = 300.milliseconds
 
 
 interface FunContext : FunStateContext {
+    companion object {
+        fun get() = FunContextRegistry.getContext()
+    }
     val services: FunServices
 
     //SUS: consider making all of these services
@@ -88,6 +91,7 @@ interface FunContext : FunStateContext {
 
     fun restartApp()
     fun refreshApp(invalidTypes: List<KClass<*>>? = listOf())
+    fun stopApp()
 
     //SUS: these 3 don't seem to belong here
     fun setCursorLocked(locked: Boolean)
@@ -99,7 +103,7 @@ interface FunContext : FunStateContext {
     fun unregister(fn: Fun)
 }
 
-class FunContextImpl(val appCallback: () -> Unit) : FunContext {
+class FunContextImpl(val appCallback: context(FunContext)() -> Unit) : FunContext {
     init {
         FunContextRegistry.setContext(this)
     }
@@ -125,6 +129,12 @@ class FunContextImpl(val appCallback: () -> Unit) : FunContext {
 
     override fun unregister(fn: Fun) {
         stateManager.unregister(fn.id)
+    }
+
+    var running = true
+
+    override fun stopApp() {
+        running = false
     }
 
 
@@ -220,7 +230,7 @@ class FunContextImpl(val appCallback: () -> Unit) : FunContext {
 
 
     private fun loop() {
-        while (true) {
+        while (running) {
             frame()
         }
     }
@@ -348,7 +358,7 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
     }
 }
 
-fun startTheFun(callback: () -> Unit) {
+fun startTheFun(callback: context(FunContext) () -> Unit) {
     FunContextImpl {
         FunBaseApp(WindowConfig())
         FunLogger()

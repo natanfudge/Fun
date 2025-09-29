@@ -107,46 +107,9 @@ class DeepSoulsGame : Fun("Game") {
     }
 }
 
-class FunTestContext(private val context: FunContext): FunContext by context {
-    /**
-     * Asserts that [count] instances of [T] exist in the game.
-     *
-     * Can use [count] = 0 to assert that no instances exist
-     *
-     * @return [count] instances of [T] that exist in the game.
-     */
-    inline fun <reified T: Fun> assertExists(count: Int = 1): List<T> {
-        TODO()
-    }
 
-    /**
-     * Asserts that [count] instances of [T] are visible on the screen.
-     * This means that they have a child [FunRenderState], that is being rendered to the screen with at least one pixel of it visible from the perspective
-     * and not hidden by other objects.
-     *
-     * Can use [count] = 0 to assert that no instances are visible.
-     */
-    inline fun <reified T: Fun> assertVisible(count: Int = 1) {
-
-    }
-
-    /**
-     * Asserts that all items of this list are visible on the screen.
-     * This means that they have a child [FunRenderState], that is being rendered to the screen with at least one pixel of it visible from the perspective
-     * and not hidden by other objects.
-     */
-    fun  <T: Fun> List<T>.assertVisible() {
-
-    }
-
-    fun simulateInput(input: InputEvent) {
-    }
-
-}
 //TODO: 1. Implement this:
-fun funTest(test: suspend context(FunTestContext) () -> Unit) {
 
-}
 // Which starts a game, and then closes when the callback finishes.
 
 // 2. Uncomment Main.kt and adjust to new APIs, and rename it to "FunTestApp.kt"
