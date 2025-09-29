@@ -30,8 +30,6 @@ class RenderInstance internal constructor(
         onClose(this)
     }
 
-
-
     // SLOW: should reconsider passing normal matrices always
     private val normalMatrix = Mat3f.normalMatrix(initialTransform)
     internal val globalInstancePointer = instanceBuffer.newInstance(
@@ -40,7 +38,6 @@ class RenderInstance internal constructor(
             if (this@RenderInstance.model.data.skeleton == null) 0 else 1
         )
     ) as GPUPointer<BaseInstanceData>
-
 
 
     internal val skin = if (this@RenderInstance.model.data.skeleton == null) null else SkinManager(this@RenderInstance.model.data.skeleton, this@RenderInstance.model.data)
@@ -80,12 +77,6 @@ class RenderInstance internal constructor(
     internal var requestedTintStrength: Float? = null
 
     var despawned = false
-
-
-    
-//    fun setTexture(texture: FunImage) {
-//        model.setTexture(texture)
-//    }
 
     /**
      * Sets the flag that tells the GPU that this instance has a texture to true

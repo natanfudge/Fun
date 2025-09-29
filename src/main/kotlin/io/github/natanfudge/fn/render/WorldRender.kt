@@ -371,7 +371,6 @@ class WorldRenderer(val surfaceHolder: WebGPUSurfaceHolder) : Fun("WorldRenderer
             pass.setBindGroup(0u, bindgroup)
             pass.setVertexBuffer(0u, surfaceBinding.vertexBuffer.buffer)
             pass.setIndexBuffer(surfaceBinding.indexBuffer.buffer, GPUIndexFormat.Uint32)
-
             var instanceIndex = 0u
             for (model in surfaceBinding.models.values) {
                 val bindGroup = model.bindGroup

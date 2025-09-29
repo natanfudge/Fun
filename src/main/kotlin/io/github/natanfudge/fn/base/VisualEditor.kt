@@ -93,7 +93,7 @@ class VisualEditor(
         selectedObject?.tint = selectedObjectOldTint ?: Tint(Color.White)
     }
 
-    private fun checkObjectSelect(input: WindowEvent.PointerEvent) {
+    private fun checkObjectSelect(input: InputEvent.PointerEvent) {
         if (input.eventType == PointerEventType.Release) {
             val mouseDownPos = mouseDownPos ?: return
             // Don't reassign selected object if we dragged around too much

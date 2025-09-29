@@ -11,8 +11,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import org.jetbrains.skiko.currentNanoTime
 
-sealed interface WindowEvent {
-    object CloseButtonPressed : WindowEvent
+sealed interface InputEvent {
+    object CloseButtonPressed : InputEvent
     data class PointerEvent(
         val eventType: PointerEventType,
         val position: Offset,
@@ -23,13 +23,13 @@ sealed interface WindowEvent {
         val keyboardModifiers: PointerKeyboardModifiers? = null,
         val nativeEvent: Any? = null,
         val button: PointerButton? = null,
-    ) : WindowEvent
+    ) : InputEvent
 
-    data class KeyEvent(val event: androidx.compose.ui.input.key.KeyEvent) : WindowEvent
-    data class WindowMove(val offset: IntOffset) : WindowEvent
-    data class WindowResize(val size: IntSize): WindowEvent
-    data class DensityChange(val density: Density): WindowEvent
-    object WindowClose: WindowEvent
+    data class KeyEvent(val event: androidx.compose.ui.input.key.KeyEvent) : InputEvent
+    data class WindowMove(val offset: IntOffset) : InputEvent
+    data class WindowResize(val size: IntSize): InputEvent
+    data class DensityChange(val density: Density): InputEvent
+    object WindowClose: InputEvent
 }
 
 

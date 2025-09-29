@@ -12,11 +12,7 @@ import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 class EditPositionArrow(
-    val color: Color, id: FunId,
-    parent: Fun,
-//    initialPos: Vec3f
-//    val transform: Transform,
-//    parent: Transformable = RootTransformable,
+    val color: Color, id: FunId, parent: Fun,
 ) : Fun(parent.id.child(id), parent) {
     val root by render(Model(Mesh.Cylinder, "ArrowCylinder"))
     private val tip by render(Model(Mesh.arrowHead(PIf / 2.5f), "ArrowHead"), root)
@@ -37,6 +33,7 @@ class EditPositionArrow(
 
 }
 
+//TODO: "soft restart" that doesn't create a new window
 
 class VisualPositionEditor(
     id: FunId, val target: FunRenderState,
@@ -47,7 +44,6 @@ class VisualPositionEditor(
 ) : Fun(id) {
 
     private fun getTargetCenter() = target.boundingBox.getCenter()
-
 
     val x = EditPositionArrow(
         Color.Red, "x" ,this,

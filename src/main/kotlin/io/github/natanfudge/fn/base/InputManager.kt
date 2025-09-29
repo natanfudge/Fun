@@ -8,12 +8,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.FunContext
-import io.github.natanfudge.fn.core.WindowEvent
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.exposeAsService
 import io.github.natanfudge.fn.core.serviceKey
-import io.github.natanfudge.fn.render.WorldRenderer
-import io.github.natanfudge.fn.util.EventStream
 import korlibs.time.seconds
 
 
@@ -34,6 +31,7 @@ class InputManager: Fun("InputManager")  {
     val focused: Boolean get() = prevCursorPos != null
 
 
+    //TODO: would like to replace this by EventEmitter.map{}
     /**
      * Passes the movement delta
      */
@@ -120,7 +118,7 @@ class InputManager: Fun("InputManager")  {
         }
         events.worldInput.listen { input ->
             when (input) {
-                is WindowEvent.KeyEvent -> {
+                is InputEvent.KeyEvent -> {
                     val event = input.event
                     when (event.type) {
                         KeyEventType.KeyDown -> {
@@ -145,7 +143,7 @@ class InputManager: Fun("InputManager")  {
                     }
                 }
 
-                is WindowEvent.PointerEvent -> {
+                is InputEvent.PointerEvent -> {
                     when (input.eventType) {
                         PointerEventType.Exit -> {
                             prevCursorPos = null

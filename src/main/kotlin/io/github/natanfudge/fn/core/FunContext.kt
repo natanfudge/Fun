@@ -38,26 +38,26 @@ class FunEvents : Fun("FunEvents") {
     val beforePhysics by event<Duration>()
     val physics by event<Duration>()
     val afterPhysics by event<Duration>()
-    val anyInput by event<WindowEvent>()
+    val anyInput by event<InputEvent>()
 
     // Events are not emitted here when the user focuses on the GUI
     val worldInput = anyInput.filter {
         check(!gui.closed)
         // Don't allow world pointer events when the user is in the GUI
-        it !is WindowEvent.PointerEvent || !gui.userInGui.value
+        it !is InputEvent.PointerEvent || !gui.userInGui.value
     }
     val guiError by event<Throwable>()
 
     //    val appClosed by event<Unit>()
     val hotReload by event<Reload>()
-    val closeButtonPressed = anyInput.filterIsInstance<WindowEvent.CloseButtonPressed>()
-    val pointer = anyInput.filterIsInstance<WindowEvent.PointerEvent>()
-    val key = anyInput.filterIsInstance<WindowEvent.KeyEvent>()
-    val windowMove = anyInput.filterIsInstance<WindowEvent.WindowMove>()
-    val windowResize = anyInput.filterIsInstance<WindowEvent.WindowResize>()
+    val closeButtonPressed = anyInput.filterIsInstance<InputEvent.CloseButtonPressed>()
+    val pointer = anyInput.filterIsInstance<InputEvent.PointerEvent>()
+    val key = anyInput.filterIsInstance<InputEvent.KeyEvent>()
+    val windowMove = anyInput.filterIsInstance<InputEvent.WindowMove>()
+    val windowResize = anyInput.filterIsInstance<InputEvent.WindowResize>()
     val afterWindowResize by event<IntSize>()
-    val densityChange = anyInput.filterIsInstance<WindowEvent.DensityChange>()
-    val windowClose = anyInput.filterIsInstance<WindowEvent.WindowClose>()
+    val densityChange = anyInput.filterIsInstance<InputEvent.DensityChange>()
+    val windowClose = anyInput.filterIsInstance<InputEvent.WindowClose>()
 }
 
 
@@ -301,7 +301,7 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
 
     val windowHolder = GlfwWindowHolder(withOpenGL = false, showWindow = true, config, name = "WebGPU") {
         events.anyInput(it)
-        if (it is WindowEvent.WindowResize) {
+        if (it is InputEvent.WindowResize) {
             events.afterWindowResize(it.size)
         }
     }

@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.Fun
-import io.github.natanfudge.fn.core.WindowEvent
+import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.render.isEmpty
 import org.jetbrains.compose.reload.agent.sendAsync
 import org.jetbrains.compose.reload.core.WindowId
@@ -19,7 +19,7 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val onEvent: (WindowEvent) -> Unit) : InvalidationKey() {
+class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val onEvent: (InputEvent) -> Unit) : InvalidationKey() {
     init {
         if (!showWindow) {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
@@ -54,18 +54,18 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
         val x = IntArray(1)
         val y = IntArray(1)
         glfwGetWindowPos(handle, x, y)
-        onEvent(WindowEvent.WindowMove(IntOffset(x[0], y[0])))
+        onEvent(InputEvent.WindowMove(IntOffset(x[0], y[0])))
 
 
         glfwSetWindowCloseCallback(handle) {
-            onEvent(WindowEvent.CloseButtonPressed)
+            onEvent(InputEvent.CloseButtonPressed)
         }
         glfwSetWindowPosCallback(handle) { _, x, y ->
-            onEvent(WindowEvent.WindowMove(IntOffset(x, y)))
+            onEvent(InputEvent.WindowMove(IntOffset(x, y)))
         }
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
-            onEvent(WindowEvent.WindowResize(IntSize(windowWidth, windowHeight)))
+            onEvent(InputEvent.WindowResize(IntSize(windowWidth, windowHeight)))
 //            events.windowResized(size)
 //            events.afterWindowResized(size)
 
@@ -75,7 +75,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 
         glfwSetMouseButtonCallback(handle) { _, button, action, mods ->
             onEvent(
-                WindowEvent.PointerEvent(
+                InputEvent.PointerEvent(
                     position = glfwGetCursorPos(
                         handle
                     ),
@@ -100,7 +100,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
         glfwSetCursorPosCallback(handle) { _, xpos, ypos ->
             val position = Offset(xpos.toFloat(), ypos.toFloat())
             onEvent(
-                WindowEvent.PointerEvent(
+                InputEvent.PointerEvent(
                     position = position,
                     eventType = PointerEventType.Move,
                     nativeEvent = AwtMouseEvent(getAwtMods(handle))
@@ -110,7 +110,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 
         glfwSetScrollCallback(handle) { _, xoffset, yoffset ->
             onEvent(
-                WindowEvent.PointerEvent(
+                InputEvent.PointerEvent(
                     eventType = PointerEventType.Scroll,
                     position = glfwGetCursorPos(handle),
                     scrollDelta = Offset(xoffset.toFloat(), -yoffset.toFloat()),
@@ -121,7 +121,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 
         glfwSetCursorEnterCallback(handle) { _, entered ->
             onEvent(
-                WindowEvent.PointerEvent(
+                InputEvent.PointerEvent(
                     position = glfwGetCursorPos(handle),
                     eventType = if (entered) PointerEventType.Enter else PointerEventType.Exit,
                     nativeEvent = AwtMouseEvent(getAwtMods(handle))
@@ -131,19 +131,19 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 
         glfwSetKeyCallback(handle) { _, key, scancode, action, mods ->
             val event = glfwToComposeEvent(key, action, mods)
-            onEvent(WindowEvent.KeyEvent(event))
+            onEvent(InputEvent.KeyEvent(event))
         }
 
         glfwSetCharCallback(handle) { _, codepoint ->
             for (char in Character.toChars(codepoint)) {
                 onEvent(
-                    WindowEvent.KeyEvent(typedCharacterToComposeEvent(char))
+                    InputEvent.KeyEvent(typedCharacterToComposeEvent(char))
                 )
             }
         }
 
         glfwSetWindowContentScaleCallback(handle) { _, xscale, _ ->
-            onEvent(WindowEvent.DensityChange(Density(xscale)))
+            onEvent(InputEvent.DensityChange(Density(xscale)))
         }
 
     }
@@ -164,7 +164,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 
 
     override fun close() {
-        onEvent(WindowEvent.WindowClose)
+        onEvent(InputEvent.WindowClose)
         OrchestrationMessage.ApplicationWindowGone(WindowId(handle.toString()))
             .sendAsync()
         glfwSetWindowCloseCallback(handle, null)
@@ -173,7 +173,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 }
 
 
-class GlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val name: String, val onEvent: (WindowEvent) -> Unit) :
+class GlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val name: String, val onEvent: (InputEvent) -> Unit) :
     Fun("${name}GlfwWindow") {
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
