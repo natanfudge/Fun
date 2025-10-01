@@ -12,8 +12,10 @@ import io.github.natanfudge.fn.util.filterIsInstance
 import io.github.natanfudge.fn.webgpu.WebGPUSurfaceHolder
 import io.github.natanfudge.fn.window.GlfwWindowHolder
 import io.github.natanfudge.fn.window.GlfwWindowProvider
+import io.github.natanfudge.fn.window.MainThreadCoroutineDispatcher
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
+import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.agent.invokeBeforeHotReload
@@ -21,6 +23,7 @@ import org.jetbrains.compose.reload.agent.sendAsync
 import org.jetbrains.compose.reload.core.WindowId
 import org.jetbrains.compose.reload.core.mapLeft
 import org.jetbrains.compose.reload.orchestration.OrchestrationMessage
+import kotlin.coroutines.CoroutineContext
 import kotlin.reflect.KClass
 import kotlin.system.exitProcess
 import kotlin.time.Duration
@@ -63,12 +66,14 @@ class FunEvents : Fun("FunEvents") {
 
 private val maxFrameDelta = 300.milliseconds
 
-
 interface FunContext : FunStateContext {
     companion object {
         fun get() = FunContextRegistry.getContext()
     }
     val services: FunServices
+
+
+    val coroutineContext: CoroutineContext
 
     //SUS: consider making all of these services
     val events: FunEvents
@@ -107,6 +112,9 @@ class FunContextImpl(val appCallback: context(FunContext)() -> Unit) : FunContex
     init {
         FunContextRegistry.setContext(this)
     }
+
+
+    override val coroutineContext = MainThreadCoroutineDispatcher()
 
     override val cache = FunCache()
     override val stateManager = FunStateManager()
@@ -208,6 +216,9 @@ class FunContextImpl(val appCallback: context(FunContext)() -> Unit) : FunContex
         fsWatcher.poll()
         time.advance(delta)
 
+        checkHotReload()
+        // Run coroutine calls on main thread
+        coroutineContext.poll()
         checkHotReload()
         events.beforeFrame(delta)
         checkHotReload()

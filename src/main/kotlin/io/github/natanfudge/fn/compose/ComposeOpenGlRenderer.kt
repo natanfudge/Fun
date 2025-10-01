@@ -29,6 +29,7 @@ import io.github.natanfudge.fn.window.GlfwWindowHolder
 import io.github.natanfudge.fn.window.WindowConfig
 import io.github.natanfudge.fn.window.WindowHandle
 import korlibs.io.async.launchUnscoped
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -43,6 +44,7 @@ import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_BINDING
 import org.lwjgl.opengl.GLCapabilities
 import org.lwjgl.system.MemoryUtil
+import kotlin.coroutines.CoroutineContext
 
 
 @OptIn(InternalComposeUiApi::class)
@@ -328,6 +330,7 @@ class GlfwComposeScene(
     private val density: Density,
     val getWindowSize: () -> IntSize,
     val label: String,
+    val coroutineContext: CoroutineContext,
 //    val config: ComposeOpenGLRenderer,
     onError: (Throwable) -> Unit,
     /** Marks this window invalid – render next frame. */
@@ -344,8 +347,7 @@ class GlfwComposeScene(
     }
 
     //TODO: bubble this up and run it directly in the main loop
-    val dispatcher = MainThreadCoroutineDispatcher()
-    private val frameDispatcher = FrameDispatcher(dispatcher) {
+    private val frameDispatcher = FrameDispatcher(coroutineContext) {
         /* Called by Compose when *anything* invalidates. */
         onInvalidate(this)
     }
@@ -386,7 +388,7 @@ class GlfwComposeScene(
 
     /** root scene */
     val scene = PlatformLayersComposeScene(
-        coroutineContext = dispatcher + exceptionHandler,
+        coroutineContext = coroutineContext + exceptionHandler,
         density = density,
         invalidate = frameDispatcher::scheduleFrame,
         size = initialSize,
@@ -494,6 +496,7 @@ class ComposeOpenGLRenderer(
                 density = Density(glfwGetWindowContentScale(handle)),
                 onSetPointerIcon = onSetPointerIcon,
                 label = name,
+                coroutineContext = coroutineContext,
                 onError = {
                     events.guiError(it)
 
@@ -512,6 +515,8 @@ class ComposeOpenGLRenderer(
         return scene
     }
 
+    val x = 2
+
     var canvas by cached(offscreenWindow.window) {
         FixedSizeComposeWindow(offscreenWindow.size, scene)
     }
@@ -525,12 +530,10 @@ class ComposeOpenGLRenderer(
 
     init {
         events.beforeFrame.listen {
-
             check(!closed)
             check(scene.valid) {
                 "Scene is $scene, i am $this"
             }
-            scene.dispatcher.poll()
 
             if (scene.frameInvalid) {
                 GLFW.glfwMakeContextCurrent(scene.handle)
