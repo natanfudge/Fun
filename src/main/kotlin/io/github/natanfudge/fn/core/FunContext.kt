@@ -3,7 +3,7 @@
 package io.github.natanfudge.fn.core
 
 import androidx.compose.ui.unit.IntSize
-import io.github.natanfudge.fn.base.InputManager
+import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.compose.ComposeHudWebGPURenderer
 import io.github.natanfudge.fn.files.FileSystemWatcher
 import io.github.natanfudge.fn.render.WorldRenderer
@@ -71,6 +71,7 @@ interface FunContext : FunStateContext {
     companion object {
         fun get() = FunContextRegistry.getContext()
     }
+
     val services: FunServices
 
 
@@ -87,17 +88,20 @@ interface FunContext : FunStateContext {
     val cache: FunCache
     val fsWatcher: FileSystemWatcher
 
-    val gui: FunPanels get() = services.get(FunPanels.service)
+    val baseServices: FunBaseServices
 
+    val gui: FunPanels get() = baseServices.gui
+
+    //TODO: would like to get these two to be field accesses instead of this map.get call
     val renderer get() = services.get(WorldRenderer.service)
+    val compose get() = services.get(ComposeHudWebGPURenderer.service)
 
     val camera get() = renderer._camera
 
-    val compose get() = services.get(ComposeHudWebGPURenderer.service)
 
-    val logger: FunLogger get() = services.get(FunLogger.service)
+    val logger: FunLogger get() = baseServices.logger
 
-    val input: InputManager get() = services.get(InputManager.service)
+    val input: InputManager get() = baseServices.input
 
     fun restartApp()
     fun refreshApp(invalidTypes: List<KClass<*>>? = listOf())
@@ -113,10 +117,15 @@ interface FunContext : FunStateContext {
     fun unregister(fn: Fun)
 }
 
-class FunContextImpl(val appCallback: FunContext.() -> Unit) : FunContext {
+class FunContextImpl(val appCallback: FunContextImpl.() -> Unit) : FunContext {
     init {
         FunContextRegistry.setContext(this)
     }
+
+    override val baseServices: FunBaseServices
+        get() = _baseServices ?: error("baseServices of FunContext not initialized yet!")
+
+    var _baseServices: FunBaseServices? = null
 
     override val mainThreadCoroutineContext = MainThreadCoroutineDispatcher()
 //    override val globalCoroutineContext = CoroutineScope(dispatcher)
@@ -170,7 +179,7 @@ class FunContextImpl(val appCallback: FunContext.() -> Unit) : FunContext {
             jvmHotswapInProgress = true
         }
         invokeAfterHotReload { _, result ->
-            logDebug("HotReload"){"Hot Reloading app with classes: ${result.leftOrNull()?.definitions?.map { it.definitionClass.simpleName }}"}
+            logDebug("HotReload") { "Hot Reloading app with classes: ${result.leftOrNull()?.definitions?.map { it.definitionClass.simpleName }}" }
             result.mapLeft {
                 // This runs on a different thread which will cause issues, so we store it and will run it on the main thread later
                 pendingReload = it
@@ -302,17 +311,18 @@ private fun aggregateDirtyClasses(reload: Reload) {
     for (scope in reload.dirty.dirtyScopes) {
         classes.add(scope.methodId.classId.value)
     }
-    logVerbose("HotReload"){ "Dirty classes: $classes" }
+    logVerbose("HotReload") { "Dirty classes: $classes" }
 }
 
 
 internal object FunContextRegistry {
-    private lateinit var context: FunContext
+    private var context: FunContext? = null
     fun setContext(context: FunContext) {
         this.context = context
     }
 
-    fun getContext() = context
+    fun getContext() = context!!
+    fun maybeGetContext() = context
 }
 
 fun getContext() = FunContextRegistry.getContext()
@@ -365,7 +375,6 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
     val _worldRenderer = WorldRenderer(webgpu)
 
     init {
-        FunPanels()
         ComposeHudWebGPURenderer(_worldRenderer, show = false, onCreateScene = { scene ->
             scene.setContent {
                 gui.PanelSupport()
@@ -374,11 +383,27 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
     }
 }
 
-fun startTheFun(callback: FunContext.() -> Unit) {
+class FunBaseServices(
+    val window: WindowConfig = WindowConfig(),
+    val logger: FunLogger = FunLogger(),
+    val input: InputManager = InputManager(),
+    val debugPanel: FunDebugPanel = FunDebugPanel(),
+    val errorGui: ErrorNotifications = ErrorNotifications(),
+    val hoverHighlight: HoverHighlight = HoverHighlight(),
+    val creativeMovement: CreativeMovement = CreativeMovement(),
+    val visualEditor: VisualEditor = VisualEditor(),
+    val gui: FunPanels = FunPanels(),
+    val physics: FunPhysics = FunPhysics(),
+    val animation: FunAnimation = FunAnimation(),
+)
+
+fun startTheFun(serviceConfig: FunContext.() -> FunBaseServices = { FunBaseServices() }, callback: FunContext.() -> Unit) {
     FunContextImpl {
-        FunBaseApp(WindowConfig())
-        FunLogger()
-        InputManager()
+        //TODO: the issue is that baseServices get initialized very late, so idk. I don't want to give up this schema though, seems much better than the old services imo.
+        // current solution I can think of is a sort of afterEvaluate where you use those stuffs. I think we can have an afterBaseServiceInit that is only used internally for this case.
+        // ACtually I could also just run the functions they need explicitly here because it's only for this specific case. just have an internal init() func and run it here.
+        _baseServices = serviceConfig()
+        FunBaseApp(_baseServices!!.window)
         callback()
     }.start()
 }

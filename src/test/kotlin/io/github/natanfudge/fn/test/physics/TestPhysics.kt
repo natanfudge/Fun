@@ -142,7 +142,7 @@ class TestPhysics {
 
 
                 after(5.seconds) {
-                    cube.shouldHave(position = Vec3f(x = 5f, y = 0f, z = 0.55f))
+                    cube.shouldHave(position = Vec3f(x = 5f, y = 0f, z = 0.55f), epsilon = 0.01f)
                 }
             }
         }

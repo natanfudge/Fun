@@ -22,7 +22,7 @@ interface Body {
 
     var collisionGroup: Int
 
-    var isGrounded: Boolean // SLOW: Don't think if we need this for EVERYTHING
+    var isGrounded: Boolean // SLOW: Don't think we need this for EVERYTHING
 
 }
 

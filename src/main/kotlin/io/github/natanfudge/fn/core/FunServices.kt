@@ -30,6 +30,6 @@ fun <T : Fun> T.exposeAsService(key: ServiceKey<T>) {
 inline fun <reified T> serviceKey(name: String = T::class.simpleName ?: "") = ServiceKey<T>(name)
 
 class ServiceKey<T>(val name: String) {
-    context(fn: Fun)
+    context(fn: FunContext)
     val current: T get() = fn.services.get(this)
 }

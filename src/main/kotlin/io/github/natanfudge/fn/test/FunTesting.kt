@@ -27,6 +27,18 @@ fun funTest(test: suspend FunTestContext.() -> Unit) {
     }
 }
 
+//TODO:
+// 2. Uncomment Main.kt and adjust to new APIs, and rename it to "FunTestApp.kt"
+// 3. Make it so our test case simply launches the test app, delay(5.seconds),  and closes.
+// 4. Understand what exactly is being test in FunTestApp, and add more assertion definitions to FunTestContext. Need to think how we can test visual things better. Maybe AI.
+// 5. Implement assertions & simulated controls
+// 6. Completely test the test app
+// 7. Add some more test cases from DeepSouls
+// 8. Implement GPU memory freeing
+// 9. Test memory freeing by having a small max buffer and deleting & recreating stuff, and then checking if stuff looks correct
+// 10. Implement GPU memory resizing (For some things)
+// 11. Test resizing by starting with a small buffer and adding a lot of things, and then checking if stuff looks correct.
+
 fun main() {
     funTest {
         assertExists<TestFun>()

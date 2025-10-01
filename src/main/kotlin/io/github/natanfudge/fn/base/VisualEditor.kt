@@ -38,12 +38,24 @@ fun Fun.addFunPanel(modifier: BoxScope. () -> Modifier = { Modifier }, content: 
 /**
  * If you use [HoverHighlight], you should pass it in this constructor, otherwise pass the [FunContext] and it will be created internally for this [VisualEditor].
  */
-class VisualEditor(
+class VisualEditor : Fun("Visual Editor") {
     /**
      * Whether the visual editor will be enabled by default. Note that the visual Editor can still be toggled by using the "Toggle Visual Editor" hotkey.
      */
-    var enabled: Boolean = true,
-) : Fun("Visual Editor") {
+    var enabled: Boolean = true
+        set(value) {
+            field = value
+            if (!value) {
+                // Remove visual editor effects and reset it
+                restoreOldTint()
+                posEditor?.close()
+                posEditor = null
+                selectedObject = null
+                selectedObjectOldTint = null
+                mouseDownPos = null
+            }
+        }
+
 
     private var posEditor: VisualPositionEditor? = null
 
@@ -52,22 +64,19 @@ class VisualEditor(
          * Add this tag to an object to prevent it from being edited when clicked.
          */
         val CannotBeVisuallyEditedTag = Tag<Unit>("VisualEditor-DoNotEdit")
+        val service = serviceKey<VisualEditor>()
     }
+
+    init {
+        exposeAsService(service)
+    }
+
 
     init {
         input.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {
             enabled = !enabled
 
             logInfo("Visual Editor") { "Visual Editor=$enabled" }
-            if (!enabled) {
-                restoreOldTint()
-                // Reset state if disabled
-                posEditor?.close()
-                posEditor = null
-                selectedObject = null
-                selectedObjectOldTint = null
-                mouseDownPos = null
-            }
         })
         addFunPanel({ Modifier.align(Alignment.CenterEnd).padding(5.dp) }) {
             val parent = selectedObject?.parent

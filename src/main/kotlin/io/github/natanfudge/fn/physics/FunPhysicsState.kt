@@ -8,15 +8,16 @@ import io.github.natanfudge.wgpu4k.matrix.Mat4f
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
 
 fun Fun.physics(
-    physics: PhysicsSystem,
     baseAABB: AxisAlignedBoundingBox = AxisAlignedBoundingBox.UnitAABB,
-) = FunPhysicsState(this, baseAABB, physics)
+) = FunPhysicsState(this, baseAABB)
 
 class FunPhysicsState(
     funParent: Fun,
     baseAABB: AxisAlignedBoundingBox,
-    private val physics: PhysicsSystem,
 ) : Fun(funParent.id.child("physics"), funParent), Body, Transformable {
+
+    private val physics = baseServices.physics.system
+
     /**
      * Stores the global transforms of this physics object.
      * Note that while in reality things do not become smaller or larger (modify the scale property), it makes sense

@@ -2,12 +2,22 @@ package io.github.natanfudge.fn.base
 
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
+import io.github.natanfudge.fn.core.exposeAsService
 import io.github.natanfudge.fn.core.listen
+import io.github.natanfudge.fn.core.serviceKey
 import korlibs.time.min
 import kotlin.time.Duration
 
 // SUS: I kinda wanna consider getting rid of some mods in favor of letting stuff hook into the lifecycles.
 class FunAnimation: Fun("FunAnimation")  {
+    companion object {
+        val service = serviceKey<FunAnimation>()
+    }
+
+    init {
+        exposeAsService(service)
+    }
+
     init {
         events.beforeFrame.listen { delta ->
             for (animation in animations) {

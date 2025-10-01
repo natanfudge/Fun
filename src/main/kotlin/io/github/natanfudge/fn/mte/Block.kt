@@ -26,7 +26,7 @@ class Block(private val game: DeepSoulsGame, initialType: BlockType?, initialPos
         checkNotNull(type)
     }
 
-    val physics = physics(game.physics.system)
+    val physics = physics()
     val render by render(models.getValue(type), physics)
 
     var breakOverlay: FunRenderState? = null

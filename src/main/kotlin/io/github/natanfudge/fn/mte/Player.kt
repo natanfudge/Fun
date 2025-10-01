@@ -39,7 +39,7 @@ private fun timeSinceStartup(): Duration {
 
 class Player(private val game: DeepSoulsGame) : Fun("Player") {
     val model = Model.fromGlbResource("files/models/joe.glb")
-    val physics = physics(game.physics.system)
+    val physics = physics()
     val render by render(model, physics)
     val pickaxe by render(
         Model.fromGlbResource("files/models/items/pickaxe.glb"), parent = render.joint("mixamorig:RightHand")
@@ -102,7 +102,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
             val strikeInterval = game.balance.mineInterval
             // Adapt dig animation speed to actual dig speed
             val digAnimationSpeed = (model.getAnimationLength("dig", withLastFrameTrimmed = true) / strikeInterval).toFloat()
-            if (breakKey.isPressed && !game.visualEditor.enabled) {
+            if (breakKey.isPressed && !baseServices.visualEditor.enabled) {
                 val selectedBlock = getHoveredParent()
                 if (selectedBlock is Block) {
                     val target = targetBlock(selectedBlock)
@@ -166,7 +166,7 @@ class Player(private val game: DeepSoulsGame) : Fun("Player") {
 
 
 
-        game.physics.system.collision.listen { (a, b) ->
+        baseServices.physics.system.collision.listen { (a, b) ->
             whenParentFunsTyped<Player, WorldItem>(a, b) { player, item ->
                 player.collectItem(item)
             }

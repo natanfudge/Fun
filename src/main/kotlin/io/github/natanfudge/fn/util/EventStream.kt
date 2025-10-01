@@ -234,7 +234,7 @@ class EventEmitter<T> internal constructor(val label: String) : EventStream<T> {
             if (listener is Listener.Stub) {
                 throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")
             }
-            logWarn("Events"){"Detaching $listener failed as the listener was probably already detached. Existing attachments: $listeners"}
+            logWarn("Events") {"Detaching $listener failed as the listener was probably already detached. Existing attachments: $listeners"}
         }
     }
 }

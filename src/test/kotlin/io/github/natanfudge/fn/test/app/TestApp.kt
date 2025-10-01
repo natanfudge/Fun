@@ -1,24 +1,17 @@
-//package io.github.natanfudge.fn
+//package io.github.natanfudge.fn.test.app
 //
 //import androidx.compose.ui.graphics.Color
 //import io.github.natanfudge.fn.base.*
-//import io.github.natanfudge.fn.core.FunApp
 //import io.github.natanfudge.fn.core.FunContext
 //import io.github.natanfudge.fn.core.startTheFun
 //import io.github.natanfudge.fn.files.readImage
-//import io.github.natanfudge.fn.gltf.fromGlbResource
 //import io.github.natanfudge.fn.core.Fun
 //import io.github.natanfudge.fn.render.render
 //import io.github.natanfudge.fn.physics.physics
 //import io.github.natanfudge.fn.render.*
 //import io.github.natanfudge.wgpu4k.matrix.Quatf
 //import io.github.natanfudge.wgpu4k.matrix.Vec3f
-//
-//
-//
-//
-//
-//
+//import kotlinx.io.files.Path
 //
 //
 //class TestBody(
@@ -27,10 +20,9 @@
 //    translate: Vec3f = Vec3f.zero(),
 //    rotate: Quatf = Quatf.identity(),
 //    scale: Vec3f = Vec3f(1f, 1f, 1f), color: Color = Color.White,
-//) : Fun(id, app.context) {
-////    val render = render(model)
+//) : Fun(id) {
 //    val physics = physics(app.physics.system)
-//    val render = physics.render(model)
+//    val render by physics.render(model)
 //
 //    init {
 //        render(model, physics)
@@ -43,15 +35,14 @@
 //
 //class TestRenderObject(
 //    id: String,
-//    app: FunPlayground,
 //    model: Model,
 //    translate: Vec3f = Vec3f.zero(),
 //    rotate: Quatf = Quatf.identity(),
 //    scale: Vec3f = Vec3f(1f, 1f, 1f),
 //    color: Color = Color.White,
-//) : Fun(id, app.context) {
+//) : Fun(id) {
 //
-//    val render = this@TestRenderObject.render(model)
+//    val render by render(model)
 //
 //    init {
 //        render.localTransform.translation = translate
@@ -64,14 +55,13 @@
 //
 //
 //
-//class FunPlayground(override val context: FunContext) : FunApp() {
-//    val inputManager = installMod(InputManagerMod())
+//class FunPlayground( val context: FunContext) : Fun("FunPlayground") {
 //
-//    var id = 0
-//
-//    val physics = installMod(FunPhysics())
 //
 //    init {
+//        CreativeMovement(context, inputManager),
+//        VisualEditor(this, inputManager),
+//        RestartButtons(context)
 //        installMods(
 //            CreativeMovementMod(context, inputManager),
 //            VisualEditorMod(this, inputManager),
@@ -80,7 +70,7 @@
 //
 ////        physics.system.gravity = false
 //
-//        val kotlinImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
+//        val kotlinImage = readImage(Path("src/main/composeResources/drawable/Kotlin_Icon.png"))
 //        val wgpu4kImage = readImage(kotlinx.io.files.Path("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
 //
 //        val cube = Model(Mesh.HomogenousCube, "Cube")

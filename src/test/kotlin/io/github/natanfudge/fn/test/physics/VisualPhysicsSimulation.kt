@@ -48,7 +48,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
             bodies.add(SimpleRenderObject("target-${index++}", renderNode.model).render.apply {
                 localTransform.translation = assertion.position
                 tint = Tint(Color.Red.copy(alpha = 0.5f))
-                localTransform.scale = renderNode.scale * 1.1f
+                localTransform.scale = renderNode.localTransform.scale * 1.1f
             })
         }
     }
@@ -116,8 +116,6 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
     val physics = FunPhysics()
     val scheduler = VisibleSimulationTicker(physics.system)
 
-    val input = InputManager()
-
     val simulationRunner = VisualPhysicsSimulation(this)
 
     private fun runSimulation() {
@@ -127,7 +125,7 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
     }
 
     init {
-        VisualEditor(input)
+        VisualEditor()
         CreativeMovement(input)
         runSimulation()
 

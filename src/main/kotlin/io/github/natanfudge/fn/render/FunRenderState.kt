@@ -42,6 +42,8 @@ class FunRenderState(
 
     val localTransform = FunTransform(this)
 
+//    val scale get() = localTransform.scale
+
     override var transform: Mat4f = parentTransform.transform.mul(localTransform.transform)
         private set
 
@@ -133,7 +135,7 @@ class SimpleRenderObject(id: FunId, model: Model) : Fun(id) {
     val render by render(model)
 }
 
-class SimplePhysicsObject(id: FunId, model: Model, physicsSystem: PhysicsSystem) : Fun(id) {
-    val physics = physics(physicsSystem)
+class SimplePhysicsObject(id: FunId, model: Model) : Fun(id) {
+    val physics = physics()
     val render by render(model, physics)
 }

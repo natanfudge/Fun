@@ -49,7 +49,7 @@ class WorldItem(val game: DeepSoulsGame, id: String, item: Item?) : Fun(id) {
     val item get() = Item(itemType, itemCount)
 
 
-    val physics = physics(game.physics.system)
+    val physics = physics()
     val render by render(models.getValue(itemType), physics)
 
     init {
@@ -58,7 +58,7 @@ class WorldItem(val game: DeepSoulsGame, id: String, item: Item?) : Fun(id) {
         render.localTransform.rotation = Quatf.identity().rotateZ(PI.toFloat() / 2)
 
 
-        game.animation.animateLoop(2.seconds) {
+        baseServices.animation.animateLoop(2.seconds) {
             val down = spring(it)
             render.localTransform.translation = Vec3f(x = 0f, y = 0f, z = down * 0.15f)
         }.closeWithThis()
