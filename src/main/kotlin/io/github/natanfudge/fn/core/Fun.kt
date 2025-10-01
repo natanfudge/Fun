@@ -1,3 +1,5 @@
+@file:OptIn(UnfunAPI::class)
+
 package io.github.natanfudge.fn.core
 
 import androidx.compose.foundation.layout.BoxScope
@@ -15,12 +17,17 @@ import io.github.natanfudge.fn.util.Delegate
 import io.github.natanfudge.fn.util.EventEmitter
 import io.github.natanfudge.fn.util.EventStream
 import io.github.natanfudge.fn.util.obtainPropertyName
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlin.properties.PropertyDelegateProvider
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
 
-// https://github.com/natanfudge/Fun/issues/8
+private class ClosedFunCoroutineScopeException(id: FunId) : CancellationException("Fun $id was closed")
+
+// https://github.com/natanfudge/MineTheEarth/issues/119
 abstract class Fun internal constructor(
     override val id: FunId,
     val parent: Fun? = FunContextRegistry.getContext().rootFun,
@@ -67,12 +74,24 @@ abstract class Fun internal constructor(
         closeAttachments.add(closeable)
     }
 
+    /**
+     * Returns a coroutine scope that is bound to this [Fun], meaning it will be automatically canceled when this [Fun] is closed.
+     */
+    fun coroutineScope() : CoroutineScope {
+        val scope = CoroutineScope(mainThreadCoroutineContext)
+
+        alsoClose {
+            //TODO: properly test this mechanism
+            scope.cancel(ClosedFunCoroutineScopeException(id))
+        }
+        return scope
+    }
+
     var closed = false
 
 
     /**
      * @param unregisterFromParent If true, the parents of this Fun will lose this Fun as a child.
-     * @param unregisterFromContext If true, this Fun will be removed from the context, that includes its state.
      */
     internal fun close(unregisterFromParent: Boolean, deleteState: Boolean) {
         if (deleteState) {

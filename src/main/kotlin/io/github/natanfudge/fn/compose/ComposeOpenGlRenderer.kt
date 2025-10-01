@@ -24,15 +24,10 @@ import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.SimpleLogger
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.valid
-import io.github.natanfudge.fn.window.MainThreadCoroutineDispatcher
 import io.github.natanfudge.fn.window.GlfwWindowHolder
 import io.github.natanfudge.fn.window.WindowConfig
 import io.github.natanfudge.fn.window.WindowHandle
-import korlibs.io.async.launchUnscoped
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import org.jetbrains.skia.*
 import org.jetbrains.skia.FramebufferFormat.Companion.GR_GL_RGBA8
 import org.jetbrains.skiko.FrameDispatcher
@@ -338,6 +333,7 @@ class GlfwComposeScene(
     val capabilities: GLCapabilities,
 ) : InvalidationKey() {
     val context = DirectContext.makeGL()
+
     var frameInvalid = true
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -496,7 +492,7 @@ class ComposeOpenGLRenderer(
                 density = Density(glfwGetWindowContentScale(handle)),
                 onSetPointerIcon = onSetPointerIcon,
                 label = name,
-                coroutineContext = coroutineContext,
+                coroutineContext = mainThreadCoroutineContext,
                 onError = {
                     events.guiError(it)
 

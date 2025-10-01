@@ -1,8 +1,5 @@
 package io.github.natanfudge.fn.test
 
-import io.github.natanfudge.fn.physics.translation
-import io.github.natanfudge.fn.physics.rotation
-import io.github.natanfudge.fn.physics.scale
 import io.github.natanfudge.fn.render.Transform
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f

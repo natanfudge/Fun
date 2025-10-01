@@ -1,3 +1,5 @@
+@file:OptIn(UnfunAPI::class)
+
 package io.github.natanfudge.fn.core
 
 import androidx.compose.ui.unit.IntSize
@@ -15,7 +17,6 @@ import io.github.natanfudge.fn.window.GlfwWindowProvider
 import io.github.natanfudge.fn.window.MainThreadCoroutineDispatcher
 import io.github.natanfudge.fn.window.WindowConfig
 import korlibs.time.milliseconds
-import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.reload.agent.Reload
 import org.jetbrains.compose.reload.agent.invokeAfterHotReload
 import org.jetbrains.compose.reload.agent.invokeBeforeHotReload
@@ -73,7 +74,11 @@ interface FunContext : FunStateContext {
     val services: FunServices
 
 
-    val coroutineContext: CoroutineContext
+    /**
+     * You should generally use [Fun.coroutineScope] to spawn coroutines
+     */
+    @UnfunAPI
+    val mainThreadCoroutineContext: CoroutineContext
 
     //SUS: consider making all of these services
     val events: FunEvents
@@ -108,13 +113,13 @@ interface FunContext : FunStateContext {
     fun unregister(fn: Fun)
 }
 
-class FunContextImpl(val appCallback: context(FunContext)() -> Unit) : FunContext {
+class FunContextImpl(val appCallback: FunContext.() -> Unit) : FunContext {
     init {
         FunContextRegistry.setContext(this)
     }
 
-
-    override val coroutineContext = MainThreadCoroutineDispatcher()
+    override val mainThreadCoroutineContext = MainThreadCoroutineDispatcher()
+//    override val globalCoroutineContext = CoroutineScope(dispatcher)
 
     override val cache = FunCache()
     override val stateManager = FunStateManager()
@@ -218,7 +223,7 @@ class FunContextImpl(val appCallback: context(FunContext)() -> Unit) : FunContex
 
         checkHotReload()
         // Run coroutine calls on main thread
-        coroutineContext.poll()
+        mainThreadCoroutineContext.poll()
         checkHotReload()
         events.beforeFrame(delta)
         checkHotReload()
@@ -369,7 +374,7 @@ class FunBaseApp(config: WindowConfig) : Fun("FunBaseApp") {
     }
 }
 
-fun startTheFun(callback: context(FunContext) () -> Unit) {
+fun startTheFun(callback: FunContext.() -> Unit) {
     FunContextImpl {
         FunBaseApp(WindowConfig())
         FunLogger()

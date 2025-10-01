@@ -4,36 +4,148 @@ import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.core.startTheFun
+import io.github.natanfudge.fn.mte.Block
+import io.github.natanfudge.fn.mte.DeepSouls
 import io.github.natanfudge.fn.render.FunRenderState
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 //class FunTestDSL
 
 context(v: T) fun <T> ctx() = v
 
+/**
+ * Will start a [Fun] app and run [test], and then close the app.
+ *
+ * When hot reloading, [test] will be cancelled and re-run.
+ */
 @OptIn(DelicateCoroutinesApi::class)
-fun funTest(init: () -> Unit, test: suspend context(FunTestContext) () -> Unit) {
+fun funTest(test: suspend FunTestContext.() -> Unit) {
     startTheFun {
-//        GlobalScope.launch {
-            val ctx = FunTestContext(ctx<FunContext>())
-//            with(ctx) {
-//                test()
-//            }
-//        }
+        TestFun(test)
     }
-//    }
+}
+
+fun main() {
+    funTest {
+        assertExists<TestFun>()
+        DeepSouls()
+        assertExists<DeepSouls>()
+
+        delay(10000)
+        assertExists<Block>()
+    }
+}
+
+class TestFun(val callback: suspend FunTestContext.() -> Unit) : Fun("TestFun") {
+    val scope = coroutineScope()
+
+    init {
+        scope.launch {
+            try {
+                FunTestContext(this@TestFun).callback()
+            } catch (e: Throwable) {
+                e.printStackTrace()
+                stopApp()
+            }
+            stopApp()
+        }
+    }
 }
 
 class FunTestContext(private val context: FunContext) : FunContext by context {
     /**
-     * Asserts that [count] instances of [T] exist in the game.
+     * Asserts that instances of [T] exist in the game.
      *
-     * Can use [count] = 0 to assert that no instances exist
-     *
-     * @return [count] instances of [T] that exist in the game.
+     * @return Instances of [T] that exist in the game (at least one).
      */
-    inline fun <reified T : Fun> assertExists(count: Int = 1): List<T> {
-        TODO()
+    inline fun <reified T : Fun> assertExists(): List<T> {
+        val ofType = getFuns<T>()
+        if (ofType.isEmpty()) {
+            throw AssertionError("No ${T::class.simpleName} exist (expected at least one)")
+        }
+        return ofType
+    }
+
+    /**
+     * Asserts that no instances of [T] exist in the game.
+     */
+    inline fun <reified T : Fun> assertDoesNotExist() {
+        val ofType = getFuns<T>()
+        if (ofType.isNotEmpty()) {
+            throw AssertionError("${ofType.size} ${T::class.simpleName} exist (expected none): ${ofType.map { it.id }}")
+        }
+    }
+
+    /**
+     * Asserts that exactly [count] instances of [T] exist in the game.
+     *
+     * @return The instances of [T] that exist (exactly [count]).
+     */
+    inline fun <reified T : Fun> assertExistExactly(count: Int): List<T> {
+        val ofType = getFuns<T>()
+        if (ofType.size != count) {
+            throw AssertionError("Expected exactly $count ${T::class.simpleName} but found ${ofType.size}: ${ofType.map { it.id }}")
+        }
+        return ofType
+    }
+
+    /**
+     * Asserts that at least [count] instances of [T] exist in the game.
+     *
+     * @return The instances of [T] that exist (at least [count]).
+     */
+    inline fun <reified T : Fun> assertExistAtLeast(count: Int): List<T> {
+        val ofType = getFuns<T>()
+        if (ofType.size < count) {
+            throw AssertionError("Expected at least $count ${T::class.simpleName} but found ${ofType.size}: ${ofType.map { it.id }}")
+        }
+        return ofType
+    }
+
+    /**
+     * Asserts that at most [count] instances of [T] exist in the game.
+     *
+     * @return The instances of [T] that exist (no more than [count]).
+     */
+    inline fun <reified T : Fun> assertExistAtMost(count: Int): List<T> {
+        val ofType = getFuns<T>()
+        if (ofType.size > count) {
+            throw AssertionError("Expected at most $count ${T::class.simpleName} but found ${ofType.size}: ${ofType.map { it.id }}")
+        }
+        return ofType
+    }
+
+    /**
+     * Asserts that between [min] and [max] instances of [T] exist in the game (inclusive).
+     *
+     * @return The instances of [T] that exist (between [min] and [max], inclusive).
+     */
+    inline fun <reified T : Fun> assertExistBetween(min: Int, max: Int): List<T> {
+        require(min <= max) { "min ($min) must be less than or equal to max ($max)" }
+        val ofType = getFuns<T>()
+        if (ofType.size !in min..max) {
+            throw AssertionError("Expected between $min and $max ${T::class.simpleName} but found ${ofType.size}: ${ofType.map { it.id }}")
+        }
+        return ofType
+    }
+
+    @PublishedApi
+    internal inline fun <reified T : Fun> getFuns() = getAllFuns().filterIsInstance<T>()
+
+    @PublishedApi
+    internal fun getAllFuns(): List<Fun> {
+        val funs = mutableListOf<Fun>()
+        aggregateFuns(rootFun, funs)
+        return funs
+    }
+
+    private fun aggregateFuns(start: Fun, to: MutableList<Fun>) {
+        to.add(start)
+        for (child in start.children) {
+            aggregateFuns(child, to)
+        }
     }
 
     /**
