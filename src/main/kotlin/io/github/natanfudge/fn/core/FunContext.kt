@@ -40,7 +40,7 @@ class FunEvents : Fun("FunEvents") {
     val frame by event<Duration>()
     val afterFrame by event<Duration>()
     val beforePhysics by event<Duration>()
-    val physics by event<Duration>()
+    val physicsTick by event<Duration>()
     val afterPhysics by event<Duration>()
     val anyInput by event<InputEvent>()
 
@@ -96,8 +96,10 @@ interface FunContext : FunStateContext {
 
     val input: InputManager
 
+
     val renderer get() = baseServices.renderPipeline._worldRenderer
     val compose get() = baseServices.renderPipeline._compose
+    val globalPhysics get() = baseServices.physics
 
     val camera get() = renderer._camera
 
@@ -221,7 +223,7 @@ class FunContextImpl(val appCallback: FunContextImpl.() -> Unit) : FunContext {
         checkHotReload()
         events.beforePhysics(delta)
         checkHotReload()
-        events.physics(delta)
+        events.physicsTick(delta)
         checkHotReload()
         events.afterPhysics(delta)
     }
@@ -303,7 +305,7 @@ class FunContextImpl(val appCallback: FunContextImpl.() -> Unit) : FunContext {
             "Input listeners = ${afterWindowResize.listenerCount} != 1: $afterWindowResize"
         } // The FunContext.start() listener
 
-        checkClosed(beforeFrame, frame, afterFrame, beforePhysics, physics, afterPhysics, guiError)
+        checkClosed(beforeFrame, frame, afterFrame, beforePhysics, physicsTick, afterPhysics, guiError)
         appCallback()
     }
 

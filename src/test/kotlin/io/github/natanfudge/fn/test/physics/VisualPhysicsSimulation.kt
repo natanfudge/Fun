@@ -14,10 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.base.*
 import io.github.natanfudge.fn.compose.utils.rememberPersistentFloat
-import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.physics.*
-import io.github.natanfudge.fn.base.InputManager
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Mesh
 import io.github.natanfudge.fn.render.Model
@@ -34,7 +32,7 @@ import kotlin.time.DurationUnit
 
 class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation {
 
-    override val physics: PhysicsSystem = app.physics.system
+    override val physics: PhysicsSystem = app.globalPhysics.system
     private val cubeModel = Model(Mesh.HomogenousCube, id = "mesh-0")
     private var index = 0
 
@@ -113,8 +111,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
 }
 
 class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailure: Boolean): Fun("PhysicsSimulation") {
-    val physics = FunPhysics()
-    val scheduler = VisibleSimulationTicker(physics.system)
+    val scheduler = VisibleSimulationTicker()
 
     val simulationRunner = VisualPhysicsSimulation(this)
 
@@ -178,12 +175,16 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
 
 }
 
-class VisibleSimulationTicker(val physics: PhysicsSystem): Fun("VisibleSimulationTicker")  {
+class VisibleSimulationTicker: Fun("VisibleSimulationTicker")  {
     private var finishCallback: (() -> Unit)? = null
     private var tickCallback: ((Float) -> Unit)? = null
 
     private var timeSinceScheduleStart = Duration.ZERO
     private var scheduleDelay: Duration = Duration.ZERO
+
+    init {
+        globalPhysics.tickAutomatically = false
+    }
 
     fun schedule(delay: Duration, tickCallback: (Float) -> Unit, callback: () -> Unit) {
         this.scheduleDelay = delay
@@ -199,21 +200,20 @@ class VisibleSimulationTicker(val physics: PhysicsSystem): Fun("VisibleSimulatio
     }
 
     init {
-        events.physics.listen { delta ->
+        events.physicsTick.listen { delta ->
             if (finishCallback == null) return@listen
             val newTime = timeSinceScheduleStart + delta
             if (newTime > scheduleDelay) {
                 val actualDelta = scheduleDelay - timeSinceScheduleStart
                 tickCallback?.invoke(actualDelta.toFloat(DurationUnit.SECONDS))
-                //TODo: this is very bad, probably infinite loop, need to think how to corerctly integrate with physics
-                physics.tick(actualDelta)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
+                globalPhysics.system.tick(actualDelta)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
                 // After the final bit of physics is squeezed out, notify completion
                 finishCallback?.invoke()
                 finishCallback = null
             } else {
                 timeSinceScheduleStart = newTime
                 tickCallback?.invoke(delta.toFloat(DurationUnit.SECONDS))
-                physics.tick(delta)
+                globalPhysics.system.tick(delta)
             }
         }
     }

@@ -6,9 +6,13 @@ import io.github.natanfudge.fn.physics.PhysicsSystem
 class FunPhysics: Fun("FunPhysics") {
     val system = PhysicsSystem(logger)
 
+    var tickAutomatically = true
+
     init {
-        events.physics.listen {
-            system.tick(it, spedUp = time.speed > 1.2f)
+        events.physicsTick.listen {
+            if (tickAutomatically) {
+                system.tick(it, spedUp = time.speed > 1.2f)
+            }
         }
     }
 }

@@ -55,7 +55,7 @@ class FunDebugPanel : Fun("FunDebugPanel") {
                         Text("Verify Listeners")
                     }
 
-                    LoggingConfig()
+//                    LoggingConfig()
                 }
             }
         }

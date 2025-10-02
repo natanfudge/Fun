@@ -1,8 +1,6 @@
 package io.github.natanfudge.fn.test.app
 
 import androidx.compose.ui.graphics.Color
-import io.github.natanfudge.fn.base.*
-import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.startTheFun
 import io.github.natanfudge.fn.files.readImage
 import io.github.natanfudge.fn.core.Fun
@@ -11,7 +9,6 @@ import io.github.natanfudge.fn.physics.physics
 import io.github.natanfudge.fn.render.*
 import io.github.natanfudge.wgpu4k.matrix.Quatf
 import io.github.natanfudge.wgpu4k.matrix.Vec3f
-import kotlinx.io.files.Path
 import java.nio.file.Paths
 
 
@@ -56,7 +53,7 @@ class TestRenderObject(
 
 
 
-class FunPlayground : Fun("FunPlayground") {
+class FunTestApp : Fun("FunPlayground") {
     init {
         val kotlinImage = readImage(Paths.get("src/main/composeResources/drawable/Kotlin_Icon.png"))
         val wgpu4kImage = readImage(Paths.get("src/main/composeResources/drawable/wgpu4k-nodawn.png"))
@@ -105,6 +102,6 @@ class FunPlayground : Fun("FunPlayground") {
 
 fun main() {
     startTheFun {
-         FunPlayground()
+         FunTestApp()
     }
 }
