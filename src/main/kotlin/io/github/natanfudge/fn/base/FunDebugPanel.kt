@@ -12,9 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.FunContextImpl
-import io.github.natanfudge.fn.core.exposeAsService
 import io.github.natanfudge.fn.core.getContext
-import io.github.natanfudge.fn.core.serviceKey
 import io.github.natanfudge.fn.render.clearModelCache
 
 class FunDebugPanel : Fun("FunDebugPanel") {

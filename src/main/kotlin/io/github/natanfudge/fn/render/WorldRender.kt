@@ -520,7 +520,7 @@ private fun checkForFrameDrops(window: WebGPUContext, delta: Duration) {
     if (delta > normalFrameTime * 1.8f) {
         val missingFrames = (delta / normalFrameTime).roundToInt() - 1
         val plural = missingFrames > 1
-        FunContextRegistry.getContext().logger.performance("Frame Drops") {
+        getLogger().performance("Frame Drops") {
             "Took $delta to make a frame instead of the usual $normalFrameTime," +
                     " so about $missingFrames ${if (plural) "frames were" else "frame was"} dropped"
         }

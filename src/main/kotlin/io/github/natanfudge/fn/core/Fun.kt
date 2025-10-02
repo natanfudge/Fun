@@ -31,7 +31,8 @@ private class ClosedFunCoroutineScopeException(id: FunId) : CancellationExceptio
 abstract class Fun internal constructor(
     override val id: FunId,
     val parent: Fun? = FunContextRegistry.getContext().rootFun,
-) : Taggable by TagMap(), Resource, AutoCloseable, FunContext by FunContextRegistry.getContext() {
+    val _ctx: FunContext = FunContextRegistry.getContext()
+) : Taggable by TagMap(), Resource, AutoCloseable, FunContext by _ctx {
 
     init {
         parent?.registerChild(this)
@@ -147,6 +148,8 @@ abstract class Fun internal constructor(
      * CAUTION: Do not store `Fun`s in cached values! Those `Fun`s will become stale as the app refreshes and the instances are reconstructed,
      * but your cached values will not change and still reference those old values.
      * https://github.com/natanfudge/MineTheEarth/issues/120
+     *
+     * Storing [FunContext] is okay because that object is eternal.
      *
      *
      * Setting this value will automatically close it if it is [AutoCloseable].

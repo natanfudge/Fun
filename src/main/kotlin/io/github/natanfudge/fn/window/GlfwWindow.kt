@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import io.github.natanfudge.fn.core.InvalidationKey
 import io.github.natanfudge.fn.core.Fun
+import io.github.natanfudge.fn.core.FunContext
 import io.github.natanfudge.fn.core.InputEvent
 import io.github.natanfudge.fn.render.isEmpty
 import org.jetbrains.compose.reload.agent.sendAsync
@@ -19,7 +20,7 @@ import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.system.MemoryUtil.NULL
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
-class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val onEvent: (InputEvent) -> Unit) : InvalidationKey() {
+class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: WindowConfig, val onEvent: (InputEvent) -> Unit, val ctx: FunContext) : InvalidationKey() {
     init {
         if (!showWindow) {
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
@@ -50,11 +51,15 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
             glfwShowWindow(handle)
         }
 
-        // Should def be handled externally because now all the windows are doing it
-        val x = IntArray(1)
-        val y = IntArray(1)
-        glfwGetWindowPos(handle, x, y)
-        onEvent(InputEvent.WindowMove(IntOffset(x[0], y[0])))
+
+        // Make sure not to run this too early
+        ctx.runInRenderLoop {
+            // Should def be handled externally because now all the windows are doing it
+            val x = IntArray(1)
+            val y = IntArray(1)
+            glfwGetWindowPos(handle, x, y)
+            onEvent(InputEvent.WindowMove(IntOffset(x[0], y[0])))
+        }
 
 
         glfwSetWindowCloseCallback(handle) {
@@ -66,9 +71,6 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
 
         glfwSetWindowSizeCallback(handle) { _, windowWidth, windowHeight ->
             onEvent(InputEvent.WindowResize(IntSize(windowWidth, windowHeight)))
-//            events.windowResized(size)
-//            events.afterWindowResized(size)
-
         }
 
 
@@ -129,6 +131,7 @@ class GlfwWindow(val withOpenGL: Boolean, val showWindow: Boolean, val params: W
             )
         }
 
+
         glfwSetKeyCallback(handle) { _, key, scancode, action, mods ->
             val event = glfwToComposeEvent(key, action, mods)
             onEvent(InputEvent.KeyEvent(event))
@@ -178,7 +181,7 @@ class GlfwWindowHolder(val withOpenGL: Boolean, val showWindow: Boolean, val par
     // Note we have this issue: https://github.com/gfx-rs/wgpu/issues/7663
 
     val window by cached(InvalidationKey.None) {
-        GlfwWindow(withOpenGL, showWindow, params, onEvent)
+        GlfwWindow(withOpenGL, showWindow, params, onEvent, _ctx)
     }
 
     //    var width by memo { params.initialWindowWidth }

@@ -9,21 +9,11 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.exposeAsService
-import io.github.natanfudge.fn.core.serviceKey
 import korlibs.time.seconds
 
 
 
 class InputManager: Fun("InputManager")  {
-    companion object {
-        val service = serviceKey<InputManager>()
-    }
-
-    init {
-        exposeAsService(service)
-    }
-
     val heldKeys = mutableSetOf<FunKey>()
 
     var prevCursorPos: Offset? = null

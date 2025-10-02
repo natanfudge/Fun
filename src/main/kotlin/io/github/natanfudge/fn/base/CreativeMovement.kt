@@ -16,21 +16,10 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.unit.dp
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.InputEvent
-import io.github.natanfudge.fn.core.exposeAsService
-import io.github.natanfudge.fn.core.serviceKey
 import io.github.natanfudge.fn.render.CameraMode
 
-class CreativeMovement: Fun("Creative-Movement") {
-    //TODO: this and all others ones don't need to be services anymore since we can just access them directly
-    companion object {
-        val service = serviceKey<CreativeMovement>()
-    }
-
-    init {
-        exposeAsService(service)
-    }
-
-    private val _camera = renderer.camera
+class CreativeMovement : Fun("Creative-Movement") {
+    private val _camera get() = renderer.camera
 
     var mode: CameraMode by funValue(CameraMode.Off)
 
@@ -40,71 +29,70 @@ class CreativeMovement: Fun("Creative-Movement") {
     var speed = 0.05f
 
     init {
-        with(_camera) {
-            input.mouseMoved.listen { delta ->
-                val normalizedDeltaX = delta.x / renderer.windowSize.width
-                val normalizedDeltaY = delta.y / renderer.windowSize.height
+        input.mouseMoved.listen { delta ->
+            val normalizedDeltaX = delta.x / renderer.windowSize.width
+            val normalizedDeltaY = delta.y / renderer.windowSize.height
 
-                when (mode) {
-                    CameraMode.Orbital -> {
-                        if (FunKey.Mouse(PointerButton.Tertiary) in input.heldKeys) {
-                            if (delta.x != 0f || delta.y != 0f) {
-                                pan(normalizedDeltaX * 20, normalizedDeltaY * 20)
-                            }
-                        }
-                        if (FunKey.Mouse(PointerButton.Primary) in input.heldKeys) {
-                            if (normalizedDeltaX != 0f) {
-                                rotateX(normalizedDeltaX * 10)
-                            }
-                            if (normalizedDeltaY != 0f) {
-                                rotateY(normalizedDeltaY * 10)
-                            }
+            when (mode) {
+                CameraMode.Orbital -> {
+                    if (FunKey.Mouse(PointerButton.Tertiary) in input.heldKeys) {
+                        if (delta.x != 0f || delta.y != 0f) {
+                            _camera.pan(normalizedDeltaX * 20, normalizedDeltaY * 20)
                         }
                     }
-
-                    CameraMode.Fly -> {
-                        tilt(normalizedDeltaX * 2, normalizedDeltaY * 2)
+                    if (FunKey.Mouse(PointerButton.Primary) in input.heldKeys) {
+                        if (normalizedDeltaX != 0f) {
+                            _camera.rotateX(normalizedDeltaX * 10)
+                        }
+                        if (normalizedDeltaY != 0f) {
+                            _camera.rotateY(normalizedDeltaY * 10)
+                        }
                     }
-
-                    else -> {}
                 }
+
+                CameraMode.Fly -> {
+                    _camera.tilt(normalizedDeltaX * 2, normalizedDeltaY * 2)
+                }
+
+                else -> {}
             }
-
-            input.registerHotkey("Creative Move Forward", Key.W, onHold = {
-                ifNotOff {
-                    moveForward(speed)
-                }
-            })
-
-            input.registerHotkey("Creative Move Backward", Key.S, onHold = {
-                ifNotOff {
-                    moveBackward(speed)
-                }
-            })
-
-            input.registerHotkey("Creative Move Left", Key.A, onHold = {
-                ifNotOff {
-                    moveLeft(speed)
-                }
-            })
-            input.registerHotkey("Creative Move Right", Key.D, onHold = {
-                ifNotOff {
-                    moveRight(speed)
-                }
-            })
-
-            input.registerHotkey("Creative Move Up", Key.Spacebar, onHold = {
-                ifNotOff {
-                    moveUp(speed)
-                }
-            })
-
-            input.registerHotkey("Creative Move Down", Key.CtrlLeft, onHold = {
-                ifNotOff {
-                    moveDown(speed)
-                }
-            })
         }
+
+        input.registerHotkey("Creative Move Forward", Key.W, onHold = {
+            ifNotOff {
+                _camera.moveForward(speed)
+            }
+        })
+
+        input.registerHotkey("Creative Move Backward", Key.S, onHold = {
+            ifNotOff {
+                _camera.moveBackward(speed)
+            }
+        })
+
+        input.registerHotkey("Creative Move Left", Key.A, onHold = {
+            ifNotOff {
+                _camera.moveLeft(speed)
+            }
+        })
+        input.registerHotkey("Creative Move Right", Key.D, onHold = {
+            ifNotOff {
+                _camera.moveRight(speed)
+            }
+        })
+
+        input.registerHotkey("Creative Move Up", Key.Spacebar, onHold = {
+            ifNotOff {
+                _camera.moveUp(speed)
+            }
+        })
+
+        input.registerHotkey("Creative Move Down", Key.CtrlLeft, onHold = {
+            ifNotOff {
+                _camera.moveDown(speed)
+            }
+        })
+
     }
 
     private inline fun ifNotOff(block: () -> Unit) {
@@ -112,6 +100,7 @@ class CreativeMovement: Fun("Creative-Movement") {
             block()
         }
     }
+
     init {
         addGui {
             if (mode == CameraMode.Fly) {

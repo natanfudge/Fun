@@ -47,15 +47,7 @@ object SimpleLogger : ILogger {
 
 
 class FunLogger : Fun("FunLogger"), ILogger {
-    companion object {
-        val service = serviceKey<FunLogger>()
-    }
-
-    init {
-        exposeAsService(service)
-    }
-
-    var level by funValue(FunLogLevel.Info)
+    var level by funValue(FunLogLevel.Debug)
     private val allTags = mutableStateSetOf<String>()
     val hiddenTags by funSet<String>(
         StringSetEditor(allTags)
@@ -64,7 +56,7 @@ class FunLogger : Fun("FunLogger"), ILogger {
 
     override fun log(level: FunLogLevel, tag: String, exception: Throwable?, message: () -> String) {
         if (level >= this.level && tag !in hiddenTags) {
-            log(tag, message)
+            logImpl(tag, message)
             exception?.printStackTrace()
         }
     }
@@ -78,8 +70,8 @@ class FunLogger : Fun("FunLogger"), ILogger {
     }
 
     override fun performance(tag: String, message: () -> String) {
-        if (performance && tag !in hiddenTags) {
-            log(tag, message)
+        if (performance) {
+            info(tag, message)
         }
     }
 
@@ -100,7 +92,7 @@ class FunLogger : Fun("FunLogger"), ILogger {
         }
     }
 
-    private fun log(tag: String, message: () -> String) {
+    private fun logImpl(tag: String, message: () -> String) {
         allTags.add(tag)
         println("[$tag]: ${message()}")
     }

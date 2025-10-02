@@ -34,4 +34,5 @@ class MainThreadCoroutineDispatcher : CoroutineDispatcher() {
     override fun dispatch(context: CoroutineContext, block: Runnable) {
         queue.trySend(block)
     }
+    fun addToQueueDirectly(block: Runnable) = queue.trySend(block)
 }

@@ -7,18 +7,20 @@ import io.github.natanfudge.fn.core.Tag
 import io.github.natanfudge.fn.render.FunRenderState
 import io.github.natanfudge.fn.render.Tint
 
-class HoverHighlight(
+class HoverHighlight: Fun("HoverHighlight") {
+
     /**
      * Allows making another Fun be hovered instead of the one the cursor is pointing at.
      * Return null to not highlight anything.
      */
-    private val redirectHover: (Fun) -> Fun? = { it },
+    var redirectHover: (Fun) -> Fun? = { it }
+
     /**
      * Allows filtering out specific [FunRenderStateOld]s, subcomponents of [Fun]s, from being highlighted.
      * Note that [redirectHover] must still return non-null for this to matter.
      */
-    private val hoverRenderPredicate: (FunRenderState) -> Boolean = { true },
-): Fun("HoverHighlight") {
+    var hoverRenderPredicate: (FunRenderState) -> Boolean = { true }
+
     companion object {
         /**
          * Add this tag to an object to prevent it from being highlighted when hovered.

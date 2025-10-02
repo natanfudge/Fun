@@ -64,13 +64,7 @@ class VisualEditor : Fun("Visual Editor") {
          * Add this tag to an object to prevent it from being edited when clicked.
          */
         val CannotBeVisuallyEditedTag = Tag<Unit>("VisualEditor-DoNotEdit")
-        val service = serviceKey<VisualEditor>()
     }
-
-    init {
-        exposeAsService(service)
-    }
-
 
     init {
         input.registerHotkey("Toggle Visual Editor", Key.V, onRelease = {

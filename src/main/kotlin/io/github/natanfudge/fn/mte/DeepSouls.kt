@@ -26,24 +26,17 @@ class DeepSouls() : Fun("DeepSouls") {
 class DeepSoulsGame : Fun("Game") {
     companion object {
         val SurfaceZ = 100
-        val service = serviceKey<DeepSoulsGame>()
     }
 
-    init {
-        exposeAsService(service)
-    }
 
     val balance by lazy(LazyThreadSafetyMode.PUBLICATION) {
         Balance.create()
     }
 
-    // TODO: add to dsl
     val background = Background()
 
     val player = Player(this)
     val devil = Devil()
-
-    //TODO: Add to dsl
 
     val world = World(this)
 
@@ -83,34 +76,30 @@ class DeepSoulsGame : Fun("Game") {
             repositionCamera(player.physics.position)
         }
 
+
         input.registerHotkey("Zoom In", ScrollDirection.Up, ctrl = true) {
             cameraDistance -= 1f
             repositionCamera(player.physics.position)
         }
 
+        baseServices.hoverHighlight.redirectHover = {
+            if (baseServices.visualEditor.enabled) it
+            else if (it is Block) {
+                player.targetBlock(it)
+            } else null
+        }
 
+        baseServices.hoverHighlight.hoverRenderPredicate = {
+            if (baseServices.visualEditor.enabled) true
+            // Don't highlight the break overlay
+            else !it.id.endsWith(Block.BreakRenderId)
+        }
     }
 }
 
 
 fun main() {
-    startTheFun(
-        serviceConfig = {
-            FunBaseServices(
-                hoverHighlight = HoverHighlight(redirectHover = {
-                    if (baseServices.visualEditor.enabled) it
-                    else if (it is Block) {
-                        DeepSoulsGame.service.current.player.targetBlock(it)
-                    } else null
-                }, hoverRenderPredicate = {
-                    if (baseServices.visualEditor.enabled) true
-                    // Don't highlight the break overlay
-                    else !it.id.endsWith(Block.BreakRenderId)
-                })
-            )
-
-        }
-    ) {
+    startTheFun {
         DeepSouls()
     }
 }
