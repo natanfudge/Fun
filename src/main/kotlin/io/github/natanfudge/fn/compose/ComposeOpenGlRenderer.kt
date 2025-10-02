@@ -341,8 +341,6 @@ class GlfwComposeScene(
         throwable.printStackTrace()
         onError(throwable)
     }
-
-    //TODO: bubble this up and run it directly in the main loop
     private val frameDispatcher = FrameDispatcher(coroutineContext) {
         /* Called by Compose when *anything* invalidates. */
         onInvalidate(this)

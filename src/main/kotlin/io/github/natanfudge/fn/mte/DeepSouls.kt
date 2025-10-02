@@ -51,12 +51,8 @@ class DeepSoulsGame : Fun("Game") {
         }
     }
 
-
-    //TODO: Add to dsl
-
     fun initialize() {
         player.physics.position = Vec3f(0f, 0.5f, 110f)
-//        player.physics.position = Vec3f(0f, 0.5f, 105f)
         player.animation.play("jump", loop = false)
 
         world.initialize()

@@ -44,18 +44,29 @@ interface EventStream<T> {
 
 }
 
-class FilteredEventStream<T, F>(val origStream: EventStream<T>, val filter: (T) -> Boolean) : EventStream<F> {
-    override fun listenUnscoped(label: String, onEvent: (F) -> Unit): Listener<F> {
+class FilteredEventStream<T>(val origStream: EventStream<T>, val filter: (T) -> Boolean) : EventStream<T> {
+    override fun listenUnscoped(label: String, onEvent: (T) -> Unit): Listener<T> {
         return origStream.listenUnscoped(label) {
             if (filter(it)) {
-                onEvent(it as F)
+                onEvent(it)
             }
-        } as Listener<F>
+        }
     }
 }
 
-inline fun <reified F> EventStream<out Any?>.filterIsInstance() = FilteredEventStream<Any?, F>(this as EventStream<Any?>) { it is F }
-fun <T> EventStream<T>.filter(condition: (T) -> Boolean) = FilteredEventStream<T, T>(this, condition)
+class MappedEventStream<T, R>(val origStream: EventStream<T>, val map: (T) -> R) : EventStream<R> {
+    override fun listenUnscoped(label: String, onEvent: (R) -> Unit): Listener<R> {
+        @Suppress("UNCHECKED_CAST")
+        return origStream.listenUnscoped(label) {
+            onEvent(map(it))
+        } as Listener<R>
+    }
+}
+
+@Suppress("UNCHECKED_CAST")
+inline fun <reified F> EventStream<out Any?>.filterIsInstance(): EventStream<F> = FilteredEventStream(this) { it is F } as EventStream<F>
+fun <T> EventStream<T>.filter(condition: (T) -> Boolean) = FilteredEventStream(this, condition)
+fun <T, R> EventStream<T>.map(transform: (T) -> R) = MappedEventStream(this, transform)
 
 /**
  * Represents an active observation on an [EventStream]. Holds the [callback] to be executed and provides a [close] method
@@ -104,17 +115,6 @@ class ListenerImpl<in T>(internal val callback: Consumer<@UnsafeVariance T>, pri
 }
 
 
-// IDEA: it would make sense for eventstreams to have a string identifier to be able to track them in runtime.
-// Then inside components we can have an API like this
-// class MyThing(override val id: String): Component {
-//      val firedFireballs by event<Int>()
-//      And then firedFireballs has an invoke() method that can be used as firedFireballs()
-//       But more importantly, the name of firedFireballs is saved as a string for runtime inspection,
-//  AND the id is captured for runtime inspection.
-// }
-//
-//
-
 /**
  * An implementation of [EventStream] held by the owner of the [EventStream], allowing it [emit] values to registered listeners.
  * This is the standard way to create and manage an observable data source.
@@ -125,7 +125,7 @@ class EventEmitter<T> internal constructor(val label: String) : EventStream<T> {
     private val listeners = mutableListOf<ListenerImpl<T>>()
 
     val hasListeners get() = listeners.isNotEmpty()
-    val listenerCount get() =listeners.size
+    val listenerCount get() = listeners.size
 
     override fun toString(): String {
         return "$label->[${listeners.joinToString { it.label }}]"
@@ -234,7 +234,7 @@ class EventEmitter<T> internal constructor(val label: String) : EventStream<T> {
             if (listener is Listener.Stub) {
                 throw UnallowedFunException("There's no point detaching a Listener.Stub from an EventStream.")
             }
-            logWarn("Events") {"Detaching $listener failed as the listener was probably already detached. Existing attachments: $listeners"}
+            logWarn("Events") { "Detaching $listener failed as the listener was probably already detached. Existing attachments: $listeners" }
         }
     }
 }

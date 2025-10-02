@@ -33,7 +33,6 @@ class EditPositionArrow(
 
 }
 
-//TODO: "soft restart" that doesn't create a new window
 
 class VisualPositionEditor(
     id: FunId, val target: FunRenderState,

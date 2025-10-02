@@ -9,23 +9,42 @@ import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.PointerEventType
 import io.github.natanfudge.fn.core.Fun
 import io.github.natanfudge.fn.core.InputEvent
+import io.github.natanfudge.fn.util.filter
+import io.github.natanfudge.fn.util.filterIsInstance
+import io.github.natanfudge.fn.util.map
 import korlibs.time.seconds
 
 
-
-class InputManager: Fun("InputManager")  {
+class InputManager : Fun("InputManager") {
     val heldKeys = mutableSetOf<FunKey>()
 
     var prevCursorPos: Offset? = null
 
     val focused: Boolean get() = prevCursorPos != null
 
+    // PointerEventType.Move -> {
+    //                            val prev = prevCursorPos ?: run {
+    //                                prevCursorPos = input.position
+    //                                return@listen
+    //                            }
+    //                            prevCursorPos = input.position
+    //                            val delta = prev - input.position
+    //                            mouseMoved.emit(delta)
+    //                        }
 
-    //TODO: would like to replace this by EventEmitter.map{}
     /**
      * Passes the movement delta
      */
-    val mouseMoved  by event<Offset>()
+    val mouseMoved = events.worldInput
+        .filter { it is InputEvent.PointerEvent && it.eventType == PointerEventType.Move }
+        .map { event ->
+            event as InputEvent.PointerEvent
+            val delta = if (prevCursorPos == null) Offset.Zero
+            else prevCursorPos!! - event.position
+
+            prevCursorPos = event.position
+            delta
+        }
 
 
     private val _hotkeys: MutableList<Hotkey> = mutableListOf()
@@ -143,15 +162,15 @@ class InputManager: Fun("InputManager")  {
                             prevCursorPos = input.position
                         }
 
-                        PointerEventType.Move -> {
-                            val prev = prevCursorPos ?: run {
-                                prevCursorPos = input.position
-                                return@listen
-                            }
-                            prevCursorPos = input.position
-                            val delta = prev - input.position
-                            mouseMoved.emit(delta)
-                        }
+//                        PointerEventType.Move -> {
+//                            val prev = prevCursorPos ?: run {
+//                                prevCursorPos = input.position
+//                                return@listen
+//                            }
+//                            prevCursorPos = input.position
+//                            val delta = prev - input.position
+//                            mouseMoved.emit(delta)
+//                        }
 
                         PointerEventType.Press -> {
                             if (input.button != null && focused) {

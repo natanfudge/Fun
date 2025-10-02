@@ -82,7 +82,6 @@ abstract class Fun internal constructor(
         val scope = CoroutineScope(mainThreadCoroutineContext)
 
         alsoClose {
-            //TODO: properly test this mechanism
             scope.cancel(ClosedFunCoroutineScopeException(id))
         }
         return scope
