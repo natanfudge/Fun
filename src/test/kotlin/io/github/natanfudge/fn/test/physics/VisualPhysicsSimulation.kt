@@ -80,7 +80,7 @@ class VisualPhysicsSimulation(val app: PhysicsSimulationApp) : PhysicsSimulation
         angularVelocity: Vec3f,
         isImmovable: Boolean,
     ): Body {
-        val body = SimplePhysicsObject("body-${index++}", cubeModel, app.physics.system)
+        val body = SimplePhysicsObject("body-${index++}", cubeModel)
         body.physics.scale = scale
         body.physics.position = position
         body.physics.orientation = rotation
@@ -125,8 +125,6 @@ class PhysicsSimulationApp(private val simulation: PhysicsTest, val throwOnFailu
     }
 
     init {
-        VisualEditor()
-        CreativeMovement(input)
         runSimulation()
 
         addFunPanel {
@@ -207,6 +205,7 @@ class VisibleSimulationTicker(val physics: PhysicsSystem): Fun("VisibleSimulatio
             if (newTime > scheduleDelay) {
                 val actualDelta = scheduleDelay - timeSinceScheduleStart
                 tickCallback?.invoke(actualDelta.toFloat(DurationUnit.SECONDS))
+                //TODo: this is very bad, probably infinite loop, need to think how to corerctly integrate with physics
                 physics.tick(actualDelta)  // Only simulate a fraction of the delay, so that the we don't overshoot the amount of delta the physics system is supposed to process
                 // After the final bit of physics is squeezed out, notify completion
                 finishCallback?.invoke()
